@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./ViewUCraneBooking.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { db, auth } from "../../../firebaseConfig";
 import {
@@ -20,6 +21,8 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -465,7 +468,7 @@ export default function ViewUCraneBookingModal({
 
   return (
     <div
-      style={overlay}
+      className={layoutStyles.extracted1}
       onClick={(e) => e.target === e.currentTarget && !editOpening && onClose?.()}
     >
       <div style={modal}>
@@ -475,14 +478,14 @@ export default function ViewUCraneBookingModal({
             <div style={eyebrow}>
               U-Crane Booking • Job #{booking.jobNumber || "—"}
               {!isLikelyUCraneBooking && (
-                <span style={{ marginLeft: 8, fontSize: 12, color: "var(--legacy-color-ef4444)", fontWeight: 800 }}>
+                <span className={layoutStyles.extracted2}>
                   (No U-Crane vehicle found)
                 </span>
               )}
             </div>
             <h2 style={title}>{booking.client || "U-Crane Booking Details"}</h2>
             {fromDeleted && (
-              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-6b7280)", fontWeight: 700 }}>
+              <div className={layoutStyles.extracted3}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
               </div>
@@ -500,7 +503,7 @@ export default function ViewUCraneBookingModal({
         </div>
 
         {/* Quick chips */}
-        <div style={chipRow}>
+        <div className={layoutStyles.extracted4}>
           <Chip good={!!booking.hasHS} label="HS" />
           <Chip good={!!booking.hasRiskAssessment} label="RA" />
           <Chip good={!!booking.hasHotel} label="Hotel" />
@@ -515,7 +518,7 @@ export default function ViewUCraneBookingModal({
         </div>
 
         {/* Content grid */}
-        <div style={grid}>
+        <div className={layoutStyles.extracted5}>
           <Section title="Overview">
             <Field label="Production Company" value={booking.client || booking.productionCompany || "—"} />
             <Field label="Production" value={booking.production || "—"} />
@@ -526,9 +529,9 @@ export default function ViewUCraneBookingModal({
             <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
 
             {additionalContacts.length > 0 && (
-              <div style={{ marginTop: 8 }}>
+              <div className={layoutStyles.extracted6}>
                 <div style={{ ...fieldLabel, marginBottom: 6 }}>Additional Contacts</div>
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className={layoutStyles.extracted7}>
                   {additionalContacts.map((c, idx) => {
                     const name = c?.name || "Contact";
                     const email = c?.email || "";
@@ -536,13 +539,13 @@ export default function ViewUCraneBookingModal({
                     const role = c?.role || "";
                     return (
                       <div key={idx} style={miniCard}>
-                        <div style={{ fontWeight: 800, fontSize: 13 }}>
+                        <div className={layoutStyles.extracted8}>
                           {name}{" "}
                           {role ? (
-                            <span style={{ opacity: 0.7, fontWeight: 700 }}>({role})</span>
+                            <span className={layoutStyles.extracted9}>({role})</span>
                           ) : null}
                         </div>
-                        <div style={{ fontSize: 13, color: "var(--legacy-color-111)" }}>
+                        <div className={layoutStyles.extracted10}>
                           {email ? <div>Email: {email}</div> : null}
                           {phone ? <div>Phone: {phone}</div> : null}
                         </div>
@@ -564,11 +567,11 @@ export default function ViewUCraneBookingModal({
               label="U-Crane Vehicles"
               value={
                 uCraneVehiclesPrettyWithStatus.length ? (
-                  <div style={tagWrap}>
+                  <div className={layoutStyles.extracted11}>
                     {uCraneVehiclesPrettyWithStatus.map((v, i) => (
                       <span key={`${v.id}-${i}`} style={tagPill}>
                         {v.name}
-                        {v.plate && <span style={tagSub}>{v.plate}</span>}
+                        {v.plate && <span className={layoutStyles.extracted12}>{v.plate}</span>}
                         {v.status && <span style={tagStatus}>{v.status}</span>}
                       </span>
                     ))}
@@ -583,7 +586,7 @@ export default function ViewUCraneBookingModal({
               label="Equipment"
               value={
                 Array.isArray(booking.equipment) && booking.equipment.length ? (
-                  <div style={tagWrap}>
+                  <div className={layoutStyles.extracted13}>
                     {booking.equipment.map((e, i) => (
                       <span key={`${e}-${i}`} style={tagPill}>
                         {e}
@@ -600,7 +603,7 @@ export default function ViewUCraneBookingModal({
           {/* Employees by day (full width) */}
           {hasEmployeesByDate && dayKeys.length > 0 && (
             <Section title="Crew by Day" full>
-              <div style={notesGrid}>
+              <div className={layoutStyles.extracted14}>
                 {dayKeys.map((date) => {
                   const list = employeesByDate?.[date] || [];
                   const grouped = groupEmployeesByRole(list);
@@ -614,16 +617,16 @@ export default function ViewUCraneBookingModal({
                       <div style={noteDate}>{pretty}</div>
 
                       {Object.keys(grouped).length ? (
-                        <div style={{ display: "grid", gap: 6 }}>
+                        <div className={layoutStyles.extracted15}>
                           {Object.entries(grouped).map(([role, names]) => (
-                            <div key={role} style={{ fontSize: 13 }}>
-                              <div style={{ fontWeight: 800, marginBottom: 2 }}>{role}</div>
-                              <div style={{ color: "var(--legacy-color-111)" }}>{names.join(", ")}</div>
+                            <div key={role} className={layoutStyles.extracted16}>
+                              <div className={layoutStyles.extracted17}>{role}</div>
+                              <div className={layoutStyles.extracted18}>{names.join(", ")}</div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 13, color: "var(--legacy-color-6b7280)" }}>No one assigned.</div>
+                        <div className={layoutStyles.extracted19}>No one assigned.</div>
                       )}
                     </div>
                   );
@@ -635,7 +638,7 @@ export default function ViewUCraneBookingModal({
           {/* Call times by day (full width) */}
           {hasCallTimesByDate && dayKeys.length > 0 && (
             <Section title="Call Times by Day" full>
-              <div style={notesGrid}>
+              <div className={layoutStyles.extracted20}>
                 {dayKeys.map((d) => {
                   const pretty = toDateSafe(d)
                     ? toDateSafe(d).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })
@@ -655,7 +658,7 @@ export default function ViewUCraneBookingModal({
           {booking.notesByDate &&
             Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length > 0 && (
               <Section title="Day Notes" full>
-                <div style={notesGrid}>
+                <div className={layoutStyles.extracted21}>
                   {Object.keys(booking.notesByDate)
                     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                     .sort((a, b) => new Date(a) - new Date(b))
@@ -704,7 +707,7 @@ export default function ViewUCraneBookingModal({
             if (!files.length) return null;
             return (
               <Section title="Attachments" full>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted22}>
                   {files.map((f, i) => (
                     <a
                       key={f.url || i}
@@ -743,7 +746,7 @@ export default function ViewUCraneBookingModal({
         <div style={actions}>
           {fromDeleted ? (
             <>
-              <button onClick={handleRestore} style={{ ...btn, background: "var(--legacy-color-111827)" }}>
+              <button onClick={handleRestore} style={{ ...btn, background: "var(--shell-sidebar-bg)" }}>
                 Restore
               </button>
               <button onClick={onClose} style={{ ...btn, ...btnSecondary }}>
@@ -793,7 +796,7 @@ function Section({ title, children, full = false }) {
 
 function Field({ label, value }) {
   return (
-    <div style={fieldRow}>
+    <div className={layoutStyles.extracted23}>
       <div style={fieldLabel}>{label}</div>
       <div style={fieldValue}>{value || "—"}</div>
     </div>
@@ -818,21 +821,7 @@ const Tag = ({ children, dark, success }) => (
 );
 
 /* ---------- styles ---------- */
-const UI = {
-  radius: 8,
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  borderSoft: "1px solid var(--legacy-color-e4ebf3)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  dangerSoft: "var(--legacy-color-fff1f2)",
-  shadow: "0 24px 70px rgba(15,23,42,0.28)",
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-};
+const UI = UI_TOKENS;
 
 const overlay = {
   position: "fixed",
@@ -909,17 +898,17 @@ const fieldRow = {
   gridTemplateColumns: "150px 1fr",
   gap: 10,
   padding: "7px 0",
-  borderBottom: "1px dashed var(--legacy-color-dce6f0)",
+  borderBottom: "1px dashed var(--color-border)",
 };
 const fieldLabel = { color: UI.muted, fontSize: 12.5, fontWeight: 800 };
 const fieldValue = { color: UI.text, fontSize: 13.5, fontWeight: 650, minWidth: 0 };
 
 const notesGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 };
-const noteCard = { background: "var(--legacy-color-f8fbfe)", border: UI.borderSoft, borderRadius: UI.radius, padding: 10 };
+const noteCard = { background: "var(--color-surface-subtle)", border: UI.borderSoft, borderRadius: UI.radius, padding: 10 };
 const noteDate = { fontWeight: 850, fontSize: 12.5, marginBottom: 6, color: UI.text };
 const noteText = { fontSize: 13.5, color: UI.text };
 
-const noteBox = { background: "var(--legacy-color-f8fbfe)", border: UI.borderSoft, borderRadius: UI.radius, padding: 12, lineHeight: 1.4 };
+const noteBox = { background: "var(--color-surface-subtle)", border: UI.borderSoft, borderRadius: UI.radius, padding: 12, lineHeight: 1.4 };
 
 const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
 const tagPill = {
@@ -927,7 +916,7 @@ const tagPill = {
   alignItems: "center",
   gap: 6,
   padding: "4px 9px",
-  background: "var(--legacy-color-f8fbfe)",
+  background: "var(--color-surface-subtle)",
   color: UI.text,
   border: UI.borderSoft,
   borderRadius: 999,
@@ -941,7 +930,7 @@ const tagStatus = {
   padding: "2px 6px",
   borderRadius: 999,
   border: UI.borderSoft,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   fontSize: 11,
   fontWeight: 800,
 };
@@ -953,16 +942,16 @@ const chip = {
   fontWeight: 850,
   border: UI.borderSoft,
 };
-const chipGood = { background: "var(--legacy-color-edf7f2)", color: "var(--legacy-color-065f46)", border: "1px solid var(--legacy-color-b7dec7)" };
-const chipBad = { background: UI.dangerSoft, color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-e9c6c4)" };
-const tagSuccess = { background: "var(--legacy-color-edf7f2)", color: "var(--legacy-color-065f46)", border: "1px solid var(--legacy-color-b7dec7)" };
-const tagDark = { background: "var(--legacy-color-10233a)", color: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-10233a)" };
+const chipGood = { background: "var(--color-success-soft)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
+const chipBad = { background: UI.dangerSoft, color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+const tagSuccess = { background: "var(--color-success-soft)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
+const tagDark = { background: "var(--shell-sidebar-bg)", color: "var(--color-surface)", border: "1px solid var(--shell-sidebar-bg)" };
 
 const fileBtn = {
   display: "inline-block",
   padding: "8px 12px",
   background: UI.brand,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   borderRadius: UI.radius,
   textDecoration: "none",
   border: `1px solid ${UI.brand}`,
@@ -996,8 +985,8 @@ const btn = {
   justifyContent: "center",
   minHeight: 36,
   padding: "8px 13px",
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-  color: "var(--legacy-color-fff)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,
   cursor: "pointer",
@@ -1005,15 +994,15 @@ const btn = {
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
 };
 const btnSecondary = {
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
   boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
 };
 const btnDanger = {
   background: UI.dangerSoft,
-  color: "var(--legacy-color-991b1b)",
-  border: "1px solid var(--legacy-color-e9c6c4)",
+  color: "var(--color-danger)",
+  border: "1px solid var(--color-danger-border)",
   boxShadow: "none",
 };
 const btnBusy = {
@@ -1022,29 +1011,15 @@ const btnBusy = {
 };
 
 const miniCard = {
-  background: "var(--legacy-color-f8fbfe)",
+  background: "var(--color-surface-subtle)",
   border: UI.borderSoft,
   borderRadius: UI.radius,
   padding: 10,
 };
 
 function statusColor(status = "") {
-  const map = {
-    Confirmed: "var(--legacy-color-fde047)",
-    "First Pencil": "var(--legacy-color-93c5fd)",
-    "Second Pencil": "var(--legacy-color-ef4444)",
-    DNH: "var(--legacy-color-c2c2c2)",
-    Complete: "var(--legacy-color-22c55e)",
-    "Action Required": "var(--legacy-color-ff7b00)",
-    Holiday: "var(--legacy-color-d1d5db)",
-    Maintenance: "var(--legacy-color-fb923c)",
-    Lost: "var(--legacy-color-ef4444)",
-    Postponed: "var(--legacy-color-f59e0b)",
-    Cancelled: "var(--legacy-color-ef4444)",
-    Enquiry: "var(--legacy-color-e5e7eb)",
-  };
-  return map[status] || "var(--legacy-color-e5e7eb)";
+  return getFixedJobStatusStyle(status).bg;
 }
 function onStatusColor(status = "") {
-  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "var(--legacy-color-111)" : "var(--legacy-color-fff)";
+  return getFixedJobStatusStyle(status).text;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDocs } from "firebase/firestore";
@@ -31,31 +32,10 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* Mini design system */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  accent: "var(--legacy-color-8b5e3c)",
-  accentSoft: "var(--legacy-color-f5ede6)",
-  danger: "var(--legacy-color-dc2626)",
-  green: "var(--legacy-color-16a34a)",
-  amber: "var(--legacy-color-d97706)",
-  blue: "var(--legacy-color-2563eb)",
-  purple: "var(--legacy-color-7c3aed)",
-  teal: "var(--legacy-color-0f766e)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -123,7 +103,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -142,7 +122,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "var(--legacy-color-fff)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -159,8 +139,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -175,14 +155,14 @@ const inputBase = {
   minHeight: 36,
   padding: "7px 9px",
   borderRadius: 12,
-  border: "1px solid var(--legacy-color-dbe2ea)",
+  border: "1px solid var(--color-border)",
   outline: "none",
   fontSize: 13.5,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
 
-const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "10px 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "10px 0" };
 
 const summaryGrid = {
   display: "grid",
@@ -224,7 +204,7 @@ const progressTrack = {
   width: "100%",
   height: 7,
   borderRadius: 999,
-  background: "var(--legacy-color-e8eef5)",
+  background: "var(--color-brand-soft)",
   overflow: "hidden",
 };
 
@@ -437,28 +417,28 @@ const BREAKDOWN_COLUMNS = [
 ];
 
 const FULL_TIME_PIE_META = [
-  { key: "onSet", label: "On Set", weight: 1, color: "var(--legacy-color-1d4ed8)" },
-  { key: "travel", label: "Travel", weight: 1, color: "var(--legacy-color-0f766e)" },
-  { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "var(--legacy-color-14b8a6)" },
-  { key: "standby", label: "Standby", weight: 1, color: "var(--legacy-color-f59e0b)" },
-  { key: "nightShoot", label: "Night Shoot", weight: 1, color: "var(--legacy-color-7c3aed)" },
-  { key: "recce", label: "Recce", weight: 1, color: "var(--legacy-color-ec4899)" },
-  { key: "splitDay", label: "Split Day", weight: 1, color: "var(--legacy-color-ef4444)" },
+  { key: "onSet", label: "On Set", weight: 1, color: "var(--color-brand)" },
+  { key: "travel", label: "Travel", weight: 1, color: "var(--color-brand)" },
+  { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "var(--color-success-accent)" },
+  { key: "standby", label: "Standby", weight: 1, color: "var(--color-accent)" },
+  { key: "nightShoot", label: "Night Shoot", weight: 1, color: "var(--color-info)" },
+  { key: "recce", label: "Recce", weight: 1, color: "var(--color-accent)" },
+  { key: "splitDay", label: "Split Day", weight: 1, color: "var(--color-danger)" },
 ];
 
 const EMPLOYEE_SERIES_COLORS = [
-  "var(--legacy-color-1d4ed8)",
-  "var(--legacy-color-0f766e)",
-  "var(--legacy-color-7c3aed)",
-  "var(--legacy-color-f59e0b)",
-  "var(--legacy-color-ec4899)",
-  "var(--legacy-color-ef4444)",
-  "var(--legacy-color-0891b2)",
-  "var(--legacy-color-65a30d)",
-  "var(--legacy-color-9333ea)",
-  "var(--legacy-color-ea580c)",
-  "var(--legacy-color-2563eb)",
-  "var(--legacy-color-059669)",
+  "var(--color-brand)",
+  "var(--color-brand)",
+  "var(--color-info)",
+  "var(--color-accent)",
+  "var(--color-accent)",
+  "var(--color-danger)",
+  "var(--color-info)",
+  "var(--color-accent)",
+  "var(--color-info)",
+  "var(--color-warning)",
+  "var(--color-brand)",
+  "var(--color-success)",
 ];
 
 function classifyNote(rawNote) {
@@ -855,7 +835,7 @@ export default function EmployeesHomePage() {
     const num = Number(value);
     const text = Math.abs(num - Math.round(num)) < 1e-9 ? `${num.toFixed(0)}` : `${num.toFixed(2)}`;
     return (
-      <text x={x + width / 2} y={y - 4} textAnchor="middle" fill={UI.text} style={{ fontSize: 11, fontWeight: 900 }}>
+      <text x={x + width / 2} y={y - 4} textAnchor="middle" fill={UI.text} className={layoutStyles.extracted1}>
         {text}
       </text>
     );
@@ -875,7 +855,7 @@ export default function EmployeesHomePage() {
         y={y + 12}
         textAnchor="start"
         fill={UI.text}
-        style={{ fontSize: 11, fontWeight: 900 }}
+        className={layoutStyles.extracted2}
       >
         {label}
       </text>
@@ -916,31 +896,31 @@ export default function EmployeesHomePage() {
 
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--legacy-color-bfdbfe) !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
       `}</style>
 
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted3}>
           <div>
             <h1 style={h1}>Employees</h1>
             <div style={sub}>Crew availability, work credits, leave and document admin for the selected reporting period.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted4}>
             <div style={chip}>{loading ? "Loading..." : `${kpiEmployeeRecords} records`}</div>
             <div style={chipSoft}>
-              Period: <b style={{ marginLeft: 6 }}>{effectiveRange.label}</b>
+              Period: <b className={layoutStyles.extracted5}>{effectiveRange.label}</b>
             </div>
             <div style={chipSoft}>
-              Leave days: <b style={{ marginLeft: 6 }}>{kpiHolidayDays}</b>
+              Leave days: <b className={layoutStyles.extracted6}>{kpiHolidayDays}</b>
             </div>
           </div>
         </div>
 
         <section style={{ ...cardBase, marginBottom: UI.gap }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted7}>
             <div>
               <h2 style={titleMd}>Workforce Snapshot</h2>
               <div style={hint}>Confirmed, completed and stunt bookings only. Freelancers are excluded from credit totals.</div>
@@ -958,7 +938,7 @@ export default function EmployeesHomePage() {
               <RotateCcw size={14} /> Reset
             </button>
           </div>
-          <div style={summaryGrid}>
+          <div className={layoutStyles.extracted8}>
             <MetricCard label="Total Credits" value={fmtMetric(kpiTotal)} tone={UI.brand} icon={BarChart3} />
             <MetricCard label="People Used" value={kpiPeople} tone={UI.green} icon={Users} />
             <MetricCard label="Full Time" value={kpiFullTime} tone={UI.blue} icon={BriefcaseBusiness} />
@@ -981,15 +961,10 @@ export default function EmployeesHomePage() {
               onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? router.push(section.link) : null)}
             >
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "34px minmax(0, 1fr) auto",
-                  alignItems: "center",
-                  gap: 10,
-                }}
+                className={layoutStyles.extracted9}
               >
                 <span style={iconBox(UI.brand, UI.brandSoft)}>{React.createElement(section.icon, { size: 17 })}</span>
-                <div style={{ minWidth: 0 }}>
+                <div className={layoutStyles.extracted10}>
                   <div style={{ fontWeight: 800, fontSize: 15, color: UI.text, minWidth: 0 }}>{section.title}</div>
                   <div style={{ marginTop: 5, color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {section.description}
@@ -1003,7 +978,7 @@ export default function EmployeesHomePage() {
 
         {/* Chart panel */}
         <section style={{ ...cardBase, marginTop: UI.gap }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted11}>
             <div>
               <h2 style={titleMd}>Employee Credits Overview</h2>
               <div style={hint}>
@@ -1011,7 +986,7 @@ export default function EmployeesHomePage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className={layoutStyles.extracted12}>
               <span style={chipSoft}>{effectiveRange.label}</span>
               <button type="button" style={btn("ghost")} onClick={() => { setMode("lastNDays"); setRangeDays(30); setFromDate(""); setToDate(""); }}>
                 Reset
@@ -1020,9 +995,9 @@ export default function EmployeesHomePage() {
           </div>
 
           {/* Controls */}
-          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 10, background: "var(--legacy-color-fff)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 10, background: "var(--color-surface)" }}>
+            <div className={layoutStyles.extracted13}>
+              <div className={layoutStyles.extracted14}>
                 <button type="button" style={btn("pill")} onClick={() => setMode("lastNDays")}>
                   Last N days
                 </button>
@@ -1032,8 +1007,8 @@ export default function EmployeesHomePage() {
               </div>
 
               {mode === "lastNDays" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div className={layoutStyles.extracted15}>
+                  <div className={layoutStyles.extracted16}>
                     <span style={smallLabel}>Days</span>
                     <input
                       type="number"
@@ -1044,7 +1019,7 @@ export default function EmployeesHomePage() {
                         const v = Number(e.target.value);
                         setRangeDays(Math.max(1, Math.min(365, Number.isFinite(v) ? v : 30)));
                       }}
-                      style={{ ...inputBase, width: 84, padding: "7px 8px", borderRadius: 12 }}
+                      className={layoutStyles.extracted17}
                     />
                   </div>
 
@@ -1056,8 +1031,8 @@ export default function EmployeesHomePage() {
                         type="button"
                         style={{
                           ...btn("pill"),
-                          borderColor: active ? "var(--legacy-color-bfdbfe)" : "var(--legacy-color-d1d5db)",
-                          background: active ? UI.brandSoft : "var(--legacy-color-fff)",
+                          borderColor: active ? "var(--color-info-border)" : "var(--color-border)",
+                          background: active ? UI.brandSoft : "var(--color-surface)",
                           color: active ? UI.brand : UI.text,
                         }}
                         onClick={() => setRangeDays(n)}
@@ -1068,32 +1043,32 @@ export default function EmployeesHomePage() {
                   })}
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div className={layoutStyles.extracted18}>
+                  <div className={layoutStyles.extracted19}>
                     <span style={smallLabel}>From</span>
                     <input
                       type="date"
                       max={todayISO}
                       value={fromDate}
                       onChange={(e) => setFromDate(e.target.value)}
-                      style={{ ...inputBase, width: 170 }}
+                      className={layoutStyles.extracted20}
                     />
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className={layoutStyles.extracted21}>
                     <span style={smallLabel}>To</span>
                     <input
                       type="date"
                       max={todayISO}
                       value={toDate}
                       onChange={(e) => setToDate(e.target.value)}
-                      style={{ ...inputBase, width: 170 }}
+                      className={layoutStyles.extracted22}
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            <div style={divider} />
+            <div className={layoutStyles.extracted23} />
 
             <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.5 }}>
               <b>Credit rules:</b> Half Day Travel = 0.5 - Travel Time = 0.25 - Most day types = 1 - Rest Day / Other = 0 -
@@ -1103,37 +1078,37 @@ export default function EmployeesHomePage() {
 
           {/* Content */}
           {loading ? (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ ...skeleton, width: "60%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "75%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "40%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "85%" }} />
+            <div className={layoutStyles.extracted24}>
+              <div className={layoutStyles.extracted25} />
+              <div className={layoutStyles.extracted26} />
+              <div className={layoutStyles.extracted27} />
+              <div className={layoutStyles.extracted28} />
             </div>
           ) : usageData.length === 0 ? (
             <EmptyState />
           ) : (
-            <div style={{ height: 320, marginTop: 10 }}>
+            <div className={layoutStyles.extracted29}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={usageData} margin={{ top: 14, right: 20, left: 0, bottom: 14 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis
                     dataKey="name"
                     tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
-                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    axisLine={{ stroke: "var(--color-border)" }}
+                    tickLine={{ stroke: "var(--color-border)" }}
                   />
                   <YAxis
                     allowDecimals
                     tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
-                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    axisLine={{ stroke: "var(--color-border)" }}
+                    tickLine={{ stroke: "var(--color-border)" }}
                     domain={[0, "dataMax+1"]}
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(148,163,184,0.12)" }}
                     contentStyle={{
                       borderRadius: 10,
-                      border: "1px solid var(--legacy-color-e5e7eb)",
+                      border: "1px solid var(--color-border)",
                       boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
                       fontSize: 12,
                       color: UI.text,
@@ -1151,8 +1126,8 @@ export default function EmployeesHomePage() {
                 </BarChart>
               </ResponsiveContainer>
 
-              <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid var(--legacy-color-d1d5db)" }} />
+              <div className={layoutStyles.extracted30}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid var(--color-border)" }} />
                 <div style={{ color: UI.muted, fontSize: 12 }}>
                   Bars show total employee credits, including fractional travel credits, night shoot turnaround credit, Saturday On Set extra half credit and Sunday On Set double time. Hover to view full names.
                 </div>
@@ -1163,7 +1138,7 @@ export default function EmployeesHomePage() {
 
         <div style={{ ...dashboardGrid, marginTop: UI.gap }}>
           <section style={cardBase}>
-            <div style={sectionHeader}>
+            <div className={layoutStyles.extracted31}>
               <div>
                 <h2 style={titleMd}>Top Credits</h2>
                 <div style={hint}>Highest-use people in this period. Select a row to open the employee drill-through.</div>
@@ -1172,15 +1147,15 @@ export default function EmployeesHomePage() {
             </div>
 
             {loading ? (
-              <div style={{ display: "grid", gap: 9 }}>
-                <div style={{ ...skeleton, width: "95%" }} />
-                <div style={{ ...skeleton, width: "82%" }} />
-                <div style={{ ...skeleton, width: "88%" }} />
+              <div className={layoutStyles.extracted32}>
+                <div className={layoutStyles.extracted33} />
+                <div className={layoutStyles.extracted34} />
+                <div className={layoutStyles.extracted35} />
               </div>
             ) : topCreditRows.length === 0 ? (
               <div style={{ color: UI.muted, fontSize: 13 }}>No credits in range.</div>
             ) : (
-              <div style={panelList}>
+              <div className={layoutStyles.extracted36}>
                 {topCreditRows.map((row, index) => (
                   <ProgressRow
                     key={row.key}
@@ -1205,7 +1180,7 @@ export default function EmployeesHomePage() {
           </section>
 
           <section style={cardBase}>
-            <div style={sectionHeader}>
+            <div className={layoutStyles.extracted37}>
               <div>
                 <h2 style={titleMd}>Workload Split</h2>
                 <div style={hint}>Full-time work notes compared with yard based days.</div>
@@ -1214,15 +1189,15 @@ export default function EmployeesHomePage() {
             </div>
 
             {loading ? (
-              <div style={{ display: "grid", gap: 9 }}>
-                <div style={{ ...skeleton, width: "90%" }} />
-                <div style={{ ...skeleton, width: "78%" }} />
-                <div style={{ ...skeleton, width: "84%" }} />
+              <div className={layoutStyles.extracted38}>
+                <div className={layoutStyles.extracted39} />
+                <div className={layoutStyles.extracted40} />
+                <div className={layoutStyles.extracted41} />
               </div>
             ) : topWorkloadRows.length === 0 ? (
               <div style={{ color: UI.muted, fontSize: 13 }}>No full-time workload data in range.</div>
             ) : (
-              <div style={panelList}>
+              <div className={layoutStyles.extracted42}>
                 {topWorkloadRows.map((row) => (
                   <ProgressRow
                     key={row.key}
@@ -1238,7 +1213,7 @@ export default function EmployeesHomePage() {
         </div>
 
         <section style={{ ...surface, padding: 14, marginTop: 14 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted43}>
             <div>
               <h2 style={titleMd}>Work Type Breakdown</h2>
               <div style={hint}>
@@ -1251,16 +1226,16 @@ export default function EmployeesHomePage() {
           </div>
 
           {loading ? (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ ...skeleton, width: "70%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "92%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "86%" }} />
+            <div className={layoutStyles.extracted44}>
+              <div className={layoutStyles.extracted45} />
+              <div className={layoutStyles.extracted46} />
+              <div className={layoutStyles.extracted47} />
             </div>
           ) : usageBreakdownData.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13 }}>No employee work breakdown found in this reporting period.</div>
           ) : (
-            <div style={{ overflowX: "auto", marginTop: 8 }}>
-              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1200 }}>
+            <div className={layoutStyles.extracted48}>
+              <table className={layoutStyles.extracted49}>
                 <thead>
                   <tr>
                     <th style={tableHeadLeft}>Employee</th>
@@ -1284,7 +1259,7 @@ export default function EmployeesHomePage() {
                         });
                         router.push(`/employee-home/${encodeURIComponent(row.key)}?${params.toString()}`);
                       }}
-                      style={{ cursor: "pointer" }}
+                      className={layoutStyles.extracted50}
                     >
                       <td style={tableCellLeftInteractive}>{row.name}</td>
                       {BREAKDOWN_COLUMNS.map((column) => (
@@ -1302,7 +1277,7 @@ export default function EmployeesHomePage() {
         </section>
 
         <section style={{ ...surface, padding: 14, marginTop: 14 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted51}>
             <div>
               <h2 style={titleMd}>Full-Time Work Type Pie</h2>
               <div style={hint}>
@@ -1314,10 +1289,10 @@ export default function EmployeesHomePage() {
           </div>
 
           {loading ? (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ ...skeleton, width: "70%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "92%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "86%" }} />
+            <div className={layoutStyles.extracted52}>
+              <div className={layoutStyles.extracted53} />
+              <div className={layoutStyles.extracted54} />
+              <div className={layoutStyles.extracted55} />
             </div>
           ) : fullTimeWorkTypePieData.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13 }}>
@@ -1325,15 +1300,9 @@ export default function EmployeesHomePage() {
             </div>
           ) : (
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(320px, 520px) minmax(260px, 1fr)",
-                gap: 18,
-                alignItems: "center",
-                marginTop: 8,
-              }}
+              className={layoutStyles.extracted56}
             >
-              <div style={{ width: "100%", height: 320 }}>
+              <div className={layoutStyles.extracted57}>
                 <ResponsiveContainer>
                   <PieChart>
                     <Pie
@@ -1362,20 +1331,11 @@ export default function EmployeesHomePage() {
                 </ResponsiveContainer>
               </div>
 
-              <div style={{ display: "grid", gap: 10 }}>
+              <div className={layoutStyles.extracted58}>
                 {fullTimeWorkTypePieData.map((item) => (
                   <div
                     key={item.key}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "14px 1fr auto",
-                      gap: 10,
-                      alignItems: "center",
-                      padding: "10px 12px",
-                      border: "1px solid var(--legacy-color-e5e7eb)",
-                      borderRadius: 12,
-                      background: "var(--legacy-color-fff)",
-                    }}
+                    className={layoutStyles.extracted59}
                   >
                     <div
                       style={{
@@ -1397,7 +1357,7 @@ export default function EmployeesHomePage() {
         </section>
 
         <section style={{ ...surface, padding: 14, marginTop: 14 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted60}>
             <div>
               <h2 style={titleMd}>Weighted Work Notes By Employee</h2>
               <div style={hint}>
@@ -1409,10 +1369,10 @@ export default function EmployeesHomePage() {
           </div>
 
           {loading ? (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ ...skeleton, width: "70%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "92%", marginBottom: 10 }} />
-              <div style={{ ...skeleton, width: "86%" }} />
+            <div className={layoutStyles.extracted61}>
+              <div className={layoutStyles.extracted62} />
+              <div className={layoutStyles.extracted63} />
+              <div className={layoutStyles.extracted64} />
             </div>
           ) : fullTimeEmployeeWeightedData.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13 }}>
@@ -1426,26 +1386,26 @@ export default function EmployeesHomePage() {
                   layout="vertical"
                   margin={{ top: 8, right: 170, left: 18, bottom: 8 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis
                     type="number"
                     tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
-                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    axisLine={{ stroke: "var(--color-border)" }}
+                    tickLine={{ stroke: "var(--color-border)" }}
                   />
                   <YAxis
                     type="category"
                     dataKey="name"
                     width={120}
                     tick={{ fill: UI.text, fontSize: 12, fontWeight: 700 }}
-                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
-                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    axisLine={{ stroke: "var(--color-border)" }}
+                    tickLine={{ stroke: "var(--color-border)" }}
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(148,163,184,0.12)" }}
                     contentStyle={{
                       borderRadius: 10,
-                      border: "1px solid var(--legacy-color-e5e7eb)",
+                      border: "1px solid var(--color-border)",
                       boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
                       fontSize: 12,
                       color: UI.text,
@@ -1467,7 +1427,7 @@ export default function EmployeesHomePage() {
                       <Cell key={entry.key} fill={entry.color} />
                     ))}
                   </Bar>
-                  <Bar dataKey="yardValue" stackId="employee" fill="var(--legacy-color-cbd5e1)" radius={[0, 8, 8, 0]}>
+                  <Bar dataKey="yardValue" stackId="employee" fill="var(--color-border-strong)" radius={[0, 8, 8, 0]}>
                     <LabelList dataKey="totalValue" position="right" content={renderEmployeeSplitLabel} />
                   </Bar>
                 </BarChart>
@@ -1496,9 +1456,9 @@ function EmptyState() {
 function MetricCard({ label, value, tone, icon: Icon }) {
   return (
     <div style={miniStat}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted65}>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-        <span style={iconBox(tone, "var(--legacy-color-f8fbfd)")}>
+        <span style={iconBox(tone, "var(--color-surface-subtle)")}>
           <Icon size={17} />
         </span>
       </div>
@@ -1511,13 +1471,13 @@ function ProgressRow({ label, value, percent, color, onClick }) {
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   const content = (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+      <div className={layoutStyles.extracted66}>
         <div style={{ minWidth: 0, color: UI.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {label}
         </div>
         <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{value}</div>
       </div>
-      <div style={progressTrack}>
+      <div className={layoutStyles.extracted67}>
         <div style={{ width: `${safePercent}%`, height: "100%", background: color, borderRadius: 999 }} />
       </div>
     </>
@@ -1534,7 +1494,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
           padding: 9,
           borderRadius: UI.radiusSm,
           border: UI.border,
-          background: "var(--legacy-color-fff)",
+          background: "var(--color-surface)",
           cursor: "pointer",
           textAlign: "left",
         }}
@@ -1545,7 +1505,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
   }
 
   return (
-    <div style={{ display: "grid", gap: 7, padding: 9, borderRadius: UI.radiusSm, border: UI.border, background: "var(--legacy-color-fff)" }}>
+    <div style={{ display: "grid", gap: 7, padding: 9, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-surface)" }}>
       {content}
     </div>
   );
@@ -1553,7 +1513,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
 
 const tableHead = {
   padding: "10px 12px",
-  background: "var(--legacy-color-f8fbfd)",
+  background: "var(--color-surface-subtle)",
   borderTop: UI.border,
   borderBottom: UI.border,
   borderRight: UI.border,
@@ -1580,7 +1540,7 @@ const tableCell = {
   fontSize: 13,
   color: UI.text,
   textAlign: "center",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   whiteSpace: "nowrap",
 };
 

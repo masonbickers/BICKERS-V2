@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
@@ -113,20 +114,20 @@ const dedupeRows = (rows) => {
 
 /* ---------- Visual tokens ---------- */
 const palette = {
-  bg: "var(--legacy-color-f8fafc)",
-  text: "var(--legacy-color-0f172a)",
-  subtext: "var(--legacy-color-64748b)",
-  border: "var(--legacy-color-e2e8f0)",
-  cardBg: "var(--legacy-color-ffffff)",
+  bg: "var(--color-surface-subtle)",
+  text: "var(--color-text)",
+  subtext: "var(--color-text-muted)",
+  border: "var(--color-border)",
+  cardBg: "var(--color-white)",
   shadow: "0 6px 18px rgba(2, 6, 23, 0.06)",
 };
 
 const statusChip = {
-  pending:  { bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)", text: "var(--legacy-color-b45309)", label: "Queued" },
-  ready:    { bg: "var(--legacy-color-eff6ff)", border: "var(--legacy-color-bfdbfe)", text: "var(--legacy-color-2563eb)", label: "Ready to Invoice" },
-  invoiced: { bg: "var(--legacy-color-eef2ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-4f46e5)", label: "Invoiced" },
-  paid:     { bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)", text: "var(--legacy-color-0f766e)", label: "Paid" },
-  default:  { bg: "var(--legacy-color-f1f5f9)", border: "var(--legacy-color-e2e8f0)", text: "var(--legacy-color-334155)", label: "TBC" },
+  pending:  { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)", label: "Queued" },
+  ready:    { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--color-brand)", label: "Ready to Invoice" },
+  invoiced: { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--color-info)", label: "Invoiced" },
+  paid:     { bg: "var(--color-success-soft)", border: "var(--color-success-border)", text: "var(--color-brand)", label: "Paid" },
+  default:  { bg: "var(--color-surface-hover)", border: "var(--color-border)", text: "var(--color-text-muted)", label: "TBC" },
 };
 
 const StatusBadge = ({ status }) => {
@@ -161,21 +162,7 @@ const Toast = ({ msg, onClose }) => {
   return (
     <div
       onClick={onClose}
-      style={{
-        position: "fixed",
-        top: 18,
-        right: 18,
-        background: "var(--legacy-color-111827)",
-        color: "var(--legacy-color-fff)",
-        borderRadius: 12,
-        padding: "10px 14px",
-        boxShadow: palette.shadow,
-        cursor: "pointer",
-        zIndex: 50,
-        fontSize: 13,
-        fontWeight: 600,
-        opacity: 0.98,
-      }}
+      className={layoutStyles.extracted1}
       title="Click to dismiss"
     >
       {msg}
@@ -373,9 +360,9 @@ export default function FinanceDashboard() {
   const statNumber = { fontSize: 30, fontWeight: 900, lineHeight: 1.1 };
 
   const controls = { display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" };
-  const selector = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, background: "var(--legacy-color-fff)" };
-  const input = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, minWidth: 260, background: "var(--legacy-color-fff)" };
-  const btn = (bg, fg = "var(--legacy-color-fff)") => ({
+  const selector = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, background: "var(--color-surface)" };
+  const input = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, minWidth: 260, background: "var(--color-surface)" };
+  const btn = (bg, fg = "var(--color-white)") => ({
     background: bg,
     color: fg,
     border: "none",
@@ -396,11 +383,11 @@ export default function FinanceDashboard() {
     fontSize: 12,
     color: palette.subtext,
     borderBottom: `1px solid ${palette.border}`,
-    background: "var(--legacy-color-f8fafc)",
+    background: "var(--color-surface-subtle)",
   };
   const td = { padding: "14px 12px", fontSize: 13, borderBottom: `1px solid ${palette.border}` };
   const row = (i) => ({
-    background: i % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)",
+    background: i % 2 ? "var(--color-surface)" : "var(--color-surface)",
     cursor: "pointer",
   });
   const rowHover = {
@@ -408,7 +395,7 @@ export default function FinanceDashboard() {
   };
   const right = { textAlign: "right" };
   const link = {
-    color: "var(--legacy-color-2563eb)",
+    color: "var(--color-brand)",
     textDecoration: "none",
     fontWeight: 700,
   };
@@ -416,8 +403,8 @@ export default function FinanceDashboard() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8 }}>Finance Dashboard</h1>
-        <div style={{ color: palette.subtext, marginBottom: 16, fontSize: 12 }}>
+        <h1 className={layoutStyles.extracted2}>Finance Dashboard</h1>
+        <div className={layoutStyles.extracted3}>
           Status summary — pending: {totals.pending} · ready: {totals.ready} · invoiced: {totals.invoiced} · paid: {totals.paid}
           {loading ? " (loading…)" : ""}
         </div>
@@ -437,7 +424,7 @@ export default function FinanceDashboard() {
             placeholder="Search client, location, job#, invoice#"
             style={input}
           />
-          <button onClick={load} style={btn("var(--legacy-color-111827)")}>Refresh</button>
+          <button onClick={load} style={btn("var(--color-text)")}>Refresh</button>
         </div>
 
         {/* Footer stats (optional) */}
@@ -502,8 +489,8 @@ export default function FinanceDashboard() {
                           tabIndex={0}
                           role="button"
                           title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--legacy-color-f5faff)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)"))}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--shell-text)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-surface)")}
                         >
                           <td style={td}>
                             <a href={href} onClick={(e) => e.stopPropagation()} style={link}>
@@ -523,7 +510,7 @@ export default function FinanceDashboard() {
                             {job.status === "ready" && (
                               <button
                                 onClick={(e) => markAsInvoiced(job, e)}
-                                style={btn("var(--legacy-color-4f46e5)")}
+                                style={btn("var(--color-info)")}
                                 disabled={saving}
                                 title="Set status to Invoiced"
                               >
@@ -532,7 +519,7 @@ export default function FinanceDashboard() {
                             )}{" "}
                             <button
                               onClick={(e) => markAsPaid(job, e)}
-                              style={btn("var(--legacy-color-059669)")}
+                              style={btn("var(--color-success)")}
                               disabled={saving}
                               title="Set status to Paid"
                             >
@@ -585,8 +572,8 @@ export default function FinanceDashboard() {
                           tabIndex={0}
                           role="button"
                           title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--legacy-color-f5faff)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)"))}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--shell-text)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-surface)")}
                         >
                           <td style={td}>
                             <a href={href} onClick={(e) => e.stopPropagation()} style={link}>

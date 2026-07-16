@@ -3,6 +3,9 @@ html{background:var(--color-canvas)}
 body{margin:0;color:var(--color-text);background:var(--color-canvas);font:var(--font-size-md)/var(--line-height-normal) var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 *,*::before,*::after{box-sizing:border-box}
 button,input,select,textarea{font:inherit}
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea{color:var(--color-text);background-color:var(--color-surface);border-color:var(--color-border)}
+input::placeholder,textarea::placeholder{color:var(--color-text-muted);opacity:1}
+select option{color:var(--color-text);background:var(--color-surface)}
 button:not(:disabled),[role=button]:not([aria-disabled=true]),select:not(:disabled){cursor:pointer}
 button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allowed;opacity:.62}
 :where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--color-brand);outline-offset:2px;box-shadow:var(--focus-ring)}

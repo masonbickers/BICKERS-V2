@@ -1,25 +1,15 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 import { ArrowLeft, RefreshCw, TriangleAlert } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  red: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 18px 28px", background: UI.bg, minHeight: "100vh" };
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: "0 1px 2px rgba(15,23,42,0.05)" };
@@ -31,7 +21,7 @@ const btn = {
   padding: "7px 10px",
   borderRadius: UI.radius,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   fontWeight: 850,
   cursor: "pointer",
@@ -40,14 +30,14 @@ const btn = {
 const th = {
   padding: "8px 10px",
   background: UI.brand,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   textAlign: "left",
   fontSize: 12,
   fontWeight: 900,
 };
 const td = {
   padding: "8px 10px",
-  borderBottom: "1px solid var(--legacy-color-e5eaf1)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   fontSize: 13,
   verticalAlign: "top",
 };
@@ -115,14 +105,14 @@ export default function MotHistorySyncPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: UI.text }}>MOT Fetch Summary</h1>
             <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>
               Last all-vehicle DVSA MOT data fetch and any vehicle-level errors.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted2}>
             <button type="button" style={btn} onClick={() => router.push("/vehicles")}>
               <ArrowLeft size={15} />
               Vehicles
@@ -135,7 +125,7 @@ export default function MotHistorySyncPage() {
         </div>
 
         <div style={{ ...card, padding: 12, marginBottom: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          <div className={layoutStyles.extracted3}>
             <div>
               <div style={{ fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase" }}>Last fetched</div>
               <div style={{ marginTop: 5, fontSize: 16, fontWeight: 900, color: UI.text }}>
@@ -175,7 +165,7 @@ export default function MotHistorySyncPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10, marginBottom: 12 }}>
+        <div className={layoutStyles.extracted4}>
           <StatCard label="Checked" value={meta?.lastAllFetchChecked} />
           <StatCard label="Updated" value={meta?.lastAllFetchUpdated} tone={UI.green} />
           <StatCard label="Unchanged" value={meta?.lastAllFetchUnchanged} tone={UI.brand} />
@@ -190,8 +180,8 @@ export default function MotHistorySyncPage() {
           </div>
 
           {updatedVehicles.length ? (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+            <div className={layoutStyles.extracted5}>
+              <table className={layoutStyles.extracted6}>
                 <thead>
                   <tr>
                     <th style={th}>Registration</th>
@@ -206,13 +196,13 @@ export default function MotHistorySyncPage() {
                 <tbody>
                   {updatedVehicles.map((item, index) => (
                     <tr key={`${item.vrm || "vrm"}-${item.vehicleId || index}`}>
-                      <td style={td}>{item.vrm || "-"}</td>
-                      <td style={td}>{item.name || item.vehicleId || "-"}</td>
-                      <td style={td}>{item.nextMOT || "-"}</td>
-                      <td style={td}>{item.lastMOT || "-"}</td>
-                      <td style={td}>{item.odometer || "-"}</td>
-                      <td style={td}>{item.testNumber || "-"}</td>
-                      <td style={td}>{formatList(item.changedFields)}</td>
+                      <td className={layoutStyles.extracted7}>{item.vrm || "-"}</td>
+                      <td className={layoutStyles.extracted8}>{item.name || item.vehicleId || "-"}</td>
+                      <td className={layoutStyles.extracted9}>{item.nextMOT || "-"}</td>
+                      <td className={layoutStyles.extracted10}>{item.lastMOT || "-"}</td>
+                      <td className={layoutStyles.extracted11}>{item.odometer || "-"}</td>
+                      <td className={layoutStyles.extracted12}>{item.testNumber || "-"}</td>
+                      <td className={layoutStyles.extracted13}>{formatList(item.changedFields)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -234,8 +224,8 @@ export default function MotHistorySyncPage() {
           </div>
 
           {failures.length ? (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+            <div className={layoutStyles.extracted14}>
+              <table className={layoutStyles.extracted15}>
                 <thead>
                   <tr>
                     <th style={th}>Registration</th>
@@ -247,10 +237,10 @@ export default function MotHistorySyncPage() {
                 <tbody>
                   {failures.map((failure, index) => (
                     <tr key={`${failure.vrm || "vrm"}-${failure.vehicleId || index}`}>
-                      <td style={td}>{failure.vrm || "-"}</td>
-                      <td style={td}>{failure.vehicleId || "-"}</td>
-                      <td style={td}>{failure.status || "-"}</td>
-                      <td style={{ ...td, color: UI.red, fontWeight: 800 }}>{failure.message || "-"}</td>
+                      <td className={layoutStyles.extracted16}>{failure.vrm || "-"}</td>
+                      <td className={layoutStyles.extracted17}>{failure.vehicleId || "-"}</td>
+                      <td className={layoutStyles.extracted18}>{failure.status || "-"}</td>
+                      <td style={{ ...td, color: UI.var(--color-danger), fontWeight: 800 }}>{failure.message || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

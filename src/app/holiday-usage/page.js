@@ -1,6 +1,7 @@
 // src/app/holiday-usage/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { doc, getDocs, onSnapshot } from "firebase/firestore";
@@ -35,6 +36,7 @@ import {
 //  overlay forms
 import HolidayForm from "@/app/components/holidayform";
 import EditHolidayForm from "@/app/components/EditHolidayForm";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* Admin allow-list */
 const ADMIN_EMAILS = [
@@ -109,26 +111,7 @@ function isActiveEmployeeRecord(employee = {}) {
 }
 
 /* Mini design system */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-16a34a)",
-  amber: "var(--legacy-color-d97706)",
-  red: "var(--legacy-color-dc2626)",
-  blue: "var(--legacy-color-2563eb)",
-  teal: "var(--legacy-color-0f766e)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "16px 16px 32px",
@@ -186,7 +169,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -204,9 +187,9 @@ const btn = (kind = "primary") => {
       gap: 7,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-fecaca)",
-      background: "var(--legacy-color-fee2e2)",
-      color: "var(--legacy-color-7f1d1d)",
+      border: "1px solid var(--color-danger-border)",
+      background: "var(--color-accent-soft)",
+      color: "var(--color-danger-hover)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -222,8 +205,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -236,7 +219,7 @@ const btn = (kind = "primary") => {
 const cardBase = {
   ...surface,
   padding: 12,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
@@ -260,7 +243,7 @@ const inputBase = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -470,12 +453,12 @@ function getStatus(rec) {
 
 function Pill({ children, tone = "default" }) {
   const tones = {
-    default: { bg: "var(--legacy-color-f8fbfd)", fg: UI.text, br: "var(--legacy-color-d7dee8)" },
-    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--legacy-color-14532d)", br: "var(--legacy-color-bbf7d0)" },
-    warn: { bg: "var(--legacy-color-fee2e2)", fg: "var(--legacy-color-7f1d1d)", br: "var(--legacy-color-fecaca)" },
-    info: { bg: "var(--legacy-color-e0f2fe)", fg: "var(--legacy-color-0c4a6e)", br: "var(--legacy-color-bae6fd)" },
-    gray: { bg: "var(--legacy-color-f1f5f9)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
-    pending: { bg: "var(--legacy-color-fef3c7)", fg: "var(--legacy-color-92400e)", br: "var(--legacy-color-fde68a)" },
+    default: { bg: "var(--color-surface-subtle)", fg: UI.text, br: "var(--color-border)" },
+    good: { bg: "var(--color-success-soft)", fg: "var(--color-success)", br: "var(--color-success-border)" },
+    warn: { bg: "var(--color-accent-soft)", fg: "var(--color-danger-hover)", br: "var(--color-danger-border)" },
+    info: { bg: "var(--color-info-soft)", fg: "var(--color-brand-hover)", br: "var(--color-info-border)" },
+    gray: { bg: "var(--color-surface-hover)", fg: "var(--color-text-muted)", br: "var(--color-border)" },
+    pending: { bg: "var(--color-accent-soft)", fg: "var(--color-warning)", br: "var(--color-warning-border)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -499,11 +482,11 @@ function Pill({ children, tone = "default" }) {
 
 function StatTile({ label, value, tone = "default", icon: Icon }) {
   const tones = {
-    default: { bg: "var(--legacy-color-ffffff)", br: "var(--legacy-color-d7dee8)", fg: UI.brand },
+    default: { bg: "var(--color-white)", br: "var(--color-border)", fg: UI.brand },
     soft: { bg: UI.brandSoft, br: UI.brandBorder, fg: UI.brand },
-    warn: { bg: "var(--legacy-color-fff)7ed", br: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" },
-    good: { bg: "var(--legacy-color-ecfdf5)", br: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" },
-    danger: { bg: "var(--legacy-color-fef2f2)", br: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" },
+    warn: { bg: "var(--color-white)7ed", br: "var(--color-warning-border)", fg: "var(--color-warning)" },
+    good: { bg: "var(--color-success-soft)", br: "var(--color-success-border)", fg: "var(--color-success)" },
+    danger: { bg: "var(--color-danger-soft)", br: "var(--color-danger-border)", fg: "var(--color-danger)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -520,18 +503,13 @@ function StatTile({ label, value, tone = "default", icon: Icon }) {
       }}
     >
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        }}
+        className={layoutStyles.extracted1}
       >
         <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
           {label}
         </div>
         {Icon ? (
-          <span style={iconBox(t.fg, "var(--legacy-color-fff)", t.br)}>
+          <span style={iconBox(t.fg, "var(--color-white)", t.br)}>
             <Icon size={17} />
           </span>
         ) : null}
@@ -553,7 +531,7 @@ function StatTile({ label, value, tone = "default", icon: Icon }) {
 
 function LegendSwatch({ color, label }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <div className={layoutStyles.extracted2}>
       <span
         style={{
           width: 14,
@@ -571,7 +549,7 @@ function LegendSwatch({ color, label }) {
 /* Drawer */
 function MiniQueue({ title, rows, empty, renderRow, onRowClick }) {
   return (
-    <div style={{ display: "grid", gap: 7 }}>
+    <div className={layoutStyles.extracted3}>
       <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>
         {title}
       </div>
@@ -589,7 +567,7 @@ function MiniQueue({ title, rows, empty, renderRow, onRowClick }) {
               padding: "8px 9px",
               borderRadius: UI.radiusSm,
               border: UI.border,
-              background: "var(--legacy-color-fff)",
+              background: "var(--color-surface)",
               color: UI.text,
               textAlign: "left",
               cursor: onRowClick ? "pointer" : "default",
@@ -597,7 +575,7 @@ function MiniQueue({ title, rows, empty, renderRow, onRowClick }) {
               fontSize: 12.5,
             }}
           >
-            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span className={layoutStyles.extracted4}>
               {renderRow(row)}
             </span>
             <span style={{ color: UI.brand, fontSize: 16, fontWeight: 800, lineHeight: 1 }}>&gt;</span>
@@ -623,10 +601,10 @@ function Drawer({ open, title, subtitle, onClose, children }) {
   if (!open) return null;
 
   return (
-    <div style={drawerOverlay} onMouseDown={onClose}>
+    <div className={layoutStyles.extracted5} onMouseDown={onClose}>
       <div style={drawerPanel} onMouseDown={(e) => e.stopPropagation()}>
         <div style={drawerHeader}>
-          <div style={{ minWidth: 0 }}>
+          <div className={layoutStyles.extracted6}>
             <div
               style={{
                 fontWeight: 850,
@@ -649,7 +627,7 @@ function Drawer({ open, title, subtitle, onClose, children }) {
             Close
           </button>
         </div>
-        <div style={drawerBody}>{children}</div>
+        <div className={layoutStyles.extracted7}>{children}</div>
       </div>
     </div>
   );
@@ -667,7 +645,7 @@ const drawerOverlay = {
 const drawerPanel = {
   width: "min(720px, 94vw)",
   height: "100%",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   borderLeft: UI.border,
   boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
   display: "flex",
@@ -1041,10 +1019,10 @@ export default function HolidayUsagePage() {
     if (event?.bankHoliday) {
       return {
         style: {
-          backgroundColor: "var(--legacy-color-eef2f7)",
+          backgroundColor: "var(--color-brand-soft)",
           borderRadius: "8px",
           border: UI.border,
-          color: "var(--legacy-color-111827)",
+          color: "var(--color-text)",
           padding: "4px 6px",
           fontWeight: 900,
         },
@@ -1055,21 +1033,21 @@ export default function HolidayUsagePage() {
     if (event?.pending) {
       return {
         style: {
-          backgroundColor: "var(--legacy-color-fef3c7)",
+          backgroundColor: "var(--color-accent-soft)",
           borderRadius: "8px",
           border: "1px dashed rgba(146,64,14,0.45)",
-          color: "var(--legacy-color-92400e)",
+          color: "var(--color-warning)",
           padding: "4px 6px",
           fontWeight: 900,
         },
       };
     }
 
-    let bg = event.color || "var(--legacy-color-cbd5e1)";
-    let textColor = "var(--legacy-color-0f172a)";
+    let bg = event.color || "var(--color-border-strong)";
+    let textColor = "var(--color-text)";
     if (event.unpaid) {
-      bg = "var(--legacy-color-fee2e2)";
-      textColor = "var(--legacy-color-7f1d1d)";
+      bg = "var(--color-accent-soft)";
+      textColor = "var(--color-danger-hover)";
     }
     return {
       style: {
@@ -1206,7 +1184,7 @@ export default function HolidayUsagePage() {
   return (
     <HeaderSidebarLayout>
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--legacy-color-bfdbfe) !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         @media (max-width: 1180px) {
           .holiday-main-grid { grid-template-columns: 1fr !important; }
@@ -1223,7 +1201,7 @@ export default function HolidayUsagePage() {
           font-size: 12.5px;
           font-weight: 800;
           padding: 6px 9px;
-          background: linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%);
+          background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%);
           box-shadow: 0 4px 10px rgba(15,23,42,0.04);
         }
         .holiday-calendar .rbc-toolbar button.rbc-active {
@@ -1243,7 +1221,7 @@ export default function HolidayUsagePage() {
           overflow: hidden;
         }
         .holiday-calendar .rbc-header {
-          background: var(--legacy-color-f6f8fb);
+          background: var(--color-surface-subtle);
           color: ${UI.muted};
           font-size: 11.5px;
           font-weight: 900;
@@ -1263,7 +1241,7 @@ export default function HolidayUsagePage() {
       `}</style>
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted8}>
           <div>
             <h1 style={h1}>Holiday Usage</h1>
             <div style={sub}>
@@ -1272,13 +1250,7 @@ export default function HolidayUsagePage() {
           </div>
 
           <div
-            style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-              alignItems: "center",
-            }}
+            className={layoutStyles.extracted9}
           >
             <div style={chip}>{calendarEvents.length} leave entries</div>
             {userEmail ? <div style={chipSoft}>{isAdmin ? "Admin" : "Staff"}</div> : null}
@@ -1322,14 +1294,7 @@ export default function HolidayUsagePage() {
           {/* LEFT: Calendar */}
           <div style={cardBase}>
             <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 10,
-                flexWrap: "wrap",
-              }}
+              className={layoutStyles.extracted10}
             >
               <div>
                 <h2 style={titleMd}>Leave Calendar</h2>
@@ -1339,17 +1304,12 @@ export default function HolidayUsagePage() {
                 </div>
               </div>
               <div
-                style={{
-                  display: "flex",
-                  gap: 14,
-                  flexWrap: "wrap",
-                  justifyContent: "flex-end",
-                }}
+                className={layoutStyles.extracted11}
               >
-                <LegendSwatch color="var(--legacy-color-eef2f7)" label="Bank holiday" />
-                <LegendSwatch color="var(--legacy-color-fef3c7)" label="Pending" />
-                <LegendSwatch color="var(--legacy-color-fee2e2)" label="Unpaid" />
-                <LegendSwatch color="var(--legacy-color-cbd5e1)" label="Paid (per employee)" />
+                <LegendSwatch color="var(--color-brand-soft)" label="Bank holiday" />
+                <LegendSwatch color="var(--color-accent-soft)" label="Pending" />
+                <LegendSwatch color="var(--color-accent-soft)" label="Unpaid" />
+                <LegendSwatch color="var(--color-border-strong)" label="Paid (per employee)" />
               </div>
             </div>
 
@@ -1359,7 +1319,7 @@ export default function HolidayUsagePage() {
                 border: UI.border,
                 borderRadius: UI.radius,
                 overflow: "hidden",
-                background: "var(--legacy-color-fff)",
+                background: "var(--color-surface)",
               }}
               className="holiday-calendar"
             >
@@ -1370,7 +1330,7 @@ export default function HolidayUsagePage() {
                 endAccessor="end"
                 views={["month", "week"]}
                 defaultView="month"
-                style={{ height: "100%" }}
+                className={layoutStyles.extracted12}
                 eventPropGetter={eventStyleGetter}
                 date={calDate}
                 onNavigate={(nextDate) => {
@@ -1390,19 +1350,12 @@ export default function HolidayUsagePage() {
                 marginTop: UI.gap,
                 border: UI.border,
                 borderRadius: UI.radius,
-                background: "var(--legacy-color-fff)",
+                background: "var(--color-surface)",
                 padding: 12,
               }}
             >
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  marginBottom: 10,
-                  flexWrap: "wrap",
-                }}
+                className={layoutStyles.extracted13}
               >
                 <div>
                   <h2 style={{ ...titleMd, fontSize: 15 }}>
@@ -1416,7 +1369,7 @@ export default function HolidayUsagePage() {
               </div>
 
               <div style={tableWrap}>
-                <table style={tableEl}>
+                <table className={layoutStyles.extracted14}>
                   <thead>
                     <tr>
                       <th style={th}>Employee</th>
@@ -1433,7 +1386,7 @@ export default function HolidayUsagePage() {
                   <tbody>
                     {carryOverRows.length === 0 ? (
                       <tr>
-                        <td style={td} colSpan={5}>
+                        <td className={layoutStyles.extracted15} colSpan={5}>
                           <span style={{ color: UI.muted }}>
                             No employees have carry-over days for {yearView}.
                           </span>
@@ -1444,22 +1397,22 @@ export default function HolidayUsagePage() {
                         <tr
                           key={row.name}
                           style={{
-                            backgroundColor: i % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-fbfdff)",
+                            backgroundColor: i % 2 === 0 ? "var(--color-surface)" : "var(--color-surface-subtle)",
                             cursor: "pointer",
                           }}
                           onClick={() => setSelectedName(row.name)}
                         >
-                          <td style={{ ...td, fontWeight: 800 }}>{row.name}</td>
-                          <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                          <td className={layoutStyles.extracted16}>{row.name}</td>
+                          <td className={layoutStyles.extracted17}>
                             {Number(row.carried.toFixed(2))}
                           </td>
-                          <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                          <td className={layoutStyles.extracted18}>
                             {Number(row.carryUsedByApril.toFixed(2))}
                           </td>
-                          <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                          <td className={layoutStyles.extracted19}>
                             {Number(row.carryRemainingByApril.toFixed(2))}
                           </td>
-                          <td style={td}>
+                          <td className={layoutStyles.extracted20}>
                             {row.carryRemainingByApril > 0 ? (
                               <Pill tone="warn">Still to use before 1 Apr</Pill>
                             ) : (
@@ -1486,16 +1439,11 @@ export default function HolidayUsagePage() {
           >
             {/* Controls */}
             <div style={cardBase}>
-              <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ position: "relative" }}>
+              <div className={layoutStyles.extracted21}>
+                <div className={layoutStyles.extracted22}>
                   <Search
                     size={18}
-                    style={{
-                      position: "absolute",
-                      left: 10,
-                      top: 9,
-                      opacity: 0.6,
-                    }}
+                    className={layoutStyles.extracted23}
                     aria-hidden="true"
                   />
                   <input
@@ -1510,12 +1458,7 @@ export default function HolidayUsagePage() {
                 </div>
 
                 <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                  }}
+                  className={layoutStyles.extracted24}
                 >
                   <label
                     style={{
@@ -1534,7 +1477,7 @@ export default function HolidayUsagePage() {
                     Unpaid &gt; 0
                   </label>
 
-                  <div style={{ marginLeft: "auto" }}>
+                  <div className={layoutStyles.extracted25}>
                     <button
                       onClick={() => {
                         setQ("");
@@ -1572,18 +1515,14 @@ export default function HolidayUsagePage() {
 
             {/* KPI tiles */}
             <div style={cardBase}>
-              <div style={sectionHeader}>
+              <div className={layoutStyles.extracted26}>
                 <div>
                   <h2 style={{ ...titleMd, fontSize: 15 }}>This View</h2>
                   <div style={hint}>Totals after search and filter.</div>
                 </div>
               </div>
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: 10,
-                }}
+                className={layoutStyles.extracted27}
               >
                 <StatTile label="People" value={kpis.people} tone="soft" icon={Users} />
                 <StatTile label="Entries" value={kpis.totalBooked} icon={FileClock} />
@@ -1607,7 +1546,7 @@ export default function HolidayUsagePage() {
             </div>
 
             <div style={cardBase}>
-              <div style={sectionHeader}>
+              <div className={layoutStyles.extracted28}>
                 <div>
                   <h2 style={{ ...titleMd, fontSize: 15 }}>Upcoming Leave</h2>
                   <div style={hint}>Next booked leave entries in the selected year.</div>
@@ -1628,15 +1567,9 @@ export default function HolidayUsagePage() {
             {/* Employee list */}
             <div style={cardBase}>
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  marginBottom: 10,
-                }}
+                className={layoutStyles.extracted29}
               >
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <div className={layoutStyles.extracted30}>
                   <span style={iconBox(UI.brand, UI.brandSoft)}>
                     <UserRound size={17} />
                   </span>
@@ -1648,13 +1581,7 @@ export default function HolidayUsagePage() {
               </div>
 
               <div
-                style={{
-                  display: "grid",
-                  gap: 8,
-                  maxHeight: "44vh",
-                  overflow: "auto",
-                  paddingRight: 2,
-                }}
+                className={layoutStyles.extracted31}
               >
                 {namesToShow.map((name) => {
                   const m = metrics(name);
@@ -1670,7 +1597,7 @@ export default function HolidayUsagePage() {
                         width: "100%",
                         borderRadius: UI.radiusSm,
                         border: UI.border,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                         padding: 9,
                         cursor: "pointer",
                         display: "grid",
@@ -1680,16 +1607,11 @@ export default function HolidayUsagePage() {
                         (e.currentTarget.style.borderColor = UI.brandBorder)
                       }
                       onMouseLeave={(e) =>
-                        (e.currentTarget.style.borderColor = "var(--legacy-color-d7dee8)")
+                        (e.currentTarget.style.borderColor = "var(--color-border)")
                       }
                     >
                       <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 10,
-                        }}
+                        className={layoutStyles.extracted32}
                       >
                         <div
                           style={{
@@ -1706,7 +1628,7 @@ export default function HolidayUsagePage() {
                         <Pill tone={tone}>Bal {m.allowBal}</Pill>
                       </div>
 
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div className={layoutStyles.extracted33}>
                         <Pill tone="info">
                           Paid {Number(m.paid.toFixed(2))}/{m.totalAllowance}
                         </Pill>
@@ -1742,20 +1664,16 @@ export default function HolidayUsagePage() {
           onClose={() => setSelectedName(null)}
         >
           {selectedName && selected ? (
-            <div style={{ display: "grid", gap: 14 }}>
+            <div className={layoutStyles.extracted34}>
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: 10,
-                }}
+                className={layoutStyles.extracted35}
               >
                 <StatTile label="Allowance" value={selected.allowance} />
                 <StatTile label="Carry over" value={selected.carried} />
                 <StatTile label="Total" value={selected.totalAllowance} tone="soft" />
               </div>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted36}>
                 <Pill tone="info">Paid used: {Number(selected.paid.toFixed(2))}</Pill>
                 <Pill tone="warn">Unpaid: {Number(selected.unpaid.toFixed(2))}</Pill>
                 <Pill tone={selected.allowBal <= 1 ? "warn" : selected.allowBal <= 3 ? "info" : "good"}>
@@ -1769,7 +1687,7 @@ export default function HolidayUsagePage() {
               </div>
 
               <div style={tableWrap}>
-                <table style={tableEl}>
+                <table className={layoutStyles.extracted37}>
                   <thead>
                     <tr>
                       <th style={th}>From</th>
@@ -1785,7 +1703,7 @@ export default function HolidayUsagePage() {
                   <tbody>
                     {selectedRows.length === 0 ? (
                       <tr>
-                        <td style={td} colSpan={6}>
+                        <td className={layoutStyles.extracted38} colSpan={6}>
                           <span style={{ color: UI.muted }}>(No leave booked)</span>
                         </td>
                       </tr>
@@ -1806,26 +1724,21 @@ export default function HolidayUsagePage() {
                           <tr
                             key={row.id}
                             style={{
-                              backgroundColor: i % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-fbfdff)",
+                              backgroundColor: i % 2 === 0 ? "var(--color-surface)" : "var(--color-surface-subtle)",
                             }}
                           >
-                            <td style={td}>{format(row.start, "EEE d MMM")}</td>
-                            <td style={td}>{format(row.end, "EEE d MMM")}</td>
-                            <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                            <td className={layoutStyles.extracted39}>{format(row.start, "EEE d MMM")}</td>
+                            <td className={layoutStyles.extracted40}>{format(row.end, "EEE d MMM")}</td>
+                            <td className={layoutStyles.extracted41}>
                               {row.days}
                               {row.halfDay ? " (half)" : ""}
                             </td>
-                            <td style={td}>
+                            <td className={layoutStyles.extracted42}>
                               <div
-                                style={{
-                                  display: "flex",
-                                  gap: 8,
-                                  alignItems: "center",
-                                  flexWrap: "wrap",
-                                }}
+                                className={layoutStyles.extracted43}
                               >
                                 {halfPrefix ? (
-                                  <span style={{ ...chip, background: "var(--legacy-color-fff)7ed" }}>
+                                  <span style={{ ...chip, background: "var(--color-surface)7ed" }}>
                                     {halfPrefix}
                                   </span>
                                 ) : null}
@@ -1833,19 +1746,14 @@ export default function HolidayUsagePage() {
                                 <Pill tone={typeTone}>{baseTypeLabel}</Pill>
                               </div>
                             </td>
-                            <td style={td}>
+                            <td className={layoutStyles.extracted44}>
                               <div
-                                style={{
-                                  maxWidth: 360,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
+                                className={layoutStyles.extracted45}
                               >
                                 {row.notes || ""}
                               </div>
                             </td>
-                            <td style={td}>
+                            <td className={layoutStyles.extracted46}>
                               {isAdmin ? (
                                 <button
                                   style={btn("ghost")}
@@ -1866,20 +1774,20 @@ export default function HolidayUsagePage() {
                     )}
 
                     <tr>
-                      <td style={{ ...td, fontWeight: 900 }}>Balance</td>
-                      <td style={td}></td>
-                      <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                      <td className={layoutStyles.extracted47}>Balance</td>
+                      <td className={layoutStyles.extracted48}></td>
+                      <td className={layoutStyles.extracted49}>
                         {Number(selected.allowBal.toFixed(2))}
                       </td>
-                      <td style={td}></td>
-                      <td style={td}></td>
-                      <td style={td}></td>
+                      <td className={layoutStyles.extracted50}></td>
+                      <td className={layoutStyles.extracted51}></td>
+                      <td className={layoutStyles.extracted52}></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted53}>
                 <button style={btn("ghost")} type="button" onClick={() => setSelectedName(null)}>
                   Close
                 </button>
@@ -1897,16 +1805,7 @@ export default function HolidayUsagePage() {
       {/*  Add Holiday overlay */}
       {holidayModalOpen && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 999,
-            padding: 16,
-          }}
+          className={layoutStyles.extracted54}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setHolidayModalOpen(false);
           }}
@@ -1952,7 +1851,7 @@ const tableWrap = {
   overflow: "auto",
   border: UI.border,
   borderRadius: UI.radius,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 const tableEl = {
   width: "100%",
@@ -1963,10 +1862,10 @@ const tableEl = {
 const th = {
   textAlign: "left",
   padding: "9px 11px",
-  borderBottom: "1px solid var(--legacy-color-eef2f7)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   position: "sticky",
   top: 0,
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   whiteSpace: "nowrap",
   color: UI.muted,
@@ -1976,7 +1875,7 @@ const th = {
 };
 const td = {
   padding: "9px 11px",
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
   fontSize: 13,
 };

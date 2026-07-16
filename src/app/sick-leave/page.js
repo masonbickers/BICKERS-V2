@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -21,31 +22,12 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────────────────────────────────
    Mini design system
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  good: "var(--legacy-color-065f46)",
-  goodBg: "var(--legacy-color-d1fae5)",
-  goodBorder: "var(--legacy-color-86efac)",
-  warn: "var(--legacy-color-92400e)",
-  warnBg: "var(--legacy-color-fffbeb)",
-  warnBorder: "var(--legacy-color-fde68a)",
-  danger: "var(--legacy-color-991b1b)",
-  dangerBg: "var(--legacy-color-fee2e2)",
-  dangerBorder: "var(--legacy-color-fecaca)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
@@ -61,29 +43,29 @@ const chip = (kind = "neutral") => {
   if (kind === "good") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.goodBorder}`, background: UI.goodBg, color: UI.good, fontSize: 12, fontWeight: 900 };
   if (kind === "warn") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.warnBorder}`, background: UI.warnBg, color: UI.warn, fontSize: 12, fontWeight: 900 };
   if (kind === "danger") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontSize: 12, fontWeight: 900 };
-  return { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: UI.text, fontSize: 12, fontWeight: 900 };
+  return { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--color-surface-hover)", color: UI.text, fontSize: 12, fontWeight: 900 };
 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
-    return { padding: "10px 12px", borderRadius: UI.radiusSm, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", color: UI.text, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
+    return { padding: "10px 12px", borderRadius: UI.radiusSm, border: "1px solid var(--color-border)", background: "var(--color-surface)", color: UI.text, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
   }
   if (kind === "danger") {
     return { padding: "8px 10px", borderRadius: UI.radiusSm, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
   }
-  return { padding: "10px 12px", borderRadius: UI.radiusSm, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
+  return { padding: "10px 12px", borderRadius: UI.radiusSm, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-surface)", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
 };
 
 const grid2 = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 };
 const label = { display: "block", fontSize: 12, fontWeight: 900, color: UI.text, marginBottom: 6 };
-const input = { width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--legacy-color-e5e7eb)", outline: "none", fontSize: 13.5, background: "var(--legacy-color-fff)" };
+const input = { width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--color-border)", outline: "none", fontSize: 13.5, background: "var(--color-surface)" };
 const textarea = { ...input, minHeight: 92, resize: "vertical" };
-const divider = { height: 1, background: "var(--legacy-color-e5e7eb)", margin: "14px 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "14px 0" };
 
-const tableWrap = { overflow: "auto", border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 12, background: "var(--legacy-color-fff)" };
+const tableWrap = { overflow: "auto", border: "1px solid var(--color-border)", borderRadius: 12, background: "var(--color-surface)" };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-e5e7eb)", position: "sticky", top: 0, background: "var(--legacy-color-f8fafc)", zIndex: 1, whiteSpace: "nowrap" };
-const td = { padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--color-border)", position: "sticky", top: 0, background: "var(--color-surface-subtle)", zIndex: 1, whiteSpace: "nowrap" };
+const td = { padding: "10px 12px", borderBottom: "1px solid var(--color-surface-hover)", verticalAlign: "top" };
 
 /* ───────── date helpers ───────── */
 function toDate(v) {
@@ -398,12 +380,12 @@ export default function Page() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Sick leave</h1>
             <div style={sub}>Add sick days and track totals (weekdays only, half-days supported).</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <button style={btn("ghost")} type="button" onClick={() => router.push("/hr")}>
               Back to HR
             </button>
@@ -413,7 +395,7 @@ export default function Page() {
         </div>
 
         <section style={card}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted3}>
             <div>
               <h2 style={titleMd}>Record sick leave</h2>
               <div style={hint}>Firestore collection: <b>sickLeave</b></div>
@@ -421,11 +403,11 @@ export default function Page() {
             <span style={chip(canSave ? "good" : "warn")}>{canSave ? "Ready" : "Missing info"}</span>
           </div>
 
-          <form onSubmit={submit} style={{ display: "grid", gap: 14 }}>
-            <div style={grid2}>
-              <div style={{ gridColumn: "1 / -1" }}>
+          <form onSubmit={submit} className={layoutStyles.extracted4}>
+            <div className={layoutStyles.extracted5}>
+              <div className={layoutStyles.extracted6}>
                 <label style={label}>Employee</label>
-                <select style={input} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loadingEmployees}>
+                <select className={layoutStyles.extracted7} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loadingEmployees}>
                   <option value="">{loadingEmployees ? "Loading employees…" : "Select employee (optional)"}</option>
                   {employees.map((e) => (
                     <option key={e.id} value={e.id}>
@@ -436,36 +418,36 @@ export default function Page() {
                 <div style={hint}>If you don’t select, type a name below.</div>
               </div>
 
-              <div style={{ gridColumn: "1 / -1" }}>
+              <div className={layoutStyles.extracted8}>
                 <label style={label}>Employee name (manual override)</label>
-                <input style={input} value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} placeholder="e.g. John Smith" />
+                <input className={layoutStyles.extracted9} value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} placeholder="e.g. John Smith" />
               </div>
 
               <div>
                 <label style={label}>Start date</label>
-                <input style={input} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <input className={layoutStyles.extracted10} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </div>
 
               <div>
                 <label style={label}>End date</label>
-                <input style={input} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                <input className={layoutStyles.extracted11} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 <div style={hint}>Leave blank for single-day.</div>
               </div>
 
-              <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 12, padding: 12, background: "var(--legacy-color-f8fafc)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div className={layoutStyles.extracted12}>
+                <div className={layoutStyles.extracted13}>
                   <div style={{ fontWeight: 900, color: UI.text, fontSize: 13 }}>Start half day</div>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <label className={layoutStyles.extracted14}>
                     <input type="checkbox" checked={startHalfDay} onChange={(e) => setStartHalfDay(e.target.checked)} />
                     <span style={{ fontSize: 13, color: UI.muted }}>Half day</span>
                   </label>
                 </div>
               </div>
 
-              <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 12, padding: 12, background: "var(--legacy-color-f8fafc)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div className={layoutStyles.extracted15}>
+                <div className={layoutStyles.extracted16}>
                   <div style={{ fontWeight: 900, color: UI.text, fontSize: 13 }}>End half day</div>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <label className={layoutStyles.extracted17}>
                     <input type="checkbox" checked={endHalfDay} onChange={(e) => setEndHalfDay(e.target.checked)} />
                     <span style={{ fontSize: 13, color: UI.muted }}>Half day</span>
                   </label>
@@ -474,7 +456,7 @@ export default function Page() {
 
               <div>
                 <label style={label}>Reason</label>
-                <select style={input} value={reason} onChange={(e) => setReason(e.target.value)}>
+                <select className={layoutStyles.extracted18} value={reason} onChange={(e) => setReason(e.target.value)}>
                   <option value="Illness">Illness</option>
                   <option value="Injury">Injury</option>
                   <option value="Medical appointment">Medical appointment</option>
@@ -485,22 +467,22 @@ export default function Page() {
 
               <div>
                 <label style={label}>Status</label>
-                <select style={input} value={status} onChange={(e) => setStatus(e.target.value)}>
+                <select className={layoutStyles.extracted19} value={status} onChange={(e) => setStatus(e.target.value)}>
                   <option value="recorded">Recorded</option>
                   <option value="pending">Pending</option>
                   <option value="certified">Certified</option>
                 </select>
               </div>
 
-              <div style={{ gridColumn: "1 / -1" }}>
+              <div className={layoutStyles.extracted20}>
                 <label style={label}>Notes</label>
-                <textarea style={textarea} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
+                <textarea className={layoutStyles.extracted21} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
               </div>
             </div>
 
-            <div style={divider} />
+            <div className={layoutStyles.extracted22} />
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted23}>
               <button type="button" style={btn("ghost")} onClick={() => fetchAll()} disabled={saving}>
                 Refresh
               </button>
@@ -512,15 +494,15 @@ export default function Page() {
         </section>
 
         <section style={{ ...card, marginTop: UI.gap }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted24}>
             <div>
               <h2 style={titleMd}>All records</h2>
               <div style={hint}>Search and filter, then update status or delete.</div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <input style={{ ...input, width: 220 }} placeholder="Search employee…" value={search} onChange={(e) => setSearch(e.target.value)} />
-              <select style={{ ...input, width: 160 }} value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+            <div className={layoutStyles.extracted25}>
+              <input className={layoutStyles.extracted26} placeholder="Search employee…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <select className={layoutStyles.extracted27} value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
                 <option value="all">All years</option>
                 {years.map((y) => (
                   <option key={y} value={String(y)}>
@@ -536,18 +518,18 @@ export default function Page() {
           ) : filtered.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13 }}>No sick leave records found.</div>
           ) : (
-            <div style={tableWrap}>
-              <table style={tableEl}>
+            <div className={layoutStyles.extracted28}>
+              <table className={layoutStyles.extracted29}>
                 <thead>
                   <tr>
-                    <th style={th}>Employee</th>
-                    <th style={th}>From</th>
-                    <th style={th}>To</th>
-                    <th style={th}>Days</th>
-                    <th style={th}>Reason</th>
-                    <th style={th}>Status</th>
-                    <th style={th}>Notes</th>
-                    <th style={th}>Actions</th>
+                    <th className={layoutStyles.extracted30}>Employee</th>
+                    <th className={layoutStyles.extracted31}>From</th>
+                    <th className={layoutStyles.extracted32}>To</th>
+                    <th className={layoutStyles.extracted33}>Days</th>
+                    <th className={layoutStyles.extracted34}>Reason</th>
+                    <th className={layoutStyles.extracted35}>Status</th>
+                    <th className={layoutStyles.extracted36}>Notes</th>
+                    <th className={layoutStyles.extracted37}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -562,17 +544,17 @@ export default function Page() {
 
                     return (
                       <tr key={r.id}>
-                        <td style={td}><b>{titleCase(r.employeeName || "Unknown")}</b></td>
-                        <td style={td}>{fmt(fromD)}</td>
-                        <td style={td}>{fmt(toD)}</td>
-                        <td style={td}>{days}</td>
-                        <td style={td}>{r.reason || "—"}</td>
-                        <td style={td}><span style={statusStyle}>{titleCase(r.status || "recorded")}</span></td>
-                        <td style={td} title={notesText}>
-                          <div style={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{notesText}</div>
+                        <td className={layoutStyles.extracted38}><b>{titleCase(r.employeeName || "Unknown")}</b></td>
+                        <td className={layoutStyles.extracted39}>{fmt(fromD)}</td>
+                        <td className={layoutStyles.extracted40}>{fmt(toD)}</td>
+                        <td className={layoutStyles.extracted41}>{days}</td>
+                        <td className={layoutStyles.extracted42}>{r.reason || "—"}</td>
+                        <td className={layoutStyles.extracted43}><span style={statusStyle}>{titleCase(r.status || "recorded")}</span></td>
+                        <td className={layoutStyles.extracted44} title={notesText}>
+                          <div className={layoutStyles.extracted45}>{notesText}</div>
                         </td>
-                        <td style={td}>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <td className={layoutStyles.extracted46}>
+                          <div className={layoutStyles.extracted47}>
                             <button type="button" style={btn("ghost")} onClick={() => setRecordStatus(r.id, "recorded")}>Recorded</button>
                             <button type="button" style={btn("ghost")} onClick={() => setRecordStatus(r.id, "pending")}>Pending</button>
                             <button type="button" style={btn("ghost")} onClick={() => setRecordStatus(r.id, "certified")}>Certified</button>

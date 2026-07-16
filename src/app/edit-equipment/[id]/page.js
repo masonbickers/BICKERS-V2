@@ -1,6 +1,7 @@
 // src/app/edit-equipment/[id]/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
@@ -24,6 +25,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -40,20 +42,7 @@ const clearBookingReferenceCache = () => {
   }
 };
 
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 6,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  red: "var(--legacy-color-dc2626)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "10px 18px 14px", background: UI.bg, minHeight: "100vh" };
 const topBar = {
@@ -95,9 +84,9 @@ const input = {
   width: "100%",
   padding: "6px 8px",
   borderRadius: 12,
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   fontSize: 12.5,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   outline: "none",
 };
@@ -114,8 +103,8 @@ const btn = (kind = "primary") => {
       gap: 4,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-d1d5db)",
-      background: "var(--legacy-color-fff)",
+      border: "1px solid var(--color-border)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -133,7 +122,7 @@ const btn = (kind = "primary") => {
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
-      color: "var(--legacy-color-fff)",
+      color: "var(--color-white)",
       fontWeight: 950,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -148,7 +137,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "var(--legacy-color-fff)",
+    color: "var(--color-white)",
     fontWeight: 950,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -366,7 +355,7 @@ export default function EditEquipmentPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={topBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={title}>Edit Equipment</h1>
             <div style={subtitle}>
@@ -381,7 +370,7 @@ export default function EditEquipmentPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <button style={btn("ghost")} onClick={() => router.back()} disabled={saving || deleting}>
               Back
             </button>
@@ -394,14 +383,14 @@ export default function EditEquipmentPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 14 }}>
+        <div className={layoutStyles.extracted3}>
           <div style={panel}>
             <div>
               <h2 style={sectionTitle}>Equipment Information</h2>
               <div style={sectionMeta}>Core details used in the equipment overview and status tracking.</div>
             </div>
 
-            <div style={grid}>
+            <div className={layoutStyles.extracted4}>
               <div style={col(4)}>
                 <label style={label}>Name *</label>
                 <input
@@ -492,7 +481,7 @@ export default function EditEquipmentPage() {
               <div style={sectionMeta}>Track the last inspection date and the next due date.</div>
             </div>
 
-            <div style={grid}>
+            <div className={layoutStyles.extracted5}>
               <div style={col(4)}>
                 <label style={label}>Last Inspection</label>
                 <input
@@ -544,7 +533,7 @@ export default function EditEquipmentPage() {
             />
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted6}>
             <button style={btn("ghost")} onClick={() => router.back()} disabled={saving || deleting}>
               Cancel
             </button>
@@ -561,11 +550,11 @@ export default function EditEquipmentPage() {
         textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-          border-color: var(--legacy-color-bfdbfe) !important;
+          border-color: var(--color-info-border) !important;
         }
         select option {
-          background: var(--legacy-color-fff);
-          color: var(--legacy-color-0f172a);
+          background: var(--color-surface);
+          color: var(--color-text);
         }
         input:disabled,
         select:disabled,

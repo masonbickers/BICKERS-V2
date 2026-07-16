@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -15,22 +16,9 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const TRAINING_ITEMS = [
   { id: "staff-training", label: "Staff Training", type: "Training" },
@@ -76,7 +64,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -90,7 +78,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radius,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -109,8 +97,8 @@ const btn = (kind = "primary") => {
     padding: "8px 10px",
     borderRadius: UI.radius,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 850,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -184,9 +172,9 @@ const statusFor = (record) => {
 };
 
 const toneStyle = (tone) => {
-  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-fecaca)" };
-  if (tone === "amber") return { background: "var(--legacy-color-fff7ed)", color: "var(--legacy-color-9a3412)", border: "1px solid var(--legacy-color-fed7aa)" };
-  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", border: "1px solid var(--legacy-color-bbf7d0)" };
+  if (tone === "danger") return { background: "var(--color-accent-soft)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+  if (tone === "amber") return { background: "var(--color-warning-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
+  if (tone === "green") return { background: "var(--color-success-soft)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 };
 
@@ -387,7 +375,7 @@ export default function TrainingPolicyPage() {
   return (
     <HeaderSidebarLayout>
       <main style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <button type="button" onClick={() => router.push("/h-and-s")} style={{ ...btn("ghost"), marginBottom: 10 }}>
               <ArrowLeft size={15} />
@@ -411,10 +399,10 @@ export default function TrainingPolicyPage() {
                 {loadNotice}
               </div>
             ) : null}
-            <label style={{ display: "block", marginBottom: 10 }}>
+            <label className={layoutStyles.extracted2}>
               <p style={smallLabel}>Find employee</p>
-              <div style={{ position: "relative", marginTop: 6 }}>
-                <Search size={15} color={UI.muted} style={{ position: "absolute", left: 10, top: 11 }} />
+              <div className={layoutStyles.extracted3}>
+                <Search size={15} color={UI.muted} className={layoutStyles.extracted4} />
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
@@ -424,7 +412,7 @@ export default function TrainingPolicyPage() {
               </div>
             </label>
 
-            <div style={{ display: "grid", gap: 7 }}>
+            <div className={layoutStyles.extracted5}>
               {filteredEmployees.map((employee) => {
                 const active = employee.id === selectedEmployee?.id;
                 return (
@@ -438,13 +426,13 @@ export default function TrainingPolicyPage() {
                     style={{
                       textAlign: "left",
                       border: `1px solid ${active ? UI.brand : UI.brandBorder}`,
-                      background: active ? UI.brandSoft : "var(--legacy-color-ffffff)",
+                      background: active ? UI.brandSoft : "var(--color-surface)",
                       color: active ? UI.brand : UI.text,
                       borderRadius: 8,
                       padding: "11px 12px",
                       cursor: "pointer",
                       fontWeight: 900,
-                      boxShadow: active ? "inset 3px 0 0 var(--legacy-color-1f4b7a)" : "none",
+                      boxShadow: active ? "inset 3px 0 0 var(--color-brand)" : "none",
                     }}
                   >
                     {employeeDisplayName(employee)}
@@ -459,14 +447,14 @@ export default function TrainingPolicyPage() {
             </div>
           </aside>
 
-          <section style={{ display: "grid", gap: 12, alignContent: "start" }}>
+          <section className={layoutStyles.extracted6}>
             <div style={panel}>
-              <div style={sectionHeader}>
+              <div className={layoutStyles.extracted7}>
                 <div>
                   <h2 style={titleMd}>{selectedEmployee ? employeeDisplayName(selectedEmployee) : "Select an employee"}</h2>
                   <div style={hint}>Latest training and policy activity.</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted8}>
                   <span style={{ ...toneStyle("green"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>{summary.current} current</span>
                   <span style={{ ...toneStyle("amber"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>{summary.dueSoon} due soon</span>
                   <span style={{ ...toneStyle("danger"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>{summary.expired} expired</span>
@@ -474,9 +462,9 @@ export default function TrainingPolicyPage() {
               </div>
 
               {selectedRecords.slice(0, 5).length ? (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted9}>
                   {selectedRecords.slice(0, 5).map((record) => (
-                    <span key={record.id} style={{ border: UI.border, background: "var(--legacy-color-f8fbfe)", color: UI.text, borderRadius: 999, padding: "6px 9px", fontSize: 12.5, fontWeight: 850 }}>
+                    <span key={record.id} style={{ border: UI.border, background: "var(--color-surface-subtle)", color: UI.text, borderRadius: 999, padding: "6px 9px", fontSize: 12.5, fontWeight: 850 }}>
                       {record.itemName} / expires {fmtDate(record.expiresAt)}
                     </span>
                   ))}
@@ -497,7 +485,7 @@ export default function TrainingPolicyPage() {
 
                 return (
                   <article key={item.id} style={{ ...surface, padding: 14 }}>
-                    <div style={sectionHeader}>
+                    <div className={layoutStyles.extracted10}>
                       <div>
                         <h3 style={{ margin: 0, color: UI.text, fontSize: 16, fontWeight: 900 }}>{item.label}</h3>
                         <div style={{ ...hint, marginTop: 5 }}>{item.type}</div>
@@ -525,7 +513,7 @@ export default function TrainingPolicyPage() {
                       </label>
                     </div>
 
-                    <label style={{ display: "block", marginTop: 10 }}>
+                    <label className={layoutStyles.extracted11}>
                       <p style={smallLabel}>Notes</p>
                       <textarea
                         value={draft.notes ?? ""}
@@ -536,7 +524,7 @@ export default function TrainingPolicyPage() {
                       />
                     </label>
 
-                    <div style={{ marginTop: 10 }}>
+                    <div className={layoutStyles.extracted12}>
                       <p style={smallLabel}>Documents</p>
                       <label style={{ ...btn("ghost"), width: "100%", minHeight: 40, marginTop: 6 }}>
                         <Upload size={15} />
@@ -548,17 +536,17 @@ export default function TrainingPolicyPage() {
                             updateDraftDocuments(item.label, event.target.files);
                             event.target.value = "";
                           }}
-                          style={{ display: "none" }}
+                          className={layoutStyles.extracted13}
                         />
                       </label>
 
                       {draft.documents?.length ? (
-                        <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                        <div className={layoutStyles.extracted14}>
                           {draft.documents.map((file, index) => (
-                            <div key={`${file.name}-${file.size}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: UI.border, borderRadius: 8, background: "var(--legacy-color-f8fbfe)", padding: "7px 8px" }}>
+                            <div key={`${file.name}-${file.size}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: UI.border, borderRadius: 8, background: "var(--color-surface-subtle)", padding: "7px 8px" }}>
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, color: UI.text, fontSize: 12.5, fontWeight: 850 }}>
-                                <Paperclip size={13} style={{ flex: "0 0 auto" }} />
-                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+                                <Paperclip size={13} className={layoutStyles.extracted15} />
+                                <span className={layoutStyles.extracted16}>{file.name}</span>
                               </span>
                               <button type="button" onClick={() => removeDraftDocument(item.label, index)} aria-label={`Remove ${file.name}`} style={{ border: 0, background: "transparent", color: UI.danger, cursor: "pointer", padding: 2, display: "inline-flex" }}>
                                 <X size={14} />
@@ -569,7 +557,7 @@ export default function TrainingPolicyPage() {
                       ) : null}
 
                       {latest?.documents?.length ? (
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                        <div className={layoutStyles.extracted17}>
                           {latest.documents.map((document, index) => (
                             <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ ...toneStyle("brand"), display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "5px 8px", fontSize: 12, fontWeight: 900, textDecoration: "none" }}>
                               <Paperclip size={12} />
@@ -590,22 +578,22 @@ export default function TrainingPolicyPage() {
                       onClick={() => setOpenHistoryItem(historyOpen ? "" : item.label)}
                       style={{ marginTop: 9, border: 0, background: "transparent", color: UI.brand, padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 900 }}
                     >
-                      <History size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                      <History size={13} className={layoutStyles.extracted18} />
                       {historyOpen ? "Hide History" : "View History"}
                     </button>
 
                     {historyOpen ? (
-                      <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                      <div className={layoutStyles.extracted19}>
                         {itemRecords.length ? (
                           itemRecords.map((record) => (
-                            <div key={record.id} style={{ border: UI.border, borderRadius: 8, background: "var(--legacy-color-f8fafc)", padding: "8px 9px", color: UI.text, fontSize: 12.5, fontWeight: 800 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <div key={record.id} style={{ border: UI.border, borderRadius: 8, background: "var(--color-surface-subtle)", padding: "8px 9px", color: UI.text, fontSize: 12.5, fontWeight: 800 }}>
+                              <div className={layoutStyles.extracted20}>
                                 <span>Completed {fmtDate(record.completedAt)}</span>
                                 <span>Expires {fmtDate(record.expiresAt)}</span>
                               </div>
                               {record.notes ? <div style={{ marginTop: 5, color: UI.muted }}>{record.notes}</div> : null}
                               {record.documents?.length ? (
-                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                                <div className={layoutStyles.extracted21}>
                                   {record.documents.map((document, index) => (
                                     <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, color: UI.brand, textDecoration: "none", fontSize: 12, fontWeight: 900 }}>
                                       <Paperclip size={12} />

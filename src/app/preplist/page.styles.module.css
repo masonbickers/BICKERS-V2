@@ -1,0 +1,148 @@
+
+
+.extracted1 {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.extracted2 {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted3 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted4 {
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.extracted5 {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.extracted6 {
+  margin-top: 10px;
+}
+
+.extracted7 {
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.extracted8 {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.extracted9 {
+  margin-top: 10px;
+}
+
+.extracted10 {
+  display: grid;
+  gap: 20px;
+}
+
+.extracted11 {
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 18px;
+  margin-bottom: 4px;
+}
+
+.extracted12 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.extracted13 {
+  font-weight: 800;
+}
+
+.extracted14 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted15 {
+  border: 1px solid var(--color-border);
+  padding: 14px;
+  background: transparent;
+  border-radius: 10px;
+}
+
+.extracted16 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.extracted17 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted18 {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted19 {
+  margin-top: 12px;
+}
+
+.extracted20 {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.extracted21 {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.extracted22 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.extracted23 {
+  margin-left: auto;
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.extracted24 {
+  margin-top: 12px;
+}

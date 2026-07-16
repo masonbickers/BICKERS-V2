@@ -1,6 +1,7 @@
 // src/app/u-crane-crew/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
@@ -20,24 +21,12 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────────────────────────────────
    UI tokens
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  brandSoft: "var(--legacy-color-eff6ff)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "24px 18px 40px",
@@ -90,8 +79,8 @@ const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
 const chip = {
   padding: "6px 10px",
   borderRadius: 999,
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  background: "var(--legacy-color-f1f5f9)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface-hover)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -103,8 +92,8 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-d1d5db)",
-      background: "var(--legacy-color-fff)",
+      border: "1px solid var(--color-border)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -115,9 +104,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-fecaca)",
-      background: "var(--legacy-color-fee2e2)",
-      color: "var(--legacy-color-991b1b)",
+      border: "1px solid var(--color-danger-border)",
+      background: "var(--color-accent-soft)",
+      color: "var(--color-danger)",
       fontWeight: 900,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -128,7 +117,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "var(--legacy-color-fff)",
+    color: "var(--color-white)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -139,10 +128,10 @@ const input = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 12,
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   outline: "none",
   fontSize: 13.5,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
 const tableWrap = {
@@ -150,7 +139,7 @@ const tableWrap = {
   overflow: "auto",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
 const table = {
@@ -163,10 +152,10 @@ const table = {
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
+  borderBottom: "1px solid var(--color-border)",
   position: "sticky",
   top: 0,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 900,
@@ -176,7 +165,7 @@ const th = {
 
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "top",
 };
 
@@ -186,9 +175,9 @@ const pill = (active) => ({
   gap: 8,
   padding: "6px 10px",
   borderRadius: 999,
-  border: `1px solid ${active ? "var(--legacy-color-93c5fd)" : "var(--legacy-color-e5e7eb)"}`,
-  background: active ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)",
-  color: active ? "var(--legacy-color-1d4ed8)" : UI.text,
+  border: `1px solid ${active ? "var(--color-info-border)" : "var(--color-border)"}`,
+  background: active ? "var(--color-info-soft)" : "var(--color-surface-subtle)",
+  color: active ? "var(--color-brand)" : UI.text,
   fontSize: 12,
   fontWeight: 900,
   cursor: "pointer",
@@ -437,7 +426,7 @@ export default function UCrewManagePage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>U-Crane Crew Manager</h1>
             <div style={sub}>
@@ -448,16 +437,16 @@ export default function UCrewManagePage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
+          <div className={layoutStyles.extracted2}>
+            <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--color-brand-soft)", color: UI.brand }}>
               Showing: {visibleCount} / {filtered.length}
             </div>
             <div
               style={{
                 ...chip,
-                background: savedPulse ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f1f5f9)",
-                borderColor: savedPulse ? "var(--legacy-color-34d399)" : "var(--legacy-color-e5e7eb)",
-                color: savedPulse ? "var(--legacy-color-065f46)" : UI.text,
+                background: savedPulse ? "var(--color-success-soft)" : "var(--color-surface-hover)",
+                borderColor: savedPulse ? "var(--color-success-accent)" : "var(--color-border)",
+                color: savedPulse ? "var(--color-success)" : UI.text,
               }}
             >
               {savingKey ? "Saving…" : savedPulse ? "Saved Yes" : "Ready"}
@@ -471,12 +460,12 @@ export default function UCrewManagePage() {
 
         {/* Filters */}
         <section style={card}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted3}>
             <div>
               <h2 style={titleMd}>Filters</h2>
               <div style={hint}>Search by name/email/job title. Filter by U-Crane role.</div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className={layoutStyles.extracted4}>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, ...chip, cursor: "pointer" }}>
                 <input
                   type="checkbox"
@@ -488,14 +477,14 @@ export default function UCrewManagePage() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 12 }}>
+          <div className={layoutStyles.extracted5}>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search crew (name, email, job titles, U-Crane roles)…"
-              style={input}
+              className={layoutStyles.extracted6}
             />
-            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ ...input, fontWeight: 800 }}>
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className={layoutStyles.extracted7}>
               <option value="all">All roles</option>
               {UCRANE_ROLES.map((r) => (
                 <option key={r.key} value={r.key}>
@@ -508,7 +497,7 @@ export default function UCrewManagePage() {
 
         {/* Table */}
         <section style={card}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted8}>
             <div>
               <h2 style={titleMd}>Crew List</h2>
               <div style={hint}>
@@ -520,13 +509,13 @@ export default function UCrewManagePage() {
           </div>
 
           <div style={tableWrap}>
-            <table style={table}>
+            <table className={layoutStyles.extracted9}>
               <colgroup>
-                <col style={{ width: "22%" }} />
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "38%" }} />
-                <col style={{ width: "12%" }} />
+                <col className={layoutStyles.extracted10} />
+                <col className={layoutStyles.extracted11} />
+                <col className={layoutStyles.extracted12} />
+                <col className={layoutStyles.extracted13} />
+                <col className={layoutStyles.extracted14} />
               </colgroup>
               <thead>
                 <tr>
@@ -552,38 +541,38 @@ export default function UCrewManagePage() {
                     <tr
                       key={rowKey}
                       style={{
-                        background: i % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-fafafa)",
+                        background: i % 2 === 0 ? "var(--color-surface)" : "var(--color-surface-subtle)",
                         opacity: savingThis ? 0.65 : 1,
                         transition: "opacity .12s ease",
                       }}
                     >
-                      <td style={td}>
+                      <td className={layoutStyles.extracted15}>
                         {isFreelancer ? (
-                          <div style={{ display: "grid", gap: 8 }}>
+                          <div className={layoutStyles.extracted16}>
                             <div style={{ fontWeight: 900, color: UI.text }}>
                               <input
                                 value={row.name || ""}
                                 onChange={(e) => saveFreelancerField(row, "name", e.target.value)}
-                                style={{ ...input, fontWeight: 900 }}
+                                className={layoutStyles.extracted17}
                                 placeholder="Freelancer name"
                               />
                             </div>
                             <input
                               value={row.email || ""}
                               onChange={(e) => saveFreelancerField(row, "email", e.target.value)}
-                              style={input}
+                              className={layoutStyles.extracted18}
                               placeholder="Email"
                             />
                             <input
                               value={row.phone || ""}
                               onChange={(e) => saveFreelancerField(row, "phone", e.target.value)}
-                              style={input}
+                              className={layoutStyles.extracted19}
                               placeholder="Phone"
                             />
                             <textarea
                               value={row.notes || ""}
                               onChange={(e) => saveFreelancerField(row, "notes", e.target.value)}
-                              style={{ ...input, minHeight: 70, resize: "vertical" }}
+                              className={layoutStyles.extracted20}
                               placeholder="Notes (rates, availability, etc.)"
                             />
                           </div>
@@ -592,15 +581,15 @@ export default function UCrewManagePage() {
                             <div style={{ fontWeight: 900, color: UI.text }}>{name}</div>
                             {email && <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{email}</div>}
                             <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
-                              Doc ID: <code style={{ fontWeight: 800 }}>{row.id}</code>
+                              Doc ID: <code className={layoutStyles.extracted21}>{row.id}</code>
                             </div>
                           </>
                         )}
                       </td>
 
-                      <td style={td}>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          <span style={{ ...chip, background: isFreelancer ? "var(--legacy-color-fff7ed)" : "var(--legacy-color-f1f5f9)", borderColor: isFreelancer ? "var(--legacy-color-fed7aa)" : "var(--legacy-color-e5e7eb)" }}>
+                      <td className={layoutStyles.extracted22}>
+                        <div className={layoutStyles.extracted23}>
+                          <span style={{ ...chip, background: isFreelancer ? "var(--color-warning-soft)" : "var(--color-surface-hover)", borderColor: isFreelancer ? "var(--color-warning-border)" : "var(--color-border)" }}>
                             {isFreelancer ? "Freelancer" : "Employee"}
                           </span>
                           {!isFreelancer &&
@@ -616,7 +605,7 @@ export default function UCrewManagePage() {
                         </div>
                       </td>
 
-                      <td style={td}>
+                      <td className={layoutStyles.extracted24}>
                         <button
                           type="button"
                           onClick={() => toggleVisible(row)}
@@ -627,8 +616,8 @@ export default function UCrewManagePage() {
                         </button>
                       </td>
 
-                      <td style={td}>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <td className={layoutStyles.extracted25}>
+                        <div className={layoutStyles.extracted26}>
                           {UCRANE_ROLES.map((r) => {
                             const active = roles.some((x) => String(x).trim() === r.key);
                             return (
@@ -648,11 +637,11 @@ export default function UCrewManagePage() {
 
                         <div style={{ marginTop: 8, fontSize: 12, color: UI.muted }}>
                           Stored keys:{" "}
-                          <code style={{ fontWeight: 800 }}>{roles.length ? roles.join(", ") : "none"}</code>
+                          <code className={layoutStyles.extracted27}>{roles.length ? roles.join(", ") : "none"}</code>
                         </div>
                       </td>
 
-                      <td style={td}>
+                      <td className={layoutStyles.extracted28}>
                         {isFreelancer ? (
                           <button
                             type="button"
@@ -675,7 +664,7 @@ export default function UCrewManagePage() {
 
                 {!filtered.length && (
                   <tr>
-                    <td style={td} colSpan={5}>
+                    <td className={layoutStyles.extracted29} colSpan={5}>
                       <div style={{ color: UI.muted, fontWeight: 700 }}>No results.</div>
                       <div style={{ color: UI.muted, fontSize: 12, marginTop: 6 }}>
                         Try clearing filters or searching a different name/job title.
@@ -697,16 +686,7 @@ export default function UCrewManagePage() {
         {/* Add Freelancer Modal */}
         {addOpen && (
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(2,6,23,0.55)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 120,
-              padding: 18,
-            }}
+            className={layoutStyles.extracted30}
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) setAddOpen(false);
             }}
@@ -720,7 +700,7 @@ export default function UCrewManagePage() {
               }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+              <div className={layoutStyles.extracted31}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: UI.text }}>Add Freelancer</h3>
                   <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -732,22 +712,22 @@ export default function UCrewManagePage() {
                 </button>
               </div>
 
-              <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+              <div className={layoutStyles.extracted32}>
                 <input
-                  style={input}
+                  className={layoutStyles.extracted33}
                   placeholder="Full name *"
                   value={newF.name}
                   onChange={(e) => setNewF((s) => ({ ...s, name: e.target.value }))}
                 />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className={layoutStyles.extracted34}>
                   <input
-                    style={input}
+                    className={layoutStyles.extracted35}
                     placeholder="Email"
                     value={newF.email}
                     onChange={(e) => setNewF((s) => ({ ...s, email: e.target.value }))}
                   />
                   <input
-                    style={input}
+                    className={layoutStyles.extracted36}
                     placeholder="Phone"
                     value={newF.phone}
                     onChange={(e) => setNewF((s) => ({ ...s, phone: e.target.value }))}
@@ -755,13 +735,13 @@ export default function UCrewManagePage() {
                 </div>
 
                 <textarea
-                  style={{ ...input, minHeight: 90, resize: "vertical" }}
+                  className={layoutStyles.extracted37}
                   placeholder="Notes (rates, availability, kit, etc.)"
                   value={newF.notes}
                   onChange={(e) => setNewF((s) => ({ ...s, notes: e.target.value }))}
                 />
 
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted38}>
                   <label style={{ display: "inline-flex", alignItems: "center", gap: 8, ...chip, cursor: "pointer" }}>
                     <input
                       type="checkbox"
@@ -776,7 +756,7 @@ export default function UCrewManagePage() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted39}>
                   {UCRANE_ROLES.map((r) => {
                     const active = (newF.uCraneRoles || []).includes(r.key);
                     return (
@@ -799,7 +779,7 @@ export default function UCrewManagePage() {
                   })}
                 </div>
 
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+                <div className={layoutStyles.extracted40}>
                   <button type="button" style={btn("ghost")} onClick={() => setAddOpen(false)}>
                     Cancel
                   </button>

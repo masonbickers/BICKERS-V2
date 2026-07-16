@@ -1,28 +1,15 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { Clock3, FileText, LayoutDashboard, PencilLine, Plus, Trash2 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 
-const UI = {
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-b91c1c)",
-  dangerSoft: "var(--legacy-color-fff1f2)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "16px 16px 32px",
@@ -49,15 +36,15 @@ const btn = (kind = "ghost") => ({
     kind === "primary"
       ? `1px solid ${UI.brand}`
       : kind === "danger"
-      ? "1px solid var(--legacy-color-fecdd3)"
+      ? "1px solid var(--color-danger-border)"
       : `1px solid ${UI.brandBorder}`,
   background:
     kind === "primary"
       ? UI.brand
       : kind === "danger"
       ? UI.dangerSoft
-      : "var(--legacy-color-fff)",
-  color: kind === "primary" ? "var(--legacy-color-fff)" : kind === "danger" ? UI.danger : UI.text,
+      : "var(--color-surface)",
+  color: kind === "primary" ? "var(--color-white)" : kind === "danger" ? UI.danger : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -141,7 +128,7 @@ const draftRow = {
   gap: 10,
   alignItems: "center",
   flexWrap: "wrap",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   boxShadow: UI.shadow,
 };
 
@@ -231,7 +218,7 @@ export default function BookingDraftsPage() {
               Reopen unfinished booking forms saved automatically.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted1}>
             <button type="button" style={btn("primary")} onClick={() => router.push("/create-booking")}>
               <Plus size={14} />
               New Booking
@@ -257,13 +244,13 @@ export default function BookingDraftsPage() {
           {drafts.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13.5 }}>No drafts found.</div>
           ) : (
-            <div style={{ display: "grid", gap: 10 }}>
+            <div className={layoutStyles.extracted2}>
               {drafts.map((d) => (
                 <div
                   key={d.id}
                   style={draftRow}
                 >
-                  <div style={{ minWidth: 240, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <div className={layoutStyles.extracted3}>
                     <span style={iconBox()}>
                       <PencilLine size={17} />
                     </span>
@@ -277,7 +264,7 @@ export default function BookingDraftsPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div className={layoutStyles.extracted4}>
                     <button
                       type="button"
                       style={btn("primary")}

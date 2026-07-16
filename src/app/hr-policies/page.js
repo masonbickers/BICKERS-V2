@@ -1,25 +1,14 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────────────────────────────────
    Mini design system (matches your app)
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 16,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  brandSoft: "var(--legacy-color-eff6ff)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 
@@ -39,7 +28,7 @@ const chip = (kind = "neutral") => {
     return {
       padding: "6px 10px",
       borderRadius: 999,
-      border: "1px solid var(--legacy-color-dbeafe)",
+      border: "1px solid var(--color-brand-soft)",
       background: UI.brandSoft,
       color: UI.brand,
       fontSize: 12,
@@ -49,8 +38,8 @@ const chip = (kind = "neutral") => {
   return {
     padding: "6px 10px",
     borderRadius: 999,
-    border: "1px solid var(--legacy-color-e5e7eb)",
-    background: "var(--legacy-color-f1f5f9)",
+    border: "1px solid var(--color-border)",
+    background: "var(--color-surface-hover)",
     color: UI.text,
     fontSize: 12,
     fontWeight: 900,
@@ -85,8 +74,8 @@ const iconWrap = (open) => ({
   borderRadius: 10,
   display: "grid",
   placeItems: "center",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  background: open ? "var(--legacy-color-eef2ff)" : "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border)",
+  background: open ? "var(--color-info-soft)" : "var(--color-surface)",
   color: open ? UI.brand : UI.muted,
   transform: open ? "rotate(180deg)" : "rotate(0deg)",
   transition: "transform .18s ease, background .18s ease, color .18s ease",
@@ -120,17 +109,17 @@ function PolicySection({ titleText, summary, children, defaultOpen = false }) {
       style={sectionCard}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = UI.shadowHover;
-        e.currentTarget.style.borderColor = "var(--legacy-color-dbeafe)";
+        e.currentTarget.style.borderColor = "var(--color-brand-soft)";
         e.currentTarget.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = UI.shadowSm;
-        e.currentTarget.style.borderColor = "var(--legacy-color-e5e7eb)";
+        e.currentTarget.style.borderColor = "var(--color-border)";
         e.currentTarget.style.transform = "translateY(0px)";
       }}
     >
-      <div style={sectionHeader} onClick={() => setOpen((v) => !v)} role="button" tabIndex={0}>
-        <div style={{ minWidth: 0 }}>
+      <div className={layoutStyles.extracted1} onClick={() => setOpen((v) => !v)} role="button" tabIndex={0}>
+        <div className={layoutStyles.extracted2}>
           <div style={sectionTitle}>{titleText}</div>
           {summary ? <div style={sectionHint}>{summary}</div> : null}
         </div>
@@ -138,7 +127,7 @@ function PolicySection({ titleText, summary, children, defaultOpen = false }) {
       </div>
 
       <div style={bodyOuter(open)}>
-        <div style={bodyInner}>
+        <div className={layoutStyles.extracted3}>
           <div style={body}>{children}</div>
         </div>
       </div>
@@ -230,12 +219,12 @@ export default function HRPolicyPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted4}>
           <div>
             <h1 style={h1}>HR Policies</h1>
             <div style={sub}>Company policies and guidelines for staff conduct, leave, and operations.</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted5}>
             <span style={chip("brand")}>Handbook</span>
             <span style={chip()}>{policies.length} sections</span>
           </div>

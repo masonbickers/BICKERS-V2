@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -21,28 +22,20 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────────────────────────────────
    Mini design system (same look & feel)
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 14,
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-};
+const UI = UI_TOKENS;
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
 const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: UI.text, fontSize: 12, fontWeight: 700 };
+const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--color-surface-hover)", color: UI.text, fontSize: 12, fontWeight: 700 };
 const sectionTitle = { fontWeight: 900, fontSize: 16, marginBottom: 8 };
-const label = { color: "var(--legacy-color-6b7280)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" };
+const label = { color: "var(--color-text-muted)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" };
 
 const btn = (variant = "default") => ({
   padding: "8px 12px",
@@ -50,12 +43,12 @@ const btn = (variant = "default") => ({
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
-  border: "1px solid var(--legacy-color-d1d5db)",
-  background: variant === "primary" ? "var(--legacy-color-111827)" :
-             variant === "warn" ? "var(--legacy-color-fff7ed)" :
-             "var(--legacy-color-ffffff)",
-  color: variant === "primary" ? "var(--legacy-color-ffffff)" :
-         variant === "warn" ? "var(--legacy-color-7c2d12)" :
+  border: "1px solid var(--color-border)",
+  background: variant === "primary" ? "var(--shell-sidebar-bg)" :
+             variant === "warn" ? "var(--color-warning-soft)" :
+             "var(--color-surface)",
+  color: variant === "primary" ? "var(--color-white)" :
+         variant === "warn" ? "var(--color-danger-hover)" :
          UI.text,
 });
 const btnBar = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
@@ -114,25 +107,25 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
+      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
     case "Invoiced":
-      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
+      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
     case "Paid":
-      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
+      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
     case "Action Required":
-      return { bg: "var(--legacy-color-fee2e2)", border: "var(--legacy-color-fecaca)", text: "var(--legacy-color-991b1b)" };
+      return { bg: "var(--color-accent-soft)", border: "var(--color-danger-border)", text: "var(--color-danger)" };
     case "Complete":
-      return { bg: "var(--legacy-color-97f59bff)", border: "var(--legacy-color-419e50ff)", text: "var(--legacy-color-10301aff)" };
+      return { bg: "var(--color-success-border)", border: "var(--color-success-accent)", text: "var(--color-text)" };
     case "Confirmed":
-      return { bg: "var(--legacy-color-fffd98ff)", border: "var(--legacy-color-c7d134ff)", text: "var(--legacy-color-504c1aff)" };
+      return { bg: "var(--color-warning-border)", border: "var(--color-success-accent)", text: "var(--color-danger-hover)" };
     case "First Pencil":
-      return { bg: "var(--legacy-color-78b8ecff)", border: "var(--legacy-color-2c28ffff)", text: "var(--legacy-color-001affff)" };
+      return { bg: "var(--shell-muted)", border: "var(--color-info)", text: "var(--color-info)" };
     case "Second Pencil":
-      return { bg: "var(--legacy-color-fd9a9aff)", border: "var(--legacy-color-f33131ff)", text: "var(--legacy-color-8b1212ff)" };
+      return { bg: "var(--color-warning-border)", border: "var(--color-warning)", text: "var(--color-danger)" };
     case "TBC":
-      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
+      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
     default:
-      return { bg: "var(--legacy-color-acacacff)", border: "var(--legacy-color-3f3f3fff)", text: "var(--legacy-color-000000ff)" };
+      return { bg: "var(--shell-muted)", border: "var(--color-brand-hover)", text: "var(--color-text)" };
   }
 };
 const StatusBadge = ({ value }) => {
@@ -261,20 +254,20 @@ const TimesheetCard = ({ ts, job }) => {
 
   const tableWrap = { overflowX: "auto", border: UI.border, borderRadius: 8 };
   const table = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13, tableLayout: "fixed" };
-  const th = { textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", position: "sticky", top: 0, zIndex: 1, whiteSpace: "nowrap" };
-  const td = { padding: "8px 10px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top", overflow: "hidden", textOverflow: "ellipsis" };
+  const th = { textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--color-border)", background: "var(--color-surface-subtle)", position: "sticky", top: 0, zIndex: 1, whiteSpace: "nowrap" };
+  const td = { padding: "8px 10px", borderBottom: "1px solid var(--color-surface-hover)", verticalAlign: "top", overflow: "hidden", textOverflow: "ellipsis" };
   const tdRight = { ...td, textAlign: "right", whiteSpace: "nowrap" };
   const dayCell = { ...td, fontWeight: 700, whiteSpace: "nowrap" };
-  const foot = { ...tdRight, fontWeight: 800, background: "var(--legacy-color-f8fafc)" };
+  const foot = { ...tdRight, fontWeight: 800, background: "var(--color-surface-subtle)" };
 
   return (
-    <div style={{ border: UI.border, borderRadius: 12, background: ts.submitted ? "var(--legacy-color-f9fafb)" : "var(--legacy-color-fff7ed)", padding: 12 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
-        <div style={{ fontSize: 14, fontWeight: 900 }}>Week of {ws ? format(ws, "dd/MM/yyyy") : "—"}</div>
+    <div style={{ border: UI.border, borderRadius: 12, background: ts.submitted ? "var(--color-surface-subtle)" : "var(--color-warning-soft)", padding: 12 }}>
+      <div className={layoutStyles.extracted1}>
+        <div className={layoutStyles.extracted2}>Week of {ws ? format(ws, "dd/MM/yyyy") : "—"}</div>
         <div style={{ color: UI.muted, fontSize: 13 }}>
           Emp: <b>{ts.employeeName || ts.employeeCode || "—"}</b>
         </div>
-        <div style={{ marginLeft: "auto" }}>
+        <div className={layoutStyles.extracted3}>
           <span style={chip}>{ts.submitted ? "Submitted" : "Draft"}</span>
         </div>
         <a
@@ -290,15 +283,15 @@ const TimesheetCard = ({ ts, job }) => {
       <div style={tableWrap}>
         <table style={table}>
           <colgroup>
-            <col style={{ width: 64 }} />
-            <col style={{ width: 110 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 110 }} />
+            <col className={layoutStyles.extracted4} />
+            <col className={layoutStyles.extracted5} />
+            <col className={layoutStyles.extracted6} />
+            <col className={layoutStyles.extracted7} />
+            <col className={layoutStyles.extracted8} />
+            <col className={layoutStyles.extracted9} />
+            <col className={layoutStyles.extracted10} />
             <col /> {/* Notes grow */}
-            <col style={{ width: 80 }} />
+            <col className={layoutStyles.extracted11} />
           </colgroup>
           <thead>
             <tr>
@@ -456,7 +449,7 @@ export default function JobSummaryWithTimesheetsPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted12}>
           <div>
             <h1 style={h1}>{loading ? "Loading…" : job ? `Job #${job.jobNumber || job.id}` : "Not found"}</h1>
             {job && (
@@ -468,11 +461,11 @@ export default function JobSummaryWithTimesheetsPage() {
 
           {/* Right side status chips */}
           {job && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted13}>
               <span style={chip}>{dateLabel}</span>
               <StatusBadge value={prettyStatus} />
               {job.readyToInvoice ? (
-                <span style={{ ...chip, background: "var(--legacy-color-fef3c7)", borderColor: "var(--legacy-color-fde68a)", color: "var(--legacy-color-92400e)" }}>
+                <span style={{ ...chip, background: "var(--color-accent-soft)", borderColor: "var(--color-warning-border)", color: "var(--color-warning)" }}>
                   Ready to Invoice
                 </span>
               ) : null}
@@ -483,7 +476,7 @@ export default function JobSummaryWithTimesheetsPage() {
         {/* Actions toolbar */}
         {job && (
           <div style={{ ...surface, padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={btnBar}>
+            <div className={layoutStyles.extracted14}>
               <button
                 type="button"
                 onClick={() => router.back()}
@@ -494,7 +487,7 @@ export default function JobSummaryWithTimesheetsPage() {
                 ← Back
               </button>
             </div>
-            <div style={btnBar}>
+            <div className={layoutStyles.extracted15}>
               <button
                 type="button"
                 onClick={markNeedsAction}
@@ -525,46 +518,46 @@ export default function JobSummaryWithTimesheetsPage() {
         ) : !job ? (
           <div style={{ ...surface, padding: 16 }}>This job could not be found.</div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr .8fr", gap: 18 }}>
+          <div className={layoutStyles.extracted16}>
             {/* LEFT: Overview + Timesheets + Notes */}
-            <div style={{ display: "grid", gap: 18 }}>
+            <div className={layoutStyles.extracted17}>
               {/* Overview */}
               <div style={{ ...surface, padding: 14 }}>
-                <div style={sectionTitle}>Overview</div>
-                <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", rowGap: 8, columnGap: 12, fontSize: 14 }}>
-                  <div style={label}>Client</div>
+                <div className={layoutStyles.extracted18}>Overview</div>
+                <div className={layoutStyles.extracted19}>
+                  <div className={layoutStyles.extracted20}>Client</div>
                   <div>{job.client || "—"}</div>
-                  <div style={label}>Location</div>
+                  <div className={layoutStyles.extracted21}>Location</div>
                   <div>{job.location || "—"}</div>
-                  <div style={label}>Dates</div>
+                  <div className={layoutStyles.extracted22}>Dates</div>
                   <div>{dateLabel}</div>
-                  <div style={label}>Status</div>
+                  <div className={layoutStyles.extracted23}>Status</div>
                   <div><StatusBadge value={prettyStatus} /></div>
-                  <div style={label}>Job Prefix</div>
+                  <div className={layoutStyles.extracted24}>Job Prefix</div>
                   <div>{job.jobNumber ? String(job.jobNumber).split("-")[0] : "—"}</div>
-                  <div style={label}>Reference / PO</div>
+                  <div className={layoutStyles.extracted25}>Reference / PO</div>
                   <div>{job.poNumber || job.purchaseOrder || job.reference || job.po || "—"}</div>
-                  <div style={label}>Vehicles</div>
+                  <div className={layoutStyles.extracted26}>Vehicles</div>
                   <div>{Array.isArray(job.vehicles) && job.vehicles.length ? job.vehicles.map((v) => (typeof v === "string" ? v : v?.name || v?.registration || "")).filter(Boolean).join(", ") : "—"}</div>
-                  <div style={label}>Crew</div>
+                  <div className={layoutStyles.extracted27}>Crew</div>
                   <div>{crewFullNames(job.employees)}</div>
                 </div>
               </div>
 
               {/* Timesheets */}
               <div style={{ ...surface, padding: 14 }}>
-                <div style={sectionTitle}>
+                <div className={layoutStyles.extracted28}>
                   Linked Timesheets{" "}
                   <span style={{ color: UI.muted, fontWeight: 600, fontSize: 13 }}>({timesheets.length})</span>
                 </div>
                 {timesheets.length ? (
-                  <div style={{ display: "grid", gap: 12 }}>
+                  <div className={layoutStyles.extracted29}>
                     {timesheets.map((ts) => (
                       <TimesheetCard key={ts.id} ts={ts} job={job} />
                     ))}
                   </div>
                 ) : (
-                  <div style={{ color: UI.muted, padding: 10, border: "1px dashed var(--legacy-color-d1d5db)", borderRadius: 6 }}>
+                  <div style={{ color: UI.muted, padding: 10, border: "1px dashed var(--color-border)", borderRadius: 6 }}>
                     No timesheet days linked to this job yet.
                   </div>
                 )}
@@ -572,9 +565,9 @@ export default function JobSummaryWithTimesheetsPage() {
 
               {/* Notes (summary + notesByDate) */}
               <div style={{ ...surface, padding: 14 }}>
-                <div style={sectionTitle}>Job Summary Notes</div>
+                <div className={layoutStyles.extracted30}>Job Summary Notes</div>
                 {notesBlob ? (
-                  <div style={{ whiteSpace: "pre-wrap", fontSize: 14, background: "var(--legacy-color-f9fafb)", border: UI.border, borderRadius: 8, padding: 10 }}>
+                  <div style={{ whiteSpace: "pre-wrap", fontSize: 14, background: "var(--color-surface-subtle)", border: UI.border, borderRadius: 8, padding: 10 }}>
                     {notesBlob}
                   </div>
                 ) : (
@@ -582,7 +575,7 @@ export default function JobSummaryWithTimesheetsPage() {
                 )}
 
                 {job.notesByDate && typeof job.notesByDate === "object" && Object.keys(job.notesByDate).length > 0 && (
-                  <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+                  <div className={layoutStyles.extracted31}>
                     {Object.keys(job.notesByDate)
                       .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                       .sort()
@@ -590,7 +583,7 @@ export default function JobSummaryWithTimesheetsPage() {
                         const d = new Date(iso);
                         const nice = d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
                         return (
-                          <div key={iso} style={{ fontSize: 13 }}>
+                          <div key={iso} className={layoutStyles.extracted32}>
                             <strong style={{ color: UI.muted }}>{nice}:</strong> {job.notesByDate[iso]}
                           </div>
                         );
@@ -601,15 +594,15 @@ export default function JobSummaryWithTimesheetsPage() {
             </div>
 
             {/* RIGHT: Details + Attachments */}
-            <div style={{ display: "grid", gap: 18 }}>
+            <div className={layoutStyles.extracted33}>
               <div style={{ ...surface, padding: 14 }}>
-                <div style={sectionTitle}>Details</div>
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", rowGap: 8, columnGap: 12, fontSize: 14 }}>
-                  <div style={label}>Job ID</div>
+                <div className={layoutStyles.extracted34}>Details</div>
+                <div className={layoutStyles.extracted35}>
+                  <div className={layoutStyles.extracted36}>Job ID</div>
                   <div>{job.id}</div>
-                  <div style={label}>Job Number</div>
+                  <div className={layoutStyles.extracted37}>Job Number</div>
                   <div>{job.jobNumber || "—"}</div>
-                  <div style={label}>Accepted Quote</div>
+                  <div className={layoutStyles.extracted38}>Accepted Quote</div>
                   <div>
                     {quoteOptions.length ? (
                       <select
@@ -618,12 +611,12 @@ export default function JobSummaryWithTimesheetsPage() {
                         style={{
                           width: "100%",
                           maxWidth: 420,
-                          border: "1px solid var(--legacy-color-d1d5db)",
+                          border: "1px solid var(--color-border)",
                           borderRadius: 8,
                           padding: "7px 9px",
                           fontWeight: 800,
                           color: UI.text,
-                          background: "var(--legacy-color-fff)",
+                          background: "var(--color-surface)",
                         }}
                         disabled={saving}
                       >
@@ -641,23 +634,23 @@ export default function JobSummaryWithTimesheetsPage() {
                       <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>{job.acceptedQuoteName}</div>
                     ) : null}
                   </div>
-                  <div style={label}>Contact</div>
+                  <div className={layoutStyles.extracted39}>Contact</div>
                   <div>
                     {job.contactName || "—"}
                     {job.contactEmail ? ` • ${job.contactEmail}` : ""}
                     {job.contactPhone ? ` • ${job.contactPhone}` : ""}
                   </div>
-                  <div style={label}>Created</div>
+                  <div className={layoutStyles.extracted40}>Created</div>
                   <div>{job.createdAt ? new Date(job.createdAt.seconds ? job.createdAt.seconds * 1000 : job.createdAt).toLocaleString("en-GB") : "—"}</div>
-                  <div style={label}>Last Updated</div>
+                  <div className={layoutStyles.extracted41}>Last Updated</div>
                   <div>{job.updatedAt ? new Date(job.updatedAt.seconds ? job.updatedAt.seconds * 1000 : job.updatedAt).toLocaleString("en-GB") : "—"}</div>
                 </div>
               </div>
 
               {Array.isArray(job.attachments) && job.attachments.length > 0 && (
                 <div style={{ ...surface, padding: 14 }}>
-                  <div style={sectionTitle}>Attachments</div>
-                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>
+                  <div className={layoutStyles.extracted42}>Attachments</div>
+                  <ul className={layoutStyles.extracted43}>
                     {job.attachments.map((a, idx) => (
                       <li key={idx}>
                         {a?.url ? (

@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+
+import layoutStyles from "./page.styles.module.css";import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
@@ -172,7 +173,7 @@ export default function VerifyMfaPage() {
           alt="Bickers Logo"
           width={330}
           height={110}
-          style={{ marginBottom: "20px" }}
+          className={layoutStyles.extracted1}
         />
         <h2 style={styles.title}>Enter Authenticator Code</h2>
         <p style={styles.subtitle}>
@@ -216,28 +217,28 @@ const styles = {
     justifyContent: "center",
     alignItems: "center",
     height: "100vh",
-    backgroundColor: "var(--legacy-color-0d0d0d)",
+    backgroundColor: "var(--shell-sidebar-bg)",
   },
   formWrapper: {
-    backgroundColor: "var(--legacy-color-111)",
+    backgroundColor: "var(--shell-sidebar-bg)",
     padding: "30px",
     borderRadius: "8px",
     textAlign: "center",
-    color: "var(--legacy-color-fff)",
+    color: "var(--color-white)",
     width: "100%",
     maxWidth: "400px",
   },
   title: { fontSize: "20px", fontWeight: "bold", marginBottom: "10px" },
-  subtitle: { fontSize: "14px", marginBottom: "20px", color: "var(--legacy-color-aaa)" },
+  subtitle: { fontSize: "14px", marginBottom: "20px", color: "var(--shell-muted)" },
   input: {
     width: "100%",
     padding: "12px",
     marginBottom: "16px",
-    border: "1px solid var(--legacy-color-333)",
+    border: "1px solid var(--color-text)",
     borderRadius: "6px",
     fontSize: "15px",
-    backgroundColor: "var(--legacy-color-1a1a1a)",
-    color: "var(--legacy-color-fff)",
+    backgroundColor: "var(--shell-sidebar-bg)",
+    color: "var(--color-white)",
     textAlign: "center",
   },
   checkboxLabel: {
@@ -246,7 +247,7 @@ const styles = {
     gap: "10px",
     justifyContent: "center",
     marginBottom: "16px",
-    color: "var(--legacy-color-d1d5db)",
+    color: "var(--color-border)",
     fontSize: "14px",
   },
   checkbox: {
@@ -256,8 +257,8 @@ const styles = {
   button: {
     width: "100%",
     padding: "12px",
-    backgroundColor: "var(--legacy-color-ef4444)",
-    color: "var(--legacy-color-fff)",
+    backgroundColor: "var(--color-danger)",
+    color: "var(--color-white)",
     border: "none",
     borderRadius: "6px",
     fontSize: "16px",
@@ -267,14 +268,14 @@ const styles = {
   secondaryButton: {
     width: "100%",
     padding: "12px",
-    backgroundColor: "var(--legacy-color-1f2937)",
-    color: "var(--legacy-color-fff)",
-    border: "1px solid var(--legacy-color-374151)",
+    backgroundColor: "var(--shell-sidebar-bg)",
+    color: "var(--color-white)",
+    border: "1px solid var(--color-text-muted)",
     borderRadius: "6px",
     fontSize: "15px",
     fontWeight: "bold",
     cursor: "pointer",
     marginTop: "10px",
   },
-  error: { color: "var(--legacy-color-f87171)", marginTop: "10px" },
+  error: { color: "var(--color-warning-border)", marginTop: "10px" },
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import PrepItemPicker from "@/app/components/PrepItemPicker";
@@ -9,22 +10,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-111827)",
-  muted: "var(--legacy-color-6b7280)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  green: "var(--legacy-color-065f46)",
-  greenBg: "var(--legacy-color-ecfdf5)",
-  red: "var(--legacy-color-991b1b)",
-  redBg: "var(--legacy-color-fef2f2)",
-  blue: "var(--legacy-color-1d4ed8)",
-  blueBg: "var(--legacy-color-eff6ff)",
-  purple: "var(--legacy-color-6d28d9)",
-  purpleBg: "var(--legacy-color-f5f3ff)",
-};
+const UI = UI_TOKENS;
 
 const PREP_STORAGE_KEY = "preplist:vehicle-checks:v4";
 const PREP_MANUAL_STORAGE_KEY = "preplist:manual-entries:v3";
@@ -54,8 +42,8 @@ const card = {
 const buttonBase = {
   padding: "8px 10px",
   borderRadius: 10,
-  border: "1px solid var(--legacy-color-d1d5db)",
-  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
@@ -63,12 +51,12 @@ const buttonBase = {
 };
 
 const inputBase = {
-  border: "1px solid var(--legacy-color-d1d5db)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: "7px 9px",
   fontSize: 12,
   width: "100%",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -872,7 +860,7 @@ export default function PrepListPage() {
           }
 
           body {
-            background: var(--legacy-color-fff) !important;
+            background: var(--color-surface) !important;
           }
 
           .no-print {
@@ -880,7 +868,7 @@ export default function PrepListPage() {
           }
 
           .prep-sheet {
-            background: var(--legacy-color-fff) !important;
+            background: var(--color-surface) !important;
             padding: 0 !important;
           }
 
@@ -908,7 +896,7 @@ export default function PrepListPage() {
           }
 
           .print-check {
-            border-color: var(--legacy-color-000) !important;
+            border-color: var(--color-border-strong) !important;
             width: 12px !important;
             height: 12px !important;
             min-width: 12px !important;
@@ -952,12 +940,7 @@ export default function PrepListPage() {
       <div style={pageWrap} className="prep-sheet">
         <div style={{ ...card, marginBottom: 16 }} className="prep-card">
           <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
+            className={layoutStyles.extracted1}
           >
             <div>
               <h1
@@ -980,21 +963,21 @@ export default function PrepListPage() {
               </div>
 
               <div
-                className="print-meta"
-                style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}
+                className={`print-meta ${layoutStyles.extracted2}`}
+                
               >
                 <span style={badge(UI.redBg, UI.red)}>Still to Prep: {totalVisible}</span>
                 <span style={badge(UI.blueBg, UI.blue)}>Ready: {totalReady}</span>
-                <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>
+                <span style={badge("var(--color-info-soft)", "var(--color-brand)")}>
                   Prep Day: {selectedPrepDate ? fmtLong(selectedPrepDate) : "Not selected"}
                 </span>
-                <span style={badge("var(--legacy-color-fef3c7)", "var(--legacy-color-92400e)")}>
+                <span style={badge("var(--color-accent-soft)", "var(--color-warning)")}>
                   Going Out: {selectedOutDayDate ? fmtLong(selectedOutDayDate) : "Not selected"}
                 </span>
               </div>
             </div>
 
-            <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className={`no-print ${layoutStyles.extracted3}`} >
               <select
                 value={selectedDay}
                 onChange={(e) => {
@@ -1030,9 +1013,9 @@ export default function PrepListPage() {
                 onClick={() => setShowArchived((v) => !v)}
                 style={{
                   ...buttonBase,
-                  background: showArchived ? "var(--legacy-color-6d28d9)" : "var(--legacy-color-fff)",
-                  color: showArchived ? "var(--legacy-color-fff)" : UI.text,
-                  borderColor: showArchived ? "var(--legacy-color-6d28d9)" : "var(--legacy-color-d1d5db)",
+                  background: showArchived ? "var(--color-info)" : "var(--color-surface)",
+                  color: showArchived ? "var(--color-white)" : UI.text,
+                  borderColor: showArchived ? "var(--color-info)" : "var(--color-border)",
                 }}
               >
                 {showArchived ? "Hide Removed / Archived" : "Show Removed / Archived"}
@@ -1043,9 +1026,9 @@ export default function PrepListPage() {
                 onClick={() => window.print()}
                 style={{
                   ...buttonBase,
-                  background: "var(--legacy-color-111827)",
-                  color: "var(--legacy-color-fff)",
-                  borderColor: "var(--legacy-color-111827)",
+                  background: "var(--shell-sidebar-bg)",
+                  color: "var(--color-white)",
+                  borderColor: "var(--color-text)",
                 }}
               >
                 Print Prep List
@@ -1055,16 +1038,12 @@ export default function PrepListPage() {
         </div>
 
         <div className="no-print" style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>
+          <div className={layoutStyles.extracted4}>
             Add Manual Vehicle Prep
           </div>
 
           <div
-            style={{
-              display: "grid",
-              gap: 8,
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            }}
+            className={layoutStyles.extracted5}
           >
             <input
               type="date"
@@ -1118,15 +1097,15 @@ export default function PrepListPage() {
             />
           </div>
 
-          <div style={{ marginTop: 10 }}>
+          <div className={layoutStyles.extracted6}>
             <button
               type="button"
               onClick={addManualEntry}
               style={{
                 ...buttonBase,
-                background: "var(--legacy-color-1d4ed8)",
-                borderColor: "var(--legacy-color-1d4ed8)",
-                color: "var(--legacy-color-fff)",
+                background: "var(--color-brand)",
+                borderColor: "var(--color-brand)",
+                color: "var(--color-white)",
               }}
             >
               Add Manual Vehicle
@@ -1135,16 +1114,12 @@ export default function PrepListPage() {
         </div>
 
         <div className="no-print" style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>
+          <div className={layoutStyles.extracted7}>
             Add Fleet Vehicle Prep
           </div>
 
           <div
-            style={{
-              display: "grid",
-              gap: 8,
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            }}
+            className={layoutStyles.extracted8}
           >
             <input
               type="date"
@@ -1203,15 +1178,15 @@ export default function PrepListPage() {
             />
           </div>
 
-          <div style={{ marginTop: 10 }}>
+          <div className={layoutStyles.extracted9}>
             <button
               type="button"
               onClick={addFleetEntry}
               style={{
                 ...buttonBase,
-                background: "var(--legacy-color-0f766e)",
-                borderColor: "var(--legacy-color-0f766e)",
-                color: "var(--legacy-color-fff)",
+                background: "var(--color-brand)",
+                borderColor: "var(--color-brand)",
+                color: "var(--color-white)",
               }}
             >
               Add Fleet Vehicle
@@ -1229,26 +1204,15 @@ export default function PrepListPage() {
               No vehicles still need preparing for this selected prep day.
             </div>
           ) : (
-            <div style={{ display: "grid", gap: 20 }}>
+            <div className={layoutStyles.extracted10}>
               {groupedVisibleSections.map((job) => (
                 <section
                   key={job.jobKey}
-                  className="prep-job"
-                  style={{
-                    borderBottom: "2px solid var(--legacy-color-d1d5db)",
-                    paddingBottom: 18,
-                    marginBottom: 4,
-                  }}
+                  className={`prep-job ${layoutStyles.extracted11}`}
+                  
                 >
                   <div
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      marginBottom: 12,
-                      flexWrap: "wrap",
-                    }}
+                    className={layoutStyles.extracted12}
                   >
                     <div>
                       <div
@@ -1265,7 +1229,7 @@ export default function PrepListPage() {
                       </div>
 
                       <div style={{ marginTop: 6, fontSize: 14, color: UI.text }}>
-                        {job.location} · <span style={{ fontWeight: 800 }}>{job.status}</span>
+                        {job.location} · <span className={layoutStyles.extracted13}>{job.status}</span>
                       </div>
 
                       <div style={{ marginTop: 6, fontSize: 13, color: UI.muted }}>
@@ -1278,8 +1242,8 @@ export default function PrepListPage() {
                             marginTop: 8,
                             fontSize: 13,
                             color: UI.text,
-                            background: "var(--legacy-color-f8fafc)",
-                            border: "1px solid var(--legacy-color-e5e7eb)",
+                            background: "var(--color-surface-subtle)",
+                            border: "1px solid var(--color-border)",
                             borderRadius: 8,
                             padding: "8px 10px",
                             maxWidth: 900,
@@ -1290,8 +1254,8 @@ export default function PrepListPage() {
                       ) : null}
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>
+                    <div className={layoutStyles.extracted14}>
+                      <span style={badge("var(--color-info-soft)", "var(--color-brand)")}>
                         Vehicles still to prep: {job.vehicles.length}
                       </span>
                       {job.isManual && <span style={badge(UI.purpleBg, UI.purple)}>MANUAL</span>}
@@ -1313,9 +1277,9 @@ export default function PrepListPage() {
                             ...buttonBase,
                             padding: "6px 10px",
                             fontSize: 12,
-                            background: "var(--legacy-color-fff1f2)",
-                            borderColor: "var(--legacy-color-fecaca)",
-                            color: "var(--legacy-color-9f1239)",
+                            background: "var(--color-danger-soft)",
+                            borderColor: "var(--color-danger-border)",
+                            color: "var(--color-danger)",
                           }}
                           onClick={() => removeManualEntry(job.manualIds[0])}
                         >
@@ -1347,23 +1311,13 @@ export default function PrepListPage() {
                       return (
                         <section
                           key={s.sectionKey}
-                          className="prep-section"
-                          style={{
-                            border: "1px solid var(--legacy-color-e5e7eb)",
-                            padding: 14,
-                            background: "transparent",
-                            borderRadius: 10,
-                          }}
+                          className={`prep-section ${layoutStyles.extracted15}`}
+                          
                         >
                           <div
-                            style={{
-                              display: "flex",
-                              alignItems: "baseline",
-                              justifyContent: "space-between",
-                              gap: 12,
-                            }}
+                            className={layoutStyles.extracted16}
                           >
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <div className={layoutStyles.extracted17}>
                               <h2
                                 className="prep-vehicle-title"
                                 style={{
@@ -1379,8 +1333,8 @@ export default function PrepListPage() {
 
                               <span style={badge(UI.redBg, UI.red)}>NEEDS PREP</span>
                               {isReady && <span style={badge(UI.blueBg, UI.blue)}>READY</span>}
-                              {isRemoved && <span style={badge("var(--legacy-color-fff1f2)", "var(--legacy-color-9f1239)")}>REMOVED</span>}
-                              {isArchived && <span style={badge("var(--legacy-color-f3e8ff)", "var(--legacy-color-6d28d9)")}>ARCHIVED</span>}
+                              {isRemoved && <span style={badge("var(--color-danger-soft)", "var(--color-danger)")}>REMOVED</span>}
+                              {isArchived && <span style={badge("var(--color-brand-soft)", "var(--color-info)")}>ARCHIVED</span>}
                             </div>
 
                             <span style={{ fontSize: 14, color: UI.muted, fontWeight: 700 }}>
@@ -1394,8 +1348,8 @@ export default function PrepListPage() {
                                 marginTop: 10,
                                 fontSize: 13,
                                 color: UI.text,
-                                background: "var(--legacy-color-eff6ff)",
-                                border: "1px solid var(--legacy-color-bfdbfe)",
+                                background: "var(--color-info-soft)",
+                                border: "1px solid var(--color-info-border)",
                                 borderRadius: 8,
                                 padding: "8px 10px",
                               }}
@@ -1404,16 +1358,16 @@ export default function PrepListPage() {
                             </div>
                           ) : null}
 
-                          <div className="no-print" style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div className={`no-print ${layoutStyles.extracted18}`} >
                             <button
                               type="button"
                               style={{
                                 ...buttonBase,
                                 padding: "6px 10px",
                                 fontSize: 12,
-                                background: "var(--legacy-color-ecfdf5)",
-                                borderColor: "var(--legacy-color-86efac)",
-                                color: "var(--legacy-color-166534)",
+                                background: "var(--color-success-soft)",
+                                borderColor: "var(--color-success-border)",
+                                color: "var(--color-success)",
                               }}
                               onClick={() => toggleComplete(s.sectionKey)}
                             >
@@ -1426,9 +1380,9 @@ export default function PrepListPage() {
                                 ...buttonBase,
                                 padding: "6px 10px",
                                 fontSize: 12,
-                                background: isReady ? "var(--legacy-color-dbeafe)" : "var(--legacy-color-fff)",
-                                borderColor: "var(--legacy-color-93c5fd)",
-                                color: "var(--legacy-color-1d4ed8)",
+                                background: isReady ? "var(--color-brand-soft)" : "var(--color-surface)",
+                                borderColor: "var(--color-info-border)",
+                                color: "var(--color-brand)",
                               }}
                               onClick={() => toggleReady(s.sectionKey)}
                             >
@@ -1441,9 +1395,9 @@ export default function PrepListPage() {
                                 ...buttonBase,
                                 padding: "6px 10px",
                                 fontSize: 12,
-                                background: isRemoved ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-fff1f2)",
-                                borderColor: isRemoved ? "var(--legacy-color-86efac)" : "var(--legacy-color-fecaca)",
-                                color: isRemoved ? "var(--legacy-color-166534)" : "var(--legacy-color-9f1239)",
+                                background: isRemoved ? "var(--color-success-soft)" : "var(--color-danger-soft)",
+                                borderColor: isRemoved ? "var(--color-success-border)" : "var(--color-danger-border)",
+                                color: isRemoved ? "var(--color-success)" : "var(--color-danger)",
                               }}
                               onClick={() => toggleRemoved(s.sectionKey)}
                             >
@@ -1451,13 +1405,9 @@ export default function PrepListPage() {
                             </button>
                           </div>
 
-                          <div className="no-print" style={{ marginTop: 12 }}>
+                          <div className={`no-print ${layoutStyles.extracted19}`} >
                             <div
-                              style={{
-                                display: "grid",
-                                gap: 8,
-                                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                              }}
+                              className={layoutStyles.extracted20}
                             >
                               <input
                                 type="text"
@@ -1477,21 +1427,21 @@ export default function PrepListPage() {
                             </div>
                           </div>
 
-                          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                          <div className={layoutStyles.extracted21}>
                             {(Array.isArray(section.items) ? section.items : []).map((it) => (
-                              <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div key={it.id} className={layoutStyles.extracted22}>
                                 <button
                                   type="button"
                                   onClick={() => toggleItem(s.sectionKey, it.id)}
                                   style={{
                                     width: 24,
                                     height: 24,
-                                    border: "1px solid var(--legacy-color-111827)",
+                                    border: "1px solid var(--color-text)",
                                     borderRadius: 3,
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    background: it.checked ? "var(--legacy-color-bbf7d0)" : "var(--legacy-color-fff)",
+                                    background: it.checked ? "var(--color-success-border)" : "var(--color-surface)",
                                     fontWeight: 900,
                                     cursor: "pointer",
                                   }}
@@ -1506,10 +1456,10 @@ export default function PrepListPage() {
                                   style={{
                                     fontSize: 18,
                                     lineHeight: 1.2,
-                                    color: it.isEquipment ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-111827)",
+                                    color: it.isEquipment ? "var(--color-danger)" : "var(--color-text)",
                                     fontWeight: it.isEquipment ? 900 : 600,
                                     textDecoration: it.isEquipment ? "underline" : "none",
-                                    background: it.checked ? "var(--legacy-color-ecfccb)" : "transparent",
+                                    background: it.checked ? "var(--color-accent-soft)" : "transparent",
                                     padding: "0 4px",
                                     borderRadius: 4,
                                   }}
@@ -1518,19 +1468,10 @@ export default function PrepListPage() {
                                 </div>
 
                                 <button
-                                  className="no-print"
+                                  className={`no-print ${layoutStyles.extracted23}`}
                                   type="button"
                                   onClick={() => removeItem(s.sectionKey, it.id)}
-                                  style={{
-                                    marginLeft: "auto",
-                                    border: "1px solid var(--legacy-color-fecaca)",
-                                    background: "var(--legacy-color-fff1f2)",
-                                    color: "var(--legacy-color-9f1239)",
-                                    borderRadius: 8,
-                                    padding: "6px 8px",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                  }}
+                                  
                                 >
                                   Remove
                                 </button>
@@ -1538,7 +1479,7 @@ export default function PrepListPage() {
                             ))}
                           </div>
 
-                          <div className="no-print" style={{ marginTop: 12 }}>
+                          <div className={`no-print ${layoutStyles.extracted24}`} >
                             <PrepItemPicker
                               onQuickAdd={(item) => addItem(s.sectionKey, item)}
                               onCustomAdd={(text) => addItem(s.sectionKey, text)}

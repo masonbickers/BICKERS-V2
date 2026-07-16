@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -17,19 +18,11 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  page: "var(--legacy-color-ffffff)",
-  paper: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-111827)",
-  muted: "var(--legacy-color-5f6f82)",
-  border: "var(--legacy-color-111827)",
-  grid: "var(--legacy-color-9ca3af)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-};
+const UI = UI_TOKENS;
 
-const QUOTE_SECTION_GREY = "var(--legacy-color-bfbfbf)";
+const QUOTE_SECTION_GREY = "var(--shell-muted)";
 const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "50%"];
 const DEFAULT_DISCOUNT = "10%";
 
@@ -592,23 +585,23 @@ const buildBlankQuote = (booking = {}, quoteNumber = "") =>
 
 const SectionBreak = ({ children, canDiscount = false, hasDiscount = false, onAddLine, onAddDiscount, onRemoveDiscount, readOnly = false }) => (
   <tr>
-    <td colSpan={4} style={sectionCell}>
-      <div style={sectionCellInner}>
-        <span style={sectionCellTitle}>{children}</span>
+    <td colSpan={4} className={layoutStyles.extracted1}>
+      <div className={layoutStyles.extracted2}>
+        <span className={layoutStyles.extracted3}>{children}</span>
         {!readOnly ? (
-          <span className="quote-section-actions" style={quoteSectionActions}>
-            <button type="button" onClick={onAddLine} style={quoteSectionButton}>
+          <span className={`quote-section-actions ${layoutStyles.extracted4}`} >
+            <button type="button" onClick={onAddLine} className={layoutStyles.extracted5}>
               <Plus size={12} />
               Line
             </button>
             {canDiscount ? (
-              <button type="button" onClick={onAddDiscount} style={quoteSectionButton}>
+              <button type="button" onClick={onAddDiscount} className={layoutStyles.extracted6}>
                 <Percent size={12} />
                 Discount
               </button>
             ) : null}
             {canDiscount && hasDiscount ? (
-              <button type="button" onClick={onRemoveDiscount} style={quoteSectionDangerButton}>
+              <button type="button" onClick={onRemoveDiscount} className={layoutStyles.extracted7}>
                 <Trash2 size={12} />
                 Discount
               </button>
@@ -621,7 +614,7 @@ const SectionBreak = ({ children, canDiscount = false, hasDiscount = false, onAd
 );
 
 const InfoField = ({ label, value }) => (
-  <div style={screenInfoCell}>
+  <div className={layoutStyles.extracted8}>
     <div style={screenInfoLabel}>{label}</div>
     <div style={screenInfoValue}>{value}</div>
   </div>
@@ -1241,12 +1234,12 @@ export default function QuotePage() {
   };
   const quoteSummaryHeader = (
     <>
-      <div style={summaryHeader}>
+      <div className={layoutStyles.extracted9}>
         <div>
           <div style={summaryEyebrow}>Quote Summary</div>
           <h2 style={summaryTitle}>{booking.jobNumber || "No job number"}</h2>
         </div>
-        <div style={summaryStatus}>{currentSavedQuote ? `${quote.status || "Draft"} saved` : quote.status || "Draft"}</div>
+        <div className={layoutStyles.extracted10}>{currentSavedQuote ? `${quote.status || "Draft"} saved` : quote.status || "Draft"}</div>
       </div>
     </>
   );
@@ -1255,18 +1248,18 @@ export default function QuotePage() {
       <div ref={pageRef} className="quote-print-page" style={isEmbedded ? embeddedPageWrap : pageWrap}>
         {isViewMode ? (
           <div className="quote-print-toolbar" style={isEmbedded ? embeddedViewToolbar : viewToolbar}>
-            <div style={toolbarTop}>
+            <div className={layoutStyles.extracted11}>
               <button type="button" onClick={() => router.push(`/edit-booking/${booking.id}`)} style={backButton}>
                 <ArrowLeft size={16} />
                 Booking
               </button>
-              <div style={toolbarTitleBlock}>
+              <div className={layoutStyles.extracted12}>
                 <div style={toolbarEyebrow}>Quote View</div>
                 <div style={toolbarTitle}>
                   {booking.jobNumber || "New quote"} - {currentQuoteName || booking.client || "No quote name"}
                 </div>
               </div>
-              <div style={toolbarActions}>
+              <div className={layoutStyles.extracted13}>
                 <button type="button" onClick={() => window.print()} style={ghostButton}>
                   <Printer size={16} />
                   Print
@@ -1288,13 +1281,13 @@ export default function QuotePage() {
             </div>
           </div>
         ) : (
-        <div className="quote-print-toolbar" style={toolbar}>
-          <div style={toolbarTop}>
+        <div className={`quote-print-toolbar ${layoutStyles.extracted14}`} >
+          <div className={layoutStyles.extracted15}>
             <button type="button" onClick={() => router.push(`/edit-booking/${booking.id}`)} style={backButton}>
               <ArrowLeft size={16} />
               Booking
             </button>
-            <div style={toolbarTitleBlock}>
+            <div className={layoutStyles.extracted16}>
               <div style={toolbarEyebrow}>Quote Builder</div>
               <div style={toolbarTitle}>
                 {booking.jobNumber || "New quote"} - {currentQuoteName || booking.client || "No quote name"}
@@ -1303,8 +1296,8 @@ export default function QuotePage() {
             <div style={toolbarMeta}>{quoteDate()}</div>
           </div>
 
-          <div style={toolbarBottom}>
-            <div style={toolbarQuoteGroup}>
+          <div className={layoutStyles.extracted17}>
+            <div className={layoutStyles.extracted18}>
               <div style={toolbarVersionBadge}>{versionBadgeText}</div>
               <select
                 value={currentQuoteNumber}
@@ -1341,8 +1334,8 @@ export default function QuotePage() {
               placeholder="Quote name, e.g. Sprinter No.1 - Video Pursuit"
               title="Quote name"
             />
-            <div style={toolbarTemplateGroup}>
-              <label style={templateSearchWrap}>
+            <div className={layoutStyles.extracted19}>
+              <label className={layoutStyles.extracted20}>
                 <Search size={16} style={templateSearchIcon} />
                 <input
                   value={templateSearch}
@@ -1370,7 +1363,7 @@ export default function QuotePage() {
                 </button>
               ) : null}
             </div>
-            <div style={toolbarStatusGroup}>
+            <div className={layoutStyles.extracted21}>
               <select
                 value={quote.status || "Draft"}
                 onChange={(event) => updateQuote({ status: event.target.value })}
@@ -1383,7 +1376,7 @@ export default function QuotePage() {
                 <option value="Lost">Lost</option>
               </select>
             </div>
-            <div style={toolbarActions}>
+            <div className={layoutStyles.extracted22}>
               <button type="button" onClick={() => window.print()} style={ghostButton}>
                 <Printer size={16} />
                 Print
@@ -1417,9 +1410,9 @@ export default function QuotePage() {
         )}
 
         {!isViewMode ? (
-        <div className="quote-screen-editor" style={screenEditor}>
-          <section style={screenQuoteTop}>
-            <div style={screenHeaderGrid}>
+        <div className={`quote-screen-editor ${layoutStyles.extracted23}`} >
+          <section className={layoutStyles.extracted24}>
+            <div className={layoutStyles.extracted25}>
               <InfoField label="Quote Date" value={quoteDate()} />
               <InfoField label="Job No" value={booking.jobNumber || "-"} />
               <InfoField label="Quote No" value={visibleQuoteNumber || "-"} />
@@ -1438,7 +1431,7 @@ export default function QuotePage() {
               <InfoField label="Bickers Contact" value={quote.bickersContact || "Adam Eastall"} />
             </div>
 
-            <div style={screenDescriptionBar}>
+            <div className={layoutStyles.extracted26}>
               <label style={screenFieldLabel}>
                 Description of services
                 <input
@@ -1448,7 +1441,7 @@ export default function QuotePage() {
                   placeholder="Description of services"
                 />
               </label>
-              <div style={screenTotal}>
+              <div className={layoutStyles.extracted27}>
                 <span>Total Price</span>
                 <strong>£{money(subtotal)}</strong>
               </div>
@@ -1465,15 +1458,15 @@ export default function QuotePage() {
           </section>
 
           {screenSections.length ? (
-            <div style={screenSectionsStack}>
+            <div className={layoutStyles.extracted28}>
               {screenSections.map((section) => {
                 const sectionHasDiscount = section.rows.some((row) => isDiscountLine(row.item));
                 const canDiscountSection = isEquipmentSection(section.section);
                 return (
-                <section key={section.section} style={screenSectionBlock}>
-                  <div style={screenSectionHeader}>
+                <section key={section.section} className={layoutStyles.extracted29}>
+                  <div className={layoutStyles.extracted30}>
                     <h3 style={screenSectionTitle}>{section.section}</h3>
-                    <div style={screenSectionActions}>
+                    <div className={layoutStyles.extracted31}>
                       <button type="button" onClick={() => addLine(section.section)} style={screenSectionButton}>
                         <Plus size={13} />
                         Line
@@ -1496,7 +1489,7 @@ export default function QuotePage() {
                       ) : null}
                     </div>
                   </div>
-                  <div style={screenLinesOneCol}>
+                  <div className={layoutStyles.extracted32}>
                     {section.rows.map((row) => {
                       const item = row.item;
                       const isDiscount = isDiscountLine(item);
@@ -1564,7 +1557,7 @@ export default function QuotePage() {
                             <option value="production">Production</option>
                             <option value="foc">FOC</option>
                           </select>
-                          <div style={screenRowActions}>
+                          <div className={layoutStyles.extracted33}>
                             <button
                               type="button"
                               onClick={() => moveLine(row.index, -1)}
@@ -1583,7 +1576,7 @@ export default function QuotePage() {
                             >
                               <ArrowDown size={13} />
                             </button>
-                            <button type="button" onClick={() => removeLine(row.index)} style={screenIconButton} title="Remove line">
+                            <button type="button" onClick={() => removeLine(row.index)} className={layoutStyles.extracted34} title="Remove line">
                             <Trash2 size={14} />
                             </button>
                           </div>
@@ -1596,7 +1589,7 @@ export default function QuotePage() {
               })}
             </div>
           ) : (
-            <section style={screenPanel}>
+            <section className={layoutStyles.extracted35}>
               <div style={screenEmpty}>Select a quote template to load line items.</div>
             </section>
           )}
@@ -1611,9 +1604,9 @@ export default function QuotePage() {
         <aside className="quote-summary-panel quote-summary-panel-left" style={leftSummaryPanel}>
           {quoteSummaryHeader}
 
-          <div style={summarySection}>
+          <div className={layoutStyles.extracted36}>
             <h3 style={summarySectionTitle}>Quote Version</h3>
-            <div style={bookingSummaryRows}>
+            <div className={layoutStyles.extracted37}>
               <div style={bookingSummaryRow}>
                 <span>Version</span>
                 <strong>{visibleQuoteNumber || "-"}</strong>
@@ -1648,73 +1641,73 @@ export default function QuotePage() {
           style={paper}
         >
           <div className="quote-print-frame" style={isEmbedded ? embeddedPrintFrame : printFrame}>
-          <div style={quoteBanner}>
+          <div className={layoutStyles.extracted38}>
             {/* eslint-disable-next-line @next/next/no-img-element -- Raw img is more reliable in browser print/PDF preview. */}
             <img
               src="/quote-carbon-header.png"
               alt="Bickers Action quotation"
-              style={quoteBannerImage}
+              className={layoutStyles.extracted39}
             />
           </div>
 
-          <table style={headerTable}>
+          <table className={layoutStyles.extracted40}>
             <tbody>
               <tr>
-                <td style={labelCell}>Quote Date</td>
-                <td style={labelCell}>Job No</td>
-                <td style={labelCell}>Quote No</td>
+                <td className={layoutStyles.extracted41}>Quote Date</td>
+                <td className={layoutStyles.extracted42}>Job No</td>
+                <td className={layoutStyles.extracted43}>Quote No</td>
               </tr>
               <tr>
-                <td style={valueCell}>{quoteDate()}</td>
-                <td style={valueCell}>{booking.jobNumber || ""}</td>
-                <td style={valueCell}>{visibleQuoteNumber}</td>
+                <td className={layoutStyles.extracted44}>{quoteDate()}</td>
+                <td className={layoutStyles.extracted45}>{booking.jobNumber || ""}</td>
+                <td className={layoutStyles.extracted46}>{visibleQuoteNumber}</td>
               </tr>
               <tr>
-                <td style={labelCell}>Production Company</td>
-                <td style={labelCell}>Production</td>
-                <td style={labelCell}>Production Contact</td>
+                <td className={layoutStyles.extracted47}>Production Company</td>
+                <td className={layoutStyles.extracted48}>Production</td>
+                <td className={layoutStyles.extracted49}>Production Contact</td>
               </tr>
               <tr>
-                <td style={valueCell}>{booking.client || ""}</td>
-                <td style={valueCell}>{booking.production || ""}</td>
-                <td style={valueCell}>
+                <td className={layoutStyles.extracted50}>{booking.client || ""}</td>
+                <td className={layoutStyles.extracted51}>{booking.production || ""}</td>
+                <td className={layoutStyles.extracted52}>
                   {Array.isArray(booking.additionalContacts) && booking.additionalContacts[0]?.name
                     ? booking.additionalContacts[0].name
                     : ""}
                 </td>
               </tr>
               <tr>
-                <td style={labelCell}>Location</td>
-                <td style={labelCell}>Shoot Dates</td>
-                <td style={labelCell}>Bickers Contact</td>
+                <td className={layoutStyles.extracted53}>Location</td>
+                <td className={layoutStyles.extracted54}>Shoot Dates</td>
+                <td className={layoutStyles.extracted55}>Bickers Contact</td>
               </tr>
               <tr>
-                <td style={valueCell}>{booking.location || ""}</td>
-                <td style={valueCell}>{formatBookingDates(booking)}</td>
-                <td style={valueCell}>{quote.bickersContact || "Adam Eastall"}</td>
+                <td className={layoutStyles.extracted56}>{booking.location || ""}</td>
+                <td className={layoutStyles.extracted57}>{formatBookingDates(booking)}</td>
+                <td className={layoutStyles.extracted58}>{quote.bickersContact || "Adam Eastall"}</td>
               </tr>
             </tbody>
           </table>
 
-          <div style={descriptionLabel}>Description of Services</div>
+          <div className={layoutStyles.extracted59}>Description of Services</div>
           {isViewMode ? (
-            <div style={serviceInput}>{quote.templateName || ""}</div>
+            <div className={layoutStyles.extracted60}>{quote.templateName || ""}</div>
           ) : (
             <input
               value={quote.templateName || ""}
               onChange={(event) => updateQuote({ templateName: event.target.value })}
-              style={serviceInput}
+              className={layoutStyles.extracted61}
               placeholder="Description of services"
             />
           )}
 
-          <table style={quoteTable}>
+          <table className={layoutStyles.extracted62}>
             <thead>
               <tr>
-                <th style={descriptionHeader}>DESCRIPTION</th>
-                <th style={qtyHeader}>QTY</th>
-                <th style={unitPriceHeader}>UNIT PRICE</th>
-                <th style={totalHeader}>TOTAL</th>
+                <th className={layoutStyles.extracted63}>DESCRIPTION</th>
+                <th className={layoutStyles.extracted64}>QTY</th>
+                <th className={layoutStyles.extracted65}>UNIT PRICE</th>
+                <th className={layoutStyles.extracted66}>TOTAL</th>
               </tr>
             </thead>
             <tbody>
@@ -1748,7 +1741,7 @@ export default function QuotePage() {
                   return (
                     <tr key={row.key} className="quote-spreadsheet-row">
                       <td style={cellStyle}>
-                        <div style={quoteLineDescriptionWrap}>
+                        <div className={layoutStyles.extracted67}>
                           {isViewMode ? (
                             <div className={isDiscount ? "quote-discount-input" : ""} style={inputStyle}>
                               {item.description || ""}
@@ -1764,8 +1757,8 @@ export default function QuotePage() {
                               <button
                                 type="button"
                                 onClick={() => removeLine(row.index)}
-                                className="quote-line-actions"
-                                style={quoteLineDeleteButton}
+                                className={`quote-line-actions ${layoutStyles.extracted68}`}
+                                
                                 title="Delete line"
                               >
                                 <Trash2 size={11} />
@@ -1795,10 +1788,10 @@ export default function QuotePage() {
                           </div>
                         ) : isDiscount ? (
                           <select
-                            className="quote-spreadsheet-input quote-spreadsheet-select quote-discount-input"
+                            className={`quote-spreadsheet-input quote-spreadsheet-select quote-discount-input ${layoutStyles.extracted69}`}
                             value={DISCOUNT_OPTIONS.includes(item.unitPrice) ? item.unitPrice : DEFAULT_DISCOUNT}
                             onChange={(event) => updateLineItem(row.index, { unitPrice: event.target.value })}
-                            style={discountMoneyInput}
+                            
                             title="Discount percentage"
                           >
                             {DISCOUNT_OPTIONS.map((option) => (
@@ -1851,45 +1844,45 @@ export default function QuotePage() {
             </tbody>
           </table>
 
-          <div style={quotePrintSpacer}></div>
+          <div className={layoutStyles.extracted70}></div>
 
-          <div style={quoteFooter}>
-            <div style={footerBlackFill}></div>
-            <div style={totalRows}>
-              <div style={totalRow}>
+          <div className={layoutStyles.extracted71}>
+            <div className={layoutStyles.extracted72}></div>
+            <div className={layoutStyles.extracted73}>
+              <div className={layoutStyles.extracted74}>
                 <span>Total Price £</span>
                 <strong>{money(subtotal)}</strong>
               </div>
-              <div style={vatText}>Excludes VAT</div>
+              <div className={layoutStyles.extracted75}>Excludes VAT</div>
             </div>
           </div>
 
           {quote.notes ? (
             isViewMode ? (
-              <div style={notesInput}>{quote.notes || ""}</div>
+              <div className={layoutStyles.extracted76}>{quote.notes || ""}</div>
             ) : (
               <textarea
                 value={quote.notes || ""}
                 onChange={(event) => updateQuote({ notes: event.target.value })}
-                style={notesInput}
+                className={layoutStyles.extracted77}
                 placeholder="Quote notes..."
               />
             )
           ) : null}
 
-          <div style={warningBox}>
+          <div className={layoutStyles.extracted78}>
             ALL TRACKING ACTIVITY ON A PUBLIC HIGHWAY MUST HAVE THE APPROVAL OF THE POLICE & LOCAL AUTHORITY
           </div>
 
-          <div style={contactFooter}>
-            <div style={contactText}>For more information,<br />please contact us</div>
-            <div style={contactPair}>
-              <span style={contactLabel}>Tel</span>
-              <span style={contactValue}>+44 (0) 1449 761300</span>
+          <div className={layoutStyles.extracted79}>
+            <div className={layoutStyles.extracted80}>For more information,<br />please contact us</div>
+            <div className={layoutStyles.extracted81}>
+              <span className={layoutStyles.extracted82}>Tel</span>
+              <span className={layoutStyles.extracted83}>+44 (0) 1449 761300</span>
             </div>
-            <div style={contactPair}>
-              <span style={contactLabel}>Web</span>
-              <span style={contactValue}>www.bickers.co.uk</span>
+            <div className={layoutStyles.extracted84}>
+              <span className={layoutStyles.extracted85}>Web</span>
+              <span className={layoutStyles.extracted86}>www.bickers.co.uk</span>
             </div>
           </div>
           </div>
@@ -1899,9 +1892,9 @@ export default function QuotePage() {
         <aside className="quote-summary-panel" style={summaryPanel}>
           {quoteSummaryHeader}
 
-          <div style={summarySection}>
+          <div className={layoutStyles.extracted87}>
             <h3 style={summarySectionTitle}>Booking Summary</h3>
-            <div style={bookingSummaryRows}>
+            <div className={layoutStyles.extracted88}>
               <div style={bookingSummaryRow}>
                 <span>Job No</span>
                 <strong>{booking.jobNumber || "-"}</strong>
@@ -1939,7 +1932,7 @@ export default function QuotePage() {
                 {getDayNoteRows(booking).length ? (
                   <div style={dayNotesList}>
                     {getDayNoteRows(booking).map((row) => (
-                      <div key={`${row.date}-${row.note}`} style={dayNoteRow}>
+                      <div key={`${row.date}-${row.note}`} className={layoutStyles.extracted89}>
                         <strong>{row.date}</strong>
                         <span>{row.note}</span>
                       </div>
@@ -1958,14 +1951,14 @@ export default function QuotePage() {
             </div>
           </div>
 
-          <div style={summarySection}>
+          <div className={layoutStyles.extracted90}>
             <h3 style={summarySectionTitle}>Line Items</h3>
             {screenSections.length ? (
-              <div style={summaryList}>
+              <div className={layoutStyles.extracted91}>
                 {screenSections.map((section) => {
                   const sectionTotal = calculateSubtotal(section.rows.map((row) => row.item));
                   return (
-                    <div key={section.section} style={summaryRow}>
+                    <div key={section.section} className={layoutStyles.extracted92}>
                       <span>{section.section}</span>
                       <strong>{section.rows.length} lines - £{money(sectionTotal)}</strong>
                     </div>
@@ -1977,7 +1970,7 @@ export default function QuotePage() {
             )}
           </div>
 
-          <div style={summarySection}>
+          <div className={layoutStyles.extracted93}>
             <h3 style={summarySectionTitle}>Description</h3>
             <div style={summaryText}>{quote.templateName || "No description selected."}</div>
           </div>
@@ -1988,13 +1981,13 @@ export default function QuotePage() {
           @media screen {
             html,
             body {
-              background: var(--legacy-color-fff) !important;
+              background: var(--color-surface) !important;
             }
 
             .quote-print-page {
               min-height: calc(100vh - 72px);
               overflow: auto !important;
-              background: var(--legacy-color-fff) !important;
+              background: var(--color-surface) !important;
             }
 
             footer {
@@ -2003,7 +1996,7 @@ export default function QuotePage() {
 
             .quote-scale-shell {
               display: flex !important;
-              background: var(--legacy-color-fff) !important;
+              background: var(--color-surface) !important;
             }
 
             .quote-scale-shell .quote-print-paper {
@@ -2053,7 +2046,7 @@ export default function QuotePage() {
 
           @media print {
             body {
-              background: var(--legacy-color-fff) !important;
+              background: var(--color-surface) !important;
               margin: 0 !important;
               overflow: visible !important;
             }
@@ -2092,7 +2085,7 @@ export default function QuotePage() {
 
             .quote-print-page {
               padding: 0 !important;
-              background: var(--legacy-color-fff) !important;
+              background: var(--color-surface) !important;
               overflow: visible !important;
             }
 
@@ -2105,7 +2098,7 @@ export default function QuotePage() {
               display: block !important;
               box-shadow: none !important;
               border: none !important;
-              color: var(--legacy-color-000) !important;
+              color: var(--color-text) !important;
               box-sizing: border-box !important;
               transform: none !important;
               break-inside: avoid;
@@ -2116,8 +2109,8 @@ export default function QuotePage() {
               width: 182mm !important;
               height: 259mm !important;
               margin: 19mm auto 0 !important;
-              border: 1px solid var(--legacy-color-000) !important;
-              background: var(--legacy-color-fff) !important;
+              border: 1px solid var(--color-border-strong) !important;
+              background: var(--color-surface) !important;
               box-sizing: border-box !important;
               display: flex !important;
               flex-direction: column !important;
@@ -2175,14 +2168,14 @@ export default function QuotePage() {
           }
 
           .quote-spreadsheet-row:hover .quote-spreadsheet-input {
-            background: var(--legacy-color-f7fbff) !important;
+            background: var(--color-surface-subtle) !important;
           }
 
           .quote-spreadsheet-row:hover .quote-discount-input,
           .quote-discount-input:hover,
           .quote-discount-input:focus {
-            background: var(--legacy-color-ff0000) !important;
-            color: var(--legacy-color-fff) !important;
+            background: var(--color-danger) !important;
+            color: var(--color-white) !important;
           }
 
           .quote-print-paper table tr > :first-child {
@@ -2194,17 +2187,17 @@ export default function QuotePage() {
           }
 
           .quote-spreadsheet-input:focus {
-            background: var(--legacy-color-fff) !important;
-            outline: 2px solid var(--legacy-color-217346) !important;
+            background: var(--color-surface) !important;
+            outline: 2px solid var(--color-success) !important;
             outline-offset: -2px !important;
           }
 
           .quote-spreadsheet-select:focus {
-            color: var(--legacy-color-000) !important;
+            color: var(--color-text) !important;
           }
 
           .quote-spreadsheet-select.quote-discount-input:focus {
-            color: var(--legacy-color-fff) !important;
+            color: var(--color-white) !important;
           }
         `}</style>
       </div>
@@ -2235,16 +2228,16 @@ const screenEditor = {
 };
 
 const screenPanel = {
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-d7dee8)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
   padding: 10,
 };
 
 const screenQuoteTop = {
-  background: "var(--legacy-color-fff)",
-  border: "2px solid var(--legacy-color-000)",
+  background: "var(--color-surface)",
+  border: "2px solid var(--color-border-strong)",
   borderRadius: 2,
   overflow: "hidden",
 };
@@ -2254,9 +2247,9 @@ const screenTotal = {
   display: "grid",
   gap: 2,
   textAlign: "right",
-  color: "var(--legacy-color-fff)",
-  background: "var(--legacy-color-000)",
-  border: "1px solid var(--legacy-color-000)",
+  color: "var(--color-white)",
+  background: "var(--shell-sidebar-bg)",
+  border: "1px solid var(--color-border-strong)",
   padding: "5px 10px",
   fontSize: 11,
   fontWeight: 800,
@@ -2266,13 +2259,13 @@ const screenTotal = {
 const screenHeaderGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  borderBottom: "2px solid var(--legacy-color-000)",
+  borderBottom: "2px solid var(--color-border-strong)",
 };
 
 const screenInfoCell = {
-  borderRight: "2px solid var(--legacy-color-000)",
-  borderBottom: "1px solid var(--legacy-color-000)",
-  background: "var(--legacy-color-fff)",
+  borderRight: "2px solid var(--color-border-strong)",
+  borderBottom: "1px solid var(--color-border-strong)",
+  background: "var(--color-surface)",
   minHeight: 40,
   textAlign: "center",
   overflow: "hidden",
@@ -2280,7 +2273,7 @@ const screenInfoCell = {
 
 const screenInfoLabel = {
   color: UI.text,
-  background: "var(--legacy-color-c7c7c7)",
+  background: "var(--shell-muted)",
   fontSize: 11,
   fontWeight: 900,
   lineHeight: 1,
@@ -2314,7 +2307,7 @@ const screenFieldLabel = {
 
 const screenInput = {
   height: 28,
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 4,
   padding: "4px 7px",
   color: UI.text,
@@ -2331,8 +2324,8 @@ const screenSectionsStack = {
 };
 
 const screenSectionBlock = {
-  background: "var(--legacy-color-fff)",
-  border: "2px solid var(--legacy-color-000)",
+  background: "var(--color-surface)",
+  border: "2px solid var(--color-border-strong)",
   borderRadius: 2,
   overflow: "hidden",
 };
@@ -2342,8 +2335,8 @@ const screenSectionHeader = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 6,
-  background: "var(--legacy-color-c7c7c7)",
-  borderBottom: "1px solid var(--legacy-color-000)",
+  background: "var(--shell-muted)",
+  borderBottom: "1px solid var(--color-border-strong)",
   padding: "5px 8px",
 };
 
@@ -2369,9 +2362,9 @@ const screenSectionButton = {
   alignItems: "center",
   justifyContent: "center",
   gap: 3,
-  border: "1px solid var(--legacy-color-94a3b8)",
+  border: "1px solid var(--shell-muted)",
   borderRadius: 4,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   padding: "3px 6px",
   fontSize: 10,
@@ -2381,9 +2374,9 @@ const screenSectionButton = {
 
 const screenSectionDangerButton = {
   ...screenSectionButton,
-  border: "1px solid var(--legacy-color-fecaca)",
-  background: "var(--legacy-color-fff7f7)",
-  color: "var(--legacy-color-b91c1c)",
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
 };
 
 const screenLinesOneCol = {
@@ -2397,22 +2390,22 @@ const screenLineCard = {
   gridTemplateColumns: "minmax(0, 1fr) 54px 70px 86px 84px",
   gap: 4,
   alignItems: "center",
-  background: "var(--legacy-color-fff)",
-  borderBottom: "1px solid var(--legacy-color-000)",
+  background: "var(--color-surface)",
+  borderBottom: "1px solid var(--color-border-strong)",
   padding: 4,
   minWidth: 0,
 };
 
 const screenDiscountLineCard = {
   ...screenLineCard,
-  background: "var(--legacy-color-ff0000)",
-  borderBottom: "1px solid var(--legacy-color-b40000)",
+  background: "var(--color-danger)",
+  borderBottom: "1px solid var(--color-danger)",
 };
 
 const screenLineDescription = {
   minWidth: 0,
   height: 26,
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 5,
   padding: "4px 6px",
   fontSize: 11.5,
@@ -2421,15 +2414,15 @@ const screenLineDescription = {
 
 const screenDiscountLineDescription = {
   ...screenLineDescription,
-  background: "var(--legacy-color-ff0000)",
-  border: "1px solid var(--legacy-color-ff0000)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--color-danger)",
+  border: "1px solid var(--color-danger)",
+  color: "var(--color-white)",
   fontWeight: 900,
 };
 
 const screenSmallInput = {
   height: 26,
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 5,
   padding: "4px 5px",
   fontSize: 11.5,
@@ -2439,27 +2432,27 @@ const screenSmallInput = {
 
 const screenDiscountSmallInput = {
   ...screenSmallInput,
-  background: "var(--legacy-color-ff0000)",
-  border: "1px solid var(--legacy-color-ff0000)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--color-danger)",
+  border: "1px solid var(--color-danger)",
+  color: "var(--color-white)",
   fontWeight: 900,
 };
 
 const screenTotalSelect = {
   height: 26,
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 5,
   padding: "3px 4px",
   fontSize: 11,
   color: UI.text,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
 const screenDiscountTotalSelect = {
   ...screenTotalSelect,
-  background: "var(--legacy-color-ff0000)",
-  border: "1px solid var(--legacy-color-ff0000)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--color-danger)",
+  border: "1px solid var(--color-danger)",
+  color: "var(--color-white)",
   fontWeight: 900,
 };
 
@@ -2469,10 +2462,10 @@ const screenIconButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid var(--legacy-color-fecaca)",
+  border: "1px solid var(--color-danger-border)",
   borderRadius: 5,
-  background: "var(--legacy-color-fff1f2)",
-  color: "var(--legacy-color-b91c1c)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
   cursor: "pointer",
 };
 
@@ -2510,8 +2503,8 @@ const summaryPanel = {
   flex: "0 0 330px",
   maxWidth: 330,
   minWidth: 300,
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   boxShadow: "0 10px 30px rgba(15,23,42,0.12)",
   padding: 14,
@@ -2549,10 +2542,10 @@ const summaryTitle = {
 };
 
 const summaryStatus = {
-  border: "1px solid var(--legacy-color-bbf7d0)",
+  border: "1px solid var(--color-success-border)",
   borderRadius: 999,
-  background: "var(--legacy-color-ecfdf3)",
-  color: "var(--legacy-color-166534)",
+  background: "var(--color-success-soft)",
+  color: "var(--color-success)",
   padding: "5px 9px",
   fontSize: 11,
   fontWeight: 900,
@@ -2561,8 +2554,8 @@ const summaryStatus = {
 const summaryTotalBox = {
   display: "grid",
   gap: 2,
-  background: "var(--legacy-color-000)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--shell-sidebar-bg)",
+  color: "var(--color-white)",
   padding: "10px 12px",
   marginBottom: 12,
   borderRadius: 6,
@@ -2574,12 +2567,12 @@ const summaryTotalBox = {
 const summaryGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  border: "1px solid var(--legacy-color-000)",
+  border: "1px solid var(--color-border-strong)",
   marginBottom: 12,
 };
 
 const summarySection = {
-  border: "1px solid var(--legacy-color-d7dee8)",
+  border: "1px solid var(--color-border)",
   borderRadius: 6,
   overflow: "hidden",
   marginBottom: 10,
@@ -2587,8 +2580,8 @@ const summarySection = {
 
 const summarySectionTitle = {
   margin: 0,
-  background: "var(--legacy-color-c7c7c7)",
-  borderBottom: "1px solid var(--legacy-color-d7dee8)",
+  background: "var(--shell-muted)",
+  borderBottom: "1px solid var(--color-border)",
   color: UI.text,
   padding: "6px 8px",
   fontSize: 12,
@@ -2603,7 +2596,7 @@ const summaryRow = {
   display: "flex",
   justifyContent: "space-between",
   gap: 8,
-  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
+  borderBottom: "1px solid var(--color-border)",
   padding: "7px 8px",
   fontSize: 12,
   lineHeight: 1.2,
@@ -2617,7 +2610,7 @@ const bookingSummaryRow = {
   display: "flex",
   justifyContent: "space-between",
   gap: 10,
-  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
+  borderBottom: "1px solid var(--color-border)",
   padding: "7px 8px",
   color: UI.muted,
   fontSize: 12,
@@ -2627,7 +2620,7 @@ const bookingSummaryRow = {
 const bookingSummaryBlock = {
   display: "grid",
   gap: 3,
-  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
+  borderBottom: "1px solid var(--color-border)",
   padding: "7px 8px",
   color: UI.muted,
   fontSize: 12,
@@ -2668,8 +2661,8 @@ const toolbar = {
   gap: 10,
   maxWidth: 1680,
   margin: "0 auto 14px",
-  background: "rgba(255,255,255,0.94)",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "color-mix(in srgb, var(--color-surface) 94%, transparent)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 10,
   boxShadow: "0 10px 26px rgba(15,23,42,0.08)",
   padding: 10,
@@ -2717,7 +2710,7 @@ const toolbarVersionBadge = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   background: UI.brandSoft,
   color: UI.brand,
@@ -2731,10 +2724,10 @@ const quoteNameInput = {
   minHeight: 36,
   flex: "1 1 280px",
   minWidth: 240,
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   padding: "7px 10px",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontWeight: 800,
   boxSizing: "border-box",
@@ -2780,8 +2773,8 @@ const toolbarTitle = {
 
 const toolbarMeta = {
   color: UI.muted,
-  background: "var(--legacy-color-f8fafc)",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--color-border)",
   borderRadius: 999,
   padding: "5px 9px",
   fontSize: 11,
@@ -2815,10 +2808,10 @@ const templateSearchIcon = {
 const templateSearchInput = {
   width: "100%",
   minHeight: 36,
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   padding: "7px 9px 7px 34px",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontWeight: 700,
   boxSizing: "border-box",
@@ -2830,9 +2823,9 @@ const ghostButton = {
   gap: 6,
   minHeight: 36,
   minWidth: "max-content",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   padding: "7px 10px",
   fontWeight: 800,
@@ -2848,16 +2841,16 @@ const screenRowActions = {
 
 const screenMoveButton = {
   ...screenIconButton,
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
 const dangerGhostButton = {
   ...ghostButton,
-  border: "1px solid var(--legacy-color-fecaca)",
-  background: "var(--legacy-color-fff7f7)",
-  color: "var(--legacy-color-b91c1c)",
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
 };
 
 const backButton = {
@@ -2869,17 +2862,17 @@ const backButton = {
 const primaryButton = {
   ...ghostButton,
   background: UI.brand,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   border: `1px solid ${UI.brand}`,
 };
 
 const toolbarSelect = {
   minHeight: 36,
   width: "100%",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   padding: "7px 9px",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontWeight: 700,
 };
@@ -2907,8 +2900,8 @@ const printFrame = {
   width: "182mm",
   height: "259mm",
   margin: "19mm auto 0",
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-000)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border-strong)",
   boxSizing: "border-box",
   display: "flex",
   flexDirection: "column",
@@ -2924,8 +2917,8 @@ const quoteBanner = {
   width: "100%",
   height: "28mm",
   flex: "0 0 auto",
-  borderBottom: "3px solid var(--legacy-color-000)",
-  background: "var(--legacy-color-111)",
+  borderBottom: "3px solid var(--color-border-strong)",
+  background: "var(--shell-sidebar-bg)",
 };
 
 const quoteBannerImage = {
@@ -2943,51 +2936,51 @@ const headerTable = {
 };
 
 const labelCell = {
-  borderLeft: "1px solid var(--legacy-color-000)",
-  borderRight: "1px solid var(--legacy-color-000)",
+  borderLeft: "1px solid var(--color-border-strong)",
+  borderRight: "1px solid var(--color-border-strong)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1.08,
   fontWeight: 900,
   textAlign: "center",
   background: QUOTE_SECTION_GREY,
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
 };
 
 const valueCell = {
-  borderLeft: "1px solid var(--legacy-color-000)",
-  borderRight: "1px solid var(--legacy-color-000)",
+  borderLeft: "1px solid var(--color-border-strong)",
+  borderRight: "1px solid var(--color-border-strong)",
   padding: "1px 8px",
   minHeight: 16,
   fontSize: 10.5,
   lineHeight: 1.08,
   textAlign: "center",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-000)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
 };
 
 const descriptionLabel = {
-  borderTop: "1px solid var(--legacy-color-000)",
-  borderBottom: "1px solid var(--legacy-color-000)",
+  borderTop: "1px solid var(--color-border-strong)",
+  borderBottom: "1px solid var(--color-border-strong)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1,
   textAlign: "center",
   fontWeight: 900,
   background: QUOTE_SECTION_GREY,
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
 };
 
 const serviceInput = {
   width: "100%",
   border: "none",
-  borderBottom: "1px solid var(--legacy-color-000)",
+  borderBottom: "1px solid var(--color-border-strong)",
   padding: "1px 8px",
   fontSize: 11.4,
   lineHeight: 1.05,
   fontWeight: 900,
   textAlign: "center",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   marginBottom: 0,
   boxSizing: "border-box",
 };
@@ -2996,14 +2989,14 @@ const quoteTable = {
   width: "100%",
   borderCollapse: "collapse",
   tableLayout: "fixed",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   fontFamily: "Arial, Helvetica, sans-serif",
 };
 
 const descriptionHeader = {
-  border: "1px solid var(--legacy-color-000)",
-  background: "var(--legacy-color-000)",
-  color: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--shell-sidebar-bg)",
+  color: "var(--color-white)",
   padding: "2px 6px",
   textAlign: "left",
   width: "74.1%",
@@ -3033,10 +3026,10 @@ const totalHeader = {
 };
 
 const sectionCell = {
-  borderLeft: "1px solid var(--legacy-color-000)",
-  borderRight: "1px solid var(--legacy-color-000)",
-  borderTop: "1px solid var(--legacy-color-000)",
-  borderBottom: "1px solid var(--legacy-color-000)",
+  borderLeft: "1px solid var(--color-border-strong)",
+  borderRight: "1px solid var(--color-border-strong)",
+  borderTop: "1px solid var(--color-border-strong)",
+  borderBottom: "1px solid var(--color-border-strong)",
   padding: "1px 8px",
   fontWeight: 900,
   textAlign: "center",
@@ -3044,7 +3037,7 @@ const sectionCell = {
   fontSize: 10.2,
   lineHeight: 1,
   height: 14,
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   boxSizing: "border-box",
 };
 
@@ -3075,10 +3068,10 @@ const quoteSectionButton = {
   alignItems: "center",
   justifyContent: "center",
   gap: 2,
-  border: "1px solid var(--legacy-color-64748b)",
+  border: "1px solid var(--color-text-muted)",
   borderRadius: 3,
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-111827)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   padding: "1px 5px",
   fontSize: 9,
   lineHeight: 1,
@@ -3088,17 +3081,17 @@ const quoteSectionButton = {
 
 const quoteSectionDangerButton = {
   ...quoteSectionButton,
-  border: "1px solid var(--legacy-color-fecaca)",
-  background: "var(--legacy-color-fff7f7)",
-  color: "var(--legacy-color-b91c1c)",
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
 };
 
 const quoteCell = {
-  border: "1px solid var(--legacy-color-000)",
+  border: "1px solid var(--color-border-strong)",
   padding: 0,
   verticalAlign: "middle",
   height: 14,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   boxSizing: "border-box",
 };
 
@@ -3108,7 +3101,7 @@ const lineInput = {
   outline: "none",
   fontSize: 10,
   lineHeight: "13px",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   background: "transparent",
   padding: "0 5px",
   margin: 0,
@@ -3131,10 +3124,10 @@ const quoteLineDeleteButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid var(--legacy-color-fecaca)",
+  border: "1px solid var(--color-danger-border)",
   borderRadius: 2,
-  background: "var(--legacy-color-fff7f7)",
-  color: "var(--legacy-color-b91c1c)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
   padding: 0,
   cursor: "pointer",
 };
@@ -3142,7 +3135,7 @@ const quoteLineDeleteButton = {
 const qtyInput = {
   ...lineInput,
   textAlign: "center",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
 };
 
 const moneyInput = {
@@ -3165,20 +3158,20 @@ const totalSelect = {
   appearance: "none",
   WebkitAppearance: "none",
   MozAppearance: "none",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   boxSizing: "border-box",
 };
 
 const discountQuoteCell = {
   ...quoteCell,
-  background: "var(--legacy-color-ff0000)",
-  borderColor: "var(--legacy-color-ff0000)",
+  background: "var(--color-danger)",
+  borderColor: "var(--color-danger)",
 };
 
 const discountLineInput = {
   ...lineInput,
-  color: "var(--legacy-color-fff)",
-  background: "var(--legacy-color-ff0000)",
+  color: "var(--color-white)",
+  background: "var(--color-danger)",
   fontWeight: 900,
 };
 
@@ -3195,8 +3188,8 @@ const discountMoneyInput = {
 
 const discountTotalSelect = {
   ...totalSelect,
-  color: "var(--legacy-color-fff)",
-  background: "var(--legacy-color-ff0000)",
+  color: "var(--color-white)",
+  background: "var(--color-danger)",
   fontWeight: 900,
 };
 
@@ -3217,13 +3210,13 @@ const quoteFooter = {
 const quotePrintSpacer = {
   flex: "1 1 auto",
   minHeight: 0,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
 const footerBlackFill = {
   flex: 1,
   minHeight: 27,
-  background: "var(--legacy-color-000)",
+  background: "var(--shell-sidebar-bg)",
   display: "flex",
   alignItems: "center",
   paddingLeft: 8,
@@ -3231,15 +3224,15 @@ const footerBlackFill = {
 
 const totalRows = {
   minWidth: 210,
-  background: "var(--legacy-color-000)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--shell-sidebar-bg)",
+  color: "var(--color-white)",
 };
 
 const totalRow = {
   display: "flex",
   justifyContent: "space-between",
   gap: 24,
-  borderLeft: "2px solid var(--legacy-color-fff)",
+  borderLeft: "2px solid var(--color-white)",
   padding: "3px 8px 1px",
   fontSize: 11,
   lineHeight: 1,
@@ -3247,7 +3240,7 @@ const totalRow = {
 };
 
 const vatText = {
-  borderLeft: "2px solid var(--legacy-color-fff)",
+  borderLeft: "2px solid var(--color-white)",
   padding: "1px 8px 3px",
   textAlign: "left",
   fontWeight: 900,
@@ -3259,7 +3252,7 @@ const notesInput = {
   minHeight: 36,
   marginTop: 0,
   border: "none",
-  borderTop: "2px solid var(--legacy-color-000)",
+  borderTop: "2px solid var(--color-border-strong)",
   padding: 6,
   fontSize: 11,
   boxSizing: "border-box",
@@ -3267,9 +3260,9 @@ const notesInput = {
 
 const warningBox = {
   margin: "6px 14px 5px",
-  border: "1px solid var(--legacy-color-c7c7c7)",
-  color: "var(--legacy-color-ff0000)",
-  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--shell-muted)",
+  color: "var(--color-danger)",
+  background: "var(--color-surface)",
   textAlign: "center",
   fontWeight: 900,
   fontSize: 9.8,
@@ -3293,7 +3286,7 @@ const contactPair = {
   display: "grid",
   gridTemplateColumns: "78px 1fr",
   alignItems: "center",
-  border: "1px solid var(--legacy-color-d0021b)",
+  border: "1px solid var(--color-danger)",
   minHeight: 22,
 };
 
@@ -3302,8 +3295,8 @@ const contactLabel = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "var(--legacy-color-c90016)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--color-danger)",
+  color: "var(--color-white)",
   fontWeight: 900,
   fontSize: 10.5,
 };

@@ -1,6 +1,7 @@
 // src/app/u-crane/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -51,26 +52,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* ------------------------------- Styling tokens ------------------------------- */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  accent: "var(--legacy-color-8b5e3c)",
-  accentSoft: "var(--legacy-color-f5ede6)",
-  successSoft: "var(--legacy-color-edf7f2)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "16px 16px 32px",
@@ -164,7 +150,7 @@ const btn = (kind = "primary") => {
     return {
       ...base,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     };
@@ -172,8 +158,8 @@ const btn = (kind = "primary") => {
   return {
     ...base,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
   };
 };
@@ -188,8 +174,8 @@ const btnDisabled = (base) => ({
 
 const successBanner = {
   background: UI.successSoft,
-  color: "var(--legacy-color-065f46)",
-  border: "1px solid var(--legacy-color-b7dec7)",
+  color: "var(--color-success)",
+  border: "1px solid var(--color-success-border)",
   borderRadius: UI.radiusSm,
   padding: "7px 10px",
   fontSize: 13,
@@ -202,7 +188,7 @@ const successBanner = {
 const calendarShell = {
   border: UI.border,
   borderRadius: UI.radius,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   overflow: "hidden",
 };
 
@@ -213,16 +199,16 @@ const pageCss = `
   }
   .ucrane-page .rbc-time-view,
   .ucrane-page .rbc-month-view {
-    border-color: var(--legacy-color-d7dee8);
+    border-color: var(--color-border);
   }
   .ucrane-page .rbc-time-header {
-    border-bottom-color: var(--legacy-color-d7dee8);
+    border-bottom-color: var(--color-border);
   }
   .ucrane-page .rbc-header {
     min-height: 28px;
     padding: 6px 8px;
-    background: var(--legacy-color-f8fbfd);
-    border-color: var(--legacy-color-d7dee8);
+    background: var(--color-surface-subtle);
+    border-color: var(--color-border);
     color: ${UI.muted};
     font-size: 12px;
     font-weight: 850;
@@ -230,7 +216,7 @@ const pageCss = `
   .ucrane-page .rbc-time-content,
   .ucrane-page .rbc-day-bg + .rbc-day-bg,
   .ucrane-page .rbc-month-row + .rbc-month-row {
-    border-color: var(--legacy-color-e5ebf2);
+    border-color: var(--color-brand-soft);
   }
   .ucrane-page .rbc-event {
     overflow: visible;
@@ -291,20 +277,15 @@ const pageCss = `
   }
 `;
 
-const NIGHT_SHOOT_STYLE = { bg: "var(--legacy-color-f796dfff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-de24e4ff)" };
+const NIGHT_SHOOT_STYLE = { bg: "var(--job-status-night)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" };
 
 // ---- status colour map used for job blocks ----
 const STATUS_COLORS = {
-  Confirmed: { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  "First Pencil": { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  "Second Pencil": { bg: "var(--legacy-color-f73939)", text: "var(--legacy-color-fff)", border: "var(--legacy-color-0b0b0b)" },
-  Complete: { bg: "var(--legacy-color-719b6eff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  "Action Required": { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  DNH: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
+  ...FIXED_JOB_STATUS_STYLES,
 };
 
 const getStatusStyle = (s = "") =>
-  STATUS_COLORS[s] || { bg: "var(--legacy-color-ccc)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+  STATUS_COLORS[s] || getFixedJobStatusStyle(s);
 
 // ---- per-user action blocks ----
 const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
@@ -538,8 +519,8 @@ function EventMetaBadge({ Icon, good, title, children }) {
         minWidth: children ? 34 : 24,
         padding: children ? "2px 6px" : "2px 5px",
         borderRadius: 6,
-        backgroundColor: good ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
-        color: "var(--legacy-color-fff)",
+        backgroundColor: good ? "var(--color-success-accent)" : "var(--color-warning)",
+        color: "var(--color-white)",
         border: "1px solid rgba(0,0,0,0.8)",
         fontSize: "0.72rem",
         fontWeight: 800,
@@ -600,69 +581,30 @@ function CalendarEvent({ event }) {
   return (
     <div
       title={event.noteToShow || ""}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        fontSize: "0.85rem",
-        lineHeight: 1.1,
-        color: "var(--legacy-color-0b0b0b)",
-        fontWeight: 600,
-        fontFamily: "Inter, system-ui, Arial, sans-serif",
-        textAlign: "left",
-        alignItems: "flex-start",
-        padding: "5px 6px",
-        gap: 1,
-        borderRadius: 6,
-        whiteSpace: "normal",
-        wordBreak: "break-word",
-        textTransform: "uppercase",
-        letterSpacing: "0.02em",
-      }}
+      className={layoutStyles.extracted1}
     >
       <>
         {/* Top row: initials + status + job number */}
         <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            width: "100%",
-            marginBottom: 2,
-            gap: 6,
-          }}
+          className={layoutStyles.extracted2}
         >
           {employeeInitials && (
             <span
-              style={{
-                backgroundColor: "white",
-                padding: "2px 4px",
-                borderRadius: 6,
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                border: "1px solid var(--legacy-color-0b0b0b)",
-              }}
+              className={layoutStyles.extracted3}
             >
               {employeeInitials}
             </span>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--legacy-color-111)" }}>
+          <div className={layoutStyles.extracted4}>
+            <div className={layoutStyles.extracted5}>
+              <span className={layoutStyles.extracted6}>
                 {event.status}
               </span>
 
               {event.isCrewed && (
                 <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: "0.7rem",
-                    fontWeight: 800,
-                    color: "var(--legacy-color-111)",
-                    marginTop: -2,
-                  }}
+                  className={layoutStyles.extracted7}
                 >
                   <Check size={12} strokeWidth={3} /> Crew
                 </span>
@@ -673,16 +615,16 @@ function CalendarEvent({ event }) {
               style={{
                 backgroundColor:
                   event.shootType === "Night"
-                    ? "purple"
+                    ? "var(--color-accent)"
                     : event.shootType === "Day"
-                    ? "white"
-                    : "var(--legacy-color-ffffffff)",
-                color: event.shootType === "Night" ? "var(--legacy-color-fff)" : "var(--legacy-color-000)",
+                    ? "var(--color-surface)"
+                    : "var(--color-surface)",
+                color: event.shootType === "Night" ? "var(--color-white)" : "var(--color-text)",
                 padding: "2px 4px",
                 borderRadius: 6,
                 fontSize: "0.95rem",
                 fontWeight: 900,
-                border: "1px solid var(--legacy-color-0b0b0b)",
+                border: "1px solid var(--color-border-strong)",
               }}
             >
               {event.jobNumber}
@@ -696,13 +638,7 @@ function CalendarEvent({ event }) {
         {callTimeForThisEvent && (
           <span
             title={callTimeTitle}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: "0.78rem",
-              fontWeight: 900,
-            }}
+            className={layoutStyles.extracted8}
           >
             <Clock3 size={12} strokeWidth={3} /> {callTimeForThisEvent}
           </span>
@@ -760,18 +696,7 @@ function CalendarEvent({ event }) {
               return (
                 <span
                   key={i}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "0px 4px",
-                    borderRadius: 4,
-                    background: "var(--legacy-color-e53935)",
-                    color: "var(--legacy-color-fff)",
-                    fontWeight: 700,
-                    border: "1px solid var(--legacy-color-0b0b0b)",
-                    marginTop: 1,
-                  }}
+                  className={layoutStyles.extracted9}
                   title="Vehicle non-compliant (SORN / Not Insured) - future confirmed job"
                 >
                   {name}
@@ -836,12 +761,12 @@ function CalendarEvent({ event }) {
           })}
 
         {equipmentText ? (
-          <span style={{ width: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+          <span className={layoutStyles.extracted10}>
             {equipmentText}
           </span>
         ) : null}
         {locationText ? (
-          <span style={{ width: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+          <span className={layoutStyles.extracted11}>
             {locationText}
           </span>
         ) : null}
@@ -851,11 +776,11 @@ function CalendarEvent({ event }) {
           (!hideDayNotes &&
             event.notesByDate &&
             Object.keys(event.notesByDate).length > 0)) && (
-          <div style={{ width: "100%", marginTop: 2 }}>
+          <div className={layoutStyles.extracted12}>
             {!hideDayNotes &&
               event.notesByDate &&
               Object.keys(event.notesByDate).length > 0 && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
+                <div className={layoutStyles.extracted13}>
                   {Object.keys(event.notesByDate)
                     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                     .sort((a, b) => new Date(a) - new Date(b))
@@ -865,7 +790,7 @@ function CalendarEvent({ event }) {
                       return cols;
                     }, [])
                     .map((chunk, colIndex) => (
-                      <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
+                      <div key={colIndex} className={layoutStyles.extracted14}>
                         {chunk.map((date) => {
                           const note = event.notesByDate[date] || "";
                           const other = event.notesByDate[`${date}-other`];
@@ -889,13 +814,7 @@ function CalendarEvent({ event }) {
                           return (
                             <div
                               key={date}
-                              style={{
-                                fontSize: "0.72rem",
-                                fontStyle: "italic",
-                                fontWeight: 400,
-                                opacity: 0.8,
-                                lineHeight: 1.2,
-                              }}
+                              className={layoutStyles.extracted15}
                             >
                               {formattedDate}: {note || "-"}
                               {extra}
@@ -915,27 +834,14 @@ function CalendarEvent({ event }) {
                     e.stopPropagation();
                     setShowNotes((s) => !s);
                   }}
-                  style={{
-                    fontSize: "0.7rem",
-                    padding: "2px 8px",
-                    border: "1px solid var(--legacy-color-111)",
-                    background: "transparent",
-                    cursor: "pointer",
-                    borderRadius: 6,
-                  }}
+                  className={layoutStyles.extracted16}
                 >
                   {showNotes ? "Hide Notes" : "Show Notes"}
                 </button>
 
                 {showNotes && (
                   <div
-                    style={{
-                      opacity: 0.9,
-                      fontWeight: 500,
-                      fontSize: "0.75rem",
-                      lineHeight: 1.25,
-                      marginTop: 2,
-                    }}
+                    className={layoutStyles.extracted17}
                   >
                     {event.notes}
                   </div>
@@ -953,15 +859,7 @@ function CalendarEvent({ event }) {
 
           return (
             <div
-              style={{
-                display: "flex",
-                gap: 6,
-                alignItems: "center",
-                justifyContent: "flex-start",
-                marginTop: 6,
-                width: "100%",
-                flexWrap: "wrap",
-              }}
+              className={layoutStyles.extracted18}
             >
               <EventMetaBadge
                 Icon={ShieldCheck}
@@ -983,8 +881,8 @@ function CalendarEvent({ event }) {
                   fontWeight: 400,
                   padding: "2px 6px",
                   borderRadius: 6,
-                  backgroundColor: event.hasRiskAssessment ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
-                  color: "var(--legacy-color-fff)",
+                  backgroundColor: event.hasRiskAssessment ? "var(--color-success-accent)" : "var(--color-warning)",
+                  color: "var(--color-white)",
                   border: "1px solid rgba(0,0,0,0.8)",
                   lineHeight: 1,
                   whiteSpace: "nowrap",
@@ -1010,39 +908,19 @@ function CalendarEvent({ event }) {
 
         {/* RECCE LINK ONLY (jobs) */}
         {event.hasRecce && event.recceId && (
-          <div style={{ width: "100%", marginTop: 6 }}>
+          <div className={layoutStyles.extracted19}>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 router.push(`/recce-form/${event.recceId}`);
               }}
               title="Open full recce form"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "6px 10px",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: "0.6rem",
-                fontWeight: 800,
-                border: "1.5px solid var(--legacy-color-0b0b0b)",
-                background: "var(--legacy-color-111827)",
-                color: "var(--legacy-color-fff)",
-              }}
+              className={layoutStyles.extracted20}
             >
               View recce form ↗
               {event.recceStatus && (
                 <span
-                  style={{
-                    fontSize: "0.68rem",
-                    fontWeight: 900,
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    background: "var(--legacy-color-fff)",
-                    color: "var(--legacy-color-111)",
-                    border: "1px solid rgba(0,0,0,0.8)",
-                  }}
+                  className={layoutStyles.extracted21}
                 >
                   {(event.recceStatus || "Submitted").toUpperCase()}
                 </span>
@@ -1053,33 +931,14 @@ function CalendarEvent({ event }) {
 
         {/* Risk box */}
         {event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
-          <div style={{ width: "100%", marginTop: 6 }}>
+          <div className={layoutStyles.extracted22}>
             <div
-              style={{
-                backgroundColor: "var(--legacy-color-e53935)",
-                color: "var(--legacy-color-fff)",
-                border: "1.5px solid var(--legacy-color-000)",
-                borderRadius: 6,
-                padding: "4px 6px",
-                fontSize: "0.74rem",
-                fontWeight: 900,
-                letterSpacing: 0.2,
-              }}
+              className={layoutStyles.extracted23}
             >
               VEHICLE COMPLIANCE ISSUE
             </div>
             <div
-              style={{
-                marginTop: 4,
-                background: "var(--legacy-color-ffe6e6)",
-                border: "1px dashed var(--legacy-color-e53935)",
-                borderRadius: 6,
-                padding: "4px 6px",
-                fontSize: "0.74rem",
-                lineHeight: 1.25,
-                color: "var(--legacy-color-000)",
-                fontWeight: 700,
-              }}
+              className={layoutStyles.extracted24}
             >
               {event.riskReasons.map((r, i) => (
                 <div key={i} style={{ marginTop: i ? 3 : 0 }}>
@@ -1292,12 +1151,12 @@ export default function DashboardPage({ bookingSaved }) {
             padding: 12,
             borderRadius: UI.radius,
             border: UI.border,
-            background: "var(--legacy-color-fff)",
+            background: "var(--color-surface)",
             minHeight: 140,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className={layoutStyles.extracted25}>
+            <div className={layoutStyles.extracted26}>
               <span
                 style={{
                   width: 12,
@@ -1308,7 +1167,7 @@ export default function DashboardPage({ bookingSaved }) {
                   display: "inline-block",
                 }}
               />
-              <div style={{ display: "flex", flexDirection: "column" }}>
+              <div className={layoutStyles.extracted27}>
                 <div style={{ fontWeight: 950, fontSize: 13, color: UI.text }}>{label}</div>
                 <div style={{ fontSize: 12, color: UI.muted }}>{items.length} upcoming</div>
               </div>
@@ -1317,7 +1176,7 @@ export default function DashboardPage({ bookingSaved }) {
             <span style={{ ...chip, fontSize: 12 }}>{items.length}</span>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className={layoutStyles.extracted28}>
             {items.length === 0 ? (
               <div style={{ fontSize: 12, color: UI.muted, padding: "10px 8px" }}>
                 Nothing upcoming.
@@ -1336,22 +1195,22 @@ export default function DashboardPage({ bookingSaved }) {
                       textAlign: "left",
                       width: "100%",
                       borderRadius: UI.radiusSm,
-                      border: riskHot ? "2px solid var(--legacy-color-0b0b0b)" : "1px solid var(--legacy-color-e5e7eb)",
-                      background: riskHot ? "var(--legacy-color-fee2e2)" : "var(--legacy-color-f8fafc)",
+                      border: riskHot ? "2px solid var(--color-border-strong)" : "1px solid var(--color-border)",
+                      background: riskHot ? "var(--color-accent-soft)" : "var(--color-surface-subtle)",
                       padding: "10px 10px",
                       cursor: "pointer",
                       boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
                     }}
                     title="Click to view booking"
                   >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div className={layoutStyles.extracted29}>
                       <div style={{ fontWeight: 950, color: UI.text, fontSize: 13 }}>
                         {String(e.jobNumber || "").toUpperCase()} - {String(e.client || "").toUpperCase()}
                       </div>
                       <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>{range}</div>
                     </div>
 
-                    <div style={{ marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div className={layoutStyles.extracted30}>
                       {e.location && (
                         <span style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
                           {String(e.location).toUpperCase()}
@@ -1362,9 +1221,9 @@ export default function DashboardPage({ bookingSaved }) {
                           style={{
                             fontSize: 12,
                             fontWeight: 950,
-                            color: "var(--legacy-color-991b1b)",
-                            background: "var(--legacy-color-fff)",
-                            border: "1px solid var(--legacy-color-991b1b)",
+                            color: "var(--color-danger)",
+                            background: "var(--color-surface)",
+                            border: "1px solid var(--color-danger)",
                             padding: "2px 6px",
                             borderRadius: UI.radiusSm,
                           }}
@@ -1394,12 +1253,12 @@ export default function DashboardPage({ bookingSaved }) {
     <HeaderSidebarLayout>
       <style>{pageCss}</style>
       <div className="ucrane-page" style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted31}>
           <div>
             <h1 style={h1}>U-Crane</h1>
             <div style={sub}>Dedicated operations diary for U-Crane activity and related vehicle bookings.</div>
           </div>
-          <div style={sectionActions}>
+          <div className={layoutStyles.extracted32}>
             {showBookingSaved && (
               <div style={successBanner}>
                 <Check size={14} strokeWidth={3} /> Booking saved successfully
@@ -1409,13 +1268,13 @@ export default function DashboardPage({ bookingSaved }) {
         </div>
 
         <section style={card}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted33}>
             <div>
               <h2 style={titleMd}>U-Crane Work Diary</h2>
               <div style={hint}>Live operational calendar for U-Crane bookings using the same diary logic as the main schedule.</div>
             </div>
 
-            <div style={sectionActions}>
+            <div className={layoutStyles.extracted34}>
               <button
                 style={btn("ghost")}
                 onClick={() =>
@@ -1462,7 +1321,7 @@ export default function DashboardPage({ bookingSaved }) {
                 {createBookingOpening ? `Opening ${createBookingProgress}%` : "Create U-Crane Booking"}
               </button>
 
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
+              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--color-brand-soft)", color: UI.brand }}>
                 <CalendarDays size={14} />
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
               </div>
@@ -1508,7 +1367,7 @@ export default function DashboardPage({ bookingSaved }) {
                   },
                 };
               }}
-              style={{ height: "auto", background: "var(--legacy-color-fff)" }}
+              className={layoutStyles.extracted35}
               onSelectEvent={(e) => {
                 openSelectedBooking(e);
               }}
@@ -1524,12 +1383,12 @@ export default function DashboardPage({ bookingSaved }) {
                 if (risky && isFutureJobEvent(event)) {
                   return {
                     style: {
-                      backgroundColor: "var(--legacy-color-e53935)",
-                      color: "var(--legacy-color-fff)",
+                      backgroundColor: "var(--color-warning)",
+                      color: "var(--color-white)",
                     fontWeight: 700,
                     padding: 0,
                     borderRadius: 8,
-                      border: "1px solid var(--legacy-color-991b1b)",
+                      border: "1px solid var(--color-danger)",
                       boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                       cursor: "pointer",
                     },
@@ -1568,14 +1427,14 @@ export default function DashboardPage({ bookingSaved }) {
           </div>
 
           {/*  UPCOMING SECTION (below calendar) */}
-          <div style={{ marginTop: 16 }}>
-            <div style={{ ...sectionHeader, marginBottom: 12 }}>
+          <div className={layoutStyles.extracted36}>
+            <div className={layoutStyles.extracted37}>
               <div>
                 <h3 style={{ ...titleMd, fontSize: 15 }}>Upcoming</h3>
                 <div style={hint}>Future U-Crane work grouped by booking status for quick operational review.</div>
               </div>
 
-              <div style={sectionActions}>
+              <div className={layoutStyles.extracted38}>
                 {["Confirmed", "First Pencil", "Second Pencil"].map((s) => (
                   <div
                     key={s}
@@ -1584,7 +1443,7 @@ export default function DashboardPage({ bookingSaved }) {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 8,
-                      background: "var(--legacy-color-fff)",
+                      background: "var(--color-surface)",
                     }}
                   >
                     <span

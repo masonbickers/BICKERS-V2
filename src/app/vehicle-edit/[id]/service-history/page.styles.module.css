@@ -1,0 +1,15 @@
+
+
+.extracted1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.extracted2 {
+  display: grid;
+  gap: 10px;
+}

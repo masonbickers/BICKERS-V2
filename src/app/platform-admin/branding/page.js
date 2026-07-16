@@ -1,5 +1,5 @@
-import PlatformAdminSectionPage from "../_components/PlatformAdminSectionPage";
+import { redirect } from "next/navigation";
 
 export default function PlatformAdminBrandingPage() {
-  return <PlatformAdminSectionPage section="branding" />;
+  redirect("/admin/global-styling?scope=platform");
 }

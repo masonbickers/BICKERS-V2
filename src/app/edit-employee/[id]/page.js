@@ -1,6 +1,7 @@
 // src/app/employees/[id]/edit/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -31,6 +32,7 @@ import {
   buildUserAccessPatch,
   cleanAccessEmail,
 } from "@/app/utils/appAccessRecords";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -115,27 +117,7 @@ const EMPTY_MEDICAL = {
 /* ───────────────────────────────────────────
    Mini design system (matches your Holiday page)
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "16px 16px 32px",
@@ -188,7 +170,7 @@ const btn = (kind = "primary") => {
     return {
       ...base,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     };
@@ -198,14 +180,14 @@ const btn = (kind = "primary") => {
       ...base,
       border: `1px solid ${UI.redBorder}`,
       background: UI.redSoft,
-      color: UI.red,
+      color: UI.var(--color-danger),
     };
   }
   return {
     ...base,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
   };
 };
@@ -226,8 +208,8 @@ function Pill({ active, children, onClick }) {
         justifyContent: "center",
         padding: "6px 9px",
         borderRadius: 999,
-        border: `1px solid ${active ? UI.brandBorder : "var(--legacy-color-d7dee8)"}`,
-        background: active ? UI.brandSoft : "var(--legacy-color-fff)",
+        border: `1px solid ${active ? UI.brandBorder : "var(--color-border)"}`,
+        background: active ? UI.brandSoft : "var(--color-surface)",
         color: UI.text,
         fontSize: 12,
         fontWeight: 800,
@@ -237,7 +219,7 @@ function Pill({ active, children, onClick }) {
       }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = UI.brandBorder)}
       onMouseLeave={(e) =>
-        (e.currentTarget.style.borderColor = active ? UI.brandBorder : "var(--legacy-color-d7dee8)")
+        (e.currentTarget.style.borderColor = active ? UI.brandBorder : "var(--color-border)")
       }
     >
       {children}
@@ -253,7 +235,7 @@ const inputBase = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -284,9 +266,9 @@ const inlineNotice = (tone = "success") => ({
   fontSize: 12,
   fontWeight: 700,
   border:
-    tone === "error" ? "1px solid var(--legacy-color-fecdd3)" : "1px solid var(--legacy-color-bbf7d0)",
-  background: tone === "error" ? "var(--legacy-color-fff1f2)" : "var(--legacy-color-ecfdf5)",
-  color: tone === "error" ? "var(--legacy-color-9f1239)" : "var(--legacy-color-166534)",
+    tone === "error" ? "1px solid var(--color-danger-border)" : "1px solid var(--color-success-border)",
+  background: tone === "error" ? "var(--color-danger-soft)" : "var(--color-success-soft)",
+  color: tone === "error" ? "var(--color-danger)" : "var(--color-success)",
 });
 
 const personnelSection = {
@@ -1208,17 +1190,17 @@ export default function EditEmployeePage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={{ width: "100%", maxWidth: 1600, margin: "0 auto" }}>
+        <div className={layoutStyles.extracted1}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted2}>
           <div>
             <h1 style={h1}>Employee Personnel File</h1>
             <div style={sub}>
-              Employee record ID: <b style={mono}>{employeeId || "—"}</b>
+              Employee record ID: <b className={layoutStyles.extracted3}>{employeeId || "—"}</b>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted4}>
             <button type="button" onClick={handleCancel} style={btn("ghost")}>
               ← Back
             </button>
@@ -1257,9 +1239,9 @@ export default function EditEmployeePage() {
               <form
                 id="edit-employee-form"
                 onSubmit={handleSubmit}
-                style={{ display: "grid", gap: 12 }}
+                className={layoutStyles.extracted5}
               >
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className={layoutStyles.extracted6}>
                   <div>
                     <label style={labelStyle}>Full Name</label>
                     <input
@@ -1344,8 +1326,8 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                  <div style={grid2}>
-                    <div style={{ gridColumn: "1 / -1" }}>
+                  <div className={layoutStyles.extracted7}>
+                    <div className={layoutStyles.extracted8}>
                       <label style={labelStyle}>Home address</label>
                       <textarea
                         name="address"
@@ -1408,7 +1390,7 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                  <div style={grid2}>
+                  <div className={layoutStyles.extracted9}>
                     <div>
                       <label style={labelStyle}>Passport number</label>
                       <input
@@ -1468,7 +1450,7 @@ export default function EditEmployeePage() {
                       </div>
                     </div>
 
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800 }}>
+                    <label className={layoutStyles.extracted10}>
                       <input
                         type="checkbox"
                         name="rightToWorkChecked"
@@ -1489,7 +1471,7 @@ export default function EditEmployeePage() {
                       />
                     </div>
 
-                    <div style={{ gridColumn: "1 / -1" }}>
+                    <div className={layoutStyles.extracted11}>
                       <label style={labelStyle}>Passport notes</label>
                       <textarea
                         value={formData.passport?.notes || ""}
@@ -1504,11 +1486,11 @@ export default function EditEmployeePage() {
                   <div>
                     <div style={personnelHeader}>Driving Licence</div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
-                      Licence number is also saved as <span style={mono}>licenceNumber</span> for existing booking screens.
+                      Licence number is also saved as <span className={layoutStyles.extracted12}>licenceNumber</span> for existing booking screens.
                     </div>
                   </div>
 
-                  <div style={grid2}>
+                  <div className={layoutStyles.extracted13}>
                     <div>
                       <label style={labelStyle}>Licence number</label>
                       <input
@@ -1577,7 +1559,7 @@ export default function EditEmployeePage() {
                       ) : null}
                     </div>
 
-                    <div style={{ gridColumn: "1 / -1" }}>
+                    <div className={layoutStyles.extracted14}>
                       <label style={labelStyle}>Upload licence file</label>
                       <input
                         type="file"
@@ -1592,7 +1574,7 @@ export default function EditEmployeePage() {
                       </div>
                     </div>
 
-                    <div style={{ gridColumn: "1 / -1" }}>
+                    <div className={layoutStyles.extracted15}>
                       <label style={labelStyle}>Licence notes</label>
                       <textarea
                         value={formData.drivingLicence?.notes || ""}
@@ -1604,7 +1586,7 @@ export default function EditEmployeePage() {
                 </div>
 
                 <div style={personnelSection}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                  <div className={layoutStyles.extracted16}>
                     <div>
                       <div style={personnelHeader}>Emergency Contacts</div>
                       <div style={{ color: UI.muted, fontSize: 12 }}>Add one or more contacts for emergencies.</div>
@@ -1620,13 +1602,13 @@ export default function EditEmployeePage() {
 
                   {(formData.emergencyContacts || []).map((contact, index) => (
                     <div key={index} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, display: "grid", gap: 10 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                      <div className={layoutStyles.extracted17}>
                         <div style={{ fontWeight: 850, color: UI.text }}>Contact {index + 1}</div>
                         <button type="button" style={btn("danger")} onClick={() => removeEmergencyContact(index)}>
                           Remove
                         </button>
                       </div>
-                      <div style={grid2}>
+                      <div className={layoutStyles.extracted18}>
                         <div>
                           <label style={labelStyle}>Name</label>
                           <input value={contact.name || ""} onChange={(e) => updateEmergencyContact(index, "name", e.target.value)} style={inputBase} />
@@ -1643,7 +1625,7 @@ export default function EditEmployeePage() {
                           <label style={labelStyle}>Email</label>
                           <input value={contact.email || ""} onChange={(e) => updateEmergencyContact(index, "email", e.target.value)} style={inputBase} />
                         </div>
-                        <div style={{ gridColumn: "1 / -1" }}>
+                        <div className={layoutStyles.extracted19}>
                           <label style={labelStyle}>Address / notes</label>
                           <textarea value={contact.address || contact.notes || ""} onChange={(e) => updateEmergencyContact(index, "address", e.target.value)} style={textareaBase} />
                         </div>
@@ -1657,7 +1639,7 @@ export default function EditEmployeePage() {
                     <div style={personnelHeader}>Medical Notes</div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>Keep only work-relevant notes needed for safety and emergency response.</div>
                   </div>
-                  <div style={grid2}>
+                  <div className={layoutStyles.extracted20}>
                     <div>
                       <label style={labelStyle}>Allergies</label>
                       <textarea value={formData.medical?.allergies || ""} onChange={(e) => handleNestedChange("medical", "allergies", e.target.value)} style={textareaBase} />
@@ -1678,7 +1660,7 @@ export default function EditEmployeePage() {
                 </div>
 
                 <div style={personnelSection}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                  <div className={layoutStyles.extracted21}>
                     <div>
                       <div style={personnelHeader}>Other Documents</div>
                       <div style={{ color: UI.muted, fontSize: 12 }}>Contracts, training certificates, permits and any other HR documents.</div>
@@ -1694,13 +1676,13 @@ export default function EditEmployeePage() {
 
                   {(formData.personnelDocuments || []).map((documentRow, index) => (
                     <div key={index} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, display: "grid", gap: 10 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                      <div className={layoutStyles.extracted22}>
                         <div style={{ fontWeight: 850, color: UI.text }}>Document {index + 1}</div>
                         <button type="button" style={btn("danger")} onClick={() => removePersonnelDocument(index)}>
                           Remove
                         </button>
                       </div>
-                      <div style={grid2}>
+                      <div className={layoutStyles.extracted23}>
                         <div>
                           <label style={labelStyle}>Type</label>
                           <input value={documentRow.type || ""} onChange={(e) => updatePersonnelDocument(index, "type", e.target.value)} style={inputBase} placeholder="Contract, training, permit..." />
@@ -1717,7 +1699,7 @@ export default function EditEmployeePage() {
                           <label style={labelStyle}>Expiry / review date</label>
                           <input type="date" value={documentRow.expiryDate || ""} onChange={(e) => updatePersonnelDocument(index, "expiryDate", e.target.value)} style={inputBase} />
                         </div>
-                        <div style={{ gridColumn: "1 / -1" }}>
+                        <div className={layoutStyles.extracted24}>
                           <label style={labelStyle}>Document link</label>
                           <input type="text" value={documentRow.documentUrl || ""} onChange={(e) => updatePersonnelDocument(index, "documentUrl", e.target.value)} style={inputBase} placeholder="https://..." />
                           {documentRow.documentUrl ? (
@@ -1726,7 +1708,7 @@ export default function EditEmployeePage() {
                             </a>
                           ) : null}
                         </div>
-                        <div style={{ gridColumn: "1 / -1" }}>
+                        <div className={layoutStyles.extracted25}>
                           <label style={labelStyle}>Upload file</label>
                           <input
                             type="file"
@@ -1749,7 +1731,7 @@ export default function EditEmployeePage() {
                               : "Choose a file, then press Save Changes to upload."}
                           </div>
                         </div>
-                        <div style={{ gridColumn: "1 / -1" }}>
+                        <div className={layoutStyles.extracted26}>
                           <label style={labelStyle}>Notes</label>
                           <textarea value={documentRow.notes || ""} onChange={(e) => updatePersonnelDocument(index, "notes", e.target.value)} style={textareaBase} />
                         </div>
@@ -1763,10 +1745,10 @@ export default function EditEmployeePage() {
                     Job Title(s)
                   </div>
                   <div style={{ color: UI.muted, fontSize: 12, marginBottom: 10 }}>
-                    Select one or more roles (saved as an array in <span style={mono}>jobTitle</span>).
+                    Select one or more roles (saved as an array in <span className={layoutStyles.extracted27}>jobTitle</span>).
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                  <div className={layoutStyles.extracted28}>
                     {jobOptions.map((job) => (
                       <Pill
                         key={job}
@@ -1789,7 +1771,7 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div className={layoutStyles.extracted29}>
                     <button
                       type="button"
                       onClick={() => handleAccessToggle("user")}
@@ -1835,7 +1817,7 @@ export default function EditEmployeePage() {
                       Dual-access users will land here unless they have an active workspace saved locally.
                     </div>
                     {accessErrors.defaultWorkspace && (
-                      <div style={{ ...helperStyle, color: "var(--legacy-color-9f1239)", fontWeight: 700 }}>
+                      <div style={{ ...helperStyle, color: "var(--color-danger)", fontWeight: 700 }}>
                         {accessErrors.defaultWorkspace}
                       </div>
                     )}
@@ -1845,7 +1827,7 @@ export default function EditEmployeePage() {
                     style={{
                       border: UI.border,
                       borderRadius: UI.radiusSm,
-                      background: "var(--legacy-color-f8fbfd)",
+                      background: "var(--color-surface-subtle)",
                       padding: 10,
                       display: "grid",
                       gap: 6,
@@ -1858,7 +1840,7 @@ export default function EditEmployeePage() {
                       Effective role: {effectiveRole}
                     </div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
-                      Routing target: <span style={mono}>{routingPreview}</span>
+                      Routing target: <span className={layoutStyles.extracted30}>{routingPreview}</span>
                     </div>
                   </div>
                 </div>
@@ -1877,7 +1859,7 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+                    <div className={layoutStyles.extracted31}>
                       {[
                         ["workshopRate", "Workshop rate"],
                         ["overtimeRate", "Overtime rate"],
@@ -1923,13 +1905,7 @@ export default function EditEmployeePage() {
 
                 {/* Mobile bottom actions (nice when header buttons off-screen) */}
                 <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    justifyContent: "flex-end",
-                    flexWrap: "wrap",
-                    paddingTop: 6,
-                  }}
+                  className={layoutStyles.extracted32}
                 >
                   <button type="button" onClick={handleCancel} style={btn("ghost")}>
                     Cancel
@@ -1952,26 +1928,26 @@ export default function EditEmployeePage() {
               {loading ? (
                 <div style={{ color: UI.muted, fontSize: 13 }}>Loading…</div>
               ) : (
-                <div style={{ display: "grid", gap: 9 }}>
-                  <div style={{ display: "grid", gap: 6 }}>
+                <div className={layoutStyles.extracted33}>
+                  <div className={layoutStyles.extracted34}>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                       Name
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <div className={layoutStyles.extracted35}>
                       <div style={{ fontWeight: 850, color: UI.text }}>{formData.name || "—"}</div>
                       {formData.archived ? (
-                        <span style={{ ...chip, background: UI.redSoft, color: UI.red, borderColor: UI.redBorder }}>
+                        <span style={{ ...chip, background: UI.redSoft, color: UI.var(--color-danger), borderColor: UI.redBorder }}>
                           Archived
                         </span>
                       ) : null}
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gap: 6 }}>
+                  <div className={layoutStyles.extracted36}>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                       Roles
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <div className={layoutStyles.extracted37}>
                       {(formData.jobTitle?.length ? formData.jobTitle : ["—"]).map((j) => (
                         <span
                           key={j}
@@ -1991,7 +1967,7 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gap: 6 }}>
+                  <div className={layoutStyles.extracted38}>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                       Contact
                     </div>
@@ -2002,21 +1978,21 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gap: 6 }}>
+                  <div className={layoutStyles.extracted39}>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                       Personnel file
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      <span style={{ ...chip, background: formData.passport?.number || formData.passport?.documentUrl ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
+                    <div className={layoutStyles.extracted40}>
+                      <span style={{ ...chip, background: formData.passport?.number || formData.passport?.documentUrl ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                         Passport: {formData.passport?.number || formData.passport?.documentUrl ? "Added" : "Missing"}
                       </span>
-                      <span style={{ ...chip, background: formData.licenceNumber || formData.drivingLicence?.documentUrl ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
+                      <span style={{ ...chip, background: formData.licenceNumber || formData.drivingLicence?.documentUrl ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                         Licence: {formData.licenceNumber || formData.drivingLicence?.documentUrl ? "Added" : "Missing"}
                       </span>
-                      <span style={{ ...chip, background: (formData.emergencyContacts || []).length ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
+                      <span style={{ ...chip, background: (formData.emergencyContacts || []).length ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                         Emergency: {(formData.emergencyContacts || []).length || 0}
                       </span>
-                      <span style={{ ...chip, background: (formData.personnelDocuments || []).length ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)" }}>
+                      <span style={{ ...chip, background: (formData.personnelDocuments || []).length ? "var(--color-info-soft)" : "var(--color-surface-subtle)" }}>
                         Docs: {(formData.personnelDocuments || []).length || 0}
                       </span>
                     </div>
@@ -2026,15 +2002,15 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gap: 6 }}>
+                  <div className={layoutStyles.extracted41}>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                       Access
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      <span style={{ ...chip, background: formData.appAccess.user ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
+                    <div className={layoutStyles.extracted42}>
+                      <span style={{ ...chip, background: formData.appAccess.user ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                         User: {formData.appAccess.user ? "On" : "Off"}
                       </span>
-                      <span style={{ ...chip, background: formData.appAccess.service ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)" }}>
+                      <span style={{ ...chip, background: formData.appAccess.service ? "var(--color-info-soft)" : "var(--color-surface-subtle)" }}>
                         Service: {formData.appAccess.service ? "On" : "Off"}
                       </span>
                     </div>
@@ -2042,16 +2018,16 @@ export default function EditEmployeePage() {
                       Effective role: <b style={{ color: UI.text }}>{effectiveRole}</b>
                     </div>
                   <div style={{ color: UI.muted, fontSize: 12 }}>
-                    Route target: <span style={mono}>{routingPreview}</span>
+                    Route target: <span className={layoutStyles.extracted43}>{routingPreview}</span>
                   </div>
                   </div>
 
                   {isAdmin ? (
-                    <div style={{ display: "grid", gap: 6 }}>
+                    <div className={layoutStyles.extracted44}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                         Payroll Rates
                       </div>
-                      <div style={{ display: "grid", gap: 6 }}>
+                      <div className={layoutStyles.extracted45}>
                         {[
                           ["Workshop", formData.payrollRates?.workshopRate],
                           ["Overtime", formData.payrollRates?.overtimeRate],
@@ -2063,7 +2039,7 @@ export default function EditEmployeePage() {
                           ["Overnight", globalPayrollRates?.overnightRate],
                           ["Travel Meal", globalPayrollRates?.travelMealRate],
                         ].map(([label, value]) => (
-                          <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
+                          <div key={label} className={layoutStyles.extracted46}>
                             <span style={{ color: UI.muted }}>{label}</span>
                             <span style={{ color: UI.text, fontWeight: 800 }}>
                               {value === "" || value == null ? "—" : value}
@@ -2074,7 +2050,7 @@ export default function EditEmployeePage() {
                     </div>
                   ) : null}
 
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+                  <div className={layoutStyles.extracted47}>
                     <button type="button" onClick={handleCancel} style={btn("ghost")}>
                       Back to Employees
                     </button>

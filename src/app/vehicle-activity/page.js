@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDocs, onSnapshot } from "firebase/firestore";
@@ -24,6 +25,7 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const GENERAL_DEFECTS_PATH = "/defects/general";
 const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
@@ -32,25 +34,7 @@ const VEHICLE_EDIT_PATH = (id) => `/vehicle-edit/${encodeURIComponent(id)}`;
 const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
   `/vehicle-edit/${encodeURIComponent(vehicleId)}/service-history/${encodeURIComponent(serviceId)}`;
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  accent: "var(--legacy-color-8b5e3c)",
-  danger: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
@@ -89,14 +73,14 @@ const chip = {
   whiteSpace: "nowrap",
 };
 const chipSoft = { ...chip, color: UI.brand };
-const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "12px 0 0" };
 const inputBase = {
   width: "100%",
   minHeight: 38,
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
-  border: "1px solid var(--legacy-color-d7dee8)",
-  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   outline: "none",
@@ -119,7 +103,7 @@ const btn = (kind = "ghost") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+    background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
     color: UI.text,
     fontWeight: 800,
     cursor: "pointer",
@@ -136,8 +120,8 @@ const btn = (kind = "ghost") => {
     return {
       ...base,
       borderColor: UI.brand,
-      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-      color: "var(--legacy-color-ffffff)",
+      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
     };
   }
@@ -235,18 +219,18 @@ const toActivitySummary = (...values) => {
 };
 
 const activityTypeConfig = {
-  service: { label: "Service", bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)" },
-  minor_service: { label: "Minor service", bg: "var(--legacy-color-eff6ff)", fg: "var(--legacy-color-1d4ed8)" },
-  repair: { label: "Repair", bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-9a3412)" },
-  defect: { label: "Defect", bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)" },
-  mot_precheck: { label: "MOT pre-check", bg: "var(--legacy-color-f5f3ff)", fg: "var(--legacy-color-6d28d9)" },
-  vehicle_prep: { label: "Vehicle prep", bg: "var(--legacy-color-eef2ff)", fg: "var(--legacy-color-3730a3)" },
-  vehicle_check: { label: "Vehicle check", bg: "var(--legacy-color-edf3f8)", fg: UI.brand },
-  vehicle_issue: { label: "Vehicle issue", bg: "var(--legacy-color-f5ede6)", fg: UI.accent },
-  legacy_service: { label: "Legacy service", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
-  legacy_repair: { label: "Legacy repair", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
-  legacy_prep: { label: "Legacy prep", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
-  legacy_defect: { label: "Legacy defect", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
+  service: { label: "Service", bg: "var(--color-success-soft)", fg: "var(--color-success)" },
+  minor_service: { label: "Minor service", bg: "var(--color-info-soft)", fg: "var(--color-brand)" },
+  repair: { label: "Repair", bg: "var(--color-warning-soft)", fg: "var(--color-warning)" },
+  defect: { label: "Defect", bg: "var(--color-danger-soft)", fg: "var(--color-danger)" },
+  mot_precheck: { label: "MOT pre-check", bg: "var(--color-info-soft)", fg: "var(--color-info)" },
+  vehicle_prep: { label: "Vehicle prep", bg: "var(--color-info-soft)", fg: "var(--color-brand)" },
+  vehicle_check: { label: "Vehicle check", bg: "var(--color-brand-soft)", fg: UI.brand },
+  vehicle_issue: { label: "Vehicle issue", bg: "var(--color-accent-soft)", fg: UI.accent },
+  legacy_service: { label: "Legacy service", bg: "var(--color-surface-subtle)", fg: UI.text },
+  legacy_repair: { label: "Legacy repair", bg: "var(--color-surface-subtle)", fg: UI.text },
+  legacy_prep: { label: "Legacy prep", bg: "var(--color-surface-subtle)", fg: UI.text },
+  legacy_defect: { label: "Legacy defect", bg: "var(--color-surface-subtle)", fg: UI.text },
 };
 
 const filterTypeOptions = [
@@ -641,7 +625,7 @@ export default function VehicleActivityPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <style>{`
-          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--legacy-color-bfdbfe) !important; }
+          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
           .vehicle-activity-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
           .vehicle-activity-filters { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 190px auto; gap: 10px; align-items: center; }
           .vehicle-activity-list { display: grid; gap: 8px; }
@@ -660,7 +644,7 @@ export default function VehicleActivityPage() {
         `}</style>
         <div style={appShell}>
         <section style={{ ...surface, padding: 12, overflow: "hidden" }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted1}>
             <div>
               <div style={sectionTag}>Fleet timeline</div>
               <h1 style={{ margin: "9px 0 0", fontSize: 22, lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 }}>Vehicle activity history</h1>
@@ -669,7 +653,7 @@ export default function VehicleActivityPage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
+            <div className={layoutStyles.extracted2}>
               <span style={chipSoft}>Live data</span>
               <span style={chip}>{filteredActivity.length} / {activity.length} records</span>
               <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-home")}>
@@ -679,7 +663,7 @@ export default function VehicleActivityPage() {
             </div>
           </div>
 
-          <div className="vehicle-activity-grid" style={{ marginTop: 12 }}>
+          <div className={`vehicle-activity-grid ${layoutStyles.extracted3}`} >
             {statItems.map((item) => (
               <ActivityStatCard key={item.label} {...item} />
             ))}
@@ -687,7 +671,7 @@ export default function VehicleActivityPage() {
         </section>
 
         <section style={{ ...surface, padding: 12 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted4}>
             <div>
               <h2 style={titleMd}>Activity log</h2>
               <div style={hint}>Filter by vehicle, registration, status, person, type or notes.</div>
@@ -699,7 +683,7 @@ export default function VehicleActivityPage() {
           </div>
 
           <div className="vehicle-activity-filters">
-            <label style={{ position: "relative", display: "block" }}>
+            <label className={layoutStyles.extracted5}>
               <Search
                 size={15}
                 style={{
@@ -738,7 +722,7 @@ export default function VehicleActivityPage() {
             </span>
           </div>
 
-          <div style={divider} />
+          <div className={layoutStyles.extracted6} />
 
           {activity.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13, padding: 18, textAlign: "center" }}>No vehicle activity found yet.</div>
@@ -754,7 +738,7 @@ export default function VehicleActivityPage() {
                   padding: 12,
                   borderRadius: UI.radius,
                   border: UI.border,
-                  background: "var(--legacy-color-fff)",
+                  background: "var(--color-surface)",
                   boxShadow: UI.shadowSm,
                   cursor: item.route ? "pointer" : "default",
                   overflow: "hidden",
@@ -762,7 +746,7 @@ export default function VehicleActivityPage() {
                 };
                 const inner = (
                   <>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+                    <div className={layoutStyles.extracted7}>
                       <span style={{ ...badge(typeStyle.bg, typeStyle.fg), borderColor: "transparent" }}>{typeStyle.label}</span>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
                         {formatActivityDate(item.activityDate)}
@@ -793,7 +777,7 @@ export default function VehicleActivityPage() {
                       {item.summary}
                     </div>
 
-                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <div className={layoutStyles.extracted8}>
                       <span style={chipSoft}>{formatActivityStatus(item.status)}</span>
                       {item.person ? <span style={chip}>By {item.person}</span> : null}
                       {item.route ? <span style={{ color: UI.brand, fontSize: 12, fontWeight: 800 }}>Open</span> : null}
@@ -827,16 +811,16 @@ export default function VehicleActivityPage() {
 function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand" }) {
   const colors =
     tone === "danger"
-      ? { bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" }
+      ? { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", fg: "var(--color-danger)" }
       : tone === "amber"
-      ? { bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" }
+      ? { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", fg: "var(--color-warning)" }
       : tone === "ok"
-      ? { bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" }
+      ? { bg: "var(--color-success-soft)", border: "var(--color-success-border)", fg: "var(--color-success)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
 
   return (
     <div style={statCard}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted9}>
         <div>
           <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{label}</div>
           <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>

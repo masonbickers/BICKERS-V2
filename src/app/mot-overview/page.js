@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
@@ -24,29 +25,10 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* UI tokens */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  okBg: "var(--legacy-color-ecfdf5)",
-  okFg: "var(--legacy-color-065f46)",
-  soonBg: "var(--legacy-color-fff7ed)",
-  soonFg: "var(--legacy-color-9a3412)",
-  overdueBg: "var(--legacy-color-fef2f2)",
-  overdueFg: "var(--legacy-color-991b1b)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -74,9 +56,9 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
-      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
-    color: primary ? "var(--legacy-color-fff)" : UI.text,
+      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -95,7 +77,7 @@ const input = {
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   width: "100%",
   outline: "none",
@@ -124,15 +106,15 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid var(--legacy-color-eef2f7)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   textAlign: "left",
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontWeight: 900,
 };
 const td = {
   padding: "11px 12px",
   fontSize: 13,
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
 };
 
@@ -144,7 +126,7 @@ const actionBtn = {
   padding: "5px 8px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
@@ -329,9 +311,9 @@ export default function MOTOverviewPage() {
   }, [vehicles]);
 
   const rowBg = (status) => {
-    if (status === "overdue") return { background: "var(--legacy-color-fff1f2)" };
-    if (status === "soon") return { background: "var(--legacy-color-fffbeb)" };
-    if (status === "ok") return { background: "var(--legacy-color-f0fdf4)" };
+    if (status === "overdue") return { background: "var(--color-danger-soft)" };
+    if (status === "soon") return { background: "var(--color-warning-soft)" };
+    if (status === "ok") return { background: "var(--color-success-soft)" };
     return {};
   };
 
@@ -340,7 +322,7 @@ export default function MOTOverviewPage() {
       <style jsx global>{`
         .mot-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
+        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
         .mot-overview-kpi-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -372,7 +354,7 @@ export default function MOTOverviewPage() {
 
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={title}>MOT Overview</h1>
             <div style={subtitle}>
@@ -380,7 +362,7 @@ export default function MOTOverviewPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <button type="button" className="mot-overview-action" onClick={() => router.push("/dashboard")} style={btn("primary")}>
               <CalendarCheck2 size={15} />
               Dashboard
@@ -403,7 +385,7 @@ export default function MOTOverviewPage() {
         {/* Controls */}
         <div style={{ ...card, padding: 12, marginBottom: 12 }}>
           <div className="mot-overview-filter-grid">
-            <label style={{ position: "relative", display: "block" }}>
+            <label className={layoutStyles.extracted3}>
               <Search
                 size={16}
                 style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
@@ -447,19 +429,19 @@ export default function MOTOverviewPage() {
             </button>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div className={layoutStyles.extracted4}>
             <span style={pill(UI.overdueBg, UI.overdueFg)}>Overdue</span>
             <span style={pill(UI.soonBg, UI.soonFg)}>Due Soon</span>
             <span style={pill(UI.okBg, UI.okFg)}>OK</span>
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Missing Date</span>
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>Missing Date</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
           </div>
         </div>
 
         {/* Table */}
         <div style={tableWrap}>
-          <div style={{ overflowX: "auto" }}>
-            <table className="mot-overview-table" style={{ width: "100%", minWidth: 940, borderCollapse: "collapse" }}>
+          <div className={layoutStyles.extracted5}>
+            <table className={`mot-overview-table ${layoutStyles.extracted6}`} >
               <thead>
                 <tr>
                   <th style={th}>Name</th>
@@ -492,7 +474,7 @@ export default function MOTOverviewPage() {
 
                     return (
                       <tr key={v.id} style={rowBg(status)}>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted7}>
                           <button
                             type="button"
                             onClick={() => router.push(`/vehicle-edit/${v.id}`)}
@@ -512,25 +494,25 @@ export default function MOTOverviewPage() {
                           </button>
                         </td>
 
-                        <td style={td}>{v.reg}</td>
-                        <td style={td}>{v.category}</td>
+                        <td className={layoutStyles.extracted8}>{v.reg}</td>
+                        <td className={layoutStyles.extracted9}>{v.category}</td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted10}>
                           {diff === null || diff === undefined ? "-" : diff}
                         </td>
 
-                        <td style={td}>{v.nextMOTDate}</td>
+                        <td className={layoutStyles.extracted11}>{v.nextMOTDate}</td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted12}>
                           {status === "unknown" ? (
-                            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Missing date</span>
+                            <span style={pill("var(--color-surface-hover)", UI.text)}>Missing date</span>
                           ) : (
                             <span style={statusPill(status)}>
                               {status === "overdue" ? "Overdue" : status === "soon" ? "Due Soon" : "OK"}
                             </span>
                           )}
                         </td>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted13}>
                           <button
                             type="button"
                             className="mot-overview-action"
@@ -576,9 +558,9 @@ export default function MOTOverviewPage() {
 
 function SummaryCard({ label, value, sub, icon: Icon, tone = "brand" }) {
   const tones = {
-    danger: { bg: UI.overdueBg, fg: UI.overdueFg, border: "var(--legacy-color-fecdd3)" },
-    amber: { bg: UI.soonBg, fg: UI.soonFg, border: "var(--legacy-color-fed7aa)" },
-    ok: { bg: UI.okBg, fg: UI.okFg, border: "var(--legacy-color-bbf7d0)" },
+    danger: { bg: UI.overdueBg, fg: UI.overdueFg, border: "var(--color-danger-border)" },
+    amber: { bg: UI.soonBg, fg: UI.soonFg, border: "var(--color-warning-border)" },
+    ok: { bg: UI.okBg, fg: UI.okFg, border: "var(--color-success-border)" },
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
   };
   const toneStyles = tones[tone] || tones.brand;

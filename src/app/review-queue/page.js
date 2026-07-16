@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
@@ -23,33 +24,10 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-  purple: "var(--legacy-color-7c3aed)",
-  purpleSoft: "var(--legacy-color-f5f3ff)",
-  purpleBorder: "var(--legacy-color-ddd6fe)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "10px 12px 24px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
@@ -90,7 +68,7 @@ const inputStyle = {
   border: UI.border,
   fontSize: 12,
   outline: "none",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   boxSizing: "border-box",
 };
@@ -103,8 +81,8 @@ const btn = (kind = "ghost") => ({
   padding: "4px 8px",
   borderRadius: UI.radiusSm,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
-  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-surface)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 850,
   fontSize: 12,
   textDecoration: "none",
@@ -131,8 +109,8 @@ const chip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
-  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: UI.purple };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.var(--color-danger) };
+  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: UI.var(--color-accent) };
   return base;
 };
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
@@ -152,10 +130,10 @@ const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, f
 const th = {
   textAlign: "left",
   padding: "5px 8px",
-  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
+  borderBottom: "1px solid var(--color-border)",
   position: "sticky",
   top: 0,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   color: UI.muted,
   fontSize: 10.5,
@@ -165,7 +143,7 @@ const th = {
 };
 const td = {
   padding: "5px 8px",
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -175,7 +153,7 @@ const focusCss = `
   input:focus, select:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .review-toolbar { grid-template-columns: 1fr 1fr !important; }
@@ -234,27 +212,28 @@ const prettifyStatus = (raw) => {
 };
 
 const statusColors = (label) => {
+  if (FIXED_JOB_STATUS_STYLES[label]) return FIXED_JOB_STATUS_STYLES[label];
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
+      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
     case "Invoiced":
-      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
+      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
     case "Paid":
-      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
+      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
     case "Action Required":
-      return { bg: "var(--legacy-color-ff973b)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
+      return { bg: "var(--color-warning-border)", border: "var(--color-border-strong)", text: "var(--color-text)" };
     case "Complete":
-      return { bg: "var(--legacy-color-92d18cff)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
+      return { bg: "var(--color-success-accent)", border: "var(--color-border-strong)", text: "var(--color-text)" };
     case "Confirmed":
-      return { bg: "var(--legacy-color-f3f970)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
+      return { bg: "var(--color-warning-border)", border: "var(--color-border-strong)", text: "var(--color-text)" };
     case "First Pencil":
-      return { bg: "var(--legacy-color-89caf5)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
+      return { bg: "var(--color-info-border)", border: "var(--color-border-strong)", text: "var(--color-text)" };
     case "Second Pencil":
-      return { bg: "var(--legacy-color-f73939)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-fff)" };
+      return { bg: "var(--color-warning)", border: "var(--color-border-strong)", text: "var(--color-white)" };
     case "TBC":
-      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
+      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
     default:
-      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
+      return { bg: "var(--color-border)", border: "var(--color-border)", text: "var(--color-text)" };
   }
 };
 
@@ -503,8 +482,8 @@ export default function ReviewQueuePage() {
   };
 
   const SectionTable = ({ jobs, title }) => (
-    <section style={{ marginBottom: 12 }}>
-      <div style={sectionHeader}>
+    <section className={layoutStyles.extracted1}>
+      <div className={layoutStyles.extracted2}>
         <div>
           <h2 style={titleMd}>{title}</h2>
         </div>
@@ -514,18 +493,18 @@ export default function ReviewQueuePage() {
       </div>
 
       <div style={tableWrap}>
-        <table style={tableEl} aria-label={title}>
+        <table className={layoutStyles.extracted3} aria-label={title}>
           <colgroup>
-            <col style={{ width: 84 }} />
-            <col style={{ width: 170 }} />
-            <col style={{ width: 180 }} />
+            <col className={layoutStyles.extracted4} />
+            <col className={layoutStyles.extracted5} />
+            <col className={layoutStyles.extracted6} />
             <col />
-            <col style={{ width: 72 }} />
-            <col style={{ width: 64 }} />
-            <col style={{ width: 80 }} />
-            <col style={{ width: 126 }} />
-            <col style={{ width: 118 }} />
-            <col style={{ width: 368 }} />
+            <col className={layoutStyles.extracted7} />
+            <col className={layoutStyles.extracted8} />
+            <col className={layoutStyles.extracted9} />
+            <col className={layoutStyles.extracted10} />
+            <col className={layoutStyles.extracted11} />
+            <col className={layoutStyles.extracted12} />
           </colgroup>
           <thead>
             <tr>
@@ -554,21 +533,21 @@ export default function ReviewQueuePage() {
 
               return (
                 <tr key={j.id}>
-                  <td style={{ ...td, ...nowrap }}>
+                  <td className={layoutStyles.extracted13}>
                     <Link href={href} style={{ textDecoration: "none", color: UI.text, fontWeight: 900 }}>
                       #{j.jobNumber || j.id}
                     </Link>
                   </td>
-                  <td style={td} title={j.production || ""}>{j.production || "-"}</td>
-                  <td style={td} title={j.client || ""}>{j.client || "-"}</td>
-                  <td style={td} title={j.location || ""}>{j.location || "-"}</td>
-                  <td style={{ ...td, ...nowrap }}><span style={chip(notesState.tone)}>{notesState.label}</span></td>
-                  <td style={{ ...td, ...nowrap }}><span style={chip(poState.tone)}>{poState.label}</span></td>
-                  <td style={{ ...td, ...nowrap }}><span style={chip(quoteState.tone)}>{quoteState.label}</span></td>
-                  <td style={{ ...td, ...nowrap }}><DatesCell job={j} /></td>
-                  <td style={{ ...td, ...nowrap }}><StatusBadge value={pretty} /></td>
-                  <td style={{ ...td, ...nowrap }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
+                  <td className={layoutStyles.extracted14} title={j.production || ""}>{j.production || "-"}</td>
+                  <td className={layoutStyles.extracted15} title={j.client || ""}>{j.client || "-"}</td>
+                  <td className={layoutStyles.extracted16} title={j.location || ""}>{j.location || "-"}</td>
+                  <td className={layoutStyles.extracted17}><span style={chip(notesState.tone)}>{notesState.label}</span></td>
+                  <td className={layoutStyles.extracted18}><span style={chip(poState.tone)}>{poState.label}</span></td>
+                  <td className={layoutStyles.extracted19}><span style={chip(quoteState.tone)}>{quoteState.label}</span></td>
+                  <td className={layoutStyles.extracted20}><DatesCell job={j} /></td>
+                  <td className={layoutStyles.extracted21}><StatusBadge value={pretty} /></td>
+                  <td className={layoutStyles.extracted22}>
+                    <div className={layoutStyles.extracted23}>
                       {["Ready to Invoice", "Needs Action", "Complete"].map((option) => {
                         const nextStatus = option === "Needs Action" ? "Action Required" : option;
                         const currentStatus = prettifyStatus(j.status);
@@ -611,11 +590,11 @@ export default function ReviewQueuePage() {
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted24}>
           <div>
             <h1 style={h1}>Review Queue</h1>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted25}>
             <Link href="/job-home" style={btn()}>
               <Home size={14} />
               Jobs Home
@@ -627,7 +606,7 @@ export default function ReviewQueuePage() {
         </div>
 
         <div className="review-toolbar" style={toolbar}>
-          <div className="review-search" style={{ position: "relative" }}>
+          <div className={`review-search ${layoutStyles.extracted26}`} >
             <Search size={14} style={{ position: "absolute", left: 9, top: 7, color: UI.muted }} aria-hidden />
             <input
               ref={searchRef}

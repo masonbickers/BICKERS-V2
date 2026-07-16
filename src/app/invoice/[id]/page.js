@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -16,32 +17,21 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────────────────────────────────
    Mini design system
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "40px 24px", background: UI.bg, minHeight: "100vh" };
-const surface = { background: "var(--legacy-color-fff)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const surface = { background: "var(--color-surface)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const section = { ...surface, padding: 14, marginBottom: UI.gap };
 const sectionTitle = { fontSize: 16, fontWeight: 900, marginBottom: 8, color: UI.text };
 const grid = (cols = 3) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 12 });
 const k = { fontSize: 12, color: UI.muted, textTransform: "uppercase", fontWeight: 800, letterSpacing: ".02em" };
 const v = { fontSize: 14, color: UI.text, fontWeight: 700 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: "var(--legacy-color-0f172a)", fontSize: 12, fontWeight: 700 };
+const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--color-surface-hover)", color: "var(--shell-sidebar-bg)", fontSize: 12, fontWeight: 700 };
 
 /* ───────────────────────────────────────────
    Helpers
@@ -371,14 +361,14 @@ export default function InvoiceJobPage() {
   if (loading) {
     return (
       <HeaderSidebarLayout>
-        <div style={pageWrap}><div style={chip}>Loading…</div></div>
+        <div style={pageWrap}><div className={layoutStyles.extracted1}>Loading…</div></div>
       </HeaderSidebarLayout>
     );
   }
   if (!job) {
     return (
       <HeaderSidebarLayout>
-        <div style={pageWrap}><div style={chip}>Job not found.</div></div>
+        <div style={pageWrap}><div className={layoutStyles.extracted2}>Job not found.</div></div>
       </HeaderSidebarLayout>
     );
   }
@@ -426,27 +416,20 @@ export default function InvoiceJobPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         {/* Back + Title */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div className={layoutStyles.extracted3}>
           <button
             onClick={() => router.back()}
-            style={{
-              backgroundColor: "var(--legacy-color-e5e7eb)",
-              padding: "8px 16px",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: 700,
-            }}
+            className={layoutStyles.extracted4}
           >
             ← Back
           </button>
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <span style={chip}>{statusPretty}</span>
+          <div className={layoutStyles.extracted5}>
+            <span className={layoutStyles.extracted6}>{statusPretty}</span>
           </div>
         </div>
 
-        <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 10 }}>
+        <h1 className={layoutStyles.extracted7}>
           Invoice Job #{job.jobNumber || job.id}
         </h1>
         <div style={{ color: UI.muted, marginBottom: 18 }}>
@@ -466,7 +449,7 @@ export default function InvoiceJobPage() {
             <div><div style={k}>Vehicles</div><div style={v}>{vehicles}</div></div>
 
             <div><div style={k}>Equipment</div><div style={v}>{equipment}</div></div>
-            <div><div style={k}>Booking Dates (detailed)</div><div style={{ fontSize: 14 }}>{renderDates}</div></div>
+            <div><div style={k}>Booking Dates (detailed)</div><div className={layoutStyles.extracted8}>{renderDates}</div></div>
             <div><div style={k}>PO Number</div><div style={v}>{job?.finance?.poNumber || job?.poNumber || "—"}</div></div>
           </div>
         </div>
@@ -474,20 +457,20 @@ export default function InvoiceJobPage() {
         {/* Notes */}
         <div style={section}>
           <div style={sectionTitle}>Notes</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className={layoutStyles.extracted9}>
             <div style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
               <div style={k}>General Notes</div>
-              <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{job.notes || job.generalNotes || "—"}</div>
+              <div className={layoutStyles.extracted10}>{job.notes || job.generalNotes || "—"}</div>
             </div>
             <div style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
               <div style={k}>Per-Day Notes</div>
-              <div style={{ fontSize: 14 }}>
+              <div className={layoutStyles.extracted11}>
                 {job?.notesByDate && typeof job.notesByDate === "object" ? (
-                  <ul style={{ margin: 0, paddingLeft: 16 }}>
+                  <ul className={layoutStyles.extracted12}>
                     {Object.entries(job.notesByDate).map(([d, n]) => (
-                      <li key={d} style={{ marginBottom: 6 }}>
+                      <li key={d} className={layoutStyles.extracted13}>
                         <strong>{formatNotesDateKey(d)}:</strong>{" "}
-                        <span style={{ whiteSpace: "pre-wrap" }}>{String(n || "")}</span>
+                        <span className={layoutStyles.extracted14}>{String(n || "")}</span>
                       </li>
                     ))}
                   </ul>
@@ -506,7 +489,7 @@ export default function InvoiceJobPage() {
             <div><div style={k}>Invoiced At</div><div style={v}>{fmtLong(parseDate(job?.finance?.invoicedAt) || parseDate(job?.invoicedAt))}</div></div>
             <div><div style={k}>Paid At</div><div style={v}>{fmtLong(parseDate(job?.finance?.paidAt) || parseDate(job?.paidAt))}</div></div>
             <div><div style={k}>Payment Terms</div><div style={v}>{job?.finance?.terms || job?.paymentTerms || "—"}</div></div>
-            <div><div style={k}>Finance Notes</div><div style={{ fontSize: 14 }}>{job?.finance?.notes || "—"}</div></div>
+            <div><div style={k}>Finance Notes</div><div className={layoutStyles.extracted15}>{job?.finance?.notes || "—"}</div></div>
           </div>
         </div>
 
@@ -519,7 +502,7 @@ export default function InvoiceJobPage() {
           ) : timesheets.length === 0 ? (
             <div style={{ color: UI.muted }}>No timesheets found for this job.</div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+            <div className={layoutStyles.extracted16}>
               {timesheets.map((ts) => {
                 const docs = collectTimesheetDocs(ts);
                 const first = docs[0];
@@ -527,7 +510,7 @@ export default function InvoiceJobPage() {
 
                 return (
                   <div key={ts.id} style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 0.6fr 0.6fr 0.6fr 1fr", gap: 10, alignItems: "start" }}>
+                    <div className={layoutStyles.extracted17}>
                       <div>
                         <div style={k}>Employee</div>
                         <div style={v}>{tsEmployee(ts)}</div>
@@ -578,28 +561,28 @@ export default function InvoiceJobPage() {
                     </div>
 
                     {/* Attachments */}
-                    <div style={{ marginTop: 10 }}>
+                    <div className={layoutStyles.extracted18}>
                       <div style={k}>Attachments</div>
                       {!docs.length ? (
                         <div style={{ fontSize: 13, color: UI.muted }}>No files</div>
                       ) : (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
+                        <div className={layoutStyles.extracted19}>
                           {/* Inline preview of the first file */}
                           {first && (
                             <div style={{ ...surface, border: UI.border, borderRadius: 10, overflow: "hidden" }}>
-                              <div style={{ padding: 8, borderBottom: "1px solid var(--legacy-color-e5e7eb)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <strong style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{first.name}</strong>
+                              <div className={layoutStyles.extracted20}>
+                                <strong className={layoutStyles.extracted21}>{first.name}</strong>
                                 <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none", fontSize: 13 }}>
                                   Open
                                 </a>
                               </div>
-                              <div style={{ padding: 8, background: "var(--legacy-color-fafafa)" }}>
+                              <div className={layoutStyles.extracted22}>
                                 {first.kind === "pdf" ? (
-                                  <iframe src={first.url} title={first.name} style={{ width: "100%", height: 340, border: 0 }} />
+                                  <iframe src={first.url} title={first.name} className={layoutStyles.extracted23} />
                                 ) : first.kind === "image" ? (
                                   // Uploaded attachment URLs can come from Firebase Storage and are not constrained to a Next image domain.
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={first.url} alt={first.name} style={{ maxWidth: "100%", maxHeight: 340, display: "block" }} loading="lazy" />
+                                  <img src={first.url} alt={first.name} className={layoutStyles.extracted24} loading="lazy" />
                                 ) : (
                                   <div style={{ fontSize: 13, color: UI.muted }}>
                                     File cannot be previewed.{" "}
@@ -614,9 +597,9 @@ export default function InvoiceJobPage() {
 
                           {/* List other files */}
                           <div style={{ ...surface, padding: 8, borderRadius: 10 }}>
-                            <ul style={{ margin: 0, paddingLeft: 16 }}>
+                            <ul className={layoutStyles.extracted25}>
                               {docs.map((d, i) => (
-                                <li key={d.url + i} style={{ marginBottom: 6 }}>
+                                <li key={d.url + i} className={layoutStyles.extracted26}>
                                   <a href={d.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 700, textDecoration: "none" }}>
                                     {d.name}
                                   </a>
@@ -647,14 +630,7 @@ export default function InvoiceJobPage() {
                   style={{ ...surface, border: UI.border, borderRadius: UI.radiusSm, overflow: "hidden" }}
                 >
                   <div
-                    style={{
-                      padding: 10,
-                      borderBottom: "1px solid var(--legacy-color-e5e7eb)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 8,
-                    }}
+                    className={layoutStyles.extracted27}
                   >
                     <div
                       style={{
@@ -679,28 +655,21 @@ export default function InvoiceJobPage() {
                     </a>
                   </div>
 
-                  <div style={{ padding: 10, background: "var(--legacy-color-fafafa)" }}>
+                  <div className={layoutStyles.extracted28}>
                     {d.kind === "pdf" ? (
-                      <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 10, overflow: "hidden", background: "var(--legacy-color-fff)" }}>
-                        <iframe src={d.url} title={d.name} style={{ width: "100%", height: 420, border: 0 }} />
+                      <div className={layoutStyles.extracted29}>
+                        <iframe src={d.url} title={d.name} className={layoutStyles.extracted30} />
                       </div>
                     ) : d.kind === "image" ? (
                       <div
-                        style={{
-                          display: "grid",
-                          placeItems: "center",
-                          background: "var(--legacy-color-fff)",
-                          border: "1px solid var(--legacy-color-e5e7eb)",
-                          borderRadius: 10,
-                          overflow: "hidden",
-                        }}
+                        className={layoutStyles.extracted31}
                       >
                         {/* Uploaded attachment URLs can come from Firebase Storage and are not constrained to a Next image domain. */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={d.url}
                           alt={d.name}
-                          style={{ maxWidth: "100%", maxHeight: 420, display: "block" }}
+                          className={layoutStyles.extracted32}
                           loading="lazy"
                         />
                       </div>
@@ -720,7 +689,7 @@ export default function InvoiceJobPage() {
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className={layoutStyles.extracted33}>
           <button
             onClick={markInvoiced}
             disabled={saving}
@@ -728,8 +697,8 @@ export default function InvoiceJobPage() {
               padding: "10px 18px",
               borderRadius: 8,
               border: "none",
-              background: saving ? "var(--legacy-color-6b7280)" : "var(--legacy-color-10b981)",
-              color: "var(--legacy-color-fff)",
+              background: saving ? "var(--color-text-muted)" : "var(--color-success-accent)",
+              color: "var(--color-white)",
               fontWeight: 700,
               cursor: saving ? "not-allowed" : "pointer",
             }}

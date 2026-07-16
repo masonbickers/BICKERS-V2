@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -13,32 +14,10 @@ import {
   Settings,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ------------------------------- Styling tokens ------------------------------- */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-166534)",
-  greenSoft: "var(--legacy-color-ecfdf5)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-92400e)",
-  amberSoft: "var(--legacy-color-fff7ed)",
-  amberBorder: "var(--legacy-color-fed7aa)",
-  purple: "var(--legacy-color-5b21b6)",
-  purpleSoft: "var(--legacy-color-f5f3ff)",
-  purpleBorder: "var(--legacy-color-ddd6fe)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -141,7 +120,7 @@ export default function FinancePage() {
       link: "/finance/settings",
       pill: "Settings",
       icon: Settings,
-      tone: { bg: "var(--legacy-color-f8fbfd)", border: UI.brandBorder, text: UI.text },
+      tone: { bg: "var(--color-surface-subtle)", border: UI.brandBorder, text: UI.text },
     },
   ];
 
@@ -151,7 +130,7 @@ export default function FinancePage() {
     <HeaderSidebarLayout>
       <style>{financeCss}</style>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={{ ...h1, display: "flex", alignItems: "center", gap: 8 }}>
               <BadgePoundSterling size={22} color={UI.brand} />
@@ -159,13 +138,13 @@ export default function FinancePage() {
             </h1>
             <div style={sub}>Invoicing, invoice tracking and finance reporting shortcuts.</div>
           </div>
-          <div className="finance-header-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={`finance-header-actions ${layoutStyles.extracted2}`} >
             <div style={chip}>
               <LayoutDashboard size={14} />
               Dashboard
             </div>
             <div style={{ ...chip, background: UI.greenSoft, borderColor: UI.greenBorder, color: UI.green }}>
-              Shortcuts: <b style={{ marginLeft: 6 }}>{financeLinks.length}</b>
+              Shortcuts: <b className={layoutStyles.extracted3}>{financeLinks.length}</b>
             </div>
           </div>
         </div>
@@ -197,7 +176,7 @@ export default function FinancePage() {
                   ...(isHover ? { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: item.tone.border } : null),
                 }}
               >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                <div className={layoutStyles.extracted4}>
                   <div style={iconBox(item.tone)}>
                     <Icon size={17} />
                   </div>
@@ -206,7 +185,7 @@ export default function FinancePage() {
                   </span>
                 </div>
 
-                <div style={{ marginTop: 12 }}>
+                <div className={layoutStyles.extracted5}>
                   <h2 style={sectionTitle}>{item.title}</h2>
                   <div style={sectionSub}>{item.description}</div>
                 </div>
@@ -229,10 +208,10 @@ export default function FinancePage() {
             <div style={sectionSub}>
               Keep invoice statuses consistent so the queues and trackers stay accurate.
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <div className={layoutStyles.extracted6}>
               <span style={{ ...chip, background: UI.greenSoft, borderColor: UI.greenBorder, color: UI.green }}>Ready to Invoice</span>
               <span style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand }}>Invoiced</span>
-              <span style={{ ...chip, background: UI.purpleSoft, borderColor: UI.purpleBorder, color: UI.purple }}>Paid</span>
+              <span style={{ ...chip, background: UI.purpleSoft, borderColor: UI.purpleBorder, color: UI.var(--color-accent) }}>Paid</span>
             </div>
           </div>
 

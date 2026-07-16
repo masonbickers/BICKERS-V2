@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { onSnapshot, getDocs } from "firebase/firestore";
@@ -44,6 +45,8 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
 
 function StatisticsEmptyState({ title, description, action = null }) {
   return (
@@ -56,27 +59,7 @@ function StatisticsEmptyState({ title, description, action = null }) {
 }
 
 /* ------------------------------- Styling tokens ------------------------------- */
-const UI = {
-  radius: "var(--radius-md)",
-  radiusSm: "var(--radius-md)",
-  gap: "var(--space-3)",
-  shadowSm: "var(--shadow-sm)",
-  shadowHover: "var(--shadow-md)",
-  border: "var(--border-default)",
-  bg: "var(--color-canvas)",
-  card: "var(--color-surface)",
-  text: "var(--color-text)",
-  muted: "var(--color-text-muted)",
-  brand: "var(--color-brand)",
-  brandSoft: "var(--color-brand-soft)",
-  brandBorder: "var(--color-brand-border)",
-  successSoft: "var(--color-success-soft)",
-  successText: "var(--color-success)",
-  warningSoft: "var(--color-warning-soft)",
-  warningBorder: "var(--color-warning-border)",
-  dangerSoft: "var(--legacy-color-fcefee)",
-  dangerText: "var(--color-danger)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -129,7 +112,7 @@ const filterSelectStyle = {
   border: UI.border,
   fontSize: 13.5,
   outline: "none",
-  background: "var(--color-white)",
+  background: "var(--color-surface)",
   color: UI.text,
   boxSizing: "border-box",
 };
@@ -204,8 +187,8 @@ function downloadCSV(filename, rows) {
 }
 
 const severityStyles = {
-  high: { border: "var(--legacy-color-f1b8b8)", bg: UI.dangerSoft, text: UI.dangerText },
-  medium: { border: UI.warningBorder, bg: UI.warningSoft, text: "var(--legacy-color-92400e)" },
+  high: { border: "var(--color-danger-border)", bg: UI.dangerSoft, text: UI.dangerText },
+  medium: { border: UI.warningBorder, bg: UI.warningSoft, text: "var(--color-warning)" },
   neutral: { border: "var(--color-border)", bg: "var(--color-white)", text: UI.text },
 };
 
@@ -335,43 +318,44 @@ const prettifyStatus = (raw) => {
 };
 
 const statusColors = (label) => {
+  if (FIXED_JOB_STATUS_STYLES[label]) return FIXED_JOB_STATUS_STYLES[label];
   switch (label) {
     case "Confirmed":
-      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "First Pencil":
-      return { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-info-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Second Pencil":
-      return { bg: "var(--legacy-color-f73939)", text: "var(--color-white)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning)", text: "var(--color-white)", border: "var(--color-border-strong)" };
     case "Complete":
-      return { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-success-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Action Required":
-      return { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Maintenance":
-      return { bg: "var(--legacy-color-da8e58ff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Bickers":
-      return { bg: "var(--color-white)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-white)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Stunt":
-      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Holiday":
-      return { bg: "var(--legacy-color-d3d3d3)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-border-strong)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "DNH":
     case "Postponed":
     case "Deleted":
-      return { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" };
+      return { bg: "var(--shell-muted)", text: "var(--color-text)", border: "var(--shell-muted)" };
     case "Ready to Invoice":
-      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
+      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
     case "Invoiced":
-      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
+      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
     case "Paid":
-      return { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-success-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Cancelled":
-      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
+      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
     case "Enquiry":
-      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
+      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
     case "TBC":
-      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
+      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
     default:
-      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
+      return { bg: "var(--color-border)", border: "var(--color-border)", text: "var(--color-text)" };
   }
 };
 
@@ -750,35 +734,23 @@ function BarChart({ title, subtitle, summary, monthly = false, data = [], rightL
   return (
     <div style={panel}>
       <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "var(--space-3)",
-          marginBottom: 10,
-          flexWrap: "wrap",
-        }}
+        className={layoutStyles.extracted1}
       >
         <div>
           <div style={sectionTitle}>{title}</div>
           {subtitle ? <div style={{ ...sectionMeta, marginTop: 3 }}>{subtitle}</div> : null}
-          <div style={insightBoxStyle}><b>Summary:</b> {visualSummary}</div>
+          <div className={layoutStyles.extracted2}><b>Summary:</b> {visualSummary}</div>
         </div>
         <div style={chip}>{rightLabel}</div>
       </div>
 
-      <div style={{ display: "grid", gap: "var(--space-2)" }}>
+      <div className={layoutStyles.extracted3}>
         {data.length ? (
           data.map((row) => (
             <div
               key={row.label}
-              className="statistics-bar-row"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "120px 1fr 80px",
-                gap: "var(--space-2)",
-                alignItems: "center",
-              }}
+              className={`statistics-bar-row ${layoutStyles.extracted4}`}
+              
             >
               <div
                 style={{
@@ -809,7 +781,7 @@ function BarChart({ title, subtitle, summary, monthly = false, data = [], rightL
                   }}
                 />
               </div>
-              <div style={{ textAlign: "right", fontWeight: 900, fontSize: "var(--font-size-sm)" }}>
+              <div className={layoutStyles.extracted5}>
                 {valueFormatter ? valueFormatter(row.value) : row.value}
               </div>
             </div>
@@ -842,23 +814,17 @@ function StackedBarChart({ title, subtitle, summary, data = [], rightLabel = "Co
   return (
     <div style={panel}>
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) auto",
-          alignItems: "flex-start",
-          gap: "var(--space-3)",
-          marginBottom: 10,
-        }}
+        className={layoutStyles.extracted6}
       >
-        <div style={{ minWidth: 0 }}>
+        <div className={layoutStyles.extracted7}>
           <div style={sectionTitle}>{title}</div>
           {subtitle ? <div style={{ ...sectionMeta, marginTop: 3 }}>{subtitle}</div> : null}
         </div>
         <div style={chip}>{rightLabel}</div>
-        <div style={{ ...insightBoxStyle, gridColumn: "1 / -1", marginTop: 0 }}><b>Summary:</b> {visualSummary}</div>
+        <div className={layoutStyles.extracted8}><b>Summary:</b> {visualSummary}</div>
       </div>
 
-      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: 10 }}>
+      <div className={layoutStyles.extracted9}>
         {segmentLabels.map((label) => {
           const colors = statusColors(label);
           return (
@@ -869,17 +835,17 @@ function StackedBarChart({ title, subtitle, summary, data = [], rightLabel = "Co
         })}
       </div>
 
-      <div style={{ display: "grid", gap: "var(--space-2)" }}>
+      <div className={layoutStyles.extracted10}>
         {data.length ? (
           data.map((row, index) => {
             const pipeline = getStatisticsMonthPhase(row.label) === "pipeline";
             return (
-              <div key={row.label} style={{ display: "contents" }}>
+              <div key={row.label} className={layoutStyles.extracted11}>
                 {index === firstPipelineIndex ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 2px", color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>
-                    <span style={{ height: 1, flex: 1, background: "var(--color-border)" }} />
+                    <span className={layoutStyles.extracted12} />
                     Current and forward pipeline · incomplete
-                    <span style={{ height: 1, flex: 1, background: "var(--color-border)" }} />
+                    <span className={layoutStyles.extracted13} />
                   </div>
                 ) : null}
                 <div
@@ -931,7 +897,7 @@ function StackedBarChart({ title, subtitle, summary, data = [], rightLabel = "Co
                       );
                     })}
                   </div>
-                  <div style={{ textAlign: "right", fontWeight: 900, fontSize: "var(--font-size-sm)" }}>
+                  <div className={layoutStyles.extracted14}>
                     {valueFormatter ? valueFormatter(row.total) : row.total}
                   </div>
                 </div>
@@ -951,8 +917,8 @@ function AnalyticsSummarySection({ title, summary, items = [] }) {
   return (
     <div style={panel}>
       <div style={sectionTitle}>{title}</div>
-      {summary ? <div style={{ ...insightBoxStyle, marginBottom: 10 }}><b>Summary:</b> {summary}</div> : null}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+      {summary ? <div className={layoutStyles.extracted15}><b>Summary:</b> {summary}</div> : null}
+      <div className={layoutStyles.extracted16}>
         {items.map((item) => (
           (() => {
             const severity = severityStyles[item.severity] || severityStyles.neutral;
@@ -983,16 +949,16 @@ function AnalyticsSummarySection({ title, summary, items = [] }) {
 function UsageTable({ title, rows = [], onRowClick }) {
   return (
     <div style={panel}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+      <div className={layoutStyles.extracted17}>
         <div style={sectionTitle}>{title}</div>
         <div style={sectionMeta}>{rows.length} item(s)</div>
       </div>
-      <div style={{ display: "grid", gap: 6 }}>
+      <div className={layoutStyles.extracted18}>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 60px 86px 70px", gap: "var(--space-2)", ...statLabel }}>
           <span>Name</span>
-          <span style={{ textAlign: "right" }}>Jobs</span>
-          <span style={{ textAlign: "right" }}>Days</span>
-          <span style={{ textAlign: "right" }}>Credits</span>
+          <span className={layoutStyles.extracted19}>Jobs</span>
+          <span className={layoutStyles.extracted20}>Days</span>
+          <span className={layoutStyles.extracted21}>Credits</span>
         </div>
         {rows.slice(0, 8).map((row) => (
           <button
@@ -1005,7 +971,7 @@ function UsageTable({ title, rows = [], onRowClick }) {
               gap: "var(--space-2)",
               alignItems: "center",
               border: "none",
-              borderTop: "1px solid var(--legacy-color-e7edf4)",
+              borderTop: "1px solid var(--color-brand-soft)",
               padding: "6px 0 0",
               background: "transparent",
               color: UI.text,
@@ -1014,10 +980,10 @@ function UsageTable({ title, rows = [], onRowClick }) {
               cursor: onRowClick ? "pointer" : "default",
             }}
           >
-            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 800 }}>{row.name}</span>
-            <span style={{ textAlign: "right" }}>{row.count}</span>
-            <span style={{ textAlign: "right" }}>{row.bookingDays}</span>
-            <span style={{ textAlign: "right" }}>{formatCredits(row.credits)}</span>
+            <span className={layoutStyles.extracted22}>{row.name}</span>
+            <span className={layoutStyles.extracted23}>{row.count}</span>
+            <span className={layoutStyles.extracted24}>{row.bookingDays}</span>
+            <span className={layoutStyles.extracted25}>{formatCredits(row.credits)}</span>
           </button>
         ))}
         {!rows.length && <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No data for this filter.</div>}
@@ -1031,8 +997,8 @@ function MonthlyPerformanceTable({ rows = [], onMonthClick }) {
   return (
     <div style={panel}>
       <div style={sectionTitle}>Monthly performance</div>
-      <div style={{ ...insightBoxStyle, marginBottom: 10 }}><b>Summary:</b> {summary}</div>
-      <div style={{ display: "grid", gap: 6, overflowX: "auto" }}>
+      <div className={layoutStyles.extracted26}><b>Summary:</b> {summary}</div>
+      <div className={layoutStyles.extracted27}>
         <div className="statistics-table-heading" style={{ display: "grid", gridTemplateColumns: "110px repeat(6, 1fr)", gap: "var(--space-2)", minWidth: 680, ...statLabel }}>
           <span>Month</span>
           <span>Bookings</span>
@@ -1054,7 +1020,7 @@ function MonthlyPerformanceTable({ rows = [], onMonthClick }) {
               gap: "var(--space-2)",
               minWidth: 680,
               border: "none",
-              borderTop: "1px solid var(--legacy-color-e7edf4)",
+              borderTop: "1px solid var(--color-brand-soft)",
               padding: "6px 0 0",
               background: "transparent",
               color: UI.text,
@@ -1083,14 +1049,14 @@ function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
 
   return (
     <div style={{ ...panel, marginBottom: UI.gap, borderColor: UI.brandBorder }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", marginBottom: 10 }}>
+      <div className={layoutStyles.extracted28}>
         <div>
           <div style={sectionTitle}>{drilldown.title}</div>
           <div style={sectionMeta}>
             {drilldown.bookings.length} booking{drilldown.bookings.length === 1 ? "" : "s"}
           </div>
         </div>
-        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+        <div className={layoutStyles.extracted29}>
           <button type="button" onClick={onExport} disabled={!drilldown.bookings.length} style={{ ...chip, cursor: drilldown.bookings.length ? "pointer" : "not-allowed", opacity: drilldown.bookings.length ? 1 : 0.55 }}>
             <Download size={14} />
             Export CSV
@@ -1101,7 +1067,7 @@ function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
           </button>
         </div>
       </div>
-      <div style={{ display: "grid", gap: 6, overflowX: "auto" }}>
+      <div className={layoutStyles.extracted30}>
         <div className="statistics-table-heading" style={{ display: "grid", gridTemplateColumns: "90px 180px 120px 90px 90px 90px 80px 220px 220px", gap: "var(--space-2)", minWidth: 1180, ...statLabel }}>
           <span>Job #</span>
           <span>Client</span>
@@ -1123,7 +1089,7 @@ function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
               gridTemplateColumns: "90px 180px 120px 90px 90px 90px 80px 220px 220px",
               gap: "var(--space-2)",
               minWidth: 1180,
-              borderTop: "1px solid var(--legacy-color-e7edf4)",
+              borderTop: "1px solid var(--color-brand-soft)",
               paddingTop: 6,
               color: UI.text,
               textDecoration: "none",
@@ -1131,16 +1097,16 @@ function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
             }}
           >
             <b>{booking.jobNumber || "-"}</b>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{booking.client || "-"}</span>
+            <span className={layoutStyles.extracted31}>{booking.client || "-"}</span>
             <span>{booking.status || "-"}</span>
             <span>{booking.firstDate || "-"}</span>
             <span>{booking.lastDate || "-"}</span>
             <span>{booking.bookingDayCount}</span>
             <span>{formatCredits(booking.creditTotal)}</span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span className={layoutStyles.extracted32}>
               {booking.vehicles?.map((vehicle) => formatVehicle(displayToken(vehicle))).filter(Boolean).join(", ") || "-"}
             </span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span className={layoutStyles.extracted33}>
               {booking.employees?.map(displayToken).filter(Boolean).join(", ") || "-"}
             </span>
           </Link>
@@ -2214,7 +2180,7 @@ export default function StatisticsPage() {
           {j.location || "-"}
         </div>
         <div className={styles.jobDate} style={{ fontSize: "var(--font-size-sm)", whiteSpace: "nowrap" }}>{datesLabel}</div>
-        <div style={{ justifySelf: "end" }}>
+        <div className={layoutStyles.extracted34}>
           <StatusBadge value={pretty} />
         </div>
       </Link>
@@ -2446,8 +2412,8 @@ export default function StatisticsPage() {
         })
       }
     >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 800, fontSize: "var(--font-size-md)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+      <div className={layoutStyles.extracted35}>
+        <div className={layoutStyles.extracted36}>{title}</div>
         <div style={{ ...sectionMeta, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{subtitle}</div>
       </div>
       <span style={{ ...chip, padding: "5px 8px", fontSize: 11, flexShrink: 0 }}>{pillTxt}</span>
@@ -2464,7 +2430,7 @@ export default function StatisticsPage() {
     <HeaderSidebarLayout>
       <style>{statisticsCss}</style>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted37}>
           <div>
             <h1 style={{ ...h1, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <BarChart3 size={22} color={UI.brand} />
@@ -2477,24 +2443,24 @@ export default function StatisticsPage() {
               {getActiveFilterSummary()}
             </div>
           </div>
-          <div className="statistics-header-actions" style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={`statistics-header-actions ${layoutStyles.extracted38}`} >
             <div style={chip}>
               <BriefcaseBusiness size={14} />
               {loading ? "Loading..." : `${jobsAll.length} jobs`}
             </div>
             <div style={{ ...chip, background: UI.successSoft, borderColor: "var(--color-success-border)", color: UI.successText }}>
               <Filter size={14} />
-              Filtered: <b style={{ marginLeft: 6 }}>{jobsFiltered.length}</b>
+              Filtered: <b className={layoutStyles.extracted39}>{jobsFiltered.length}</b>
             </div>
             <div style={{ ...chip, background: UI.warningSoft, borderColor: UI.warningBorder }}>
               <CalendarDays size={14} />
-              Deleted in scope: <b style={{ marginLeft: 6 }}>{deletedJobsFiltered.length}</b>
+              Deleted in scope: <b className={layoutStyles.extracted40}>{deletedJobsFiltered.length}</b>
             </div>
-            <button type="button" onClick={exportAnalyticsSummary} style={{ ...chip, cursor: "pointer", background: "var(--color-white)" }}>
+            <button type="button" onClick={exportAnalyticsSummary} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)" }}>
               <Download size={14} />
               Export summary CSV
             </button>
-            <button type="button" onClick={exportDrilldown} style={{ ...chip, cursor: "pointer", background: "var(--color-white)" }}>
+            <button type="button" onClick={exportDrilldown} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)" }}>
               <Download size={14} />
               Export drill-down CSV
             </button>
@@ -2502,7 +2468,7 @@ export default function StatisticsPage() {
         </div>
 
         <div style={{ ...panel, marginBottom: UI.gap }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-3)", flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted41}>
             <div>
               <div style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                 <SlidersHorizontal size={16} color={UI.brand} />
@@ -2511,18 +2477,18 @@ export default function StatisticsPage() {
               <div style={sectionMeta}>Refine the dashboard before analytics are calculated.</div>
             </div>
             {hasActiveFilters && (
-              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--color-white)" }}>
+              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)" }}>
                 <X size={14} />
                 Clear filters
               </button>
             )}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-3)" }}>
-            <div style={{ position: "relative" }}>
+          <div className={layoutStyles.extracted42}>
+            <div className={layoutStyles.extracted43}>
               <Search
                 size={16}
                 color={UI.muted}
-                style={{ position: "absolute", left: 10, top: 10, pointerEvents: "none" }}
+                className={layoutStyles.extracted44}
                 aria-hidden
               />
               <input
@@ -2539,7 +2505,7 @@ export default function StatisticsPage() {
                   border: UI.border,
                   fontSize: 13.5,
                   outline: "none",
-                  background: "var(--color-white)",
+                  background: "var(--color-surface)",
                   color: UI.text,
                   boxSizing: "border-box",
                 }}
@@ -2566,7 +2532,7 @@ export default function StatisticsPage() {
               title="Month A"
               style={{
                 ...filterSelectStyle,
-                background: rangeMode === "month" ? "var(--color-white)" : "var(--legacy-color-f8fbfd)",
+                background: rangeMode === "month" ? "var(--color-surface)" : "var(--color-surface-subtle)",
                 fontWeight: 800,
                 color: rangeMode === "month" ? UI.text : UI.muted,
                 cursor: rangeMode === "month" ? "pointer" : "not-allowed",
@@ -2581,7 +2547,7 @@ export default function StatisticsPage() {
               title="Month B"
               style={{
                 ...filterSelectStyle,
-                background: rangeMode === "month" ? "var(--color-white)" : "var(--legacy-color-f8fbfd)",
+                background: rangeMode === "month" ? "var(--color-surface)" : "var(--color-surface-subtle)",
                 fontWeight: 800,
                 color: rangeMode === "month" ? UI.text : UI.muted,
                 cursor: rangeMode === "month" ? "pointer" : "not-allowed",
@@ -2601,7 +2567,7 @@ export default function StatisticsPage() {
             </select>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
+          <div className={layoutStyles.extracted45}>
             <select value={dateRangeFilter} onChange={(e) => setDateRangeFilter(e.target.value)} style={filterSelectStyle}>
               <option value="all">Date: All time</option>
               <option value="thisMonth">Date: This month</option>
@@ -2683,7 +2649,7 @@ export default function StatisticsPage() {
               Broaden the date range, clear a client/vehicle/crew filter, or reset everything to return to the full dashboard.
             </div>
             {hasActiveFilters && (
-              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--color-white)", marginTop: "var(--space-3)" }}>
+              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)", marginTop: "var(--space-3)" }}>
                 <X size={14} />
                 Clear filters
               </button>
@@ -2692,11 +2658,11 @@ export default function StatisticsPage() {
         )}
 
         <div style={{ marginBottom: UI.gap }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "var(--space-2)", gap: "var(--space-3)", flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted46}>
             <div style={sectionTitle}>Shortcuts</div>
             <div style={sectionMeta}>Jump into related pages</div>
           </div>
-          <div className="statistics-shortcuts" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          <div className={`statistics-shortcuts ${layoutStyles.extracted47}`} >
             {navCard("/job-sheet", "Job Sheet", "All jobs table", `${jobsAll.length}`)}
             {navCard("/client-info", "Client Info", "Client list and history", "Directory")}
             {navCard("/client-emails", "Client Emails", "Collated email list from jobs", "Contacts")}
@@ -2709,47 +2675,47 @@ export default function StatisticsPage() {
 
         {/* KPI cards */}
         <div style={{ marginBottom: UI.gap }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "var(--space-2)", gap: "var(--space-3)", flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted48}>
             <div style={sectionTitle}>At a glance</div>
             <div style={sectionMeta}>
-              Range start: <span style={mono}>{rangeStart ? fmtDDMMYY(rangeStart) : "All time"}</span>
+              Range start: <span className={layoutStyles.extracted49}>{rangeStart ? fmtDDMMYY(rangeStart) : "All time"}</span>
             </div>
           </div>
 
           <div style={kpiGrid}>
             <div style={{ ...card, padding: "var(--space-3)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Jobs</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{analytics.totals.bookingCount}</div>
+              <div className={layoutStyles.extracted50}>{analytics.totals.bookingCount}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Filtered</div>
             </div>
 
             <div style={{ ...card, padding: "var(--space-3)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Booking days</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{analytics.totals.bookingDays}</div>
+              <div className={layoutStyles.extracted51}>{analytics.totals.bookingDays}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Sum of dates</div>
             </div>
 
             <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Credits</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{formatCredits(analytics.totals.credits)}</div>
+              <div className={layoutStyles.extracted52}>{formatCredits(analytics.totals.credits)}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>From day notes</div>
             </div>
 
             <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Travel days</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{formatCredits(analytics.totals.travelDays)}</div>
+              <div className={layoutStyles.extracted53}>{formatCredits(analytics.totals.travelDays)}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Travel + half travel + travel time</div>
             </div>
 
             <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Night shoots</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{analytics.totals.nightShoots}</div>
+              <div className={layoutStyles.extracted54}>{analytics.totals.nightShoots}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Night shoot day notes</div>
             </div>
 
             <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Shoot days / month</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{shootKpis.avgPerMonth}</div>
+              <div className={layoutStyles.extracted55}>{shootKpis.avgPerMonth}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Avg across <b>{shootKpis.monthsWithDataCount}</b> month(s) - This month: <b>{shootKpis.thisMonth}</b>
               </div>
@@ -2757,53 +2723,53 @@ export default function StatisticsPage() {
 
             <div style={{ ...card, padding: "var(--space-3)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Upcoming</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{kpis.upcomingJobs}</div>
+              <div className={layoutStyles.extracted56}>{kpis.upcomingJobs}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Has date &gt;= today</div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-d1fae5)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg job length</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{jobLengthStats.avgLengthDays}</div>
+              <div className={layoutStyles.extracted57}>{jobLengthStats.avgLengthDays}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Median: <b>{jobLengthStats.medianLengthDays || 0}</b> day(s)
               </div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-d1fae5)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed length</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{jobLengthStats.avgConfirmedLengthDays}</div>
+              <div className={layoutStyles.extracted58}>{jobLengthStats.avgConfirmedLengthDays}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Multi-day jobs: <b>{jobLengthStats.multiDayJobs}</b>
               </div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-cffafe)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-success-soft)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg crew / job</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{crewStats.avgCrewPerJob}</div>
+              <div className={layoutStyles.extracted59}>{crewStats.avgCrewPerJob}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Across <b>{crewStats.crewedJobs}</b> crewed job(s)
               </div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-cffafe)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-success-soft)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed crew</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{crewStats.avgConfirmedCrewPerJob}</div>
+              <div className={layoutStyles.extracted60}>{crewStats.avgConfirmedCrewPerJob}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Largest crew: <b>{crewStats.largestCrew}</b>
               </div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-fde68a)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-warning-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Added to confirmed</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{timelineStats.avgCreateToConfirmedDays}</div>
+              <div className={layoutStyles.extracted61}>{timelineStats.avgCreateToConfirmedDays}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Avg days across <b>{timelineStats.confirmedSample}</b> confirmed job(s)
               </div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-fde68a)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-warning-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Added to first shoot</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{timelineStats.avgCreateToShootDays}</div>
+              <div className={layoutStyles.extracted62}>{timelineStats.avgCreateToShootDays}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Avg days across <b>{timelineStats.shootSample}</b> job(s)
               </div>
@@ -2811,7 +2777,7 @@ export default function StatisticsPage() {
 
             <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-info-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>First pencil cohort</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{firstPencilFunnel.total}</div>
+              <div className={layoutStyles.extracted63}>{firstPencilFunnel.total}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Current + deleted in scope
               </div>
@@ -2819,7 +2785,7 @@ export default function StatisticsPage() {
 
             <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-info-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>First pencil to confirmed</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{firstPencilFunnel.confirmedRate}%</div>
+              <div className={layoutStyles.extracted64}>{firstPencilFunnel.confirmedRate}%</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 {firstPencilFunnel.confirmed} of {firstPencilFunnel.total}
               </div>
@@ -2827,23 +2793,23 @@ export default function StatisticsPage() {
 
             <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-danger-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>First pencil dead outcomes</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{firstPencilFunnel.deadRate}%</div>
+              <div className={layoutStyles.extracted65}>{firstPencilFunnel.deadRate}%</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 Deleted / DNH / Lost / Cancelled / Postponed
               </div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-e9d5ff)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Hotel cost (payable)</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{gbp(hotelStats.totalHotelCost)}</div>
+              <div className={layoutStyles.extracted66}>{gbp(hotelStats.totalHotelCost)}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 {hotelStats.payableHotelJobs} job(s) - {hotelStats.payableHotelNights} night(s)
               </div>
             </div>
 
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--legacy-color-e9d5ff)" }}>
+            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night (payable)</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{gbp(hotelStats.avgPerNight)}</div>
+              <div className={layoutStyles.extracted67}>{gbp(hotelStats.avgPerNight)}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                 This month: <b>{gbp(hotelStats.thisMonthCost)}</b> ({hotelStats.thisMonthNights} nights)
               </div>
@@ -2851,63 +2817,63 @@ export default function StatisticsPage() {
 
             <div style={{ ...card, padding: "var(--space-3)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Complete</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{kpis.completedJobs}</div>
+              <div className={layoutStyles.extracted68}>{kpis.completedJobs}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Status = Complete</div>
             </div>
 
             <div style={{ ...card, padding: "var(--space-3)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Needs action</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{kpis.actionJobs}</div>
+              <div className={layoutStyles.extracted69}>{kpis.actionJobs}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Status = Action Required</div>
             </div>
 
             <div style={{ ...card, padding: "var(--space-3)" }}>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Deleted</div>
-              <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{kpis.deletedTotal}</div>
+              <div className={layoutStyles.extracted70}>{kpis.deletedTotal}</div>
               <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Deleted bookings</div>
             </div>
           </div>
 
           <div style={{ ...surface, padding: "var(--space-3)", marginTop: "var(--space-3)" }}>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted71}>
               <span style={{ ...chip, background: "var(--color-warning-soft)" }}>
-                Missing HS: <b style={{ marginLeft: 6 }}>{kpis.missingHS}</b>
+                Missing HS: <b className={layoutStyles.extracted72}>{kpis.missingHS}</b>
               </span>
               <span style={{ ...chip, background: "var(--color-warning-soft)" }}>
-                Missing RA: <b style={{ marginLeft: 6 }}>{kpis.missingRA}</b>
+                Missing RA: <b className={layoutStyles.extracted73}>{kpis.missingRA}</b>
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-f3f4f6)" }}>
-                Cancelled: <b style={{ marginLeft: 6 }}>{kpis.cancelledJobs}</b>
+              <span style={{ ...chip, background: "var(--color-canvas)" }}>
+                Cancelled: <b className={layoutStyles.extracted74}>{kpis.cancelledJobs}</b>
               </span>
               <span style={{ ...chip, background: "var(--color-info-soft)", borderColor: "var(--color-info-border)" }}>
-                First pencil confirmed: <b style={{ marginLeft: 6 }}>{firstPencilFunnel.confirmedRate}%</b>
+                First pencil confirmed: <b className={layoutStyles.extracted75}>{firstPencilFunnel.confirmedRate}%</b>
               </span>
               <span style={{ ...chip, background: "var(--color-danger-soft)", borderColor: "var(--color-danger-border)" }}>
-                First pencil dead: <b style={{ marginLeft: 6 }}>{firstPencilFunnel.deadRate}%</b>
+                First pencil dead: <b className={layoutStyles.extracted76}>{firstPencilFunnel.deadRate}%</b>
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-ecfccb)", borderColor: "var(--legacy-color-bef264)" }}>
-                Avg job length: <b style={{ marginLeft: 6 }}>{jobLengthStats.avgLengthDays}</b> day(s)
+              <span style={{ ...chip, background: "var(--color-accent-soft)", borderColor: "var(--color-warning-border)" }}>
+                Avg job length: <b className={layoutStyles.extracted77}>{jobLengthStats.avgLengthDays}</b> day(s)
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-ecfeff)", borderColor: "var(--legacy-color-a5f3fc)" }}>
-                Avg crew / job: <b style={{ marginLeft: 6 }}>{crewStats.avgCrewPerJob}</b>
+              <span style={{ ...chip, background: "var(--color-info-soft)", borderColor: "var(--color-info-border)" }}>
+                Avg crew / job: <b className={layoutStyles.extracted78}>{crewStats.avgCrewPerJob}</b>
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-fef3c7)", borderColor: "var(--legacy-color-fde68a)" }}>
-                Added to confirmed: <b style={{ marginLeft: 6 }}>{timelineStats.avgCreateToConfirmedDays}</b> day(s)
+              <span style={{ ...chip, background: "var(--color-accent-soft)", borderColor: "var(--color-warning-border)" }}>
+                Added to confirmed: <b className={layoutStyles.extracted79}>{timelineStats.avgCreateToConfirmedDays}</b> day(s)
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-fffbeb)", borderColor: "var(--legacy-color-fde68a)" }}>
-                Added to first shoot: <b style={{ marginLeft: 6 }}>{timelineStats.avgCreateToShootDays}</b> day(s)
+              <span style={{ ...chip, background: "var(--color-warning-soft)", borderColor: "var(--color-warning-border)" }}>
+                Added to first shoot: <b className={layoutStyles.extracted80}>{timelineStats.avgCreateToShootDays}</b> day(s)
               </span>
               <span style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder }}>
-                Shoot days (total): <b style={{ marginLeft: 6 }}>{shootKpis.totalShootDays}</b>
+                Shoot days (total): <b className={layoutStyles.extracted81}>{shootKpis.totalShootDays}</b>
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-ecfeff)", borderColor: "var(--legacy-color-a5f3fc)" }}>
-                Credits: <b style={{ marginLeft: 6 }}>{formatCredits(totalCredits)}</b>
+              <span style={{ ...chip, background: "var(--color-info-soft)", borderColor: "var(--color-info-border)" }}>
+                Credits: <b className={layoutStyles.extracted82}>{formatCredits(totalCredits)}</b>
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-f3e8ff)", borderColor: "var(--legacy-color-e9d5ff)" }}>
-                Avg hotel / job (payable): <b style={{ marginLeft: 6 }}>{gbp(hotelStats.avgPerHotelJob)}</b>
+              <span style={{ ...chip, background: "var(--color-brand-soft)", borderColor: "var(--color-border)" }}>
+                Avg hotel / job (payable): <b className={layoutStyles.extracted83}>{gbp(hotelStats.avgPerHotelJob)}</b>
               </span>
-              <span style={{ ...chip, background: "var(--legacy-color-f3e8ff)", borderColor: "var(--legacy-color-e9d5ff)" }}>
-                Production-paid: <b style={{ marginLeft: 6 }}>{hotelStats.productionPaidHotelNights}</b> nights
+              <span style={{ ...chip, background: "var(--color-brand-soft)", borderColor: "var(--color-border)" }}>
+                Production-paid: <b className={layoutStyles.extracted84}>{hotelStats.productionPaidHotelNights}</b> nights
               </span>
             </div>
           </div>
@@ -3016,12 +2982,12 @@ export default function StatisticsPage() {
               Credit breakdown {rangeMode === "month" ? monthLabel(selectedMonth) : monthLabel(yyyymm(todayMidnight))}
             </div>
             <div style={sectionMeta}>
-              Counts per-day diary notes from <span style={mono}>notesByDate</span>, <span style={mono}>dayNotes</span>,
+              Counts per-day diary notes from <span className={layoutStyles.extracted85}>notesByDate</span>, <span className={layoutStyles.extracted86}>dayNotes</span>,
               and related daily note fields. <b>On Set</b>, <b>Night Shoot</b>, <b>Travel Day</b>, <b>Split Day</b>,
               <b>Standby Day</b>, and <b>Rehearsal Day</b> count as 1 credit. <b>1/2 Travel Day</b> counts as 0.5.
               <b> Travel Time</b> counts as 0.25.
             </div>
-            <div style={{ marginTop: 10, display: "grid", gap: 6, maxHeight: 220, overflow: "auto" }}>
+            <div className={layoutStyles.extracted87}>
               {selectedMonthCreditRows.length ? (
                 selectedMonthCreditRows.slice(0, 30).map((row, idx) => (
                   <div
@@ -3032,11 +2998,11 @@ export default function StatisticsPage() {
                       gap: "var(--space-2)",
                       alignItems: "center",
                       fontSize: "var(--font-size-xs)",
-                      borderTop: idx ? "1px solid var(--legacy-color-e7edf4)" : "none",
+                      borderTop: idx ? "1px solid var(--color-brand-soft)" : "none",
                       paddingTop: idx ? 6 : 0,
                     }}
                   >
-                    <span style={mono}>{row.date.slice(5)}</span>
+                    <span className={layoutStyles.extracted88}>{row.date.slice(5)}</span>
                     <b>{row.jobNumber}</b>
                     <span
                       style={{
@@ -3048,7 +3014,7 @@ export default function StatisticsPage() {
                     >
                       {row.note || "No note"}{row.client ? ` - ${row.client}` : ""}
                     </span>
-                    <span style={{ color: row.counted ? "var(--legacy-color-065f46)" : UI.muted, fontSize: 11 }}>{row.reason}</span>
+                    <span style={{ color: row.counted ? "var(--color-success)" : UI.muted, fontSize: 11 }}>{row.reason}</span>
                     <b style={{ textAlign: "right", color: row.counted ? UI.text : UI.muted }}>{formatCredits(row.credit)}</b>
                   </div>
                 ))
@@ -3105,12 +3071,12 @@ export default function StatisticsPage() {
           <div style={{ ...panel, minHeight: 220 }}>
             <div style={{ ...sectionTitle, marginBottom: "var(--space-2)" }}>Hotel stat rules</div>
             <div style={sectionMeta}>
-              We treat a booking as having a hotel if <span style={mono}>hasHotel</span> is true, or if we can find any
-              of: <span style={mono}>hotelTotal</span>, <span style={mono}>hotelCostPerNight</span>,{" "}
-              <span style={mono}>hotelNights</span> (plus common aliases).
+              We treat a booking as having a hotel if <span className={layoutStyles.extracted89}>hasHotel</span> is true, or if we can find any
+              of: <span className={layoutStyles.extracted90}>hotelTotal</span>, <span className={layoutStyles.extracted91}>hotelCostPerNight</span>,{" "}
+              <span className={layoutStyles.extracted92}>hotelNights</span> (plus common aliases).
               <br />
               <br />
-              If <span style={mono}>hotelPaidBy</span> is <b>Production</b>, we still count hotel jobs/nights, but we{" "}
+              If <span className={layoutStyles.extracted93}>hotelPaidBy</span> is <b>Production</b>, we still count hotel jobs/nights, but we{" "}
               <b>exclude the GBP cost</b> from payable totals and charts.
               <br />
               <br />
@@ -3121,7 +3087,7 @@ export default function StatisticsPage() {
 
         <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
           <div style={{ ...panel, minHeight: 220 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+            <div className={layoutStyles.extracted94}>
               <div style={sectionTitle}>Next up</div>
               <Link
                 href="/job-sheet?section=Upcoming"
@@ -3145,7 +3111,7 @@ export default function StatisticsPage() {
             <div style={{ ...sectionTitle, marginBottom: "var(--space-2)" }}>How &quot;shoot days&quot; are counted</div>
             <div style={sectionMeta}>
               We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>On Set</b> or{" "}
-              <b>Night Shoot</b> (from <span style={mono}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
+              <b>Night Shoot</b> (from <span className={layoutStyles.extracted95}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
               <br />
               <br />
               We exclude obvious dead statuses (Cancelled / Lost / Postponed / DNH) from shoot-day counting.

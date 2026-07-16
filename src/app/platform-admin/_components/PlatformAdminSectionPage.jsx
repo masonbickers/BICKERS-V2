@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./PlatformAdminSectionPage.styles.module.css";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
@@ -113,7 +114,7 @@ export default function PlatformAdminSectionPage({ section }) {
 
   return (
     <PlatformAdminShell title={copy[0]} subtitle={copy[1]} onRefresh={load} loading={loading}>
-      {notice ? <div style={{ ...ui.card, borderColor: "var(--legacy-color-fecaca)", color: "var(--legacy-color-b91c1c)", marginBottom: 12, fontWeight: 900 }}>{notice}</div> : null}
+      {notice ? <div style={{ ...ui.card, borderColor: "var(--color-danger-border)", color: "var(--color-danger)", marginBottom: 12, fontWeight: 900 }}>{notice}</div> : null}
       {section !== "dashboard" && section !== "companies" && section !== "users" ? (
         <Toolbar
           query={query}
@@ -130,7 +131,7 @@ export default function PlatformAdminSectionPage({ section }) {
 
 function Toolbar({ query, setQuery, companyFilter, setCompanyFilter, companies }) {
   return (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+    <div className={layoutStyles.extracted1}>
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." style={{ ...ui.input, width: 280 }} />
       <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} style={ui.input}>
         <option value="all">All companies</option>
@@ -164,7 +165,7 @@ function DashboardView({ data, audit }) {
   const setupCodeCompanies = data.companies.filter((c) => c.security?.userCodeLogin === true).length;
   const mfaMissing = data.users.filter((u) => !userMfaReady(u)).length;
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted2}>
       <div style={ui.grid}>
         <Metric label="Total Companies" value={data.companies.length} />
         <Metric label="Active Companies" value={activeCompanies} tone="green" />
@@ -177,7 +178,7 @@ function DashboardView({ data, audit }) {
       </div>
       <QuickActions />
       <Warnings rows={audit.rows} users={data.users} companies={data.companies} />
-      <div style={dashboardTwoColumn}>
+      <div className={layoutStyles.extracted3}>
         <Recent title="Recent Security Events" rows={data.loginLogs} />
         <Recent title="Recent Admin Audit Logs" rows={data.audits} />
       </div>
@@ -198,8 +199,8 @@ function QuickActions() {
 
   return (
     <div style={ui.card}>
-      <h2 style={heading}>Quick Actions</h2>
-      <div style={quickActionGrid}>
+      <h2 className={layoutStyles.extracted4}>Quick Actions</h2>
+      <div className={layoutStyles.extracted5}>
         {actions.map(([href, label]) => (
           <Link key={href} href={href} style={quickActionButton}>
             {label}
@@ -290,10 +291,10 @@ const brandingFields = [
   ["appName", "App name", "BAS Software"],
   ["companyLogo", "Company logo URL", ""],
   ["platformLogo", "Platform logo URL", "/bas-software-logo.png"],
-  ["primaryColor", "Primary colour", "var(--legacy-color-0f172a)"],
-  ["secondaryColor", "Secondary colour", "var(--legacy-color-0369a1)"],
-  ["accentColor", "Accent colour", "var(--legacy-color-f59e0b)"],
-  ["sidebarColor", "Sidebar colour", "var(--legacy-color-0f172a)"],
+  ["primaryColor", "Primary colour", "var(--color-text)"],
+  ["secondaryColor", "Secondary colour", "var(--color-info)"],
+  ["accentColor", "Accent colour", "var(--color-accent)"],
+  ["sidebarColor", "Sidebar colour", "var(--color-text)"],
   ["loginTitle", "Login page title", "BAS Software"],
   ["loginSubtitle", "Login page subtitle", "Secure company access"],
   ["mobileAppName", "Mobile app name", "BAS Mobile"],
@@ -450,8 +451,8 @@ function CompaniesView({ data, load }) {
   };
 
   return (
-    <div style={companiesLayout}>
-      <div style={companiesMain}>
+    <div className={layoutStyles.extracted6}>
+      <div className={layoutStyles.extracted7}>
         <div style={companiesToolbar}>
           <input
             value={query}
@@ -465,7 +466,7 @@ function CompaniesView({ data, load }) {
             <option value="suspended">Suspended</option>
             <option value="archived">Archived</option>
           </select>
-          <button type="button" onClick={openCreate} style={primaryActionButton}>
+          <button type="button" onClick={openCreate} className={layoutStyles.extracted8}>
             Create company
           </button>
         </div>
@@ -492,7 +493,7 @@ function CompaniesView({ data, load }) {
                 </Td>
                 <Td><Small>Created: {formatDate(company.createdAt)}</Small><Small>Updated: {formatDate(company.updatedAt)}</Small></Td>
                 <Td>
-                  <div style={companyActionGrid}>
+                  <div className={layoutStyles.extracted9}>
                     <button type="button" onClick={() => openEdit(company)} disabled={busy} style={ui.button}>Edit</button>
                     <Link href={`/platform-admin/companies/${company.id}`} style={{ ...ui.button, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>View</Link>
                     {company.status === "active" ? (
@@ -536,16 +537,16 @@ function CompaniesView({ data, load }) {
 function CompanyDrawer({ mode, draft, busy, onClose, onSave, onPatch }) {
   const generatedId = draft.id || slugifyCompanyId(draft.name);
   return (
-    <aside style={companyDrawer}>
-      <div style={drawerHeader}>
+    <aside className={layoutStyles.extracted10}>
+      <div className={layoutStyles.extracted11}>
         <div>
-          <div style={smallCaps}>{mode === "create" ? "New company" : "Edit company"}</div>
-          <h2 style={drawerTitle}>{mode === "create" ? "Create company" : draft.name}</h2>
+          <div className={layoutStyles.extracted12}>{mode === "create" ? "New company" : "Edit company"}</div>
+          <h2 className={layoutStyles.extracted13}>{mode === "create" ? "Create company" : draft.name}</h2>
         </div>
         <button type="button" onClick={onClose} style={ui.button}>Close</button>
       </div>
 
-      <div style={drawerFields}>
+      <div className={layoutStyles.extracted14}>
         <Field label="Company ID">
           <input
             value={mode === "create" ? draft.id : generatedId}
@@ -581,18 +582,18 @@ function CompanyDrawer({ mode, draft, busy, onClose, onSave, onPatch }) {
         </Field>
       </div>
 
-      <div style={drawerSection}>
-        <h3 style={drawerSubhead}>Modules</h3>
-        <div style={toggleGrid}>
+      <div className={layoutStyles.extracted15}>
+        <h3 className={layoutStyles.extracted16}>Modules</h3>
+        <div className={layoutStyles.extracted17}>
           {moduleLabels.map(([key, label]) => (
             <ToggleRow key={key} label={label} checked={draft.modules?.[key] === true} onChange={(checked) => onPatch(["modules", key], checked)} />
           ))}
         </div>
       </div>
 
-      <div style={drawerSection}>
-        <h3 style={drawerSubhead}>Security settings</h3>
-        <div style={toggleGrid}>
+      <div className={layoutStyles.extracted18}>
+        <h3 className={layoutStyles.extracted19}>Security settings</h3>
+        <div className={layoutStyles.extracted20}>
           {companySecurityLabels.map(([key, label]) => (
             <ToggleRow key={key} label={label} checked={draft.security?.[key] === true} onChange={(checked) => onPatch(["security", key], checked)} />
           ))}
@@ -602,9 +603,9 @@ function CompanyDrawer({ mode, draft, busy, onClose, onSave, onPatch }) {
         </Field>
       </div>
 
-      <div style={drawerFooter}>
+      <div className={layoutStyles.extracted21}>
         <button type="button" onClick={onClose} style={ui.button}>Cancel</button>
-        <button type="button" onClick={onSave} disabled={busy} style={primaryActionButton}>{busy ? "Saving..." : "Save company"}</button>
+        <button type="button" onClick={onSave} disabled={busy} className={layoutStyles.extracted22}>{busy ? "Saving..." : "Save company"}</button>
       </div>
     </aside>
   );
@@ -612,7 +613,7 @@ function CompanyDrawer({ mode, draft, busy, onClose, onSave, onPatch }) {
 
 function Field({ label, children }) {
   return (
-    <label style={drawerField}>
+    <label className={layoutStyles.extracted23}>
       <span>{label}</span>
       {children}
     </label>
@@ -621,9 +622,9 @@ function Field({ label, children }) {
 
 function ToggleRow({ label, checked, onChange }) {
   return (
-    <label style={toggleRow}>
+    <label className={layoutStyles.extracted24}>
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "var(--legacy-color-0369a1)" }} />
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className={layoutStyles.extracted25} />
     </label>
   );
 }
@@ -720,8 +721,8 @@ function UsersView({ data, load }) {
   };
 
   return (
-    <div style={usersLayout}>
-      <div style={usersMain}>
+    <div className={layoutStyles.extracted26}>
+      <div className={layoutStyles.extracted27}>
         <div style={usersToolbar}>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email or UID..." style={{ ...ui.input, minWidth: 260, flex: "1 1 280px" }} />
           <select value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} style={ui.input}>
@@ -753,7 +754,7 @@ function UsersView({ data, load }) {
           {filteredRows.map((user) => (
             <tr key={user.id} style={selectedUser?.id === user.id ? selectedRowStyle : null}>
               <Td>
-                <button type="button" onClick={() => setSelectedUserId(user.id)} style={userSelectButton}>
+                <button type="button" onClick={() => setSelectedUserId(user.id)} className={layoutStyles.extracted28}>
                   <strong>{user.email}</strong>
                   <Small>{user.name || user.uid}</Small>
                 </button>
@@ -781,16 +782,16 @@ function UsersView({ data, load }) {
 }
 
 function UserDetailPanel({ user, companies, busy, onAction, onAccess }) {
-  if (!user) return <aside style={userPanel}><div style={muted}>Select a user to view details.</div></aside>;
+  if (!user) return <aside className={layoutStyles.extracted29}><div className={layoutStyles.extracted30}>Select a user to view details.</div></aside>;
   const appAccess = { user: user.appAccess?.user === true, service: user.appAccess?.service === true };
   return (
-    <aside style={userPanel}>
+    <aside className={layoutStyles.extracted31}>
       <div>
-        <div style={smallCaps}>User details</div>
-        <h2 style={panelTitle}>{user.email}</h2>
-        <div style={muted}>{user.name || user.uid}</div>
+        <div className={layoutStyles.extracted32}>User details</div>
+        <h2 className={layoutStyles.extracted33}>{user.email}</h2>
+        <div className={layoutStyles.extracted34}>{user.name || user.uid}</div>
       </div>
-      <div style={detailGrid}>
+      <div className={layoutStyles.extracted35}>
         <Detail label="UID" value={user.uid} />
         <Detail label="Employee ID" value={user.employeeId || "-"} />
         <Detail label="Created" value={formatDate(user.createdAt)} />
@@ -815,11 +816,11 @@ function UserDetailPanel({ user, companies, busy, onAction, onAccess }) {
           <option value="service" disabled={!appAccess.service}>service</option>
         </select>
       </Field>
-      <div style={toggleGrid}>
+      <div className={layoutStyles.extracted36}>
         <ToggleRow label="User workspace" checked={appAccess.user} onChange={(checked) => onAccess(user, { ...appAccess, user: checked })} />
         <ToggleRow label="Service workspace" checked={appAccess.service} onChange={(checked) => onAccess(user, { ...appAccess, service: checked })} />
       </div>
-      <div style={userActionGrid}>
+      <div className={layoutStyles.extracted37}>
         <button type="button" disabled={busy} onClick={() => onAction(user, { action: "setEnabled", isEnabled: !user.isEnabled })} style={user.isEnabled ? ui.dangerButton : primaryActionButton}>
           {user.isEnabled ? "Disable user" : "Enable user"}
         </button>
@@ -833,7 +834,7 @@ function UserDetailPanel({ user, companies, busy, onAction, onAccess }) {
 
 function Detail({ label, value }) {
   return (
-    <div style={detailItem}>
+    <div className={layoutStyles.extracted38}>
       <span>{label}</span>
       <strong>{value || "-"}</strong>
     </div>
@@ -920,8 +921,8 @@ function EmployeeLinkingView({ data, filteredEmployees, load }) {
   const manualUser = data.users.find((user) => user.id === manualUserId);
 
   return (
-    <div style={linkingLayout}>
-      <div style={linkingStack}>
+    <div className={layoutStyles.extracted39}>
+      <div className={layoutStyles.extracted40}>
         {notice ? <div style={userNotice}>{notice}</div> : null}
         <div style={ui.grid}>
           <Metric label="Employees without authUid" value={employeesWithoutAuth.length} tone={employeesWithoutAuth.length ? "amber" : "blue"} />
@@ -997,11 +998,11 @@ function EmployeeLinkingView({ data, filteredEmployees, load }) {
         </Panel>
       </div>
 
-      <aside style={userPanel}>
+      <aside className={layoutStyles.extracted41}>
         <div>
-          <div style={smallCaps}>Manual link</div>
-          <h2 style={panelTitle}>Confirm final access link</h2>
-          <div style={muted}>Email is only used as a suggestion. The saved link is UID based.</div>
+          <div className={layoutStyles.extracted42}>Manual link</div>
+          <h2 className={layoutStyles.extracted43}>Confirm final access link</h2>
+          <div className={layoutStyles.extracted44}>Email is only used as a suggestion. The saved link is UID based.</div>
         </div>
         <Field label="Employee">
           <select value={manualEmployeeId} onChange={(event) => setManualEmployeeId(event.target.value)} style={ui.input}>
@@ -1015,7 +1016,7 @@ function EmployeeLinkingView({ data, filteredEmployees, load }) {
             {data.users.map((user) => <option key={user.id} value={user.id}>{user.email || user.uid}</option>)}
           </select>
         </Field>
-        <button type="button" disabled={!manualEmployee || !manualUser || !!busyKey} onClick={() => linkEmployee(manualEmployee, manualUser)} style={primaryActionButton}>
+        <button type="button" disabled={!manualEmployee || !manualUser || !!busyKey} onClick={() => linkEmployee(manualEmployee, manualUser)} className={layoutStyles.extracted45}>
           Manual link
         </button>
         {manualEmployee ? (
@@ -1035,8 +1036,8 @@ function EmployeeLinkingView({ data, filteredEmployees, load }) {
 
 function Panel({ title, children }) {
   return (
-    <section style={{ display: "grid", gap: 10 }}>
-      <h2 style={sectionHeading}>{title}</h2>
+    <section className={layoutStyles.extracted46}>
+      <h2 className={layoutStyles.extracted47}>{title}</h2>
       {children}
     </section>
   );
@@ -1105,7 +1106,7 @@ function SecurityView({ data, audit, load }) {
   };
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted48}>
       {notice ? <div style={userNotice}>{notice}</div> : null}
       <div style={ui.grid}>
         <Metric label="Users Missing MFA" value={usersMissingMfa.length} tone={usersMissingMfa.length ? "amber" : "blue"} />
@@ -1204,7 +1205,7 @@ function SecurityUserTable({ title, rows, companies, busyKey, onUserAction }) {
             </Td>
             <Td><Pill tone={user.isEnabled ? "green" : "red"}>{user.isEnabled ? "Enabled" : "Disabled"}</Pill></Td>
             <Td>
-              <div style={userActionGrid}>
+              <div className={layoutStyles.extracted49}>
                 <button type="button" disabled={!!busyKey} onClick={() => onUserAction(user, { action: "forceMfaSetup" }, "setup")} style={ui.button}>Force MFA setup</button>
                 <button type="button" disabled={!!busyKey} onClick={() => onUserAction(user, { action: "resetMfa" }, "reset")} style={ui.button}>Force MFA reset</button>
                 <button type="button" disabled={!!busyKey || !user.isEnabled} onClick={() => onUserAction(user, { action: "setEnabled", isEnabled: false }, "disable")} style={ui.dangerButton}>Disable user</button>
@@ -1264,7 +1265,7 @@ function MfaView({ data, audit, load }) {
   };
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted50}>
       {notice ? <div style={userNotice}>{notice}</div> : null}
       <div style={ui.grid}>
         <Metric label="MFA Accounts" value={rows.length} />
@@ -1288,7 +1289,7 @@ function MfaView({ data, audit, load }) {
               <Td><Pill tone={row.legacyMfaSecretPresent ? "amber" : "green"}>{row.legacyMfaSecretPresent ? "Legacy found" : "Clean"}</Pill></Td>
               <Td>{(row.issues || []).join(", ") || "-"}</Td>
               <Td>
-                <div style={userActionGrid}>
+                <div className={layoutStyles.extracted51}>
                   <button type="button" disabled={busyUserId === row.id} onClick={() => callMfaAction(row, "resetMfa")} style={ui.button}>
                     Force reset
                   </button>
@@ -1322,7 +1323,7 @@ function RolesView({ data }) {
   }).length;
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted52}>
       <div style={ui.grid}>
         <Metric label="Defined Roles" value={PLATFORM_ROLES.length} detail="Canonical platform role model" />
         <Metric label="Required User Fields" value={REQUIRED_USER_ACCESS_FIELDS.length} detail="role, access, workspace, company, enabled" />
@@ -1333,18 +1334,18 @@ function RolesView({ data }) {
       </div>
 
       <section style={ui.card}>
-        <h2 style={heading}>Role Model</h2>
+        <h2 className={layoutStyles.extracted53}>Role Model</h2>
         <div style={{ ...ui.grid, marginTop: 12 }}>
           {PLATFORM_ROLES.map((role) => {
             const def = ROLE_DEFINITIONS[role];
             return (
-              <div key={role} style={{ border: "1px solid var(--legacy-color-e2e8f0)", borderRadius: 8, padding: 12, background: "var(--legacy-color-f8fafc)" }}>
-                <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
-                  <strong style={{ color: "var(--legacy-color-0f172a)" }}>{def.label}</strong>
+              <div key={role} className={layoutStyles.extracted54}>
+                <div className={layoutStyles.extracted55}>
+                  <strong className={layoutStyles.extracted56}>{def.label}</strong>
                   <Pill tone={role === "platformAdmin" ? "blue" : "gray"}>{def.scope}</Pill>
                 </div>
-                <div style={{ marginTop: 8, color: "var(--legacy-color-475569)", fontSize: 13, fontWeight: 750 }}>{def.description}</div>
-                <div style={{ marginTop: 8, color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 900 }}>Default: {def.defaultWorkspace}</div>
+                <div className={layoutStyles.extracted57}>{def.description}</div>
+                <div className={layoutStyles.extracted58}>Default: {def.defaultWorkspace}</div>
               </div>
             );
           })}
@@ -1352,11 +1353,11 @@ function RolesView({ data }) {
       </section>
 
       <section style={ui.card}>
-        <h2 style={heading}>Permission Matrix</h2>
-        <div style={{ marginTop: 4, color: "var(--legacy-color-64748b)", fontSize: 13, fontWeight: 800 }}>
+        <h2 className={layoutStyles.extracted59}>Permission Matrix</h2>
+        <div className={layoutStyles.extracted60}>
           Module permissions come from the shared access-control helpers and are combined with company modules, appAccess and isEnabled checks.
         </div>
-        <div style={{ marginTop: 12 }}>
+        <div className={layoutStyles.extracted61}>
           <Table headers={["Module", ...PLATFORM_ROLES.map((role) => ROLE_DEFINITIONS[role].label)]}>
             {matrixRows.map((row) => (
               <tr key={row.moduleKey}>
@@ -1371,11 +1372,11 @@ function RolesView({ data }) {
       </section>
 
       <section style={ui.card}>
-        <h2 style={heading}>Required User Access Fields</h2>
-        <div style={{ marginTop: 4, color: "var(--legacy-color-64748b)", fontSize: 13, fontWeight: 800 }}>
+        <h2 className={layoutStyles.extracted62}>Required User Access Fields</h2>
+        <div className={layoutStyles.extracted63}>
           Every user record should carry these fields so access decisions do not rely on email or duplicated permission rules.
         </div>
-        <div style={{ marginTop: 12 }}>
+        <div className={layoutStyles.extracted64}>
           <Table headers={["Field", "Current sample", "Status", "Purpose"]}>
             {sampleAccessFields.map((field) => (
               <tr key={field.field}>
@@ -1390,8 +1391,8 @@ function RolesView({ data }) {
       </section>
 
       <section style={ui.card}>
-        <h2 style={heading}>Access Rules</h2>
-        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+        <h2 className={layoutStyles.extracted65}>Access Rules</h2>
+        <div className={layoutStyles.extracted66}>
           {[
             "platformAdmin is verified server-side before platform admin routes and APIs are available.",
             "admin can manage application users and security workflows.",
@@ -1399,7 +1400,7 @@ function RolesView({ data }) {
             "disabled users have no active application access.",
             "Module access should be checked through shared helpers before page-specific behaviour is applied.",
           ].map((item) => (
-            <div key={item} style={warningLine}>{item}</div>
+            <div key={item} className={layoutStyles.extracted67}>{item}</div>
           ))}
         </div>
       </section>
@@ -1435,7 +1436,7 @@ function AuditLogsView({ data }) {
   }, [actionFilter, companyFilter, data.audits, fromDate, securityOnly, toDate, userFilter]);
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted68}>
       <div style={ui.grid}>
         <Metric label="Audit Rows" value={(data.audits || []).length} detail="Loaded from adminAuditLogs" />
         <Metric label="Filtered Rows" value={filteredRows.length} />
@@ -1462,15 +1463,15 @@ function AuditLogsView({ data }) {
             <option key={action} value={action}>{action}</option>
           ))}
         </select>
-        <label style={auditDateField}>
+        <label className={layoutStyles.extracted69}>
           From
           <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} style={ui.input} />
         </label>
-        <label style={auditDateField}>
+        <label className={layoutStyles.extracted70}>
           To
           <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} style={ui.input} />
         </label>
-        <label style={auditToggle}>
+        <label className={layoutStyles.extracted71}>
           <input type="checkbox" checked={securityOnly} onChange={(event) => setSecurityOnly(event.target.checked)} />
           Security only
         </label>
@@ -1506,7 +1507,7 @@ function LoginLogsView({ data }) {
   const lockedRows = rows.filter(isLockedLoginLog);
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted72}>
       <div style={ui.grid}>
         <Metric label="Successful Logins" value={successful.length} tone="green" />
         <Metric label="Failed Logins" value={failed.length} tone={failed.length ? "red" : "blue"} />
@@ -1583,7 +1584,7 @@ function CleanupView({ data, load }) {
   };
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted73}>
       <div style={ui.grid}>
         <Metric label="Cleanup Tasks" value={tasks.length} detail="Preview-first checks" />
         <Metric label="Findings" value={totalFindings} tone={totalFindings ? "amber" : "green"} />
@@ -1593,8 +1594,8 @@ function CleanupView({ data, load }) {
 
       {notice ? <div style={companyNotice}>{notice}</div> : null}
 
-      <div style={cleanupLayout}>
-        <section style={cleanupTaskList}>
+      <div className={layoutStyles.extracted74}>
+        <section className={layoutStyles.extracted75}>
           {tasks.map((task) => (
             <button
               key={task.id}
@@ -1606,8 +1607,8 @@ function CleanupView({ data, load }) {
               }}
               style={{
                 ...cleanupTaskButton,
-                borderColor: selectedTask?.id === task.id ? "var(--legacy-color-0369a1)" : "var(--legacy-color-e2e8f0)",
-                background: selectedTask?.id === task.id ? "var(--legacy-color-f0f9ff)" : "var(--legacy-color-fff)",
+                borderColor: selectedTask?.id === task.id ? "var(--color-info)" : "var(--color-border)",
+                background: selectedTask?.id === task.id ? "var(--color-info-soft)" : "var(--color-surface)",
               }}
             >
               <span>
@@ -1622,18 +1623,18 @@ function CleanupView({ data, load }) {
         <section style={ui.card}>
           {selectedTask ? (
             <>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+              <div className={layoutStyles.extracted76}>
                 <div>
-                  <h2 style={heading}>{selectedTask.label}</h2>
-                  <div style={{ ...muted, marginTop: 4 }}>{selectedTask.safeAction}</div>
+                  <h2 className={layoutStyles.extracted77}>{selectedTask.label}</h2>
+                  <div className={layoutStyles.extracted78}>{selectedTask.safeAction}</div>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <div className={layoutStyles.extracted79}>
                   <Pill tone={selectedTask.businessData ? "amber" : "blue"}>{selectedTask.businessData ? "Business data" : "Access/security"}</Pill>
                   {selectedTask.destructive ? <Pill tone="red">Destructive</Pill> : <Pill tone="green">Safe scoped</Pill>}
                 </div>
               </div>
 
-              <div style={{ marginTop: 12 }}>
+              <div className={layoutStyles.extracted80}>
                 <Table headers={["Preview item", "Details"]}>
                   {(selectedTask.preview || []).map((row, index) => (
                     <tr key={`${selectedTask.id}-${row.id || index}`}>
@@ -1645,7 +1646,7 @@ function CleanupView({ data, load }) {
                 </Table>
               </div>
 
-              <div style={cleanupActionBox}>
+              <div className={layoutStyles.extracted81}>
                 <div>
                   <strong>Confirmation</strong>
                   <Small>
@@ -1682,7 +1683,7 @@ function CleanupView({ data, load }) {
               </div>
             </>
           ) : (
-            <div style={muted}>No cleanup preview is available.</div>
+            <div className={layoutStyles.extracted82}>No cleanup preview is available.</div>
           )}
         </section>
       </div>
@@ -1746,7 +1747,7 @@ function BrandingView({ data, load }) {
   };
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted83}>
       <div style={ui.grid}>
         <Metric label="Global Branding" value="1" detail="settings/platformBranding" />
         <Metric label="Company Overrides" value={data.companies.filter((company) => Object.keys(company.branding || {}).length).length} />
@@ -1757,12 +1758,12 @@ function BrandingView({ data, load }) {
       {notice ? <div style={companyNotice}>{notice}</div> : null}
 
       <section style={ui.card}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div className={layoutStyles.extracted84}>
           <div>
-            <h2 style={heading}>Global Branding</h2>
-            <div style={{ ...muted, marginTop: 4 }}>Stored in settings/platformBranding and used as the platform default.</div>
+            <h2 className={layoutStyles.extracted85}>Global Branding</h2>
+            <div className={layoutStyles.extracted86}>Stored in settings/platformBranding and used as the platform default.</div>
           </div>
-          <button type="button" onClick={saveGlobal} disabled={busyKey === "global"} style={primaryActionButton}>
+          <button type="button" onClick={saveGlobal} disabled={busyKey === "global"} className={layoutStyles.extracted87}>
             {busyKey === "global" ? "Saving..." : "Save global branding"}
           </button>
         </div>
@@ -1808,9 +1809,9 @@ function BrandingView({ data, load }) {
 
 function BrandingForm({ draft, onPatch }) {
   return (
-    <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+    <div className={layoutStyles.extracted88}>
       <BrandPreview branding={draft} />
-      <div style={drawerFields}>
+      <div className={layoutStyles.extracted89}>
         {brandingFields.map(([key, label]) => (
           key.toLowerCase().includes("color") || key.toLowerCase().includes("colour") ? (
             <ColourInput key={key} label={label} value={draft[key] || ""} onChange={(value) => onPatch(key, value)} />
@@ -1828,8 +1829,8 @@ function BrandingForm({ draft, onPatch }) {
 function ColourInput({ label, value, onChange }) {
   return (
     <Field label={label}>
-      <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "var(--legacy-color-0f172a)"} onChange={(event) => onChange(event.target.value)} style={colourSwatchInput} />
+      <span className={layoutStyles.extracted90}>
+        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "var(--color-text)"} onChange={(event) => onChange(event.target.value)} className={layoutStyles.extracted91} />
         <input value={value} onChange={(event) => onChange(event.target.value)} style={{ ...ui.input, minWidth: 110, flex: 1 }} />
       </span>
     </Field>
@@ -1838,13 +1839,13 @@ function ColourInput({ label, value, onChange }) {
 
 function BrandPreview({ branding }) {
   return (
-    <div style={{ ...brandPreview, borderColor: branding.secondaryColor || "var(--legacy-color-0369a1)" }}>
-      <div style={{ ...brandPreviewSidebar, background: branding.sidebarColor || "var(--legacy-color-0f172a)" }} />
+    <div style={{ ...brandPreview, borderColor: branding.secondaryColor || "var(--color-info)" }}>
+      <div style={{ ...brandPreviewSidebar, background: branding.sidebarColor || "var(--shell-sidebar-bg)" }} />
       <div>
-        <strong style={{ color: branding.primaryColor || "var(--legacy-color-0f172a)" }}>{branding.appName || "BAS Software"}</strong>
+        <strong style={{ color: branding.primaryColor || "var(--color-text)" }}>{branding.appName || "BAS Software"}</strong>
         <Small>{branding.loginTitle || "Login page"} · {branding.mobileAppName || "Mobile app"}</Small>
-        <span style={{ display: "flex", gap: 6, marginTop: 8 }}>
-          {["primaryColor", "secondaryColor", "accentColor"].map((key) => <span key={key} style={{ ...brandSwatch, background: branding[key] || "var(--legacy-color-cbd5e1)" }} />)}
+        <span className={layoutStyles.extracted92}>
+          {["primaryColor", "secondaryColor", "accentColor"].map((key) => <span key={key} style={{ ...brandSwatch, background: branding[key] || "var(--color-border-strong)" }} />)}
         </span>
       </div>
     </div>
@@ -1907,7 +1908,7 @@ function FeatureFlagsView({ data, load }) {
   };
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div className={layoutStyles.extracted93}>
       <div style={ui.grid}>
         <Metric label="Global Flags" value={featureFlagLabels.length} detail="settings/platformFeatures" />
         <Metric label="Companies" value={data.companies.length} detail="Per-company overrides" />
@@ -1918,16 +1919,16 @@ function FeatureFlagsView({ data, load }) {
       {notice ? <div style={companyNotice}>{notice}</div> : null}
 
       <section style={ui.card}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div className={layoutStyles.extracted94}>
           <div>
-            <h2 style={heading}>Global Feature Flags</h2>
-            <div style={{ ...muted, marginTop: 4 }}>Stored in settings/platformFeatures with compatibility mirroring to settings/platform.</div>
+            <h2 className={layoutStyles.extracted95}>Global Feature Flags</h2>
+            <div className={layoutStyles.extracted96}>Stored in settings/platformFeatures with compatibility mirroring to settings/platform.</div>
           </div>
-          <button type="button" onClick={saveGlobal} disabled={busyKey === "global"} style={primaryActionButton}>
+          <button type="button" onClick={saveGlobal} disabled={busyKey === "global"} className={layoutStyles.extracted97}>
             {busyKey === "global" ? "Saving..." : "Save global flags"}
           </button>
         </div>
-        <div style={{ ...toggleGrid, marginTop: 12 }}>
+        <div className={layoutStyles.extracted98}>
           {featureFlagLabels.map(([key, label]) => (
             <ToggleRow key={key} label={label} checked={globalDraft[key] === true} onChange={(checked) => patchGlobal(key, checked)} />
           ))}
@@ -1942,8 +1943,8 @@ function FeatureFlagsView({ data, load }) {
               <Td><strong>{company.name}</strong><Small>{company.id}</Small></Td>
               {featureFlagLabels.map(([key, label]) => (
                 <Td key={`${company.id}-${key}`}>
-                  <label style={featureMiniToggle}>
-                    <input type="checkbox" checked={draft[key] === true} onChange={(event) => patchCompany(company.id, key, event.target.checked)} style={{ accentColor: "var(--legacy-color-0369a1)" }} />
+                  <label className={layoutStyles.extracted99}>
+                    <input type="checkbox" checked={draft[key] === true} onChange={(event) => patchCompany(company.id, key, event.target.checked)} className={layoutStyles.extracted100} />
                     <span>{draft[key] ? "On" : "Off"}</span>
                   </label>
                 </Td>
@@ -1973,7 +1974,7 @@ function SettingsView() {
     "MFA secrets stay server-only in mfaSecrets/{uid} and are never rendered in the UI.",
     "Business data repair actions are preview-first and avoid destructive deletes unless explicitly confirmed.",
   ];
-  return <div style={ui.card}>{items.map((item) => <p key={item} style={{ margin: "0 0 10px", fontWeight: 800 }}>{item}</p>)}</div>;
+  return <div style={ui.card}>{items.map((item) => <p key={item} className={layoutStyles.extracted101}>{item}</p>)}</div>;
 }
 
 function Warnings({ rows, users, companies }) {
@@ -1984,8 +1985,8 @@ function Warnings({ rows, users, companies }) {
   ];
   return (
     <div style={ui.card}>
-      <h2 style={heading}>System Warnings</h2>
-      {warnings.length ? warnings.map((warning) => <div key={warning} style={warningLine}>{warning}</div>) : <div style={muted}>No warnings from current platform summary.</div>}
+      <h2 className={layoutStyles.extracted102}>System Warnings</h2>
+      {warnings.length ? warnings.map((warning) => <div key={warning} className={layoutStyles.extracted103}>{warning}</div>) : <div className={layoutStyles.extracted104}>No warnings from current platform summary.</div>}
     </div>
   );
 }
@@ -1994,7 +1995,7 @@ function Recent({ title, rows, full = false }) {
   const displayRows = full ? rows : rows.slice(0, 8);
   return (
     <div style={ui.tableWrap}>
-      <div style={{ padding: 12, borderBottom: "1px solid var(--legacy-color-d7dee8)" }}><h2 style={heading}>{title}</h2></div>
+      <div className={layoutStyles.extracted105}><h2 className={layoutStyles.extracted106}>{title}</h2></div>
       <table style={ui.table}>
         <thead><tr><th style={ui.th}>When</th><th style={ui.th}>Actor/User</th><th style={ui.th}>Action</th><th style={ui.th}>Target</th></tr></thead>
         <tbody>
@@ -2028,13 +2029,13 @@ function Td({ children, colSpan }) {
 }
 
 function Small({ children }) {
-  return <div style={{ marginTop: 3, color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 800 }}>{children}</div>;
+  return <div className={layoutStyles.extracted107}>{children}</div>;
 }
 
 function AuditJson({ value }) {
   if (value === null || value === undefined || value === "") return "-";
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  return <pre style={auditJson}>{text.length > 900 ? `${text.slice(0, 900)}...` : text}</pre>;
+  return <pre className={layoutStyles.extracted108}>{text.length > 900 ? `${text.slice(0, 900)}...` : text}</pre>;
 }
 
 function isSecurityAuditRow(row = {}) {
@@ -2152,8 +2153,8 @@ function companyBrandingDrafts(companies = []) {
 }
 
 const heading = { margin: 0, fontSize: 15, fontWeight: 950 };
-const muted = { color: "var(--legacy-color-64748b)", fontWeight: 800 };
-const warningLine = { padding: "8px 0", borderTop: "1px solid var(--legacy-color-e2e8f0)", color: "var(--legacy-color-b45309)", fontWeight: 850 };
+const muted = { color: "var(--color-text-muted)", fontWeight: 800 };
+const warningLine = { padding: "8px 0", borderTop: "1px solid var(--color-border)", color: "var(--color-warning)", fontWeight: 850 };
 const quickActionGrid = {
   display: "flex",
   gap: 8,
@@ -2192,19 +2193,19 @@ const companiesToolbar = {
 };
 const primaryActionButton = {
   height: 36,
-  border: "1px solid var(--legacy-color-0369a1)",
+  border: "1px solid var(--color-info)",
   borderRadius: 8,
   padding: "0 12px",
-  background: "var(--legacy-color-0369a1)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--color-info)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
 };
 const companyNotice = {
   ...ui.card,
-  borderColor: "var(--legacy-color-fed7aa)",
-  background: "var(--legacy-color-fffbeb)",
-  color: "var(--legacy-color-b45309)",
+  borderColor: "var(--color-warning-border)",
+  background: "var(--color-warning-soft)",
+  color: "var(--color-warning)",
   fontWeight: 900,
 };
 const companyActionGrid = {
@@ -2217,8 +2218,8 @@ const companyActionGrid = {
 const companyDrawer = {
   position: "sticky",
   top: 14,
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   padding: 14,
   boxShadow: "0 18px 34px rgba(15, 23, 42, 0.14)",
@@ -2232,7 +2233,7 @@ const drawerHeader = {
   gap: 12,
 };
 const smallCaps = {
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
   fontWeight: 900,
   textTransform: "uppercase",
@@ -2250,7 +2251,7 @@ const drawerFields = {
 const drawerField = {
   display: "grid",
   gap: 6,
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -2269,15 +2270,15 @@ const toggleGrid = {
   gap: 8,
 };
 const toggleRow = {
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   padding: "8px 10px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   gap: 8,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontSize: 13,
   fontWeight: 850,
 };
@@ -2286,7 +2287,7 @@ const drawerFooter = {
   justifyContent: "flex-end",
   gap: 8,
   flexWrap: "wrap",
-  borderTop: "1px solid var(--legacy-color-e2e8f0)",
+  borderTop: "1px solid var(--color-border)",
   paddingTop: 12,
 };
 const usersLayout = {
@@ -2309,19 +2310,19 @@ const usersToolbar = {
 };
 const userNotice = {
   ...ui.card,
-  borderColor: "var(--legacy-color-bae6fd)",
-  background: "var(--legacy-color-f0f9ff)",
-  color: "var(--legacy-color-0369a1)",
+  borderColor: "var(--color-info-border)",
+  background: "var(--color-info-soft)",
+  color: "var(--color-info)",
   fontWeight: 900,
 };
 const selectedRowStyle = {
-  background: "var(--legacy-color-f0f9ff)",
+  background: "var(--color-info-soft)",
 };
 const userSelectButton = {
   border: 0,
   background: "transparent",
   padding: 0,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   textAlign: "left",
   cursor: "pointer",
   font: "inherit",
@@ -2329,8 +2330,8 @@ const userSelectButton = {
 const userPanel = {
   position: "sticky",
   top: 14,
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   padding: 14,
   boxShadow: "0 18px 34px rgba(15, 23, 42, 0.14)",
@@ -2349,13 +2350,13 @@ const detailGrid = {
   gap: 8,
 };
 const detailItem = {
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   padding: "8px 10px",
   display: "grid",
   gap: 4,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontSize: 12,
 };
 const userActionGrid = {
@@ -2366,7 +2367,7 @@ const userActionGrid = {
 const auditDateField = {
   display: "inline-grid",
   gap: 4,
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -2375,11 +2376,11 @@ const auditToggle = {
   display: "inline-flex",
   alignItems: "center",
   gap: 8,
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
   padding: "0 10px",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-0f172a)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   fontSize: 13,
   fontWeight: 900,
 };
@@ -2392,9 +2393,9 @@ const auditJson = {
   overflowWrap: "anywhere",
   fontSize: 11,
   lineHeight: 1.35,
-  color: "var(--legacy-color-334155)",
-  background: "var(--legacy-color-f8fafc)",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  color: "var(--color-text-muted)",
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 8,
 };
@@ -2409,11 +2410,11 @@ const cleanupTaskList = {
   gap: 10,
 };
 const cleanupTaskButton = {
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 12,
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-0f172a)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   cursor: "pointer",
   textAlign: "left",
   display: "flex",
@@ -2423,9 +2424,9 @@ const cleanupTaskButton = {
 };
 const cleanupActionBox = {
   marginTop: 12,
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   padding: 12,
   display: "flex",
   gap: 10,
@@ -2440,14 +2441,14 @@ const featureMiniToggle = {
   gap: 7,
   fontSize: 12,
   fontWeight: 900,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   whiteSpace: "nowrap",
 };
 const brandPreview = {
   minWidth: 220,
-  border: "1px solid var(--legacy-color-bae6fd)",
+  border: "1px solid var(--color-info-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   padding: 10,
   display: "grid",
   gridTemplateColumns: "12px 1fr",
@@ -2462,15 +2463,15 @@ const brandSwatch = {
   width: 22,
   height: 22,
   borderRadius: 6,
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
 };
 const colourSwatchInput = {
   width: 36,
   height: 36,
   padding: 0,
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 const linkingLayout = {
   display: "grid",
@@ -2487,5 +2488,5 @@ const sectionHeading = {
   margin: 0,
   fontSize: 16,
   fontWeight: 950,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
 };

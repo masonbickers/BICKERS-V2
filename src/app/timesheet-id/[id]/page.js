@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -37,6 +38,7 @@ import {
   Save,
   Send,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -120,28 +122,7 @@ function timesheetMatchesTimesheetUser(timesheet = {}, identity) {
 const LUNCH_DEDUCT_HRS = 0.5;
 const DEFAULT_YARD_START = "08:00";
 const DEFAULT_YARD_END = "16:30";
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  bg: "var(--legacy-color-f3f6f9)",
-  panel: "var(--legacy-color-ffffff)",
-  panelTint: "var(--legacy-color-ffffff)",
-  ink: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   flex: 1,
@@ -191,8 +172,8 @@ const controlButton = (kind = "ghost", disabled = false) => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-      color: "var(--legacy-color-fff)",
+      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
   }
@@ -209,7 +190,7 @@ const controlButton = (kind = "ghost", disabled = false) => {
   return {
     ...base,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+    background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
     color: UI.ink,
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
   };
@@ -219,11 +200,11 @@ const approveButtonStyle = (disabled = false) => ({
   ...controlButton("success", disabled),
   padding: "9px 15px",
   fontSize: 13.5,
-  border: disabled ? `1px solid ${UI.greenBorder}` : "1px solid var(--legacy-color-047857)",
+  border: disabled ? `1px solid ${UI.greenBorder}` : "1px solid var(--color-success)",
   background: disabled
     ? UI.greenSoft
-    : "linear-gradient(180deg, var(--legacy-color-22c55e) 0%, var(--legacy-color-15803d) 100%)",
-  color: disabled ? UI.green : "var(--legacy-color-fff)",
+    : "linear-gradient(180deg, var(--color-success-accent) 0%, var(--color-success) 100%)",
+  color: disabled ? UI.green : "var(--color-white)",
   boxShadow: disabled
     ? UI.shadowSm
     : "0 10px 22px rgba(21,128,61,0.28), inset 0 1px 0 rgba(255,255,255,0.2)",
@@ -264,7 +245,7 @@ function TimeSelect({ label, value, onChange }) {
           fontSize: 12,
           padding: "6px 8px",
           minHeight: 32,
-          background: "var(--legacy-color-ffffff)",
+          background: "var(--color-surface)",
         }}
       />
       <datalist id={listId}>
@@ -277,11 +258,11 @@ function TimeSelect({ label, value, onChange }) {
 }
 
 const payAdviceCell = {
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   padding: "6px 5px",
   textAlign: "center",
-  color: "var(--legacy-color-0f172a)",
-  background: "var(--legacy-color-ffffff)",
+  color: "var(--color-text)",
+  background: "var(--color-surface)",
 };
 
 const payAdviceInput = {
@@ -291,7 +272,7 @@ const payAdviceInput = {
   background: "transparent",
   textAlign: "center",
   fontSize: 11.5,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   padding: 0,
 };
 
@@ -1128,8 +1109,8 @@ function printElementById(elementId, title) {
           html, body {
             margin: 0;
             padding: 0;
-            background: var(--legacy-color-ffffff);
-            color: var(--legacy-color-0f172a);
+            background: var(--color-surface);
+            color: var(--color-text);
             font-family: Arial, sans-serif;
           }
           body { padding: 10px; }
@@ -1143,7 +1124,7 @@ function printElementById(elementId, title) {
             border: none !important;
             border-radius: 0 !important;
             padding: 0 !important;
-            background: var(--legacy-color-ffffff) !important;
+            background: var(--color-surface) !important;
             width: 100% !important;
             max-width: 100% !important;
             overflow: visible !important;
@@ -1200,7 +1181,7 @@ function printElementById(elementId, title) {
           }
           #pay-advice-print-root th,
           #pay-advice-print-root td {
-            border: 1px solid var(--legacy-color-111827);
+            border: 1px solid var(--color-text);
             padding: 4px 5px;
             vertical-align: middle;
             text-align: center;
@@ -2634,7 +2615,7 @@ export default function TimesheetDetailPage() {
     return (
       <HeaderSidebarLayout>
         <div style={pageWrap}>
-          <h1 style={{ fontSize: 22, fontWeight: 750, margin: 0 }}>No timesheet found</h1>
+          <h1 className={layoutStyles.extracted1}>No timesheet found</h1>
         </div>
       </HeaderSidebarLayout>
     );
@@ -2654,7 +2635,7 @@ export default function TimesheetDetailPage() {
               padding: 16,
             }}
           >
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Timesheet access restricted</h1>
+            <h1 className={layoutStyles.extracted2}>Timesheet access restricted</h1>
             <p style={{ margin: 0, color: UI.muted, fontSize: 14 }}>
               You can only view timesheets linked to your own employee record.
             </p>
@@ -2665,28 +2646,28 @@ export default function TimesheetDetailPage() {
   }
 
   let statusLabel = "Draft (not submitted)";
-  let badgeBg = "var(--legacy-color-fed7aa)";
-  let badgeBorder = "var(--legacy-color-fdba74)";
-  let badgeColor = "var(--legacy-color-7c2d12)";
+  let badgeBg = "var(--color-warning-border)";
+  let badgeBorder = "var(--color-warning-border)";
+  let badgeColor = "var(--color-danger-hover)";
 
   if (timesheet.submitted && !isApproved) {
     statusLabel = "Submitted";
-    badgeBg = "var(--legacy-color-bbf7d0)";
-    badgeBorder = "var(--legacy-color-86efac)";
-    badgeColor = "var(--legacy-color-052e16)";
+    badgeBg = "var(--color-success-border)";
+    badgeBorder = "var(--color-success-border)";
+    badgeColor = "var(--color-text)";
   }
   if (isApproved) {
     statusLabel = "Approved";
-    badgeBg = "var(--legacy-color-dcfce7)";
-    badgeBorder = "var(--legacy-color-22c55e)";
-    badgeColor = "var(--legacy-color-14532d)";
+    badgeBg = "var(--color-success-soft)";
+    badgeBorder = "var(--color-success-accent)";
+    badgeColor = "var(--color-success)";
   }
 
   return (
     <HeaderSidebarLayout>
       <div style={{ ...pageWrap, display: "flex", flexDirection: "column" }}>
         {/* Controls (not printed) */}
-        <div style={toolbarStyle}>
+        <div className={layoutStyles.extracted3}>
           <button
             onClick={() => router.back()}
             style={controlButton("ghost")}
@@ -2694,7 +2675,7 @@ export default function TimesheetDetailPage() {
             <ArrowLeft size={14} /> Back
           </button>
 
-          <div style={actionRowStyle}>
+          <div className={layoutStyles.extracted4}>
             <button
               onClick={handlePrint}
               style={controlButton("primary")}
@@ -2733,7 +2714,7 @@ export default function TimesheetDetailPage() {
               borderRadius: UI.radiusSm,
               backgroundColor: UI.redSoft,
               border: `1px solid ${UI.redBorder}`,
-              color: UI.red,
+              color: UI.var(--color-danger),
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -2756,14 +2737,7 @@ export default function TimesheetDetailPage() {
         >
           {/* Header row */}
           <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: 12,
-              gap: 10,
-              flexWrap: "wrap",
-            }}
+            className={layoutStyles.extracted5}
           >
             <div>
               <h1 style={{ fontSize: 22, fontWeight: 750, lineHeight: 1.08, letterSpacing: 0, margin: 0, marginBottom: 4, color: UI.ink }}>
@@ -2775,7 +2749,7 @@ export default function TimesheetDetailPage() {
                   {parseDateFlexible(timesheet.weekStart)?.toLocaleDateString("en-GB")}
                 </strong>
               </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              <div className={layoutStyles.extracted6}>
                 <button
                   type="button"
                   onClick={() => weekNav.previous && router.push(`/timesheet-id/${weekNav.previous.id}`)}
@@ -2795,7 +2769,7 @@ export default function TimesheetDetailPage() {
               </div>
             </div>
 
-            <div style={{ textAlign: "right", fontSize: 12 }}>
+            <div className={layoutStyles.extracted7}>
               <div
                 style={{
                   display: "inline-block",
@@ -2818,7 +2792,7 @@ export default function TimesheetDetailPage() {
                 </div>
               )}
               {timesheet.approvedAt && (
-                <div style={{ color: "var(--legacy-color-15803d)", marginTop: 2 }}>
+                <div className={layoutStyles.extracted8}>
                   Approved: {parseDateFlexible(timesheet.approvedAt)?.toLocaleString("en-GB")}
                 </div>
               )}
@@ -2827,15 +2801,7 @@ export default function TimesheetDetailPage() {
 
           {/* 7-day grid */}
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7, minmax(200px, 1fr))",
-              gap: 8,
-              alignItems: "stretch",
-              fontSize: 13,
-              overflowX: "auto",
-              paddingBottom: 4,
-            }}
+            className={layoutStyles.extracted9}
           >
             {dayCards.map((card) => {
               const {
@@ -2882,7 +2848,7 @@ export default function TimesheetDetailPage() {
                 <div
                   key={day}
                   style={{
-                    background: "var(--legacy-color-ffffff)",
+                    background: "var(--color-surface)",
                     padding: 10,
                     borderRadius: UI.radius,
                     border: UI.border,
@@ -2896,16 +2862,10 @@ export default function TimesheetDetailPage() {
                 >
                   {/* Day header */}
                   <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      marginBottom: 5,
-                      gap: 6,
-                    }}
+                    className={layoutStyles.extracted10}
                   >
                     <div style={{ fontWeight: 800, color: UI.ink }}>{dayDateLabel}</div>
-                    <div style={{ display: "inline-flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <div className={layoutStyles.extracted11}>
                       {entryExists && !isApproved ? (
                         <button
                           type="button"
@@ -2920,7 +2880,7 @@ export default function TimesheetDetailPage() {
                             padding: "3px 7px",
                             borderRadius: UI.radiusSm,
                             border: `1px dashed ${UI.brandBorder}`,
-                            background: "var(--legacy-color-ffffff)",
+                            background: "var(--color-surface)",
                             color: UI.brand,
                             cursor: !isAdmin || manualEntrySavingDay === day ? "not-allowed" : "pointer",
                             opacity: !isAdmin || manualEntrySavingDay === day ? 0.5 : 1,
@@ -2952,7 +2912,7 @@ export default function TimesheetDetailPage() {
                           padding: "3px 7px",
                           borderRadius: UI.radiusSm,
                           border: `1px dashed ${UI.brandBorder}`,
-                          background: "var(--legacy-color-ffffff)",
+                          background: "var(--color-surface)",
                           color: UI.brand,
                           cursor: !isAdmin || isApproved ? "not-allowed" : "pointer",
                           opacity: !isAdmin || isApproved ? 0.5 : 1,
@@ -2965,7 +2925,7 @@ export default function TimesheetDetailPage() {
                   </div>
 
                   {(isMissingCard || manualEntryDay === day) && (
-                    <div style={{ marginBottom: 8 }}>
+                    <div className={layoutStyles.extracted12}>
                       {isMissingCard ? (
                         <>
                           <div style={{ color: UI.muted, fontSize: 12, marginBottom: 7 }}>
@@ -2996,7 +2956,7 @@ export default function TimesheetDetailPage() {
                             padding: 8,
                             borderRadius: UI.radiusSm,
                             border: UI.border,
-                            background: "var(--legacy-color-f8fbfd)",
+                            background: "var(--color-surface-subtle)",
                             display: "grid",
                             gap: 7,
                           }}
@@ -3019,7 +2979,7 @@ export default function TimesheetDetailPage() {
                               style={{
                                 border: UI.border,
                                 borderRadius: UI.radiusSm,
-                                background: "var(--legacy-color-ffffff)",
+                                background: "var(--color-surface)",
                                 padding: 7,
                                 display: "grid",
                                 gap: 5,
@@ -3069,7 +3029,7 @@ export default function TimesheetDetailPage() {
                           )}
 
                           {["yard", "office"].includes(manualEntryDraft.mode) ? (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            <div className={layoutStyles.extracted13}>
                               {[
                                 ["start", "Start"],
                                 ["end", "Finish"],
@@ -3085,7 +3045,7 @@ export default function TimesheetDetailPage() {
                           ) : null}
 
                           {manualEntryDraft.mode === "travel" ? (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            <div className={layoutStyles.extracted14}>
                               {[
                                 ["leaveTime", "Leave"],
                                 ["arriveTime", "Arrive"],
@@ -3101,7 +3061,7 @@ export default function TimesheetDetailPage() {
                           ) : null}
 
                           {manualEntryDraft.mode === "onset" ? (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            <div className={layoutStyles.extracted15}>
                               {[
                                 ["leaveTime", "Leave"],
                                 ["arriveTime", "Arrive"],
@@ -3123,7 +3083,7 @@ export default function TimesheetDetailPage() {
                           {["yard", "travel", "onset"].includes(manualEntryDraft.mode) ? (
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
                               {manualEntryDraft.mode === "yard" ? (
-                                <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                <label className={layoutStyles.extracted16}>
                                   <input
                                     type="checkbox"
                                     checked={manualEntryDraft.managerLunchDeduct !== false}
@@ -3133,7 +3093,7 @@ export default function TimesheetDetailPage() {
                                 </label>
                               ) : null}
                               {manualEntryDraft.mode === "travel" ? (
-                                <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                <label className={layoutStyles.extracted17}>
                                   <input
                                     type="checkbox"
                                     checked={Boolean(manualEntryDraft.travelLunchSup)}
@@ -3144,7 +3104,7 @@ export default function TimesheetDetailPage() {
                               ) : null}
                               {manualEntryDraft.mode === "onset" ? (
                                 <>
-                                  <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                  <label className={layoutStyles.extracted18}>
                                     <input
                                       type="checkbox"
                                       checked={Boolean(manualEntryDraft.nightShoot)}
@@ -3152,7 +3112,7 @@ export default function TimesheetDetailPage() {
                                     />
                                     Night shoot
                                   </label>
-                                  <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                  <label className={layoutStyles.extracted19}>
                                     <input
                                       type="checkbox"
                                       checked={Boolean(manualEntryDraft.mealSup)}
@@ -3162,7 +3122,7 @@ export default function TimesheetDetailPage() {
                                   </label>
                                 </>
                               ) : null}
-                              <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                              <label className={layoutStyles.extracted20}>
                                 <input
                                   type="checkbox"
                                   checked={Boolean(manualEntryDraft.overnight)}
@@ -3180,7 +3140,7 @@ export default function TimesheetDetailPage() {
                             style={{ ...formControlStyle, minHeight: 58, resize: "vertical", fontSize: 12 }}
                           />
 
-                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
+                          <div className={layoutStyles.extracted21}>
                             <button
                               type="button"
                               onClick={() => {
@@ -3209,9 +3169,9 @@ export default function TimesheetDetailPage() {
                   {isTurnaroundCard && (
                     <div
                       style={{
-                        background: "var(--legacy-color-f3e8ff)",
-                        border: "1px solid var(--legacy-color-c4b5fd)",
-                        color: "var(--legacy-color-6d28d9)",
+                        background: "var(--color-brand-soft)",
+                        border: "1px solid var(--color-info-border)",
+                        color: "var(--color-info)",
                         padding: "7px 9px",
                         borderRadius: UI.radiusSm,
                         fontWeight: 900,
@@ -3220,12 +3180,7 @@ export default function TimesheetDetailPage() {
                     >
                       Turnaround Day
                       <div
-                        style={{
-                          fontSize: 11.5,
-                          fontWeight: 700,
-                          color: "var(--legacy-color-6b7280)",
-                          marginTop: 2,
-                        }}
+                        className={layoutStyles.extracted22}
                       >
                         {hasTurnaroundJob
                           ? `Turnaround for job: ${
@@ -3235,12 +3190,7 @@ export default function TimesheetDetailPage() {
                       </div>
                       {hasTurnaroundJob && turnaroundJob.location ? (
                         <div
-                          style={{
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            color: "var(--legacy-color-6b7280)",
-                            marginTop: 2,
-                          }}
+                          className={layoutStyles.extracted23}
                         >
                           {turnaroundJob.location}
                         </div>
@@ -3250,9 +3200,9 @@ export default function TimesheetDetailPage() {
 
                   {/* HOLIDAY / BANK HOLIDAY / OFF */}
                   {isHolidayCard && (
-                    <div style={{ fontWeight: 600 }}>
+                    <div className={layoutStyles.extracted24}>
                       <div>
-                        <span style={{ color: "var(--legacy-color-007da3ff)" }}>
+                        <span className={layoutStyles.extracted25}>
                           {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
                         </span>
                         {displayPaidLabel && (
@@ -3260,7 +3210,7 @@ export default function TimesheetDetailPage() {
                             style={{
                               marginLeft: 6,
                               color:
-                                displayPaidLabel.toLowerCase() === "unpaid" ? "var(--legacy-color-8a8a8aff)" : "var(--legacy-color-1d4ed8)",
+                                displayPaidLabel.toLowerCase() === "unpaid" ? "var(--color-text-muted)" : "var(--color-brand)",
                             }}
                           >
                             ({displayPaidLabel})
@@ -3293,14 +3243,7 @@ export default function TimesheetDetailPage() {
                             {isHalfHolidayDay ? " - half day" : ""}
                           </div>
                           <div
-                            style={{
-                              marginTop: 6,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              fontSize: 11.5,
-                              color: "var(--legacy-color-475569)",
-                            }}
+                            className={layoutStyles.extracted26}
                           >
                             <span>
                               {paidHolidayLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
@@ -3328,35 +3271,35 @@ export default function TimesheetDetailPage() {
                       )}
                     </div>
                   )}
-                  {isOffCard && <div style={{ color: "var(--legacy-color-6b7280)" }}>Day Off</div>}
-                  {isUnpaidCard && <div style={{ color: "var(--legacy-color-a16207)", fontWeight: 700 }}>Unpaid day</div>}
+                  {isOffCard && <div className={layoutStyles.extracted27}>Day Off</div>}
+                  {isUnpaidCard && <div className={layoutStyles.extracted28}>Unpaid day</div>}
 
                   {/* JOB INFO (still show jobs if they exist) */}
                   {jobsToday.length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 6 }}>
+                    <div className={layoutStyles.extracted29}>
                       {jobsToday.map((job, idx) => (
                         <div
                           key={`${job.bookingId || job.id || idx}-${idx}`}
                           style={{
-                            background: "var(--legacy-color-fefce8)",
-                            border: "1px solid var(--legacy-color-facc15)",
+                            background: "var(--color-warning-soft)",
+                            border: "1px solid var(--color-warning-border)",
                             padding: "7px 9px",
                             borderRadius: UI.radiusSm,
                           }}
                         >
-                          <div style={{ marginBottom: 3 }}>
-                            <strong style={{ fontSize: 13.5 }}>
+                          <div className={layoutStyles.extracted30}>
+                            <strong className={layoutStyles.extracted31}>
                               {job.jobNumber || job.id || job.bookingId}
                             </strong>
 
                             {job.client && (
-                              <span style={{ marginLeft: 6, color: "var(--legacy-color-374151)", fontWeight: 500 }}>
+                              <span className={layoutStyles.extracted32}>
                                 - {job.client}
                               </span>
                             )}
 
                             {job.location && (
-                              <span style={{ marginLeft: 6, color: "var(--legacy-color-6b7280)" }}>
+                              <span className={layoutStyles.extracted33}>
                                 - {job.location}
                               </span>
                             )}
@@ -3368,23 +3311,17 @@ export default function TimesheetDetailPage() {
                               return (
                                 <div
                                   key={`${job.bookingId || job.id}-vehicle-${String(vKey)}-${vIdx}`}
-                                  style={{ color: "var(--legacy-color-047857)", fontWeight: 700, fontSize: 13 }}
+                                  className={layoutStyles.extracted34}
                                 >
                                   {v.name} -{" "}
-                                  <span style={{ fontWeight: 700 }}>{v.registration || "No Reg"}</span>
+                                  <span className={layoutStyles.extracted35}>{v.registration || "No Reg"}</span>
                                 </div>
                               );
                             })}
 
                           {job.dayNote ? (
                             <div
-                              style={{
-                                marginTop: 5,
-                                fontSize: 12,
-                                color: "var(--legacy-color-6b7280)",
-                                fontStyle: "italic",
-                                whiteSpace: "pre-wrap",
-                              }}
+                              className={layoutStyles.extracted36}
                             >
                               Day note: {job.dayNote}
                             </div>
@@ -3396,8 +3333,8 @@ export default function TimesheetDetailPage() {
 
                   {/* Yard blocks (hide for turnaround UNLESS blocks exist) */}
                   {entryExists && (mode === "yard" || (mode === "turnaround" && hasTimeBlocks)) && (
-                    <div style={{ fontSize: 13, marginTop: 2 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                    <div className={layoutStyles.extracted37}>
+                      <div className={layoutStyles.extracted38}>
                         {mode === "turnaround" ? "Time blocks (optional):" : "Yard:"}
                       </div>
                       {yardSegs.map((seg, i) => {
@@ -3428,9 +3365,9 @@ export default function TimesheetDetailPage() {
                           Yard travel: {entry.yardTravelLeaveTime} {"->"} {entry.yardTravelArriveTime}
                         </div>
                       ) : null}
-                      {entry?.overnight ? <div style={{ marginTop: 4 }}>- Overnight</div> : null}
+                      {entry?.overnight ? <div className={layoutStyles.extracted39}>- Overnight</div> : null}
                       {mode === "yard" && (
-                        <div style={{ color: "var(--legacy-color-9ca3af)", fontSize: 12 }}>
+                        <div className={layoutStyles.extracted40}>
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
                         </div>
                       )}
@@ -3460,12 +3397,12 @@ export default function TimesheetDetailPage() {
 
                   {/* Travel */}
                   {entryExists && mode === "travel" && (
-                    <div style={{ fontSize: 13 }}>
-                      <div style={{ fontWeight: 700 }}>Travel:</div>
+                    <div className={layoutStyles.extracted41}>
+                      <div className={layoutStyles.extracted42}>Travel:</div>
                       <div>
                         {entry.leaveTime ?? "-"} {"->"} {entry.arriveTime ?? "-"}
                       </div>
-                      {entry.travelLunchSup ? <div style={{ marginTop: 4 }}>Travel meal</div> : null}
+                      {entry.travelLunchSup ? <div className={layoutStyles.extracted43}>Travel meal</div> : null}
                       {entry.travelPD ? <div>Travel meal</div> : null}
                       {entry.overnight ? <div>Overnight</div> : null}
                     </div>
@@ -3473,8 +3410,8 @@ export default function TimesheetDetailPage() {
 
                   {/* Office */}
                   {entryExists && mode === "office" && (
-                    <div style={{ fontSize: 13 }}>
-                      <div style={{ fontWeight: 700 }}>Office:</div>
+                    <div className={layoutStyles.extracted44}>
+                      <div className={layoutStyles.extracted45}>Office:</div>
                       <div>
                         {entry.startTime ?? "-"} {"->"} {entry.endTime ?? "-"}
                       </div>
@@ -3483,9 +3420,9 @@ export default function TimesheetDetailPage() {
 
                   {/* On Set */}
                   {entryExists && mode === "onset" && (
-                    <div style={{ marginTop: 3, fontSize: 13 }}>
-                      <div style={{ fontWeight: 700 }}>On Set:</div>
-                      <ul style={{ marginTop: 4, marginLeft: 16, paddingLeft: 0, listStyle: "disc" }}>
+                    <div className={layoutStyles.extracted46}>
+                      <div className={layoutStyles.extracted47}>On Set:</div>
+                      <ul className={layoutStyles.extracted48}>
                         {entry.leaveTime && <li>Leave: {entry.leaveTime}</li>}
                         {entry.arriveTime && <li>Arrive: {entry.arriveTime}</li>}
                         {precallLabel && <li>Pre-Call: {precallLabel}</li>}
@@ -3498,19 +3435,19 @@ export default function TimesheetDetailPage() {
                         {entry.mealSup && <li>Meal supplement claimed</li>}
                       </ul>
 
-                      <div style={{ marginTop: 2 }}>
-                        <div style={{ fontWeight: 700, fontSize: 12 }}>Breakdown:</div>
-                        <div style={{ fontSize: 12 }}>Travel to: {formatHoursLabel(travelToHrs)}</div>
-                        <div style={{ fontSize: 12 }}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
-                        <div style={{ fontSize: 12 }}>
+                      <div className={layoutStyles.extracted49}>
+                        <div className={layoutStyles.extracted50}>Breakdown:</div>
+                        <div className={layoutStyles.extracted51}>Travel to: {formatHoursLabel(travelToHrs)}</div>
+                        <div className={layoutStyles.extracted52}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
+                        <div className={layoutStyles.extracted53}>
                           On set{entry.callTime ? " (10-hour block)" : ""}: {formatHoursLabel(onSetPaidHrs)}
                         </div>
                         {entry.callTime ? (
-                          <div style={{ fontSize: 12 }}>
+                          <div className={layoutStyles.extracted54}>
                             Extra after 10 hours: {formatHoursLabel(extraAfterTenHrs)}
                           </div>
                         ) : (
-                          <div style={{ fontSize: 12 }}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
+                          <div className={layoutStyles.extracted55}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
                         )}
                         {entry.callTime && entry.wrapTime ? (
                           <div style={{ fontSize: 12, color: UI.muted }}>
@@ -3535,11 +3472,11 @@ export default function TimesheetDetailPage() {
                       borderTop: UI.border,
                       paddingTop: 8,
                       fontSize: 12,
-                      color: "var(--legacy-color-374151)",
+                      color: "var(--color-text-muted)",
                       textAlign: "right",
                     }}
                   >
-                    Daily total: <strong style={{ fontWeight: 700 }}>{dayTotalLabel}</strong>
+                    Daily total: <strong className={layoutStyles.extracted56}>{dayTotalLabel}</strong>
                   </div>
                 </div>
               );
@@ -3548,17 +3485,11 @@ export default function TimesheetDetailPage() {
 
           {/* WEEK TOTAL + NOTES ROW */}
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) 260px",
-              gap: 8,
-              marginTop: 12,
-              alignItems: "stretch",
-            }}
+            className={layoutStyles.extracted57}
           >
             <div
               style={{
-                background: "var(--legacy-color-ffffff)",
+                background: "var(--color-surface)",
                 borderRadius: UI.radius,
                 border: UI.border,
                 padding: 10,
@@ -3566,13 +3497,13 @@ export default function TimesheetDetailPage() {
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 4, color: UI.ink }}>General Notes</div>
-              <div style={{ color: "var(--legacy-color-4b5563)", minHeight: 24 }}>{timesheet.notes || "-"}</div>
+              <div className={layoutStyles.extracted58}>{timesheet.notes || "-"}</div>
             </div>
 
             <div
               style={{
-                background: "linear-gradient(135deg, var(--legacy-color-17324f) 0%, var(--legacy-color-234a71) 100%)",
-                color: "var(--legacy-color-f9fafb)",
+                background: "linear-gradient(135deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+                color: "var(--color-surface-subtle)",
                 borderRadius: UI.radius,
                 padding: 10,
                 display: "flex",
@@ -3583,7 +3514,7 @@ export default function TimesheetDetailPage() {
                 fontWeight: 800,
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 500, opacity: 0.8, marginBottom: 4 }}>
+              <div className={layoutStyles.extracted59}>
                 Weekly total
               </div>
               <div>{formatHoursLabel(weeklyTotal)}</div>
@@ -3603,7 +3534,7 @@ export default function TimesheetDetailPage() {
           <div
             style={{
               padding: "12px 12px 10px",
-              background: "var(--legacy-color-f8fbfd)",
+              background: "var(--color-surface-subtle)",
               borderBottom: UI.border,
             }}
           >
@@ -3617,7 +3548,7 @@ export default function TimesheetDetailPage() {
               Auto-filled from the current timesheet. Finance can use this as the first-pass pay advice view.
             </div>
             {!needsPayAdvicePin ? (
-            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted60}>
               <button
                 type="button"
                 onClick={handleSavePayAdvice}
@@ -3628,7 +3559,7 @@ export default function TimesheetDetailPage() {
                 {payAdviceSaving ? "Saving..." : "Save Pay Advice"}
               </button>
               {payAdviceMessage ? (
-                <div style={{ fontSize: 12, color: payAdviceMessage.includes("Failed") ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-166534)" }}>
+                <div style={{ fontSize: 12, color: payAdviceMessage.includes("Failed") ? "var(--color-danger)" : "var(--color-success)" }}>
                   {payAdviceMessage}
                 </div>
               ) : null}
@@ -3639,17 +3570,12 @@ export default function TimesheetDetailPage() {
           {needsPayAdvicePin ? (
           <form
             onSubmit={handlePayAdvicePinSubmit}
-            style={{
-              padding: 14,
-              display: "grid",
-              gap: 10,
-              maxWidth: 360,
-            }}
+            className={layoutStyles.extracted61}
           >
             <div style={{ fontSize: 13, color: UI.muted }}>
               Enter the PIN to view weekly pay advice.
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <div className={layoutStyles.extracted62}>
               <input
                 type="password"
                 inputMode="numeric"
@@ -3672,20 +3598,20 @@ export default function TimesheetDetailPage() {
               </button>
             </div>
             {payAdvicePinError ? (
-              <div style={{ fontSize: 12, color: UI.red, fontWeight: 700 }}>
+              <div style={{ fontSize: 12, color: UI.var(--color-danger), fontWeight: 700 }}>
                 {payAdvicePinError}
               </div>
             ) : null}
           </form>
           ) : (
-          <div style={{ overflowX: "auto", padding: 12 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11.5 }}>
+          <div className={layoutStyles.extracted63}>
+            <table className={layoutStyles.extracted64}>
               <thead>
-                <tr style={{ background: "var(--legacy-color-e5e7eb)" }}>
+                <tr className={layoutStyles.extracted65}>
                   <th
                     colSpan={3}
                     style={{
-                      border: "1px solid var(--legacy-color-94a3b8)",
+                      border: "1px solid var(--shell-muted)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3697,7 +3623,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid var(--legacy-color-94a3b8)",
+                      border: "1px solid var(--shell-muted)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3709,7 +3635,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid var(--legacy-color-94a3b8)",
+                      border: "1px solid var(--shell-muted)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3721,7 +3647,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid var(--legacy-color-94a3b8)",
+                      border: "1px solid var(--shell-muted)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3733,7 +3659,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={3}
                     style={{
-                      border: "1px solid var(--legacy-color-94a3b8)",
+                      border: "1px solid var(--shell-muted)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3743,7 +3669,7 @@ export default function TimesheetDetailPage() {
                     Extra Supplements
                   </th>
                 </tr>
-                <tr style={{ background: "var(--legacy-color-f3f4f6)" }}>
+                <tr className={layoutStyles.extracted66}>
                   {[
                     "Date",
                     "Job Name",
@@ -3761,7 +3687,7 @@ export default function TimesheetDetailPage() {
                     <th
                       key={heading}
                       style={{
-                        border: "1px solid var(--legacy-color-cbd5e1)",
+                        border: "1px solid var(--color-border-strong)",
                         padding: "7px 6px",
                         color: UI.ink,
                         fontWeight: 800,
@@ -3776,23 +3702,23 @@ export default function TimesheetDetailPage() {
               <tbody>
                 {payAdvice.rows.map((row) => (
                   <tr key={row.day}>
-                    <td style={payAdviceCell}>
+                    <td className={layoutStyles.extracted67}>
                       <input
                         value={row.dateLabel}
                         onChange={(e) => handlePayAdviceFieldChange(row.day, "dateLabel", e.target.value)}
-                        style={payAdviceInput}
+                        className={layoutStyles.extracted68}
                         disabled={isApproved}
                       />
                     </td>
-                    <td style={{ ...payAdviceCell, textAlign: "left" }}>
+                    <td className={layoutStyles.extracted69}>
                       <input
                         value={row.jobName}
                         onChange={(e) => handlePayAdviceFieldChange(row.day, "jobName", e.target.value)}
-                        style={{ ...payAdviceInput, textAlign: "left" }}
+                        className={layoutStyles.extracted70}
                         disabled={isApproved}
                       />
                     </td>
-                    <td style={payAdviceCell}>{row.day}</td>
+                    <td className={layoutStyles.extracted71}>{row.day}</td>
                     {[
                       "workshopHrs",
                       "overtimeHrs",
@@ -3816,30 +3742,30 @@ export default function TimesheetDetailPage() {
                           }
                           value={Number(row[field] || 0)}
                           onChange={(e) => handlePayAdviceFieldChange(row.day, field, e.target.value)}
-                          style={payAdviceInput}
+                          className={layoutStyles.extracted72}
                           disabled={isApproved}
                         />
                       </td>
                     ))}
                   </tr>
                 ))}
-                <tr style={{ background: "var(--legacy-color-f8fafc)" }}>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
+                <tr className={layoutStyles.extracted73}>
+                  <td className={layoutStyles.extracted74} colSpan={3}>
                     Totals
                   </td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.workshopHrs.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.overtimeHrs.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelHrs.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.sundayHrs.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.onSetHrs.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.onSetOvertimeHrs.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.weekendSupplementUnits.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.overnightUnits.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted75}>{payAdvice.totals.workshopHrs.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted76}>{payAdvice.totals.overtimeHrs.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted77}>{payAdvice.totals.travelHrs.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted78}>{payAdvice.totals.sundayHrs.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted79}>{payAdvice.totals.onSetHrs.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted80}>{payAdvice.totals.onSetOvertimeHrs.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted81}>{payAdvice.totals.weekendSupplementUnits.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted82}>{payAdvice.totals.overnightUnits.toFixed(2)}</td>
+                  <td className={layoutStyles.extracted83}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
                 </tr>
                 {isAdmin ? (
-                  <tr style={{ background: "var(--legacy-color-eff6ff)" }}>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
+                  <tr className={layoutStyles.extracted84}>
+                    <td className={layoutStyles.extracted85} colSpan={3}>
                       Rates
                     </td>
                     {[
@@ -3853,7 +3779,7 @@ export default function TimesheetDetailPage() {
                       "overnightRate",
                       "travelMealRate",
                     ].map((field) => (
-                      <td key={field} style={{ ...payAdviceCell, fontWeight: 800 }}>
+                      <td key={field} className={layoutStyles.extracted86}>
                         <input
                           type="number"
                           step={
@@ -3865,7 +3791,7 @@ export default function TimesheetDetailPage() {
                           }
                           value={Number(payAdvice.rates[field] || 0)}
                           onChange={(e) => handlePayAdviceRateChange(field, e.target.value)}
-                          style={payAdviceInput}
+                          className={layoutStyles.extracted87}
                           disabled={isApproved}
                         />
                       </td>
@@ -3873,30 +3799,26 @@ export default function TimesheetDetailPage() {
                   </tr>
                 ) : null}
                 {isAdmin ? (
-                  <tr style={{ background: "var(--legacy-color-dbeafe)" }}>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
+                  <tr className={layoutStyles.extracted88}>
+                    <td className={layoutStyles.extracted89} colSpan={3}>
                       Total Monetary
                     </td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.workshopAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.overtimeAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.travelAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.sundayAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.onSetAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.onSetOvertimeAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.weekendSupplementAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.overnightAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.travelMealAmount)}</td>
+                    <td className={layoutStyles.extracted90}>{toMoney(payAdvice.totals.workshopAmount)}</td>
+                    <td className={layoutStyles.extracted91}>{toMoney(payAdvice.totals.overtimeAmount)}</td>
+                    <td className={layoutStyles.extracted92}>{toMoney(payAdvice.totals.travelAmount)}</td>
+                    <td className={layoutStyles.extracted93}>{toMoney(payAdvice.totals.sundayAmount)}</td>
+                    <td className={layoutStyles.extracted94}>{toMoney(payAdvice.totals.onSetAmount)}</td>
+                    <td className={layoutStyles.extracted95}>{toMoney(payAdvice.totals.onSetOvertimeAmount)}</td>
+                    <td className={layoutStyles.extracted96}>{toMoney(payAdvice.totals.weekendSupplementAmount)}</td>
+                    <td className={layoutStyles.extracted97}>{toMoney(payAdvice.totals.overnightAmount)}</td>
+                    <td className={layoutStyles.extracted98}>{toMoney(payAdvice.totals.travelMealAmount)}</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
             {isAdmin ? (
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  paddingTop: 12,
-                }}
+                className={layoutStyles.extracted99}
               >
                 <div
                   style={{
@@ -3905,20 +3827,14 @@ export default function TimesheetDetailPage() {
                     gap: 3,
                     padding: "10px 12px",
                     borderRadius: UI.radius,
-                    border: "1px solid var(--legacy-color-93c5fd)",
-                    background: "var(--legacy-color-eff6ff)",
+                    border: "1px solid var(--color-info-border)",
+                    background: "var(--color-info-soft)",
                     boxShadow: UI.shadowSm,
                     textAlign: "right",
                   }}
                 >
                   <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      letterSpacing: 0.5,
-                      color: "var(--legacy-color-1d4ed8)",
-                      textTransform: "uppercase",
-                    }}
+                    className={layoutStyles.extracted100}
                   >
                     Grand Total
                   </span>
@@ -3959,9 +3875,9 @@ export default function TimesheetDetailPage() {
                 marginBottom: 10,
                 padding: "7px 10px",
                 borderRadius: UI.radiusSm,
-                backgroundColor: "var(--legacy-color-eff6ff)",
-                border: "1px solid var(--legacy-color-bfdbfe)",
-                color: "var(--legacy-color-1e3a8a)",
+                backgroundColor: "var(--color-info-soft)",
+                border: "1px solid var(--color-info-border)",
+                color: "var(--color-brand)",
                 fontSize: 12,
               }}
             >
@@ -3982,8 +3898,8 @@ export default function TimesheetDetailPage() {
                 opacity: isApproved ? 0.6 : 1,
               }}
             >
-              <div style={{ minWidth: 140 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+              <div className={layoutStyles.extracted101}>
+                <label className={layoutStyles.extracted102}>
                   Day
                 </label>
                 <select
@@ -3992,7 +3908,7 @@ export default function TimesheetDetailPage() {
                   disabled={isApproved}
                   style={{
                     ...formControlStyle,
-                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
+                    backgroundColor: isApproved ? "var(--color-canvas)" : "var(--color-surface)",
                     cursor: isApproved ? "not-allowed" : "pointer",
                   }}
                 >
@@ -4005,8 +3921,8 @@ export default function TimesheetDetailPage() {
                 </select>
               </div>
 
-              <div style={{ minWidth: 160 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+              <div className={layoutStyles.extracted103}>
+                <label className={layoutStyles.extracted104}>
                   What are you querying?
                 </label>
                 <select
@@ -4015,7 +3931,7 @@ export default function TimesheetDetailPage() {
                   disabled={isApproved}
                   style={{
                     ...formControlStyle,
-                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
+                    backgroundColor: isApproved ? "var(--color-canvas)" : "var(--color-surface)",
                     cursor: isApproved ? "not-allowed" : "pointer",
                   }}
                 >
@@ -4029,8 +3945,8 @@ export default function TimesheetDetailPage() {
                 </select>
               </div>
 
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+              <div className={layoutStyles.extracted105}>
+                <label className={layoutStyles.extracted106}>
                   Query note for employee
                 </label>
                 <textarea
@@ -4046,13 +3962,13 @@ export default function TimesheetDetailPage() {
                   style={{
                     ...formControlStyle,
                     resize: "vertical",
-                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
+                    backgroundColor: isApproved ? "var(--color-canvas)" : "var(--color-surface)",
                     cursor: isApproved ? "not-allowed" : "text",
                   }}
                 />
               </div>
 
-              <div style={{ alignSelf: "flex-end" }}>
+              <div className={layoutStyles.extracted107}>
                 <button
                   type="submit"
                   disabled={querySubmitting || isApproved}
@@ -4073,7 +3989,7 @@ export default function TimesheetDetailPage() {
                 borderRadius: UI.radiusSm,
                 backgroundColor: UI.redSoft,
                 border: `1px solid ${UI.redBorder}`,
-                color: UI.red,
+                color: UI.var(--color-danger),
                 fontSize: 12,
               }}
             >
@@ -4102,14 +4018,7 @@ export default function TimesheetDetailPage() {
                 Existing queries on this timesheet
               </div>
               <ul
-                style={{
-                  listStyle: "none",
-                  paddingLeft: 0,
-                  margin: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                }}
+                className={layoutStyles.extracted108}
               >
                 {queries.map((q) => (
                   <li
@@ -4117,14 +4026,14 @@ export default function TimesheetDetailPage() {
                     style={{
                       padding: "8px 10px",
                       borderRadius: UI.radius,
-                      backgroundColor: "var(--legacy-color-ffffff)",
+                      backgroundColor: "var(--color-surface)",
                       border: UI.border,
                       fontSize: 13,
                     }}
                   >
-                    <div style={{ marginBottom: 2 }}>
+                    <div className={layoutStyles.extracted109}>
                       <strong>{q.day}</strong>{" "}
-                      <span style={{ color: "var(--legacy-color-6b7280)" }}>({q.field || "overall"})</span>
+                      <span className={layoutStyles.extracted110}>({q.field || "overall"})</span>
                       {q.status && (
                         <span
                           style={{
@@ -4133,16 +4042,16 @@ export default function TimesheetDetailPage() {
                             padding: "1px 6px",
                             borderRadius: UI.radiusSm,
                             backgroundColor:
-                              String(q.status).toLowerCase() === "closed" ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-eef2ff)",
+                              String(q.status).toLowerCase() === "closed" ? "var(--color-success-soft)" : "var(--color-info-soft)",
                             color:
-                              String(q.status).toLowerCase() === "closed" ? "var(--legacy-color-166534)" : "var(--legacy-color-3730a3)",
+                              String(q.status).toLowerCase() === "closed" ? "var(--color-success)" : "var(--color-brand)",
                           }}
                         >
                           {String(q.status).toUpperCase()}
                         </span>
                       )}
                     </div>
-                    <div style={{ color: "var(--legacy-color-4b5563)", marginBottom: 6 }}>{q.message || q.note}</div>
+                    <div className={layoutStyles.extracted111}>{q.message || q.note}</div>
 
                     <QueryMessageThread query={q} canReply={isAdmin} />
                   </li>
@@ -4206,7 +4115,7 @@ function QueryMessageThread({ query, canReply = false }) {
         padding: 10,
         borderRadius: UI.radius,
         border: UI.border,
-        background: "var(--legacy-color-ffffff)",
+        background: "var(--color-surface)",
       }}
     >
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: UI.muted }}>
@@ -4217,7 +4126,7 @@ function QueryMessageThread({ query, canReply = false }) {
         style={{
           maxHeight: 200,
           overflowY: "auto",
-          background: "var(--legacy-color-ffffff)",
+          background: "var(--color-surface)",
           borderRadius: UI.radius,
           border: UI.border,
           padding: 8,
@@ -4226,7 +4135,7 @@ function QueryMessageThread({ query, canReply = false }) {
         }}
       >
         {messages.length === 0 && (
-          <div style={{ color: "var(--legacy-color-9ca3af)", textAlign: "center" }}>No messages yet.</div>
+          <div className={layoutStyles.extracted112}>No messages yet.</div>
         )}
 
         {messages.map((m) => {
@@ -4238,8 +4147,8 @@ function QueryMessageThread({ query, canReply = false }) {
                   display: "inline-block",
                   padding: "5px 9px",
                   borderRadius: UI.radiusSm,
-                  backgroundColor: isManager ? UI.brand : "var(--legacy-color-e5e7eb)",
-                  color: isManager ? "var(--legacy-color-f9fafb)" : "var(--legacy-color-111827)",
+                  backgroundColor: isManager ? UI.brand : "var(--color-border)",
+                  color: isManager ? "var(--color-surface-subtle)" : "var(--color-text)",
                 }}
               >
                 {m.text}
@@ -4250,13 +4159,13 @@ function QueryMessageThread({ query, canReply = false }) {
       </div>
 
       {(isClosed || !canReply) && (
-        <div style={{ fontSize: 11, color: "var(--legacy-color-6b7280)", marginBottom: 6 }}>
+        <div className={layoutStyles.extracted113}>
           {isClosed ? "This query is closed. No further messages can be sent." : "Replies are admin-only."}
         </div>
       )}
 
       {canReply ? (
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div className={layoutStyles.extracted114}>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -4268,7 +4177,7 @@ function QueryMessageThread({ query, canReply = false }) {
               borderRadius: UI.radiusSm,
               border: UI.border,
               fontSize: 12,
-              backgroundColor: isClosed ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
+              backgroundColor: isClosed ? "var(--color-canvas)" : "var(--color-surface)",
               cursor: isClosed ? "not-allowed" : "text",
             }}
           />

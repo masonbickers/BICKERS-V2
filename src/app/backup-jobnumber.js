@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./backup-jobnumber.styles.module.css";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { db } from "../../../../firebaseConfig";
@@ -440,29 +441,24 @@ const scoreTimesheetForJob = (ts, job) => {
 
   const renderDateBlock = (job) => {
     const dates = datesForJob(job);
-    if (!dates.length) return <div style={{ color: "#999" }}>TBC</div>;
+    if (!dates.length) return <div className={layoutStyles.extracted1}>TBC</div>;
 
     return (
-      <div style={{ display: "grid", gap: 6 }}>
+      <div className={layoutStyles.extracted2}>
 {[...dates].sort((a, b) => (parseDate(b)?.getTime() ?? 0) - (parseDate(a)?.getTime() ?? 0)).map((d, i) => {
           const note = getNoteForDate(job.id, d);
           return (
             <div
               key={i}
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                justifyContent: "space-between",
-                gap: 12,
-              }}
+              className={layoutStyles.extracted3}
             >
-              <span style={{ color: "#111827" }}>{formatDate(d)}</span>
+              <span className={layoutStyles.extracted4}>{formatDate(d)}</span>
               {note ? (
-                <span style={{ color: "#6b7280", fontSize: 12, whiteSpace: "pre-wrap" }}>
+                <span className={layoutStyles.extracted5}>
                   — {note}
                 </span>
               ) : (
-                <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+                <span className={layoutStyles.extracted6}>—</span>
               )}
             </div>
           );
@@ -505,7 +501,7 @@ const renderTimesheet = (ts, job) => {
   const dayMap = normaliseDays(ts?.days, ts?.weekStart);
 
   // Helper: small badge
-  const Badge = ({ text, bg="#eef2ff", fg="#1f2937", border="#c7d2fe" }) => (
+  const Badge = ({ text, bg="var(--color-info-soft)", fg="var(--color-text)", border="var(--color-info-border)" }) => (
     <span style={{
       display: "inline-block",
       padding: "2px 8px",
@@ -545,16 +541,10 @@ const renderTimesheet = (ts, job) => {
 
   return (
     <div
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: 12,
-        padding: 12,
-        background: "#fff",
-        marginBottom: 10,
-      }}
+      className={layoutStyles.extracted7}
     >
       {/* header */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
+      <div className={layoutStyles.extracted8}>
         <div><strong>Week start:</strong> {ts.weekStart || "—"}</div>
         {ts.employeeName && <div><strong>Employee:</strong> {ts.employeeName}</div>}
         {!ts.employeeName && ts.employeeCode && <div><strong>Employee:</strong> {ts.employeeCode}</div>}
@@ -575,27 +565,19 @@ const renderTimesheet = (ts, job) => {
             const pathByWeek = `/timesheet/${encodeURIComponent(ts.weekStart)}`;
             window.location.href = ts.id ? pathById : pathByWeek;
           }}
-          style={{
-            marginLeft: "auto",
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid #d1d5db",
-            background: "#fff",
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className={layoutStyles.extracted9}
         >
           Open timesheet
         </button>
       </div>
 
       {/* table */}
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className={layoutStyles.extracted10}>
+        <table className={layoutStyles.extracted11}>
           <thead>
             <tr>
               {dayOrder.map((d) => (
-                <th key={d} style={{ textAlign: "left", padding: "8px 6px", borderBottom: "1px solid #e5e7eb" }}>
+                <th key={d} className={layoutStyles.extracted12}>
                   {d}
                 </th>
               ))}
@@ -612,31 +594,31 @@ const renderTimesheet = (ts, job) => {
                 let badge = null;
                 const mode = String(entry?.mode ?? entry?.type ?? "").toLowerCase();
                 if (isJobDay) {
-                  badge = <Badge text={`Job ${job.jobNumber || job.id}`} bg="#dcfce7" fg="#166534" border="#86efac" />;
+                  badge = <Badge text={`Job ${job.jobNumber || job.id}`} bg="var(--color-success-soft)" fg="var(--color-success)" border="var(--color-success-border)" />;
                 } else if (mode === "off") {
-                  badge = <Badge text="Off" bg="#f3f4f6" fg="#374151" border="#e5e7eb" />;
+                  badge = <Badge text="Off" bg="var(--color-canvas)" fg="var(--color-text-muted)" border="var(--color-border)" />;
                 } else if (mode === "holiday") {
-                  badge = <Badge text="Holiday" bg="#fef9c3" fg="#7a5d00" border="#fde68a" />;
+                  badge = <Badge text="Holiday" bg="var(--color-warning-soft)" fg="var(--color-warning)" border="var(--color-warning-border)" />;
                 } else {
-                  badge = <Badge text="Yard" bg="#e0f2fe" fg="#0369a1" border="#bae6fd" />;
+                  badge = <Badge text="Yard" bg="var(--color-info-soft)" fg="var(--color-info)" border="var(--color-info-border)" />;
                 }
 
                 return (
-                  <td key={d} style={{ verticalAlign: "top", padding: "8px 6px", borderBottom: "1px solid #f3f4f6" }}>
-                    <div style={{ fontSize: 12, color: "#374151" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <td key={d} className={layoutStyles.extracted13}>
+                    <div className={layoutStyles.extracted14}>
+                      <div className={layoutStyles.extracted15}>
                         <strong>{(entry.mode || entry.type || "—")}</strong>
                         {badge}
                       </div>
 
                       {/* succinct times/summary line */}
-                      <div style={{ marginTop: 4, color: "#374151" }}>
+                      <div className={layoutStyles.extracted16}>
                         {lineFor(entry)}
                       </div>
 
                       {/* optional: notes */}
                       {entry.dayNotes ? (
-                        <div style={{ marginTop: 4, whiteSpace: "pre-wrap", color: "#6b7280" }}>
+                        <div className={layoutStyles.extracted17}>
                           {entry.dayNotes}
                         </div>
                       ) : null}
@@ -650,9 +632,9 @@ const renderTimesheet = (ts, job) => {
       </div>
 
       {ts.notes ? (
-        <div style={{ marginTop: 8, fontSize: 13, color: "#111827" }}>
+        <div className={layoutStyles.extracted18}>
           <strong>Timesheet Notes:</strong>{" "}
-          <span style={{ whiteSpace: "pre-wrap" }}>{ts.notes}</span>
+          <span className={layoutStyles.extracted19}>{ts.notes}</span>
         </div>
       ) : null}
     </div>
@@ -968,13 +950,13 @@ const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart
   const statusColor = (s) => {
     switch (s) {
       case "Ready to Invoice":
-        return "#2563eb"; // blue
+        return "var(--color-brand)"; // blue
       case "Needs Action":
-        return "#ef4444"; // red
+        return "var(--color-danger)"; // red
       case "Complete":
-        return "#10b981"; // green
+        return "var(--color-success-accent)"; // green
       default:
-        return "#f59e0b"; // fallback amber for unknown statuses (e.g., "Pending")
+        return "var(--color-accent)"; // fallback amber for unknown statuses (e.g., "Pending")
     }
   };
 
@@ -998,17 +980,7 @@ const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart
   const PaidPill = () => (
     <span
       title="This job is marked as Paid. Status changes are locked."
-      style={{
-        display: "inline-block",
-        marginLeft: 8,
-        padding: "4px 10px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 700,
-        background: "#16a34a20",
-        color: "#16a34a",
-        border: "1px solid #16a34a66",
-      }}
+      className={layoutStyles.extracted20}
     >
       Paid Locked
     </span>
@@ -1111,24 +1083,11 @@ const uploadPdfForJob = async (jobId) => {
   return (
     <HeaderSidebarLayout>
       <div
-        style={{
-          width: "100%",
-          minHeight: "100vh",
-          backgroundColor: "#ffffff",
-          color: "#000000",
-          padding: "40px 24px",
-        }}
+        className={layoutStyles.extracted21}
       >
         <button
           onClick={() => router.back()}
-          style={{
-            backgroundColor: "#e5e7eb",
-            padding: "8px 16px",
-            borderRadius: "8px",
-            marginBottom: "30px",
-            border: "none",
-            cursor: "pointer",
-          }}
+          className={layoutStyles.extracted22}
         >
           ← Back to Job Numbers
         </button>
@@ -1136,7 +1095,7 @@ const uploadPdfForJob = async (jobId) => {
 {(() => {
   if (!jobNumber) {
     return (
-      <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 30 }}>
+      <h1 className={layoutStyles.extracted23}>
         Job —
       </h1>
     );
@@ -1146,7 +1105,7 @@ const uploadPdfForJob = async (jobId) => {
   const prefix = str.split("-")[0]; // only first 4 digits before the dash
 
   return (
-    <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 30 }}>
+    <h1 className={layoutStyles.extracted24}>
       Job #{prefix}
     </h1>
   );
@@ -1168,89 +1127,67 @@ const uploadPdfForJob = async (jobId) => {
             return (
               <div
                 key={idx}
-                style={{
-                  display: "flex",
-                  gap: "24px",
-                  marginBottom: "24px",
-                  flexWrap: "wrap",
-                }}
+                className={layoutStyles.extracted25}
               >
                 {/* Block 1: Main Job Info */}
                 <div
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "16px",
-                    borderRadius: "12px",
-                    flex: "1",
-                    minWidth: "300px",
-                    backgroundColor: "#fff",
-                  }}
+                  className={layoutStyles.extracted26}
                 >
-               <h4 style={{ marginTop: 0, marginBottom: "10px", display: "flex", alignItems: "center" }}>
+               <h4 className={layoutStyles.extracted27}>
   Information
-  <span style={{ marginLeft: 12 }}>
+  <span className={layoutStyles.extracted28}>
     <StatusPill value={currentDbStatus} />
   </span>
   {isPaid && <PaidPill />}
 </h4>
 
-<div style={{ marginBottom: "10px" }}>
+<div className={layoutStyles.extracted29}>
   <strong>Job Number:</strong> {job.jobNumber || job.id}
 </div>
 
 
-                  <div style={{ marginBottom: "10px" }}>
+                  <div className={layoutStyles.extracted30}>
                     <strong>Client:</strong> {job.client}
                   </div>
-                  <div style={{ marginBottom: "10px" }}>
+                  <div className={layoutStyles.extracted31}>
                     <strong>Location:</strong> {job.location}
                   </div>
-                  <div style={{ marginBottom: "10px" }}>
+                  <div className={layoutStyles.extracted32}>
                     <strong>Dates:</strong>
-                    <div style={{ marginTop: "4px" }}>{renderDateBlock(job)}</div>
+                    <div className={layoutStyles.extracted33}>{renderDateBlock(job)}</div>
                   </div>
                   {job.vehicles?.length > 0 && (
-                    <div style={{ marginBottom: "10px" }}>
+                    <div className={layoutStyles.extracted34}>
                       <strong>Vehicles:</strong> {job.vehicles.join(", ")}
                     </div>
                   )}
         {job.employees && (
-  <div style={{ marginBottom: "10px" }}>
+  <div className={layoutStyles.extracted35}>
     <strong>Team:</strong> {renderEmployees(job.employees)}
   </div>
 )}
 
            
                   {job.equipment?.length > 0 && (
-                    <div style={{ marginBottom: "10px" }}>
+                    <div className={layoutStyles.extracted36}>
                       <strong>Equipment:</strong> {job.equipment.join(", ")}
                     </div>
                   )}
                   {job.notes && (
-                    <div style={{ marginBottom: "10px" }}>
+                    <div className={layoutStyles.extracted37}>
                       <strong>Description</strong>
-                      <div style={{ whiteSpace: "pre-line", marginTop: "4px" }}>
+                      <div className={layoutStyles.extracted38}>
                         {job.notes}
                       </div>
                     </div>
                   )}
                   {job.quote && (
                     <div
-                      style={{
-                        marginBottom: "10px",
-                        backgroundColor: "#fef9c3",
-                        padding: "12px",
-                        borderRadius: "8px",
-                        border: "1px solid #facc15",
-                      }}
+                      className={layoutStyles.extracted39}
                     >
                       <strong>Quote:</strong>
                       <div
-                        style={{
-                          whiteSpace: "pre-line",
-                          marginTop: "4px",
-                          color: "#78350f",
-                        }}
+                        className={layoutStyles.extracted40}
                       >
                         {job.quote}
                       </div>
@@ -1263,7 +1200,7 @@ const uploadPdfForJob = async (jobId) => {
                         href={job.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: "#2563eb", textDecoration: "underline" }}
+                        className={layoutStyles.extracted41}
                       >
                         View PDF
                       </a>
@@ -1272,15 +1209,9 @@ const uploadPdfForJob = async (jobId) => {
 
                   {/* Upload / Replace PDF */}
 <div
-  style={{
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 8,
-    border: "1px dashed #cbd5e1",
-    background: "#f8fafc",
-  }}
+  className={layoutStyles.extracted42}
 >
-  <div style={{ fontWeight: 600, marginBottom: 8 }}>
+  <div className={layoutStyles.extracted43}>
     {job.pdfUrl ? "Replace PDF" : "Upload PDF"}
   </div>
 
@@ -1288,17 +1219,17 @@ const uploadPdfForJob = async (jobId) => {
     type="file"
     accept="application/pdf"
     onChange={(e) => onPdfSelect(job.id, e.target.files?.[0])}
-    style={{ marginBottom: 8 }}
+    className={layoutStyles.extracted44}
   />
 
-  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  <div className={layoutStyles.extracted45}>
     <button
       type="button"
       onClick={() => uploadPdfForJob(job.id)}
       disabled={uploadingByJob[job.id] || !pdfFileByJob[job.id]}
       style={{
-        backgroundColor: "#111827",
-        color: "#fff",
+        backgroundColor: "var(--shell-sidebar-bg)",
+        color: "var(--color-white)",
         border: "none",
         borderRadius: 8,
         padding: "8px 12px",
@@ -1314,20 +1245,20 @@ const uploadPdfForJob = async (jobId) => {
     </button>
 
     {typeof progressByJob[job.id] === "number" && uploadingByJob[job.id] && (
-      <span style={{ fontSize: 12, color: "#374151" }}>
+      <span className={layoutStyles.extracted46}>
         Progress: {progressByJob[job.id]}%
       </span>
     )}
   </div>
 
   {job.pdfUrl && (
-    <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+    <div className={layoutStyles.extracted47}>
       Current:{" "}
       <a
         href={job.pdfUrl}
         target="_blank"
         rel="noopener noreferrer"
-        style={{ color: "#2563eb", textDecoration: "underline" }}
+        className={layoutStyles.extracted48}
       >
         View PDF
       </a>
@@ -1337,36 +1268,17 @@ const uploadPdfForJob = async (jobId) => {
 
 
                   <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      marginTop: "20px",
-                      gap: "8px",
-                    }}
+                    className={layoutStyles.extracted49}
                   >
                     <button
                       onClick={() => router.push(`/edit-booking/${job.id}`)}
-                      style={{
-                        backgroundColor: "#2563eb",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "8px 16px",
-                        cursor: "pointer",
-                      }}
+                      className={layoutStyles.extracted50}
                     >
                       Edit Booking
                     </button>
                     <button
                       onClick={() => deleteJob(job.id)}
-                      style={{
-                        backgroundColor: "#ef4444",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "8px 16px",
-                        cursor: "pointer",
-                      }}
+                      className={layoutStyles.extracted51}
                     >
                       Delete Booking
                     </button>
@@ -1374,19 +1286,12 @@ const uploadPdfForJob = async (jobId) => {
                 </div>
 {/* Block 2: Job Summary (GENERAL + PO + Important Info) */}
 <div
-  style={{
-    flex: "0.7",
-    backgroundColor: "#f9fafb",
-    padding: "16px",
-    borderRadius: "12px",
-    border: "1px solid #ccc",
-    minWidth: "250px",
-  }}
+  className={layoutStyles.extracted52}
 >
-  <h4 style={{ marginTop: 0 }}>Extra Information</h4>
+  <h4 className={layoutStyles.extracted53}>Extra Information</h4>
 
   {/* Notes / General Summary */}
-  <label style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+  <label className={layoutStyles.extracted54}>
     Notes
   </label>
   <textarea
@@ -1402,20 +1307,11 @@ const uploadPdfForJob = async (jobId) => {
       }))
     }
     placeholder="Add general summary for this job…"
-    style={{
-      width: "100%",
-      border: "1px solid #d1d5db",
-      borderRadius: 8,
-      padding: 8,
-      fontSize: 13,
-      resize: "vertical",
-      background: "#fff",
-      marginBottom: 12,
-    }}
+    className={layoutStyles.extracted55}
   />
 
   {/* PO Section */}
-  <label style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+  <label className={layoutStyles.extracted56}>
     Purchase Order
   </label>
   <input
@@ -1425,19 +1321,11 @@ const uploadPdfForJob = async (jobId) => {
       updateDoc(doc(db, "bookings", job.id), { po: e.target.value })
     }
     placeholder="Enter PO reference…"
-    style={{
-      width: "100%",
-      border: "1px solid #d1d5db",
-      borderRadius: 8,
-      padding: 8,
-      fontSize: 13,
-      marginBottom: 12,
-      background: "#fff",
-    }}
+    className={layoutStyles.extracted57}
   />
 
   {/* Important Info Box */}
-  <label style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+  <label className={layoutStyles.extracted58}>
     Important Info
   </label>
   <textarea
@@ -1447,30 +1335,14 @@ const uploadPdfForJob = async (jobId) => {
       updateDoc(doc(db, "bookings", job.id), { importantInfo: e.target.value })
     }
     placeholder="Add urgent notes, damages, restrictions, etc…"
-    style={{
-      width: "100%",
-      border: "1px solid #facc15",
-      borderRadius: 8,
-      padding: 8,
-      fontSize: 13,
-      resize: "vertical",
-      background: "#fefce8", // yellow background
-      marginBottom: 12,
-    }}
+    className={layoutStyles.extracted59}
   />
 
   {/* Save Summary */}
-  <div style={{ marginTop: 12 }}>
+  <div className={layoutStyles.extracted60}>
     <button
       onClick={() => saveJobSummary(job.id)}
-      style={{
-        backgroundColor: "#16a34a",
-        color: "#fff",
-        border: "none",
-        borderRadius: 8,
-        padding: "8px 12px",
-        cursor: "pointer",
-      }}
+      className={layoutStyles.extracted61}
     >
       Save Summary
     </button>
@@ -1479,18 +1351,11 @@ const uploadPdfForJob = async (jobId) => {
 
 {/* Block 4: Timesheets */}
 <div
-  style={{
-    flex: "1",
-    backgroundColor: "#ffffff",
-    padding: "16px",
-    borderRadius: "12px",
-    border: "1px solid #e5e7eb",
-    minWidth: "300px",
-  }}
+  className={layoutStyles.extracted62}
 >
-  <h4 style={{ marginTop: 0 }}>
+  <h4 className={layoutStyles.extracted63}>
     Timesheets
-    <span style={{ marginLeft: 8, fontWeight: 500, color: "#6b7280" }}>
+    <span className={layoutStyles.extracted64}>
       {(timesheetsByJob[job.id]?.length || 0)} found
     </span>
   </h4>
@@ -1507,14 +1372,14 @@ const list = (timesheetsByJob[job.id] || [])
 
     if (!list.length) {
       return (
-        <div style={{ color: "#6b7280" }}>
+        <div className={layoutStyles.extracted65}>
           No timesheets found for this job yet.
         </div>
       );
     }
 
 return list.map((ts) => (
-  <div key={ts.id} style={{ marginBottom: 12 }}>
+  <div key={ts.id} className={layoutStyles.extracted66}>
     {renderTimesheet(ts, job)}
   </div>
 ));
@@ -1526,36 +1391,23 @@ return list.map((ts) => (
 
                 {/* Block 3: Actions */}
                 <div
-                  style={{
-                    flex: "0.7",
-                    backgroundColor: "#eef2ff",
-                    padding: "16px",
-                    borderRadius: "12px",
-                    border: "1px solid #a5b4fc",
-                    minWidth: "250px",
-                  }}
+                  className={layoutStyles.extracted67}
                 >
-                  <h4 style={{ marginTop: 0 }}>Actions</h4>
+                  <h4 className={layoutStyles.extracted68}>Actions</h4>
 
-                  <div style={{ marginBottom: 14 }}>
+                  <div className={layoutStyles.extracted69}>
                     <div
-                      style={{
-                        fontWeight: 600,
-                        marginBottom: 8,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
+                      className={layoutStyles.extracted70}
                     >
                       Status
                       {isPaid && (
-                        <span title="Paid: status locked" style={{ fontSize: 12, color: "#374151" }}>
+                        <span title="Paid: status locked" className={layoutStyles.extracted71}>
                           (Paid — locked Locked)
                         </span>
                       )}
                     </div>
 
-                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                 <div className={layoutStyles.extracted72}>
   {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
     const active = selected === opt;
     return (
@@ -1572,9 +1424,9 @@ return list.map((ts) => (
         style={{
           padding: "8px 12px",
           borderRadius: 8,
-          border: active ? `2px solid ${statusColor(opt)}` : "1px solid #c7d2fe",
-          background: active ? `${statusColor(opt)}20` : "#eef2ff",
-          color: active ? statusColor(opt) : "#1f2937",
+          border: active ? `2px solid ${statusColor(opt)}` : "1px solid var(--color-info-border)",
+          background: active ? `${statusColor(opt)}20` : "var(--color-info-soft)",
+          color: active ? statusColor(opt) : "var(--color-text)",
           fontWeight: 600,
           cursor: isPaid ? "not-allowed" : "pointer",
           opacity: isPaid ? 0.5 : 1,
@@ -1586,7 +1438,7 @@ return list.map((ts) => (
   })}
 </div>
 
-<div style={{ marginTop: 10 }}>
+<div className={layoutStyles.extracted73}>
   <button
     onClick={() => {
       const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
@@ -1607,8 +1459,8 @@ return list.map((ts) => (
       padding: "8px 12px",
       borderRadius: 8,
       border: "none",
-      background: "#111827",
-      color: "#fff",
+      background: "var(--shell-sidebar-bg)",
+      color: "var(--color-white)",
       fontWeight: 600,
       cursor:
         isPaid ||
@@ -1627,31 +1479,17 @@ return list.map((ts) => (
 </div>
 </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div className={layoutStyles.extracted74}>
   <button
     onClick={() => alert("Download PDF feature coming soon")}
-    style={{
-      backgroundColor: "#6366f1",
-      color: "#fff",
-      border: "none",
-      borderRadius: "8px",
-      padding: "8px 12px",
-      cursor: "pointer",
-    }}
+    className={layoutStyles.extracted75}
   >
     Download Summary
   </button>
 
   <button
     onClick={() => alert("Share function coming soon")}
-    style={{
-      backgroundColor: "#4f46e5",
-      color: "#fff",
-      border: "none",
-      borderRadius: "8px",
-      padding: "8px 12px",
-      cursor: "pointer",
-    }}
+    className={layoutStyles.extracted76}
   >
     Share Job
   </button>
@@ -1677,14 +1515,7 @@ return list.map((ts) => (
         alert("Debug upload threw: " + (e.message || e));
       }
     }}
-    style={{
-      backgroundColor: "#0ea5e9",
-      color: "#fff",
-      border: "none",
-      borderRadius: "8px",
-      padding: "8px 12px",
-      cursor: "pointer",
-    }}
+    className={layoutStyles.extracted77}
   >
     Quick Storage Test
   </button>

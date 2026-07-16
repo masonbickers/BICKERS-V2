@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
@@ -14,6 +15,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 export default function NoteForm() {
   const router = useRouter();
@@ -154,8 +156,8 @@ export default function NoteForm() {
   return (
     <div style={pageWrap}>
       <main style={card}>
-        <div style={header}>
-          <div style={titleRow}>
+        <div className={layoutStyles.extracted1}>
+          <div className={layoutStyles.extracted2}>
             <span style={iconBox}>
               <StickyNote size={18} />
             </span>
@@ -169,10 +171,10 @@ export default function NoteForm() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={form}>
-          <div style={formGrid}>
-            <div style={fieldGroup}>
-              <label style={label}>Employee</label>
+        <form onSubmit={handleSubmit} className={layoutStyles.extracted3}>
+          <div className={layoutStyles.extracted4}>
+            <div className={layoutStyles.extracted5}>
+              <label className={layoutStyles.extracted6}>Employee</label>
               <select
                 value={employee}
                 onChange={(e) => {
@@ -190,8 +192,8 @@ export default function NoteForm() {
               </select>
             </div>
 
-            <div style={fieldGroup}>
-              <label style={label}>Note Type</label>
+            <div className={layoutStyles.extracted7}>
+              <label className={layoutStyles.extracted8}>Note Type</label>
               <select
                 value={isMultiDay ? "multi" : "single"}
                 onChange={(e) => setIsMultiDay(e.target.value === "multi")}
@@ -214,8 +216,8 @@ export default function NoteForm() {
           </label>
 
           {!isMultiDay ? (
-            <div style={fieldGroup}>
-              <label style={label}>Date</label>
+            <div className={layoutStyles.extracted9}>
+              <label className={layoutStyles.extracted10}>Date</label>
               <input
                 type="date"
                 value={noteDate}
@@ -225,9 +227,9 @@ export default function NoteForm() {
               />
             </div>
           ) : (
-            <div style={formGrid}>
-              <div style={fieldGroup}>
-                <label style={label}>Start Date</label>
+            <div className={layoutStyles.extracted11}>
+              <div className={layoutStyles.extracted12}>
+                <label className={layoutStyles.extracted13}>Start Date</label>
                 <input
                   type="date"
                   value={startDate}
@@ -237,8 +239,8 @@ export default function NoteForm() {
                 />
               </div>
 
-              <div style={fieldGroup}>
-                <label style={label}>End Date</label>
+              <div className={layoutStyles.extracted14}>
+                <label className={layoutStyles.extracted15}>End Date</label>
                 <input
                   type="date"
                   value={endDate}
@@ -250,8 +252,8 @@ export default function NoteForm() {
             </div>
           )}
 
-          <div style={fieldGroup}>
-            <label style={label}>Note</label>
+          <div className={layoutStyles.extracted16}>
+            <label className={layoutStyles.extracted17}>Note</label>
             <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
@@ -262,7 +264,7 @@ export default function NoteForm() {
             />
           </div>
 
-          <div style={actions}>
+          <div className={layoutStyles.extracted18}>
             <button type="button" onClick={handleCancel} style={secondaryBtn}>
               Cancel
             </button>
@@ -285,18 +287,11 @@ export default function NoteForm() {
   );
 }
 
-const UI = {
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  border: "var(--legacy-color-d7dee8)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   minHeight: "100vh",
-  background: "var(--legacy-color-f3f6f9)",
+  background: "var(--color-canvas)",
   padding: "16px",
   color: UI.text,
 };
@@ -305,7 +300,7 @@ const card = {
   maxWidth: 720,
   width: "100%",
   margin: "0 auto",
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   border: `1px solid ${UI.border}`,
   borderRadius: 8,
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
@@ -319,7 +314,7 @@ const header = {
   gap: 12,
   marginBottom: 14,
   paddingBottom: 12,
-  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
+  borderBottom: "1px solid var(--color-border)",
   flexWrap: "wrap",
 };
 
@@ -380,7 +375,7 @@ const label = {
   display: "block",
   fontSize: 12,
   fontWeight: 900,
-  color: "var(--legacy-color-475569)",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };
@@ -393,7 +388,7 @@ const checkRow = {
   fontSize: 13,
   fontWeight: 800,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-f8fbfe)",
+  background: "var(--color-surface-subtle)",
   borderRadius: 8,
   padding: "9px 10px",
 };
@@ -402,8 +397,8 @@ const input = {
   width: "100%",
   padding: "10px 11px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  backgroundColor: "var(--legacy-color-ffffff)",
+  border: "1px solid var(--color-border-strong)",
+  backgroundColor: "var(--color-surface)",
   color: UI.text,
   outline: "none",
   fontSize: 14,
@@ -414,7 +409,7 @@ const input = {
 const todayInput = {
   ...input,
   border: "1px solid rgba(31,75,122,0.72)",
-  backgroundColor: "rgba(237,243,248,0.95)",
+  backgroundColor: "color-mix(in srgb, var(--color-canvas) 95%, transparent)",
 };
 
 const primaryBtn = {
@@ -426,8 +421,8 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-  color: "var(--legacy-color-fff)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 13,
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
@@ -441,7 +436,7 @@ const secondaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   fontWeight: 800,
   fontSize: 13,

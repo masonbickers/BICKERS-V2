@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getDocs } from "firebase/firestore";
@@ -12,25 +13,9 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 18,
-  radiusSm: 12,
-  gap: 12,
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  border: "1px solid var(--legacy-color-dbe2ea)",
-  bg: "var(--legacy-color-edf3f8)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  good: "var(--legacy-color-166534)",
-  goodSoft: "var(--legacy-color-ecfdf5)",
-  warn: "var(--legacy-color-b45309)",
-  warnSoft: "var(--legacy-color-fffbeb)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "14px 12px 20px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
@@ -48,10 +33,10 @@ const inputBase = {
   width: "100%",
   padding: "8px 9px",
   borderRadius: 12,
-  border: "1px solid var(--legacy-color-dbe2ea)",
+  border: "1px solid var(--color-border)",
   outline: "none",
   fontSize: 13.5,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
 const btn = (kind = "primary") => {
@@ -60,7 +45,7 @@ const btn = (kind = "primary") => {
       padding: "9px 11px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "var(--legacy-color-fff)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -72,7 +57,7 @@ const btn = (kind = "primary") => {
       padding: "7px 9px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "var(--legacy-color-fff)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -84,7 +69,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "var(--legacy-color-fff)",
+    color: "var(--color-white)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -291,7 +276,7 @@ function eachDateYMD(startRaw, endRaw) {
 }
 
 const summaryCard = {
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   border: UI.border,
   borderRadius: 10,
   padding: "6px 9px",
@@ -595,7 +580,7 @@ export default function EmployeeWorkBreakdownPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={{ color: UI.text, fontSize: 25, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
               {titleCase(employeeName)}
@@ -610,26 +595,26 @@ export default function EmployeeWorkBreakdownPage() {
         </div>
 
         <section style={{ ...surface, padding: 10 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted2}>
             <div>
               <h2 style={titleMd}>Reporting Window</h2>
               <div style={hint}>Change the date range for this employee only.</div>
             </div>
           </div>
 
-          <div style={{ display: "grid", gap: 6 }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setMode("lastNDays")} style={{ ...btn("pill"), background: mode === "lastNDays" ? UI.brandSoft : "var(--legacy-color-fff)", color: mode === "lastNDays" ? UI.brand : UI.text }}>
+          <div className={layoutStyles.extracted3}>
+            <div className={layoutStyles.extracted4}>
+              <button type="button" onClick={() => setMode("lastNDays")} style={{ ...btn("pill"), background: mode === "lastNDays" ? UI.brandSoft : "var(--color-surface)", color: mode === "lastNDays" ? UI.brand : UI.text }}>
                 Last N Days
               </button>
-              <button type="button" onClick={() => setMode("customRange")} style={{ ...btn("pill"), background: mode === "customRange" ? UI.brandSoft : "var(--legacy-color-fff)", color: mode === "customRange" ? UI.brand : UI.text }}>
+              <button type="button" onClick={() => setMode("customRange")} style={{ ...btn("pill"), background: mode === "customRange" ? UI.brandSoft : "var(--color-surface)", color: mode === "customRange" ? UI.brand : UI.text }}>
                 Custom Range
               </button>
             </div>
 
             {mode === "lastNDays" ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div className={layoutStyles.extracted5}>
+                <div className={layoutStyles.extracted6}>
                   <span style={smallLabel}>Days</span>
                   <input
                     type="number"
@@ -637,14 +622,14 @@ export default function EmployeeWorkBreakdownPage() {
                     max={365}
                     value={rangeDays}
                     onChange={(e) => setRangeDays(Math.max(1, Math.min(365, Number(e.target.value) || 30)))}
-                    style={{ ...inputBase, width: 84, padding: "7px 8px" }}
+                    className={layoutStyles.extracted7}
                   />
                 </div>
                 {[30, 60, 90].map((n) => (
                   <button
                     key={n}
                     type="button"
-                    style={{ ...btn("pill"), background: rangeDays === n ? UI.brandSoft : "var(--legacy-color-fff)", color: rangeDays === n ? UI.brand : UI.text }}
+                    style={{ ...btn("pill"), background: rangeDays === n ? UI.brandSoft : "var(--color-surface)", color: rangeDays === n ? UI.brand : UI.text }}
                     onClick={() => setRangeDays(n)}
                   >
                     {n}d
@@ -652,14 +637,14 @@ export default function EmployeeWorkBreakdownPage() {
                 ))}
               </div>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div className={layoutStyles.extracted8}>
+                <div className={layoutStyles.extracted9}>
                   <span style={smallLabel}>From</span>
-                  <input type="date" max={todayISO} value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={{ ...inputBase, width: 160, padding: "7px 8px" }} />
+                  <input type="date" max={todayISO} value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={layoutStyles.extracted10} />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div className={layoutStyles.extracted11}>
                   <span style={smallLabel}>To</span>
-                  <input type="date" max={todayISO} value={toDate} onChange={(e) => setToDate(e.target.value)} style={{ ...inputBase, width: 160, padding: "7px 8px" }} />
+                  <input type="date" max={todayISO} value={toDate} onChange={(e) => setToDate(e.target.value)} className={layoutStyles.extracted12} />
                 </div>
               </div>
             )}
@@ -673,18 +658,14 @@ export default function EmployeeWorkBreakdownPage() {
             marginTop: 10,
           }}
         >
-          <div style={{ ...sectionHeader, marginBottom: 4 }}>
+          <div className={layoutStyles.extracted13}>
             <div>
               <h2 style={titleMd}>Summary</h2>
               <div style={hint}>Compact work-type totals for this employee.</div>
             </div>
           </div>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-              gap: 6,
-            }}
+            className={layoutStyles.extracted14}
           >
           {BREAKDOWN_COLUMNS.map((column) => (
             <div key={column.key} style={summaryCard}>
@@ -696,7 +677,7 @@ export default function EmployeeWorkBreakdownPage() {
         </section>
 
         <section style={{ ...surface, padding: 10, marginTop: 10 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted15}>
             <div>
               <h2 style={titleMd}>Credits By Job</h2>
               <div style={hint}>Per-job credit breakdown for this employee in the selected range.</div>
@@ -721,8 +702,8 @@ export default function EmployeeWorkBreakdownPage() {
           ) : jobCreditRows.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13 }}>No job credits found for this range.</div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 900 }}>
+            <div className={layoutStyles.extracted16}>
+              <table className={layoutStyles.extracted17}>
                 <thead>
                   <tr>
                     <th style={tableHeadLeft}>Job</th>
@@ -771,7 +752,7 @@ export default function EmployeeWorkBreakdownPage() {
         </section>
 
         <section style={{ ...surface, padding: 10, marginTop: 10 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted18}>
             <div>
               <h2 style={titleMd}>Day By Day</h2>
               <div style={hint}>
@@ -783,8 +764,8 @@ export default function EmployeeWorkBreakdownPage() {
           {loading ? (
             <div style={{ color: UI.muted, fontSize: 13 }}>Loading breakdown…</div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 820 }}>
+            <div className={layoutStyles.extracted19}>
+              <table className={layoutStyles.extracted20}>
                 <thead>
                   <tr>
                     <th style={tableHeadLeft}>Date</th>
@@ -808,8 +789,8 @@ export default function EmployeeWorkBreakdownPage() {
                           style={{
                             padding: "4px 8px",
                             borderRadius: 999,
-                            border: `1px solid ${row.source === "holiday" ? "var(--legacy-color-fcd34d)" : row.source === "booking" ? UI.brandBorder : "var(--legacy-color-d1d5db)"}`,
-                            background: row.source === "holiday" ? UI.warnSoft : row.source === "booking" ? UI.brandSoft : "var(--legacy-color-f8fafc)",
+                            border: `1px solid ${row.source === "holiday" ? "var(--color-warning-border)" : row.source === "booking" ? UI.brandBorder : "var(--color-border)"}`,
+                            background: row.source === "holiday" ? UI.warnSoft : row.source === "booking" ? UI.brandSoft : "var(--color-surface-subtle)",
                             color: row.source === "holiday" ? UI.warn : row.source === "booking" ? UI.brand : UI.muted,
                             fontSize: 12,
                             fontWeight: 800,
@@ -836,7 +817,7 @@ export default function EmployeeWorkBreakdownPage() {
 
 const tableHead = {
   padding: "8px 10px",
-  background: "var(--legacy-color-f8fbfd)",
+  background: "var(--color-surface-subtle)",
   borderTop: UI.border,
   borderBottom: UI.border,
   borderRight: UI.border,
@@ -860,7 +841,7 @@ const tableCell = {
   fontSize: 12.5,
   color: UI.text,
   textAlign: "center",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   whiteSpace: "nowrap",
 };
 

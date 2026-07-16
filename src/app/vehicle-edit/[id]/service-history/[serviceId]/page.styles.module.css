@@ -1,0 +1,174 @@
+
+
+.extracted1 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted2 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted3 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted4 {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 6px;
+  font-size: 10.5px;
+}
+
+.extracted5 {
+  grid-area: vehicle;
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: 18px 1fr 18px;
+  min-height: 212px;
+}
+
+.extracted6 {
+  max-width: 1280px;
+  margin: 0 auto 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.extracted7 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.extracted8 {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.extracted9 {
+  text-align: center;
+  padding: 7px 10px;
+  min-height: 78px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+}
+
+.extracted10 {
+  display: block;
+  width: 98%;
+  max-width: 420px;
+  height: 82px;
+  object-fit: contain;
+}
+
+.extracted11 {
+  margin-bottom: 12px;
+}
+
+.extracted12 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.extracted13 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted14 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted15 {
+  display: grid;
+  grid-template-columns: 0.72fr 1.28fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 12px;
+}
+
+.extracted16 {
+  display: grid;
+  gap: 12px;
+}
+
+.extracted17 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted18 {
+  display: grid;
+  gap: 12px;
+}
+
+.extracted19 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted20 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted21 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted22 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.extracted23 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+  line-height: 1.25;
+}

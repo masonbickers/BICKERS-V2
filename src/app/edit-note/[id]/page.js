@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "../../../../firebaseConfig";
@@ -150,12 +151,12 @@ export default function EditNotePage() {
   /* ---------------------------------- UI ---------------------------------- */
   if (loading) {
     return (
-      <div style={mainContainerStyle}>
-        <main style={mainContentStyle}>
-          <div style={headerStyle}>
-            <button onClick={handleHome} style={backButtonStyle}>Back</button>
+      <div className={layoutStyles.extracted1}>
+        <main className={layoutStyles.extracted2}>
+          <div className={layoutStyles.extracted3}>
+            <button onClick={handleHome} className={layoutStyles.extracted4}>Back</button>
           </div>
-          <h1 style={pageTitleStyle}>Edit Note</h1>
+          <h1 className={layoutStyles.extracted5}>Edit Note</h1>
           <p>Loading…</p>
         </main>
       </div>
@@ -164,40 +165,40 @@ export default function EditNotePage() {
 
   if (error) {
     return (
-      <div style={mainContainerStyle}>
-        <main style={mainContentStyle}>
-          <div style={headerStyle}>
-            <button onClick={handleHome} style={backButtonStyle}>Back</button>
+      <div className={layoutStyles.extracted6}>
+        <main className={layoutStyles.extracted7}>
+          <div className={layoutStyles.extracted8}>
+            <button onClick={handleHome} className={layoutStyles.extracted9}>Back</button>
           </div>
-          <h1 style={pageTitleStyle}>Edit Note</h1>
-          <p style={{ color: "var(--legacy-color-ff6b6b)" }}>{error}</p>
-          <button onClick={() => router.push("/dashboard")} style={buttonStyle}>Go to dashboard</button>
+          <h1 className={layoutStyles.extracted10}>Edit Note</h1>
+          <p className={layoutStyles.extracted11}>{error}</p>
+          <button onClick={() => router.push("/dashboard")} className={layoutStyles.extracted12}>Go to dashboard</button>
         </main>
       </div>
     );
   }
 
   return (
-    <div style={mainContainerStyle}>
-      <main style={mainContentStyle}>
-        <div style={headerStyle}>
-          <button onClick={handleHome} style={backButtonStyle}>Back</button>
+    <div className={layoutStyles.extracted13}>
+      <main className={layoutStyles.extracted14}>
+        <div className={layoutStyles.extracted15}>
+          <button onClick={handleHome} className={layoutStyles.extracted16}>Back</button>
         </div>
 
-        <h1 style={pageTitleStyle}>Edit Note</h1>
+        <h1 className={layoutStyles.extracted17}>Edit Note</h1>
 
-        <div style={formContainerStyle}>
-          <h2 style={formTitleStyle}>Update Note</h2>
+        <div className={layoutStyles.extracted18}>
+          <h2 className={layoutStyles.extracted19}>Update Note</h2>
           <form onSubmit={handleSave}>
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Employee (optional)</label>
+            <div className={layoutStyles.extracted20}>
+              <label className={layoutStyles.extracted21}>Employee (optional)</label>
               <select
                 value={employee}
                 onChange={(e) => {
                   setEmployee(e.target.value);
                   if (!e.target.value) setBlocksEmployeeBooking(false);
                 }}
-                style={inputStyle}
+                className={layoutStyles.extracted22}
               >
                 <option value="">No one specific</option>
                 {employees.map((emp) => (
@@ -208,7 +209,7 @@ export default function EditNotePage() {
               </select>
             </div>
 
-            <label style={checkRowStyle}>
+            <label className={layoutStyles.extracted23}>
               <input
                 type="checkbox"
                 checked={blocksEmployeeBooking}
@@ -218,33 +219,33 @@ export default function EditNotePage() {
               <span>Mark employee unavailable for bookings</span>
             </label>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Date</label>
+            <div className={layoutStyles.extracted24}>
+              <label className={layoutStyles.extracted25}>Date</label>
               <input
                 type="date"
                 value={noteDate}
                 onChange={(e) => setNoteDate(e.target.value)}
                 required
-                style={inputStyle}
+                className={layoutStyles.extracted26}
               />
             </div>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Note Text</label>
+            <div className={layoutStyles.extracted27}>
+              <label className={layoutStyles.extracted28}>Note Text</label>
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Write your note here..."
                 required
                 rows={5}
-                style={inputStyle}
+                className={layoutStyles.extracted29}
               />
             </div>
 
             <button type="submit" style={{ ...buttonStyle, opacity: saving ? 0.7 : 1 }} disabled={saving}>
               {saving ? "Saving…" : "Save Changes"}
             </button>
-            <button type="button" onClick={handleCancel} style={cancelButtonStyle}>
+            <button type="button" onClick={handleCancel} className={layoutStyles.extracted30}>
               Cancel
             </button>
             <button
@@ -289,8 +290,8 @@ const mainContainerStyle = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  backgroundColor: "var(--legacy-color-1e1e1e)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--shell-sidebar-bg)",
+  color: "var(--color-white)",
   minHeight: "100vh",
   padding: "40px",
 };
@@ -298,7 +299,7 @@ const mainContainerStyle = {
 const mainContentStyle = {
   maxWidth: "800px",
   width: "100%",
-  backgroundColor: "var(--legacy-color-121212)",
+  backgroundColor: "var(--shell-sidebar-bg)",
   padding: "20px",
   borderRadius: "10px",
   boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)",
@@ -312,8 +313,8 @@ const headerStyle = {
 };
 
 const backButtonStyle = {
-  backgroundColor: "var(--legacy-color-f44336)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-warning)",
+  color: "var(--color-white)",
   border: "none",
   padding: "8px 16px",
   fontSize: "14px",
@@ -329,7 +330,7 @@ const pageTitleStyle = {
 };
 
 const formContainerStyle = {
-  backgroundColor: "var(--legacy-color-222)",
+  backgroundColor: "var(--shell-sidebar-bg)",
   padding: "30px",
   borderRadius: "8px",
   boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)",
@@ -339,7 +340,7 @@ const formTitleStyle = {
   fontSize: "24px",
   fontWeight: "bold",
   marginBottom: "20px",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
 };
 
 const inputContainerStyle = { marginBottom: "15px" };
@@ -349,7 +350,7 @@ const labelStyle = {
   fontWeight: "600",
   marginBottom: "5px",
   display: "block",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
 };
 
 const checkRowStyle = {
@@ -357,7 +358,7 @@ const checkRowStyle = {
   alignItems: "center",
   gap: 8,
   marginBottom: 15,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   fontSize: 14,
   fontWeight: 700,
 };
@@ -367,17 +368,17 @@ const inputStyle = {
   padding: "12px",
   marginBottom: "10px",
   borderRadius: "6px",
-  border: "1px solid var(--legacy-color-444)",
+  border: "1px solid var(--color-brand-hover)",
   fontSize: "14px",
-  backgroundColor: "var(--legacy-color-333)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--shell-sidebar-bg)",
+  color: "var(--color-white)",
 };
 
 const buttonStyle = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "var(--legacy-color-1976d2)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-info)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: "6px",
   fontSize: "16px",
@@ -389,8 +390,8 @@ const buttonStyle = {
 const cancelButtonStyle = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "var(--legacy-color-9e9e9e)",
-  color: "var(--legacy-color-111)",
+  backgroundColor: "var(--color-success-accent)",
+  color: "var(--color-text)",
   border: "none",
   borderRadius: "6px",
   fontSize: "16px",
@@ -402,8 +403,8 @@ const cancelButtonStyle = {
 const dangerButtonStyle = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "var(--legacy-color-e53935)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-warning)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: "6px",
   fontSize: "16px",

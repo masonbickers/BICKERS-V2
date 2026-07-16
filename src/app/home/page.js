@@ -3,13 +3,15 @@
 
 import "./home.layout.css";
 import layoutStyles from "./page.styles.module.css";
+import styles from "./home.module.css";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
-import { Button } from "@/app/components/ui";
+import { Alert, Badge, Button, Card, EmptyState, Page, PageHeader, Skeleton } from "@/app/components/ui";
 import ViewBookingModal from "../components/ViewBookingModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
@@ -37,14 +39,25 @@ import {
 } from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
+  AlertTriangle,
+  ArrowRight,
   CalendarDays,
   ClipboardList,
+  Clock,
   Plus,
+  RefreshCw,
   Users,
   Car,
   Wrench,
   Package,
 } from "lucide-react";
+import {
+  buildFleetBuckets,
+  buildFollowUpQueue,
+  buildPreparationQueue,
+  buildSchedulingConflicts,
+  buildWindowCounts,
+} from "./homeDashboard";
 
 /* ────────────────────────────────────────────────────────────────────────────
    Date + normalisers
@@ -55,10 +68,8 @@ const toJSDate = (val) => {
   return new Date(val);
 };
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const overlaps = (aStart, aEnd, bStart, bEnd) => aStart <= bEnd && bStart <= aEnd;
-
-const normKey = (s) => String(s || "").trim().toLowerCase();
-const vKey = (v) => normKey(v?.registration || v?.name || v); // strings or objects
+const HOME_COLLECTIONS = ["bookings", "vehicles", "maintenanceBookings", "maintenanceJobs", "holidays", "notes"];
+const collectionStatus = (status) => Object.fromEntries(HOME_COLLECTIONS.map((name) => [name, status]));
 
 const asEvent = (b) => {
   const start = toJSDate(b.startDate || b.date);
@@ -84,25 +95,25 @@ const getColorByStatus = (status = "") => {
   const s = status.toLowerCase();
   switch (s) {
     case "confirmed":
-      return "var(--legacy-color-f3f970)";
+      return "var(--color-warning-border)";
     case "second pencil":
-      return "var(--legacy-color-f73939)";
+      return "var(--color-warning)";
     case "first pencil":
-      return "var(--legacy-color-89caf5)";
+      return "var(--color-info-border)";
     case "cancelled":
-      return "var(--legacy-color-c2c2c2)";
+      return "var(--shell-muted)";
     case "maintenance":
-      return "var(--legacy-color-f97316)";
+      return "var(--color-warning)";
     case "holiday":
-      return "var(--legacy-color-d3d3d3)";
+      return "var(--color-border-strong)";
     case "note":
-      return "var(--legacy-color-ccfbf1)";
+      return "var(--color-border)";
     case "workshop":
-      return "var(--legacy-color-da8e58ff)";
+      return "var(--color-accent)";
     case "complete":
-      return "var(--legacy-color-92d18cff)";
+      return "var(--color-success-accent)";
     default:
-      return "var(--legacy-color-c2c2c2)";
+      return "var(--shell-muted)";
   }
 };
 
@@ -222,11 +233,23 @@ export default function HomePage() {
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
   const [dataState, setDataState] = useState({ status: "loading", message: "" });
+  const [collectionState, setCollectionState] = useState(() => collectionStatus("loading"));
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [isCompact, setIsCompact] = useState(false);
   const [createBookingOpening, setCreateBookingOpening] = useState(false);
   const [createBookingProgress, setCreateBookingProgress] = useState(0);
 
   // Window filter (days)
   const [windowDays, setWindowDays] = useState(30);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const sync = () => setIsCompact(media.matches);
+    sync();
+    media.addEventListener?.("change", sync);
+    return () => media.removeEventListener?.("change", sync);
+  }, []);
 
   const vehicleNameById = useMemo(() => {
     const map = new Map();
@@ -246,10 +269,11 @@ export default function HomePage() {
 
   // Fetch data
   useEffect(() => {
+    let cancelled = false;
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) {
       setDataState({ status: "loading", message: "Loading home data..." });
-      return;
+      return () => { cancelled = true; };
     }
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "read home data" });
@@ -259,15 +283,17 @@ export default function HomePage() {
       setMaintenanceJobs([]);
       setHolidays([]);
       setNotes([]);
+      setCollectionState(collectionStatus("denied"));
       setDataState({
         status: "denied",
         message: gate.reason || "This account cannot access company dashboard data.",
       });
-      return;
+      return () => { cancelled = true; };
     }
 
     const run = async () => {
       setDataState({ status: "loading", message: "Loading home data..." });
+      setCollectionState(collectionStatus("loading"));
       const loadCollection = async (collectionName, mapDocs) => {
         try {
           const snap = await getDocs(tenantCollectionQuery(db, collectionName, dataAccessState));
@@ -290,6 +316,8 @@ export default function HomePage() {
           loadCollection("notes", (snap) => snap.docs.map(asNoteEvent).filter(Boolean)),
         ]);
 
+      if (cancelled) return;
+
       setBookings(bookingResult.rows);
       setVehicles(vehicleResult.rows);
       setMaintenanceBookings(maintenanceBookingResult.rows);
@@ -306,10 +334,20 @@ export default function HomePage() {
         ["notes", noteResult],
       ].filter(([, result]) => !result.ok);
 
+      setCollectionState(Object.fromEntries([
+        ["bookings", bookingResult],
+        ["vehicles", vehicleResult],
+        ["maintenanceBookings", maintenanceBookingResult],
+        ["maintenanceJobs", maintenanceJobResult],
+        ["holidays", holidayResult],
+        ["notes", noteResult],
+      ].map(([name, result]) => [name, result.ok ? "ready" : "error"])));
+      setLastUpdated(new Date());
+
       if (failed.length) {
         setDataState({
-          status: "error",
-          message: `Some home data could not be loaded: ${failed.map(([name]) => name).join(", ")}.`,
+          status: failed.length === HOME_COLLECTIONS.length ? "error" : "partial",
+          message: `Some home sections could not be loaded: ${failed.map(([name]) => name).join(", ")}.`,
         });
         return;
       }
@@ -317,6 +355,7 @@ export default function HomePage() {
       setDataState({ status: "ready", message: "" });
     };
     run().catch((error) => {
+      if (cancelled) return;
       if (!handleFirestoreAccessError(error, { collectionName: "home", operation: "read home data" })) {
         console.error("[home] data load error:", error);
       }
@@ -325,7 +364,8 @@ export default function HomePage() {
         message: "Home data could not be loaded. Check account permissions and try again.",
       });
     });
-  }, [accessKey, dataAccessState]);
+    return () => { cancelled = true; };
+  }, [accessKey, dataAccessState, reloadVersion]);
 
   useEffect(() => {
     syncEightWeekInspectionRollovers({
@@ -388,7 +428,7 @@ export default function HomePage() {
     () => [
       ...events.map((e) => ({
         id: `booking__${e.id}`,
-        title: `${e.jobNumber} - ${e.client}`,
+        title: `${e.status || "booking"} · ${e.jobNumber} - ${e.client}`,
         start: e.start,
         end: e.end,
         allDay: true,
@@ -399,6 +439,7 @@ export default function HomePage() {
       })),
       ...holidays.map((h) => ({
         ...h,
+        title: `holiday · ${h.title}`,
         id: `holiday__${h.id}`,
         sourceType: "holiday",
         sourceId: h.id,
@@ -406,6 +447,7 @@ export default function HomePage() {
       })),
       ...notes.map((n) => ({
         ...n,
+        title: `note · ${n.title}`,
         id: `note__${n.id}`,
         sourceType: "note",
         sourceId: n.id,
@@ -413,6 +455,7 @@ export default function HomePage() {
       })),
       ...maintenanceCalendarEvents.map((m) => ({
         ...m,
+        title: `maintenance · ${m.title || m.vehicleLabel || "Vehicle"}`,
         id: `maintenance__${m.id}`,
         sourceType: "maintenance",
         sourceId: m.id,
@@ -423,8 +466,6 @@ export default function HomePage() {
   );
 
   const now = useMemo(() => new Date(), []);
-  const in2Days = useMemo(() => new Date(now.getTime() + 2 * 24 * 3600 * 1000), [now]);
-  const in3Weeks = useMemo(() => new Date(now.getTime() + 21 * 24 * 3600 * 1000), [now]);
 
   const windowEnd = useMemo(
     () => new Date(now.getTime() + windowDays * 24 * 3600 * 1000),
@@ -433,114 +474,22 @@ export default function HomePage() {
 
   // Prep list (next 2 days)
   const prepList = useMemo(
-    () =>
-      events
-        .filter((e) => e.start && e.start >= now && e.start <= in2Days)
-        .map((e) => ({
-          id: e.id,
-          jobNumber: e.jobNumber,
-          vehicles: (e.vehicles || []).map((v) => vehicleLabel(v)),
-          equipment: e.equipment.join(", "),
-          notes: bookings.find((b) => b.id === e.id)?.notes || "-",
-          start: e.start,
-        })),
-    [events, bookings, now, in2Days, vehicleLabel]
+    () => buildPreparationQueue(events, bookings, now, vehicleLabel),
+    [events, bookings, now, vehicleLabel]
   );
 
   // Window-scoped JOB COUNTS
-  const windowEvents = useMemo(
-    () => events.filter((e) => e.start && e.start >= now && e.start <= windowEnd),
-    [events, now, windowEnd]
-  );
-
-  const jobCounts = useMemo(() => {
-    const acc = { total: 0, enquiry: 0, "first pencil": 0, "second pencil": 0, confirmed: 0 };
-    windowEvents.forEach((e) => {
-      acc.total += 1;
-      if (typeof acc[e.status] === "number") acc[e.status] += 1;
-    });
-    return acc;
-  }, [windowEvents]);
+  const jobCounts = useMemo(() => buildWindowCounts(events, now, windowDays), [events, now, windowDays]);
 
   // Follow-ups (Next 72h)
-  const firstPencils72h = useMemo(
-    () =>
-      events.filter(
-        (e) =>
-          e.status === "first pencil" &&
-          e.start &&
-          e.start >= now &&
-          e.start <= new Date(now.getTime() + 72 * 3600 * 1000)
-      ),
-    [events, now]
-  );
+  const firstPencils72h = useMemo(() => buildFollowUpQueue(events, now), [events, now]);
 
   // Second vs firm conflicts (vehicle-level)
-  const clashesSecondVsFirm = useMemo(() => {
-    const firmers = events.filter((e) => ["confirmed", "first pencil"].includes(e.status));
-    const seconds = events.filter((e) => e.status === "second pencil");
-    const clashes = [];
-    const firmIdxByVehicle = new Map(); // vehicleKey -> firm events
-    firmers.forEach((e) => {
-      (e.vehicles || []).forEach((v) => {
-        const key = vKey(v);
-        if (!firmIdxByVehicle.has(key)) firmIdxByVehicle.set(key, []);
-        firmIdxByVehicle.get(key).push(e);
-      });
-    });
-    seconds.forEach((e) => {
-      (e.vehicles || []).forEach((v) => {
-        const key = vKey(v);
-        const list = firmIdxByVehicle.get(key) || [];
-        list.forEach((f) => {
-          if (overlaps(e.start, e.end, f.start, f.end)) {
-            clashes.push({ vehicle: v, second: e, firm: f });
-          }
-        });
-      });
-    });
-    return clashes;
-  }, [events]);
+  const clashesSecondVsFirm = useMemo(() => buildSchedulingConflicts(events), [events]);
 
   // Maintenance buckets (vehicles, global)
-  const motDueSoon = useMemo(
-    () =>
-      maintenanceCalendarEvents.filter((event) => {
-        if (event.kind !== "MOT") return false;
-        if (event.booked) return false;
-        const d = event.dueDate ? toJSDate(event.dueDate) : null;
-        return d && d <= in3Weeks && d >= startOfDay(now);
-      }),
-    [maintenanceCalendarEvents, in3Weeks, now]
-  );
-  const serviceDueSoon = useMemo(
-    () =>
-      maintenanceCalendarEvents.filter((event) => {
-        if (event.kind !== "SERVICE") return false;
-        if (event.booked) return false;
-        const d = event.dueDate ? toJSDate(event.dueDate) : null;
-        return d && d <= in3Weeks && d >= startOfDay(now);
-      }),
-    [maintenanceCalendarEvents, in3Weeks, now]
-  );
-  const overdueMOT = useMemo(
-    () =>
-      maintenanceCalendarEvents.filter((event) => {
-        if (event.kind !== "MOT") return false;
-        if (event.booked) return false;
-        const d = event.dueDate ? toJSDate(event.dueDate) : null;
-        return d && d < startOfDay(now);
-      }),
-    [maintenanceCalendarEvents, now]
-  );
-  const overdueService = useMemo(
-    () =>
-      maintenanceCalendarEvents.filter((event) => {
-        if (event.kind !== "SERVICE") return false;
-        if (event.booked) return false;
-        const d = event.dueDate ? toJSDate(event.dueDate) : null;
-        return d && d < startOfDay(now);
-      }),
+  const { motDueSoon, serviceDueSoon, overdueMOT, overdueService } = useMemo(
+    () => buildFleetBuckets(maintenanceCalendarEvents, now),
     [maintenanceCalendarEvents, now]
   );
 
@@ -575,77 +524,61 @@ export default function HomePage() {
     }, 80);
   }, [createBookingOpening, router]);
 
+  const bookingDataUnavailable = ["error", "denied"].includes(collectionState.bookings);
+  const fleetDataUnavailable = ["vehicles", "maintenanceBookings", "maintenanceJobs"]
+    .some((name) => ["error", "denied"].includes(collectionState[name]));
+  const initialLoading = dataState.status === "loading" && !lastUpdated;
+
   return (
     <ProtectedRoute>
       <HeaderSidebarLayout>
-        <div className={layoutStyles.extracted14}>
-          <div className={layoutStyles.extracted15}>
-            <div>
-              <h1 className={layoutStyles.extracted16}>Home</h1>
-              <div className={layoutStyles.extracted17}>Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
-            </div>
-            <div className={layoutStyles.extracted18}>
-              <span className={layoutStyles.chip}>Operations overview</span>
-              <span className={`${layoutStyles.chip} ${dataState.status === "ready" ? layoutStyles.dataChipReady : dataState.status === "denied" || dataState.status === "error" ? layoutStyles.dataChipError : layoutStyles.dataChipLoading}`}
-                title={dataState.message || "Home data loaded."}
-              >
-                Data: {dataState.status === "ready" ? "Loaded" : dataState.status}
+        <Page width="fluid">
+          <PageHeader
+            title="Home"
+            subtitle="Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness."
+            actions={<div className={styles.headerActions}>
+              <div className={styles.headerControls}>
+                <div className={styles.windowControl} aria-label="Reporting window">
+                  <span className={styles.windowLabel}><CalendarDays size={14} /> Window</span>
+                  {[7, 14, 30, 90].map((days) => (
+                    <Button bare
+                      key={days}
+                      type="button"
+                      className={`${styles.windowButton} ${windowDays === days ? styles.windowButtonActive : ""}`}
+                      aria-pressed={windowDays === days}
+                      onClick={() => setWindowDays(days)}
+                    >{days}d</Button>
+                  ))}
+                </div>
+                <Button variant="secondary" onClick={() => setReloadVersion((value) => value + 1)} disabled={dataState.status === "loading"}><RefreshCw size={15} /> Refresh</Button>
+                <Button loading={createBookingOpening} onClick={openCreateBooking}><Plus size={15} /> Create booking</Button>
+              </div>
+              <span className={styles.updated}>
+                {lastUpdated ? `Updated ${moment(lastUpdated).format("D MMM YYYY, HH:mm")} · ${moment(now).format("D MMM")}–${moment(windowEnd).format("D MMM YYYY")}` : "Waiting for home data"}
               </span>
-              <span className={`${layoutStyles.chip} ${layoutStyles.windowChip}`}>
-                Window: <b className={layoutStyles.extracted19}>{windowDays}d</b>
-              </span>
-            </div>
-          </div>
+            </div>}
+          />
 
-          {/* style-audit-allow runtime: data loading/error tone */}
-          {dataState.status !== "ready" && (
-            <div className={layoutStyles.dataAlert} style={{ "--state-background": dataState.status === "denied" || dataState.status === "error" ? "var(--color-danger-soft)" : "var(--color-warning-soft)", "--state-border": dataState.status === "denied" || dataState.status === "error" ? "var(--color-danger-border)" : "var(--color-warning-border)", "--state-text": dataState.status === "denied" || dataState.status === "error" ? "var(--color-danger)" : "var(--color-warning)" }}>
-              {dataState.message || "Loading home data..."}
-            </div>
-          )}
+          {dataState.status !== "ready" && dataState.status !== "loading" ? (
+            <Alert className={styles.statusAlert} variant={dataState.status === "partial" ? "warning" : "danger"}>
+              <div className={styles.retryRow}>
+                <span>{dataState.message}</span>
+                {dataState.status !== "denied" ? <Button size="sm" variant="secondary" onClick={() => setReloadVersion((value) => value + 1)}>Try again</Button> : null}
+              </div>
+            </Alert>
+          ) : null}
 
           <div className="home-puzzle-grid">
-            <section className={`home-tile home-window-tile ${layoutStyles.extracted78}`} >
-              <span className={layoutStyles.extracted20}>
-                <CalendarDays size={16} />
-                Reporting window
-              </span>
-              <div className={layoutStyles.extracted21}>
-                {[7, 14, 30, 90].map((d) => (
-                  <Button bare key={d} onClick={() => setWindowDays(d)} className={`${layoutStyles.windowButton} ${windowDays === d ? layoutStyles.windowButtonActive : ""}`} type="button">
-                    {d}d
-                  </Button>
-                ))}
-              </div>
-              <div className={layoutStyles.extracted22}>
-                {moment(now).format("D MMM")} to {moment(windowEnd).format("D MMM YYYY")}
-              </div>
-            </section>
-
             <section className={`home-tile home-stats-tile ${layoutStyles.extracted79}`} >
-              <div className="home-stat-grid">
-                <StatBlock label="Total Jobs" value={jobCounts.total} />
-                <StatBlock label="Enquiry" value={jobCounts.enquiry} />
-                <StatBlock label="First Pencil" value={jobCounts["first pencil"]} />
-                <StatBlock label="Second Pencil" value={jobCounts["second pencil"]} />
-                <StatBlock label="Confirmed" value={jobCounts.confirmed} />
-              </div>
-            </section>
-
-            <section className={`home-tile home-action-tile ${layoutStyles.extracted80}`} >
-              <div className={layoutStyles.extracted23}>
-                Primary action
-              </div>
-              <Button
-                type="button"
-                disabled={createBookingOpening}
-                className={layoutStyles.fullWidthPrimary}
-                loading={createBookingOpening}
-                onClick={openCreateBooking}
-              >
-                <Plus size={14} />
-                {createBookingOpening ? `Opening ${createBookingProgress}%` : "Create booking"}
-              </Button>
+              {initialLoading ? <div className="home-stat-grid">{[0,1,2,3,4].map((item) => <Card key={item}><Skeleton height={54} /></Card>)}</div> : (
+                <div className="home-stat-grid">
+                  <StatBlock label="Total Jobs" value={jobCounts.total} />
+                  <StatBlock label="Enquiry" value={jobCounts.enquiry} />
+                  <StatBlock label="First Pencil" value={jobCounts["first pencil"]} />
+                  <StatBlock label="Second Pencil" value={jobCounts["second pencil"]} />
+                  <StatBlock label="Confirmed" value={jobCounts.confirmed} />
+                </div>
+              )}
             </section>
 
             <section className={`home-tile home-calendar-tile ${layoutStyles.extracted81}`} >
@@ -659,20 +592,19 @@ export default function HomePage() {
                     <div className={layoutStyles.extracted27}>Review the current booking programme and open any entry for full detail.</div>
                   </div>
                 </div>
-                <span className={layoutStyles.sectionTag}>Month view</span>
+                <Badge variant="info">{isCompact ? "Week view" : "Month view"}</Badge>
               </div>
 
-              <div className={layoutStyles.extracted28}>
+              <div className={`${layoutStyles.extracted28} ${styles.calendarWrap}`}>
                 <FullCalendar
                   plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "dayGridMonth,dayGridWeek,dayGridDay",
-                  }}
-                  height={462}
-                  dayMaxEventRows={3}
+                  key={isCompact ? "compact" : "desktop"}
+                  initialView={isCompact ? "dayGridWeek" : "dayGridMonth"}
+                  headerToolbar={isCompact
+                    ? { left: "prev,next today", center: "title", right: "dayGridWeek,dayGridDay" }
+                    : { left: "prev,next today", center: "title", right: "dayGridMonth,dayGridWeek,dayGridDay" }}
+                  height="auto"
+                  dayMaxEventRows={isCompact ? 2 : 3}
                   moreLinkClick="popover"
                   events={homeCalendarEvents}
                   eventClick={(info) => {
@@ -701,10 +633,13 @@ export default function HomePage() {
                   }}
                   eventDidMount={(info) => {
                     // keep readable on bright blocks
-                    info.el.style.color = "var(--legacy-color-000)";
+                    info.el.style.color = "var(--color-text)";
+                    const accessibleLabel = `${info.event.title}, ${moment(info.event.start).format("D MMM YYYY")}`;
+                    info.el.setAttribute("aria-label", accessibleLabel);
+                    info.el.setAttribute("title", accessibleLabel);
                     const titleEl = info.el.querySelector(".fc-event-title");
                     if (titleEl) {
-                      titleEl.style.color = "var(--legacy-color-000)";
+                      titleEl.style.color = "var(--color-text)";
                       titleEl.style.fontWeight = "700";
                     }
                   }}
@@ -714,12 +649,12 @@ export default function HomePage() {
               {/* Legend */}
               <div className={layoutStyles.extracted29}>
                 {[
-                  { label: "Confirmed", color: "var(--legacy-color-f3f970)" },
-                  { label: "First Pencil", color: "var(--legacy-color-89caf5)" },
-                  { label: "Second Pencil", color: "var(--legacy-color-f73939)" },
-                  { label: "Maintenance", color: "var(--legacy-color-f97316)" },
-                  { label: "Holiday", color: "var(--legacy-color-d3d3d3)" },
-                  { label: "Note", color: "var(--legacy-color-ccfbf1)" },
+                  { label: "Confirmed", color: "var(--job-status-confirmed)" },
+                  { label: "First Pencil", color: "var(--job-status-first-pencil)" },
+                  { label: "Second Pencil", color: "var(--job-status-second-pencil)" },
+                  { label: "Maintenance", color: "var(--color-warning)" },
+                  { label: "Holiday", color: "var(--color-border-strong)" },
+                  { label: "Note", color: "var(--color-border)" },
                 ].map((item) => (
                   <div key={item.label} className={layoutStyles.extracted30}>
                     {/* style-audit-allow runtime: calendar legend colour */}
@@ -733,17 +668,23 @@ export default function HomePage() {
             <section className="home-right-rail">
               <div className={`home-tile home-followup-tile ${layoutStyles.extracted82}`} >
                 <div className={layoutStyles.extracted32}>
-                  <div>
+                  <div className={styles.panelHeading}>
+                    <span className={styles.iconBox}><Clock size={17} /></span>
+                    <div>
                     <h2 className={layoutStyles.extracted33}>Follow-Up Queue</h2>
                     <div className={layoutStyles.extracted34}>First pencil bookings starting in the next 72 hours.</div>
+                    </div>
                   </div>
-                  <span className={layoutStyles.sectionTag}>{firstPencils72h.length} items</span>
+                  <Badge>{firstPencils72h.length} items</Badge>
                 </div>
 
-                {firstPencils72h.length ? (
+                {bookingDataUnavailable ? (
+                  <EmptyState className={styles.emptyCompact} title="Follow-ups unavailable" description="Booking data could not be loaded." />
+                ) : firstPencils72h.length ? (
                   <ul className={layoutStyles.extracted35}>
-                    {firstPencils72h.map((e) => (
-                      <li key={e.id} className={layoutStyles.extracted36} onClick={() => setSelectedBookingId(e.id)}>
+                    {firstPencils72h.slice(0, 5).map((e) => (
+                      <li key={e.id}>
+                        <Button bare type="button" className={styles.queueButton} onClick={() => setSelectedBookingId(e.id)} aria-label={`Open booking ${e.jobNumber}`}>
                         <div className={layoutStyles.extracted37}>
                           <strong className={layoutStyles.extracted38}>{e.jobNumber}</strong>
                           <span className={layoutStyles.extracted39}>{moment(e.start).format("MMM D")}</span>
@@ -752,6 +693,7 @@ export default function HomePage() {
                         <div>
                           <span className={layoutStyles.tag} data-tone="first pencil">First Pencil</span>
                         </div>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -762,17 +704,23 @@ export default function HomePage() {
 
               <div className={`home-tile home-conflict-tile ${layoutStyles.extracted83}`} >
                 <div className={layoutStyles.extracted42}>
-                  <div>
+                  <div className={styles.panelHeading}>
+                    <span className={styles.iconBox}><AlertTriangle size={17} /></span>
+                    <div>
                     <h2 className={layoutStyles.extracted43}>Scheduling Conflicts</h2>
                     <div className={layoutStyles.extracted44}>Second pencil work overlapping confirmed or first pencil vehicle allocations.</div>
+                    </div>
                   </div>
-                  <span className={layoutStyles.sectionTag}>{clashesSecondVsFirm.length} flagged</span>
+                  <Badge variant={clashesSecondVsFirm.length ? "warning" : "success"}>{clashesSecondVsFirm.length} flagged</Badge>
                 </div>
 
-                {clashesSecondVsFirm.length ? (
+                {bookingDataUnavailable ? (
+                  <EmptyState className={styles.emptyCompact} title="Conflicts unavailable" description="Booking data could not be loaded." />
+                ) : clashesSecondVsFirm.length ? (
                   <ul className={layoutStyles.extracted45}>
-                    {clashesSecondVsFirm.slice(0, 8).map((c, i) => (
-                      <li key={i} className={layoutStyles.extracted46}>
+                    {clashesSecondVsFirm.slice(0, 5).map((c) => (
+                      <li key={`${c.second.id}-${c.firm.id}-${vehicleLabel(c.vehicle)}`}>
+                        <Button bare type="button" className={styles.queueButton} onClick={() => setSelectedBookingId(c.second.id)} aria-label={`Open second pencil booking ${c.second.jobNumber}`}>
                         <strong className={layoutStyles.extracted47}>
                           {vehicleLabel(c.vehicle)}
                         </strong>
@@ -786,6 +734,7 @@ export default function HomePage() {
                           Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")} - {moment(c.firm.end).format("MMM D")})
                           <span className={layoutStyles.tag} data-tone={String(c.firm.status || "").toLowerCase()}>{c.firm.status}</span>
                         </div>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -793,6 +742,21 @@ export default function HomePage() {
                   <div className={layoutStyles.extracted50}>No second-pencil clashes.</div>
                 )}
               </div>
+
+              <Card className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div className={styles.panelHeading}>
+                    <span className={styles.iconBox}><Wrench size={17} /></span>
+                    <div><h2 className={styles.panelTitle}>Fleet attention</h2><p className={styles.panelDescription}>Unbooked compliance items that are already overdue.</p></div>
+                  </div>
+                </div>
+                {fleetDataUnavailable ? (
+                  <EmptyState className={styles.emptyCompact} title="Fleet status incomplete" description="Some maintenance data could not be loaded." />
+                ) : <div className={styles.attentionSummary}>
+                  <Link className={styles.attentionLink} href="/mot-overview"><span className={styles.attentionValue}>{overdueMOT.length}</span><span className={styles.attentionLabel}>MOT overdue</span></Link>
+                  <Link className={styles.attentionLink} href="/service-overview"><span className={styles.attentionValue}>{overdueService.length}</span><span className={styles.attentionLabel}>Service overdue</span></Link>
+                </div>}
+              </Card>
             </section>
 
             <section className={`home-tile home-prep-tile ${layoutStyles.extracted84}`} >
@@ -806,10 +770,15 @@ export default function HomePage() {
                     <div className={layoutStyles.extracted54}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
                   </div>
                 </div>
-                <span className={layoutStyles.sectionTag}>{prepList.length} upcoming</span>
+                <div className={styles.panelActions}>
+                  <Badge>{prepList.length} upcoming</Badge>
+                  <Link className={styles.textLink} href="/preplist-dashboard">View all <ArrowRight size={13} /></Link>
+                </div>
               </div>
 
-              {prepList.length ? (
+              {bookingDataUnavailable ? (
+                <EmptyState className={styles.emptyCompact} title="Preparation unavailable" description="Booking data could not be loaded." />
+              ) : prepList.length ? (
                 <div className={layoutStyles.extracted55}>
                   <table className={layoutStyles.extracted56}>
                     <thead>
@@ -823,12 +792,10 @@ export default function HomePage() {
                     </thead>
                     <tbody>
                       {prepList.map((it) => (
-                        <tr
-                          key={it.id}
-                          onClick={() => setSelectedBookingId(it.id)}
-                          className={layoutStyles.extracted62}
-                        >
-                          <td className={layoutStyles.extracted63}>{it.jobNumber}</td>
+                        <tr key={it.id}>
+                          <td className={layoutStyles.extracted63}>
+                            <Button bare type="button" className={styles.tableButton} onClick={() => setSelectedBookingId(it.id)} aria-label={`Open booking ${it.jobNumber}`}>{it.jobNumber}</Button>
+                          </td>
                           <td className={layoutStyles.extracted64}>{it.vehicles?.join(", ") || "-"}</td>
                           <td className={layoutStyles.extracted65}>{it.equipment || "-"}</td>
                           <td className={layoutStyles.extracted66}>{it.notes || "-"}</td>
@@ -854,15 +821,17 @@ export default function HomePage() {
                     <div className={layoutStyles.extracted72}>Overdue items and due dates within the next 3 weeks.</div>
                   </div>
                 </div>
-                <span className={layoutStyles.sectionTag}>Vehicle review</span>
+                <Link className={styles.textLink} href="/vehicle-home">View vehicles <ArrowRight size={13} /></Link>
               </div>
 
-              <div className="home-fleet-grid">
+              {fleetDataUnavailable ? (
+                <EmptyState className={styles.emptyCompact} title="Fleet compliance unavailable" description="Some maintenance data could not be loaded." />
+              ) : <div className="home-fleet-grid">
                 <Bucket title={`MOT Overdue (${overdueMOT.length})`} items={overdueMOT} />
                 <Bucket title={`Service Overdue (${overdueService.length})`} items={overdueService} />
                 <Bucket title={`MOT due in 3 weeks (${motDueSoon.length})`} items={motDueSoon} />
                 <Bucket title={`Service due in 3 weeks (${serviceDueSoon.length})`} items={serviceDueSoon} />
-              </div>
+              </div>}
             </section>
 
             <section className={`home-tile home-assistant-tile ${layoutStyles.extracted86}`} >
@@ -878,7 +847,7 @@ export default function HomePage() {
                 </div>
                 <span className={layoutStyles.sectionTag}>v1.0 links</span>
               </div>
-              <div className={layoutStyles.extracted77}>
+              <nav className={styles.quickLinks} aria-label="Operational shortcuts">
                 {[
                   { label: "Create Booking", href: "/create-booking", icon: <Plus size={14} /> },
                   { label: "Employees", href: "/employee-home", icon: <Users size={14} /> },
@@ -888,19 +857,19 @@ export default function HomePage() {
                 ].map((action) => (
                   <Button
                     key={action.href}
-                    type="button"
-                    onClick={() => router.push(action.href)}
-                    variant="secondary"
-                    className={layoutStyles.fullWidthAction}
+                    as={Link}
+                    href={action.href}
+                    variant="ghost"
+                    size="sm"
                   >
                     {action.icon}
                     {action.label}
                   </Button>
                 ))}
-              </div>
+              </nav>
             </section>
           </div>
-        </div>
+        </Page>
         {selectedBookingId && (
           <ViewBookingModal
             id={selectedBookingId}

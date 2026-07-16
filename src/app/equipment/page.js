@@ -1,6 +1,7 @@
 // src/app/equipment/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDocs } from "firebase/firestore";
@@ -14,23 +15,9 @@ import {
   resolveDataAccess,
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 6,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  red: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -60,8 +47,8 @@ const btn = (kind = "primary") => {
       gap: 5,
       padding: "7px 10px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-d1d5db)",
-      background: "var(--legacy-color-fff)",
+      border: "1px solid var(--color-border)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -77,7 +64,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "var(--legacy-color-fff)",
+    color: "var(--color-white)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -88,10 +75,10 @@ const input = {
   width: "100%",
   padding: "6px 9px",
   borderRadius: 10,
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -114,7 +101,7 @@ const chip = (bg, fg) => ({
   fontWeight: 900,
   background: bg,
   color: fg,
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   whiteSpace: "nowrap",
 });
 
@@ -131,7 +118,7 @@ const dateInfo = (raw) => {
   const diff = Math.floor((t1 - t0) / 86400000);
 
   let style = {};
-  if (diff < 0) style = { color: UI.red, fontWeight: 950 };
+  if (diff < 0) style = { color: UI.var(--color-danger), fontWeight: 950 };
   else if (diff <= 21) style = { color: UI.amber, fontWeight: 950 };
 
   return { text: d.toLocaleDateString("en-GB"), style, diff };
@@ -139,15 +126,15 @@ const dateInfo = (raw) => {
 
 function statusPillStyle(statusRaw) {
   const s = safeLower(statusRaw);
-  if (!s) return chip("var(--legacy-color-e2e8f0)", "var(--legacy-color-0f172a)");
-  if (s.includes("out") || s.includes("broken") || s.includes("repair")) return chip("var(--legacy-color-fee2e2)", "var(--legacy-color-991b1b)");
+  if (!s) return chip("var(--color-border)", "var(--color-text)");
+  if (s.includes("out") || s.includes("broken") || s.includes("repair")) return chip("var(--color-accent-soft)", "var(--color-danger)");
   if (s.includes("due") || s.includes("inspect") || s.includes("soon") || s.includes("maintenance")) {
-    return chip("var(--legacy-color-ffedd5)", "var(--legacy-color-9a3412)");
+    return chip("var(--color-accent-soft)", "var(--color-warning)");
   }
   if (s.includes("active") || s.includes("ok") || s.includes("ready") || s.includes("available") || s.includes("in")) {
-    return chip("var(--legacy-color-dcfce7)", "var(--legacy-color-166534)");
+    return chip("var(--color-success-soft)", "var(--color-success)");
   }
-  return chip("var(--legacy-color-e2e8f0)", "var(--legacy-color-0f172a)");
+  return chip("var(--color-border)", "var(--color-text)");
 }
 
 const COLS = 6;
@@ -275,19 +262,19 @@ export default function EquipmentPage() {
         input:focus, select:focus, button:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29,78,216,0.14);
-          border-color: var(--legacy-color-bfdbfe) !important;
+          border-color: var(--color-info-border) !important;
         }
         .equipment-sticky thead th { position: sticky; top: 0; z-index: 5; }
         .equipment-sticky .catRow { position: sticky; top: 29px; z-index: 4; }
       `}</style>
 
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Equipment Overview</h1>
           </div>
 
-          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <button onClick={() => router.push("/vehicle-home")} style={btn("ghost")}>
               ← Back
             </button>
@@ -298,7 +285,7 @@ export default function EquipmentPage() {
         </div>
 
         <div style={{ marginBottom: UI.gap }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 198px 198px auto", gap: 3, alignItems: "end" }}>
+          <div className={layoutStyles.extracted3}>
             <div>
               <div style={smallLabel}>Search</div>
               <input
@@ -334,10 +321,10 @@ export default function EquipmentPage() {
               </select>
             </div>
 
-            <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <span style={chip("var(--legacy-color-fff)", UI.text)}>{kpis.count} equipment</span>
-              <span style={chip("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)")}>Due soon: {kpis.soon}</span>
-              <span style={chip("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")}>Overdue: {kpis.overdue}</span>
+            <div className={layoutStyles.extracted4}>
+              <span style={chip("var(--color-white)", UI.text)}>{kpis.count} equipment</span>
+              <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>Due soon: {kpis.soon}</span>
+              <span style={chip("var(--color-danger-soft)", "var(--color-danger)")}>Overdue: {kpis.overdue}</span>
 
               <button
                 type="button"
@@ -365,25 +352,15 @@ export default function EquipmentPage() {
             borderRight: "none",
           }}
         >
-          <div style={{ overflowX: "auto" }}>
+          <div className={layoutStyles.extracted5}>
             <div className="equipment-sticky">
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <table className={layoutStyles.extracted6}>
                 <thead>
                   <tr>
                     {["Name", "Serial", "Status", "Next Inspection", "Notes", "Asset No."].map((h) => (
                       <th
                         key={h}
-                        style={{
-                          padding: "5px 10px",
-                          background: "var(--legacy-color-0f172a)",
-                          color: "var(--legacy-color-fff)",
-                          borderBottom: "1px solid var(--legacy-color-0b1220)",
-                          whiteSpace: "nowrap",
-                          textAlign: "left",
-                          fontWeight: 900,
-                          fontSize: 11.5,
-                          letterSpacing: ".02em",
-                        }}
+                        className={layoutStyles.extracted7}
                       >
                         {h}
                       </th>
@@ -396,13 +373,8 @@ export default function EquipmentPage() {
                     <tbody key={category}>
                       <tr
                         onClick={() => toggleCategory(category)}
-                        className="catRow"
-                        style={{
-                          background: "var(--legacy-color-f3f4f6)",
-                          cursor: "pointer",
-                          borderTop: "1px solid var(--legacy-color-dbe1ea)",
-                          borderBottom: "1px solid var(--legacy-color-dbe1ea)",
-                        }}
+                        className={`catRow ${layoutStyles.extracted8}`}
+                        
                         title="Click to expand/collapse"
                       >
                         <td
@@ -423,11 +395,11 @@ export default function EquipmentPage() {
 
                       {expandedCategories[category] &&
                         list.map((e, i) => {
-                          const zebra = i % 2 === 0 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-f3f4f6)";
+                          const zebra = i % 2 === 0 ? "var(--color-white)" : "var(--color-canvas)";
                           const nextInspection = dateInfo(e.nextInspection);
                           const rowTd = {
                             padding: "4px 10px",
-                            borderBottom: "1px solid var(--legacy-color-dbe1ea)",
+                            borderBottom: "1px solid var(--color-border)",
                             whiteSpace: "nowrap",
                             verticalAlign: "middle",
                           };
@@ -492,7 +464,7 @@ export default function EquipmentPage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Inspection dates: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within 21 days,{" "}
-          <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
+          <span style={{ color: UI.var(--color-danger), fontWeight: 900 }}>red</span> = overdue.
         </div>
       </div>
     </HeaderSidebarLayout>

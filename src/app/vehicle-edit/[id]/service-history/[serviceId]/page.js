@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
@@ -7,18 +8,9 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../../../../firebaseConfig";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  page: "var(--legacy-color-e5e7eb)",
-  paper: "var(--legacy-color-ffffff)",
-  ink: "var(--legacy-color-111827)",
-  muted: "var(--legacy-color-4b5563)",
-  line: "var(--legacy-color-6b7280)",
-  softLine: "var(--legacy-color-cbd5e1)",
-  header: "var(--legacy-color-e5e7eb)",
-  subHeader: "var(--legacy-color-f3f4f6)",
-  blue: "var(--legacy-color-1d4ed8)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   minHeight: "100vh",
@@ -42,8 +34,8 @@ const btn = {
   minHeight: 34,
   padding: "7px 12px",
   borderRadius: 6,
-  border: "1px solid var(--legacy-color-9ca3af)",
-  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-text-muted)",
+  background: "var(--color-surface)",
   color: UI.ink,
   fontWeight: 800,
   cursor: "pointer",
@@ -54,7 +46,7 @@ const sheet = {
   maxWidth: 1280,
   margin: "0 auto",
   background: UI.paper,
-  border: "1px solid var(--legacy-color-9ca3af)",
+  border: "1px solid var(--color-text-muted)",
   boxShadow: "0 16px 34px rgba(15,23,42,0.18)",
   padding: 18,
   color: UI.ink,
@@ -186,11 +178,11 @@ const checklistCategories = [
 ];
 
 const ratingStyles = {
-  green: { background: "var(--legacy-color-86efac)", color: "var(--legacy-color-052e16)" },
-  amber: { background: "var(--legacy-color-facc15)", color: "var(--legacy-color-422006)" },
-  red: { background: "var(--legacy-color-f87171)", color: "var(--legacy-color-450a0a)" },
-  na: { background: "var(--legacy-color-d1d5db)", color: "var(--legacy-color-374151)" },
-  blank: { background: "var(--legacy-color-f9fafb)", color: "var(--legacy-color-6b7280)" },
+  green: { background: "var(--color-success-border)", color: "var(--shell-sidebar-bg)" },
+  amber: { background: "var(--color-warning-border)", color: "var(--shell-sidebar-bg)" },
+  red: { background: "var(--color-warning-border)", color: "var(--color-danger-hover)" },
+  na: { background: "var(--color-border)", color: "var(--color-text-muted)" },
+  blank: { background: "var(--color-surface-subtle)", color: "var(--color-text-muted)" },
 };
 
 const statusSymbols = {
@@ -229,7 +221,7 @@ function ResultCell({ rating, na, checked, hasEntry }) {
 
 function FieldTable({ rows }) {
   return (
-    <table style={table}>
+    <table className={layoutStyles.extracted1}>
       <tbody>
         {rows.map(([label, value]) => (
           <tr key={label}>
@@ -265,7 +257,7 @@ function PhotoLinks({ photos }) {
 
 function ChecklistTable({ rows, startNumber }) {
   return (
-    <table style={table}>
+    <table className={layoutStyles.extracted2}>
       <thead>
         <tr>
           <th style={{ ...th, width: 34 }}>Code</th>
@@ -297,7 +289,7 @@ function ChecklistCategoryTable({ groups, startNumber = 1 }) {
   let code = startNumber;
 
   return (
-    <table style={table}>
+    <table className={layoutStyles.extracted3}>
       <thead>
         <tr>
           <th style={{ ...th, width: 34 }}>Code</th>
@@ -376,7 +368,7 @@ function WheelCard({ label, data }) {
     <div
       style={{
         border: `1px solid ${UI.line}`,
-        background: "var(--legacy-color-fff)",
+        background: "var(--color-surface)",
         padding: 6,
         minHeight: 86,
         display: "grid",
@@ -385,7 +377,7 @@ function WheelCard({ label, data }) {
       }}
     >
       <div style={{ fontSize: 10, fontWeight: 950, textTransform: "uppercase", color: UI.ink }}>{label}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "2px 6px", fontSize: 10.5 }}>
+      <div className={layoutStyles.extracted4}>
         <span style={{ color: UI.muted, fontWeight: 800 }}>Tread</span>
         <strong>{displayValue(data?.tread, data?.tread ? " mm" : "")}</strong>
         <span style={{ color: UI.muted, fontWeight: 800 }}>Pressure</span>
@@ -416,7 +408,7 @@ function WheelOverview({ wheelInspection }) {
         `,
         gap: 8,
         alignItems: "center",
-        background: "var(--legacy-color-f8fafc)",
+        background: "var(--color-surface-subtle)",
       }}
     >
       {wheelPositions.map((position) => (
@@ -426,13 +418,7 @@ function WheelOverview({ wheelInspection }) {
       ))}
 
       <div
-        style={{
-          gridArea: "vehicle",
-          alignSelf: "stretch",
-          display: "grid",
-          gridTemplateRows: "18px 1fr 18px",
-          minHeight: 212,
-        }}
+        className={layoutStyles.extracted5}
         aria-hidden="true"
       >
         <div
@@ -452,7 +438,7 @@ function WheelOverview({ wheelInspection }) {
             borderLeft: `2px solid ${UI.line}`,
             borderRight: `2px solid ${UI.line}`,
             background:
-              "linear-gradient(180deg, transparent 0 26%, var(--legacy-color-cbd5e1) 26% 28%, transparent 28% 72%, var(--legacy-color-cbd5e1) 72% 74%, transparent 74%)",
+              "linear-gradient(180deg, transparent 0 26%, var(--color-border-strong) 26% 28%, transparent 28% 72%, var(--color-border-strong) 72% 74%, transparent 74%)",
           }}
         />
         <div
@@ -563,12 +549,12 @@ export default function VehicleServiceHistoryDetailPage() {
   return (
     <HeaderSidebarLayout>
       <div className="service-sheet-page" style={pageWrap}>
-        <div className="service-sheet-toolbar" style={toolbar}>
+        <div className={`service-sheet-toolbar ${layoutStyles.extracted6}`} >
           <div>
             <div style={{ fontSize: 18, fontWeight: 950, color: UI.ink }}>Service Sheet</div>
             <div style={{ fontSize: 12, color: UI.muted }}>{pageLabel}</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted7}>
             <button type="button" style={btn} onClick={() => printSheet("landscape")}>
               Print Landscape
             </button>
@@ -599,7 +585,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 }
                 html,
                 body {
-                  background: var(--legacy-color-fff) !important;
+                  background: var(--color-surface) !important;
                   margin: 0 !important;
                   padding: 0 !important;
                 }
@@ -611,7 +597,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 }
                 .service-sheet-page {
                   padding: 0 !important;
-                  background: var(--legacy-color-fff) !important;
+                  background: var(--color-surface) !important;
                 }
                 .service-sheet-paper,
                 .service-sheet-paper * {
@@ -624,7 +610,7 @@ export default function VehicleServiceHistoryDetailPage() {
                   width: ${printOrientation === "portrait" ? "200mm" : "287mm"} !important;
                   max-width: none !important;
                   margin: 0 !important;
-                  background: var(--legacy-color-fff) !important;
+                  background: var(--color-surface) !important;
                   border: none !important;
                   box-shadow: none !important;
                   padding: 0 !important;
@@ -735,7 +721,7 @@ export default function VehicleServiceHistoryDetailPage() {
               }
             `}</style>
 
-            <div className="service-sheet-header" style={sheetHeader}>
+            <div className={`service-sheet-header ${layoutStyles.extracted8}`} >
               <FieldTable
                 rows={[
                   ["Inspection Date", record.serviceDateDisplay || formatDateForDisplay(record.serviceDate)],
@@ -745,7 +731,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 ]}
               />
 
-              <div style={titleBlock}>
+              <div className={layoutStyles.extracted9}>
                 <div className="service-sheet-title" style={subtitle}>Vehicle Service Sheet</div>
                 <Image
                   src="/bickers-action-logo.png"
@@ -753,7 +739,7 @@ export default function VehicleServiceHistoryDetailPage() {
                   width={420}
                   height={82}
                   priority
-                  style={{ display: "block", width: "98%", maxWidth: 420, height: 82, objectFit: "contain" }}
+                  className={layoutStyles.extracted10}
                 />
               </div>
 
@@ -772,23 +758,23 @@ export default function VehicleServiceHistoryDetailPage() {
               KEY: green = satisfactory, amber = monitor, red = requires attention, N/A = not applicable
             </div>
 
-            <Section title="Checklist" style={{ marginBottom: 12 }}>
+            <Section title="Checklist" className={layoutStyles.extracted11}>
               {checklistGroups.length ? (
-                <div className="service-sheet-two-column" style={twoColumn}>
+                <div className={`service-sheet-two-column ${layoutStyles.extracted12}`} >
                   <ChecklistCategoryTable groups={leftChecklistGroups} />
                   {rightChecklistGroups.length ? (
                     <ChecklistCategoryTable groups={rightChecklistGroups} startNumber={rightChecklistStart} />
                   ) : (
-                    <table style={table}><tbody><tr><td style={td}>No additional checklist details.</td></tr></tbody></table>
+                    <table className={layoutStyles.extracted13}><tbody><tr><td style={td}>No additional checklist details.</td></tr></tbody></table>
                   )}
                 </div>
               ) : (
-                <table style={table}><tbody><tr><td style={td}>No checklist details stored.</td></tr></tbody></table>
+                <table className={layoutStyles.extracted14}><tbody><tr><td style={td}>No checklist details stored.</td></tr></tbody></table>
               )}
             </Section>
 
-            <div className="service-sheet-lower-grid" style={lowerGrid}>
-              <div style={{ display: "grid", gap: 12 }}>
+            <div className={`service-sheet-lower-grid ${layoutStyles.extracted15}`} >
+              <div className={layoutStyles.extracted16}>
                 <Section title="Wheel Measurement Section">
                   <div className="wheel-overview-wrap">
                     <WheelOverview wheelInspection={record.wheelInspection} />
@@ -796,7 +782,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 </Section>
 
                 <Section title="Photos">
-                  <table style={table}>
+                  <table className={layoutStyles.extracted17}>
                     <tbody>
                       <tr>
                         <th style={{ ...th, width: "38%" }}>Overall Images</th>
@@ -811,9 +797,9 @@ export default function VehicleServiceHistoryDetailPage() {
                 </Section>
               </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
+              <div className={layoutStyles.extracted18}>
                 <Section title="Work Summary">
-                  <table style={table}>
+                  <table className={layoutStyles.extracted19}>
                     <tbody>
                       <tr>
                         <th style={{ ...th, width: "18%" }}>Work</th>
@@ -832,7 +818,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 </Section>
 
                 <Section title="Defect Report Actions">
-                  <table style={table}>
+                  <table className={layoutStyles.extracted20}>
                     <thead>
                       <tr>
                         <th style={{ ...th, width: 52 }}>Code</th>
@@ -870,7 +856,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 </Section>
 
                 <Section title="Advisory Actions">
-                  <table style={table}>
+                  <table className={layoutStyles.extracted21}>
                     <thead>
                       <tr>
                         <th style={{ ...th, width: 52 }}>Code</th>
@@ -904,7 +890,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 </Section>
 
                 <Section title="Monitor Report">
-                  <table style={table}>
+                  <table className={layoutStyles.extracted22}>
                     <thead>
                       <tr>
                         <th style={{ ...th, width: 52 }}>Code</th>
@@ -936,7 +922,7 @@ export default function VehicleServiceHistoryDetailPage() {
 
                 {record.recordType === "repair" || record.serviceType === "General repair" ? (
                   <Section title="Repair Details">
-                    <table style={table}>
+                    <table className={layoutStyles.extracted23}>
                       <tbody>
                         <tr>
                           <th style={{ ...th, width: "22%" }}>Reason</th>

@@ -7,6 +7,7 @@
 
 "use client";
 
+import layoutStyles from "./MaintenanceBookingForm.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
@@ -404,31 +405,31 @@ export default function MaintenanceBookingForm({
   };
 
   return (
-    <div style={overlay}>
-      <div style={modal}>
-        <div style={headerRow}>
+    <div className={layoutStyles.extracted1}>
+      <div className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
           <div>
-            <h2 style={modalTitle}>{title}</h2>
-            <div style={modalSubtitle}>
-              Vehicle: <b style={{ color: "var(--legacy-color-0f172a)" }}>{vehicleLabel || "Equipment only"}</b>
+            <h2 className={layoutStyles.extracted4}>{title}</h2>
+            <div className={layoutStyles.extracted5}>
+              Vehicle: <b className={layoutStyles.extracted6}>{vehicleLabel || "Equipment only"}</b>
             </div>
           </div>
 
-          <button onClick={handleClose} style={closeBtn} aria-label="Close" type="button">
+          <button onClick={handleClose} className={layoutStyles.extracted7} aria-label="Close" type="button">
             X
           </button>
         </div>
 
         {formError ? (
-          <div style={feedbackError}>{formError}</div>
+          <div className={layoutStyles.extracted8}>{formError}</div>
         ) : null}
 
-        <form onSubmit={handleSubmit} style={formGrid}>
+        <form onSubmit={handleSubmit} className={layoutStyles.extracted9}>
           {/* Type */}
-          <div style={fieldBlock}>
-            <label style={label}>Maintenance type</label>
+          <div className={layoutStyles.extracted10}>
+            <label className={layoutStyles.extracted11}>Maintenance type</label>
             <input
-              style={input}
+              className={layoutStyles.extracted12}
               value={
                 safeType === "MOT"
                   ? "MOT"
@@ -443,9 +444,9 @@ export default function MaintenanceBookingForm({
           </div>
 
           {/* Status */}
-          <div style={fieldBlock}>
-            <label style={label}>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} style={input}>
+          <div className={layoutStyles.extracted13}>
+            <label className={layoutStyles.extracted14}>Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted15}>
               <option value="Requested">Requested</option>
               <option value="Booked">Booked</option>
               <option value="Completed">Completed</option>
@@ -454,8 +455,8 @@ export default function MaintenanceBookingForm({
           </div>
 
           {/* Single vs multi */}
-          <div style={fieldBlock}>
-            <label style={label}>Booking type</label>
+          <div className={layoutStyles.extracted16}>
+            <label className={layoutStyles.extracted17}>Booking type</label>
             <select
               value={useCustomDates ? "custom" : isMultiDay ? "multi" : "single"}
               onChange={(e) => {
@@ -488,7 +489,7 @@ export default function MaintenanceBookingForm({
                 setUseCustomDates(false);
                 setIsMultiDay(mode === "multi");
               }}
-              style={input}
+              className={layoutStyles.extracted18}
             >
               <option value="single">Single day (appointment)</option>
               <option value="multi">Multi-day (off-road / workshop)</option>
@@ -502,7 +503,7 @@ export default function MaintenanceBookingForm({
                 gridColumn: "1 / -1",
                 border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
                 background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
-                color: "var(--legacy-color-0f172a)",
+                color: "var(--color-text)",
                 borderRadius: 12,
                 padding: "10px 12px",
                 fontSize: 13,
@@ -517,8 +518,8 @@ export default function MaintenanceBookingForm({
 
           {useCustomDates ? (
             <>
-              <div style={{ ...fieldBlock, ...fullWidth }}>
-                <label style={label}>Selected dates</label>
+              <div className={layoutStyles.extracted19}>
+                <label className={layoutStyles.extracted20}>Selected dates</label>
                 <DatePicker
                   multiple
                   value={customDates}
@@ -532,76 +533,76 @@ export default function MaintenanceBookingForm({
                   }}
                 />
                 {customDates.length > 0 ? (
-                  <div style={helperText}>
+                  <div className={layoutStyles.extracted21}>
                     {customDates.join(", ")}
                   </div>
                 ) : null}
               </div>
 
-              <div style={fieldBlock}>
-                <label style={label}>Appointment time</label>
+              <div className={layoutStyles.extracted22}>
+                <label className={layoutStyles.extracted23}>Appointment time</label>
                 <input
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
-                  style={input}
+                  className={layoutStyles.extracted24}
                 />
               </div>
             </>
           ) : !isMultiDay ? (
             <>
-              <div style={fieldBlock}>
-                <label style={label}>Appointment date</label>
+              <div className={layoutStyles.extracted25}>
+                <label className={layoutStyles.extracted26}>Appointment date</label>
                 <input
                   type="date"
                   value={appointmentDate}
                   onChange={(e) => setAppointmentDate(e.target.value)}
                   required
-                  style={input}
+                  className={layoutStyles.extracted27}
                 />
               </div>
 
-              <div style={fieldBlock}>
-                <label style={label}>Appointment time</label>
+              <div className={layoutStyles.extracted28}>
+                <label className={layoutStyles.extracted29}>Appointment time</label>
                 <input
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
-                  style={input}
+                  className={layoutStyles.extracted30}
                 />
               </div>
             </>
           ) : (
             <>
-              <div style={fieldBlock}>
-                <label style={label}>Start date</label>
+              <div className={layoutStyles.extracted31}>
+                <label className={layoutStyles.extracted32}>Start date</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   required
-                  style={input}
+                  className={layoutStyles.extracted33}
                 />
               </div>
 
-              <div style={fieldBlock}>
-                <label style={label}>End date</label>
+              <div className={layoutStyles.extracted34}>
+                <label className={layoutStyles.extracted35}>End date</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   required
-                  style={input}
+                  className={layoutStyles.extracted36}
                 />
               </div>
 
-              <div style={fieldBlock}>
-                <label style={label}>Appointment time</label>
+              <div className={layoutStyles.extracted37}>
+                <label className={layoutStyles.extracted38}>Appointment time</label>
                 <input
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
-                  style={input}
+                  className={layoutStyles.extracted39}
                 />
               </div>
             </>
@@ -610,28 +611,24 @@ export default function MaintenanceBookingForm({
           {/* Conflict */}
           {conflictMsg ? (
             <div
-              style={{
-                ...fullWidth,
-                ...feedbackError,
-                marginBottom: 0,
-              }}
+              className={layoutStyles.extracted40}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Booking conflict</div>
+              <div className={layoutStyles.extracted41}>Booking conflict</div>
               <div>{conflictMsg}</div>
             </div>
           ) : null}
 
           {/* Details */}
-          <div style={fieldBlock}>
-            <label style={label}>Provider / garage</label>
-            <input value={provider} onChange={(e) => setProvider(e.target.value)} style={input} />
+          <div className={layoutStyles.extracted42}>
+            <label className={layoutStyles.extracted43}>Provider / garage</label>
+            <input value={provider} onChange={(e) => setProvider(e.target.value)} className={layoutStyles.extracted44} />
           </div>
 
-          <div style={{ ...fieldBlock, ...fullWidth }}>
-            <label style={label}>Book equipment off</label>
+          <div className={layoutStyles.extracted45}>
+            <label className={layoutStyles.extracted46}>Book equipment off</label>
             {equipmentOptions.length ? (
-              <div style={equipmentSearchShell}>
-                <div style={equipmentSearchBox}>
+              <div className={layoutStyles.extracted47}>
+                <div className={layoutStyles.extracted48}>
                   <input
                     value={equipmentSearch}
                     onChange={(e) => {
@@ -643,64 +640,64 @@ export default function MaintenanceBookingForm({
                       if (e.key === "Escape") setEquipmentSearchOpen(false);
                     }}
                     placeholder="Search equipment by name or category..."
-                    style={input}
+                    className={layoutStyles.extracted49}
                   />
 
                   {equipmentSearchOpen && equipmentSearch.trim() ? (
-                    <div style={equipmentResults}>
+                    <div className={layoutStyles.extracted50}>
                       {filteredEquipmentOptions.length ? (
                         filteredEquipmentOptions.map(({ category, name }) => {
                           const checked = selectedEquipment.includes(name);
                           return (
-                            <label key={`${category}:${name}`} style={equipmentResultItem}>
+                            <label key={`${category}:${name}`} className={layoutStyles.extracted51}>
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 onChange={(e) => toggleEquipment(name, e.target.checked)}
                               />
-                              <span style={equipmentResultText}>
-                                <span style={equipmentResultName}>{name}</span>
-                                <span style={equipmentResultCategory}>{category}</span>
+                              <span className={layoutStyles.extracted52}>
+                                <span className={layoutStyles.extracted53}>{name}</span>
+                                <span className={layoutStyles.extracted54}>{category}</span>
                               </span>
                             </label>
                           );
                         })
                       ) : (
-                        <div style={emptySearchState}>No equipment matches that search.</div>
+                        <div className={layoutStyles.extracted55}>No equipment matches that search.</div>
                       )}
                     </div>
                   ) : null}
                 </div>
 
                 {selectedEquipment.length ? (
-                  <div style={selectedEquipmentWrap}>
+                  <div className={layoutStyles.extracted56}>
                     {selectedEquipment.map((name) => (
                       <button
                         key={name}
                         type="button"
                         onClick={() => toggleEquipment(name, false)}
-                        style={selectedEquipmentChip}
+                        className={layoutStyles.extracted57}
                         title="Remove equipment"
                       >
-                        {name} <span style={chipRemove}>X</span>
+                        {name} <span className={layoutStyles.extracted58}>X</span>
                       </button>
                     ))}
                   </div>
                 ) : null}
               </div>
             ) : (
-              <div style={helperText}>No equipment found.</div>
+              <div className={layoutStyles.extracted59}>No equipment found.</div>
             )}
           </div>
 
-          <div style={{ ...fieldBlock, ...fullWidth }}>
-            <label style={label}>Notes</label>
+          <div className={layoutStyles.extracted60}>
+            <label className={layoutStyles.extracted61}>Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Drop-off times, contact, what to fix, etc..."
-              style={{ ...input, minHeight: 80, resize: "vertical", paddingTop: 12 }}
+              className={layoutStyles.extracted62}
             />
           </div>
 
@@ -717,11 +714,11 @@ export default function MaintenanceBookingForm({
             {saving ? "Saving..." : "Create booking"}
           </button>
 
-          <button type="button" onClick={handleClose} style={{ ...dangerBtn, ...fullWidth }}>
+          <button type="button" onClick={handleClose} className={layoutStyles.extracted63}>
             Cancel
           </button>
 
-          <div style={{ ...fullWidth, ...helperText, marginTop: 0 }}>
+          <div className={layoutStyles.extracted64}>
             Saves to <b>maintenanceBookings</b>
             {vehicleId ? " and links it back to the vehicle document." : " as an equipment-only booking."}
             {status === "Completed" ? (
@@ -755,9 +752,9 @@ const modal = {
   overflowY: "auto",
   borderRadius: 8,
   padding: 0,
-  color: "var(--legacy-color-0f172a)",
-  background: "var(--legacy-color-f3f6f9)",
-  border: "1px solid var(--legacy-color-d7dee8)",
+  color: "var(--color-text)",
+  background: "var(--color-canvas)",
+  border: "1px solid var(--color-border)",
   boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
 };
 
@@ -767,8 +764,8 @@ const headerRow = {
   justifyContent: "space-between",
   gap: 12,
   padding: "14px 16px",
-  background: "var(--legacy-color-ffffff)",
-  borderBottom: "1px solid var(--legacy-color-d7dee8)",
+  background: "var(--color-surface)",
+  borderBottom: "1px solid var(--color-border)",
 };
 
 const modalTitle = {
@@ -782,17 +779,17 @@ const modalTitle = {
 const modalSubtitle = {
   marginTop: 4,
   fontSize: 12.5,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontWeight: 700,
 };
 
 const closeBtn = {
   width: 34,
   height: 34,
-  border: "1px solid var(--legacy-color-d7dee8)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-ffffff)",
-  color: "var(--legacy-color-5f6f82)",
+  background: "var(--color-surface)",
+  color: "var(--color-text-muted)",
   fontSize: 14,
   fontWeight: 900,
   cursor: "pointer",
@@ -803,7 +800,7 @@ const label = {
   display: "block",
   fontSize: 11.5,
   fontWeight: 900,
-  color: "var(--legacy-color-52657a)",
+  color: "var(--color-text-muted)",
   marginBottom: 6,
   textTransform: "uppercase",
   letterSpacing: ".035em",
@@ -813,9 +810,9 @@ const input = {
   width: "100%",
   padding: "9px 10px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-c8d6e3)",
-  backgroundColor: "var(--legacy-color-ffffff)",
-  color: "var(--legacy-color-0f172a)",
+  border: "1px solid var(--color-border-strong)",
+  backgroundColor: "var(--color-surface)",
+  color: "var(--color-text)",
   outline: "none",
   fontSize: 14,
   boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
@@ -857,10 +854,10 @@ const selectedEquipmentChip = {
   display: "inline-flex",
   alignItems: "center",
   gap: 8,
-  border: "1px solid var(--legacy-color-b8c8d8)",
+  border: "1px solid var(--shell-muted)",
   borderRadius: 999,
-  background: "var(--legacy-color-e8f2fb)",
-  color: "var(--legacy-color-1f4b7a)",
+  background: "var(--color-brand-soft)",
+  color: "var(--color-brand)",
   padding: "6px 9px",
   fontSize: 12,
   fontWeight: 900,
@@ -868,7 +865,7 @@ const selectedEquipmentChip = {
 };
 
 const chipRemove = {
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontSize: 11,
   fontWeight: 900,
 };
@@ -883,9 +880,9 @@ const equipmentResults = {
   zIndex: 20,
   maxHeight: 245,
   overflowY: "auto",
-  border: "1px solid var(--legacy-color-d7dee8)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   padding: 6,
   boxShadow: "0 14px 30px rgba(15,23,42,0.18)",
 };
@@ -896,7 +893,7 @@ const equipmentResultItem = {
   gap: 8,
   border: "1px solid transparent",
   borderRadius: 8,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   padding: "8px 10px",
   minWidth: 0,
   cursor: "pointer",
@@ -909,7 +906,7 @@ const equipmentResultText = {
 };
 
 const equipmentResultName = {
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontSize: 13,
   fontWeight: 900,
   overflow: "hidden",
@@ -918,7 +915,7 @@ const equipmentResultName = {
 };
 
 const equipmentResultCategory = {
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontSize: 11.5,
   fontWeight: 800,
   overflow: "hidden",
@@ -928,7 +925,7 @@ const equipmentResultCategory = {
 
 const emptySearchState = {
   padding: "10px 12px",
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontSize: 12.5,
   fontWeight: 800,
 };
@@ -936,15 +933,15 @@ const emptySearchState = {
 const helperText = {
   marginTop: 8,
   fontSize: 12,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   lineHeight: 1.4,
 };
 
 const feedbackError = {
   margin: 12,
-  border: "1px solid var(--legacy-color-fecaca)",
-  background: "var(--legacy-color-fef2f2)",
-  color: "var(--legacy-color-991b1b)",
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
   borderRadius: 8,
   padding: "10px 12px",
   fontSize: 12.5,
@@ -956,9 +953,9 @@ const primaryBtn = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-1f4b7a)",
-  background: "var(--legacy-color-1f4b7a)",
-  color: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-brand)",
+  background: "var(--color-brand)",
+  color: "var(--color-white)",
   fontWeight: 900,
   fontSize: 14,
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
@@ -968,9 +965,9 @@ const dangerBtn = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-b91c1c)",
-  background: "var(--legacy-color-b91c1c)",
-  color: "var(--legacy-color-ffffff)",
+  border: "1px solid var(--color-danger)",
+  background: "var(--color-danger)",
+  color: "var(--color-white)",
   fontWeight: 900,
   fontSize: 14,
   cursor: "pointer",

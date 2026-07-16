@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -26,6 +27,7 @@ import {
   CalendarDays,
   HeartPulse,
   ListChecks,
+  Palette,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -38,6 +40,7 @@ import {
   handleFirestoreAccessError,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* -------------------------------------------
    Admin gate
@@ -46,27 +49,7 @@ import {
 /* -------------------------------------------
    Mini design system (matches your style)
 ------------------------------------------- */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-b91c1c)",
-  dangerSoft: "var(--legacy-color-fff1f2)",
-  ok: "var(--legacy-color-15803d)",
-  okSoft: "var(--legacy-color-edf7f2)",
-  warn: "var(--legacy-color-b45309)",
-  warnSoft: "var(--legacy-color-fffbeb)",
-};
+const UI = UI_TOKENS;
 
 const Tabs = {
   ACCESS: "Access",
@@ -900,7 +883,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div style={headerActions}>
+          <div className={layoutStyles.extracted1}>
             <div style={searchWrap}>
               <Search size={15} color={UI.muted} />
               <input
@@ -918,6 +901,24 @@ export default function AdminPage() {
                 style={headerSearchInputStyle}
               />
             </div>
+
+            <button
+              onClick={() => router.push("/admin/global-styling")}
+              style={btnStyle}
+              title="Manage global colours, typography and layout"
+            >
+              <Palette size={14} />
+              Global styling
+            </button>
+
+            <button
+              onClick={() => router.push("/admin/content-labels")}
+              style={btnStyle}
+              title="Manage company terminology and safe application wording"
+            >
+              <Palette size={14} />
+              Content &amp; labels
+            </button>
 
             <button
               onClick={() => router.push("/admin/security-audit")}
@@ -947,8 +948,8 @@ export default function AdminPage() {
               disabled={migratingMfaSecrets}
               style={{
                 ...btnStyle,
-                background: migratingMfaSecrets ? "var(--legacy-color-f1f5f9)" : UI.warnSoft,
-                borderColor: "var(--legacy-color-fed7aa)",
+                background: migratingMfaSecrets ? "var(--color-surface-hover)" : UI.warnSoft,
+                borderColor: "var(--color-warning-border)",
                 color: migratingMfaSecrets ? UI.muted : UI.warn,
                 cursor: migratingMfaSecrets ? "wait" : "pointer",
               }}
@@ -966,9 +967,9 @@ export default function AdminPage() {
                 }}
                 style={{
                   ...btnStyle,
-                  border: "1px solid var(--legacy-color-dc2626)",
-                  background: "linear-gradient(135deg, var(--legacy-color-3f0000) 0%, var(--legacy-color-7f1d1d) 100%)",
-                  color: "var(--legacy-color-fff)",
+                  border: "1px solid var(--color-danger)",
+                  background: "linear-gradient(135deg, var(--shell-sidebar-bg) 0%, var(--color-danger-hover) 100%)",
+                  color: "var(--color-white)",
                   fontWeight: 1000,
                 }}
                 title="Definitely do not press this"
@@ -992,7 +993,7 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div style={tabBar}>
+        <div className={layoutStyles.extracted2}>
           {Object.values(Tabs)
             .filter((t) => showAprilFools || t !== Tabs.APRIL_FOOLS)
             .map((t) => {
@@ -1006,7 +1007,7 @@ export default function AdminPage() {
                   ...btnStyle,
                   border: active ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
                   background: active ? UI.brand : UI.card,
-                  color: active ? "var(--legacy-color-fff)" : UI.text,
+                  color: active ? "var(--color-white)" : UI.text,
                   fontWeight: 900,
                 }}
               >
@@ -1049,8 +1050,8 @@ export default function AdminPage() {
           {/* ACCESS */}
           {activeTab === Tabs.ACCESS && (
             <Card title="Manage Access" subtitle="One line per user (de-duped by email or UID)">
-              <div style={{ overflowX: "auto" }}>
-                <table style={tableStyle}>
+              <div className={layoutStyles.extracted3}>
+                <table className={layoutStyles.extracted4}>
                   <thead>
                     <tr>
                       <Th>Email</Th>
@@ -1129,13 +1130,13 @@ export default function AdminPage() {
                             </Td>
 
                             <Td>
-                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <div className={layoutStyles.extracted5}>
                                 <button
                                   disabled={locked}
                                   onClick={() => toggleUserEnabled(u.id, enabled)}
                                   style={{
                                     ...btnStyle,
-                                    background: locked ? "var(--legacy-color-f1f5f9)" : UI.card,
+                                    background: locked ? "var(--color-surface-hover)" : UI.card,
                                     cursor: locked ? "not-allowed" : "pointer",
                                     color: locked ? UI.muted : UI.text,
                                     fontWeight: 900,
@@ -1155,8 +1156,8 @@ export default function AdminPage() {
                                   disabled={resetInProgress}
                                   style={{
                                     ...btnStyle,
-                                    borderColor: "var(--legacy-color-fed7aa)",
-                                    background: resetInProgress ? "var(--legacy-color-f1f5f9)" : UI.warnSoft,
+                                    borderColor: "var(--color-warning-border)",
+                                    background: resetInProgress ? "var(--color-surface-hover)" : UI.warnSoft,
                                     color: resetInProgress ? UI.muted : UI.warn,
                                     cursor: resetInProgress ? "wait" : "pointer",
                                   }}
@@ -1172,8 +1173,8 @@ export default function AdminPage() {
                                   disabled={deleteBlocked}
                                   style={{
                                     ...btnStyle,
-                                    borderColor: "var(--legacy-color-fecaca)",
-                                    background: deleteBlocked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff1f2)",
+                                    borderColor: "var(--color-danger-border)",
+                                    background: deleteBlocked ? "var(--color-surface-hover)" : "var(--color-danger-soft)",
                                     color: deleteBlocked ? UI.muted : UI.danger,
                                     cursor: deleteInProgress
                                       ? "wait"
@@ -1216,7 +1217,7 @@ export default function AdminPage() {
                   Add sick leave
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
+                <div className={layoutStyles.extracted6}>
                   <div>
                     <div style={labelStyle}>Employee</div>
                     <select
@@ -1255,7 +1256,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginTop: 10 }}>
+                <div className={layoutStyles.extracted7}>
                   <div>
                     <div style={labelStyle}>Reason</div>
                     <input
@@ -1276,7 +1277,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <div className={layoutStyles.extracted8}>
                   <button
                     onClick={() =>
                       setNewSick({
@@ -1297,7 +1298,7 @@ export default function AdminPage() {
                       ...btnStyle,
                       border: `1px solid ${UI.brand}`,
                       background: UI.brand,
-                      color: "var(--legacy-color-fff)",
+                      color: "var(--color-white)",
                       fontWeight: 1000,
                     }}
                   >
@@ -1315,14 +1316,14 @@ export default function AdminPage() {
                     background: UI.brandSoft,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div className={layoutStyles.extracted9}>
                     <div style={{ fontWeight: 1000, color: UI.text }}>Edit sick leave</div>
                     <div style={{ fontSize: 12, color: UI.muted }}>
                       Record: <b>{editingSick.id}</b>
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+                  <div className={layoutStyles.extracted10}>
                     <div>
                       <div style={labelStyle}>Employee</div>
                       <select
@@ -1361,7 +1362,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginTop: 10 }}>
+                  <div className={layoutStyles.extracted11}>
                     <div>
                       <div style={labelStyle}>Reason</div>
                       <input
@@ -1380,7 +1381,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                  <div className={layoutStyles.extracted12}>
                     <button onClick={cancelEditSick} style={btnStyle}>
                       Cancel
                     </button>
@@ -1391,7 +1392,7 @@ export default function AdminPage() {
                         ...btnStyle,
                         border: `1px solid ${UI.brand}`,
                         background: UI.brand,
-                        color: "var(--legacy-color-fff)",
+                        color: "var(--color-white)",
                         fontWeight: 1000,
                       }}
                     >
@@ -1402,8 +1403,8 @@ export default function AdminPage() {
               )}
 
               {/* Records table */}
-              <div style={{ overflowX: "auto" }}>
-                <table style={tableStyle}>
+              <div className={layoutStyles.extracted13}>
+                <table className={layoutStyles.extracted14}>
                   <thead>
                     <tr>
                       <Th>Employee</Th>
@@ -1437,8 +1438,8 @@ export default function AdminPage() {
                               </div>
                             </Td>
 
-                            <Td style={{ whiteSpace: "nowrap" }}>{fmtYMD(s.startDate)}</Td>
-                            <Td style={{ whiteSpace: "nowrap" }}>{fmtYMD(s.endDate)}</Td>
+                            <Td className={layoutStyles.extracted15}>{fmtYMD(s.startDate)}</Td>
+                            <Td className={layoutStyles.extracted16}>{fmtYMD(s.endDate)}</Td>
 
                             <Td>
                               <span style={{ fontWeight: 1000, color: UI.text }}>{s.days ?? "-"}</span>
@@ -1448,7 +1449,7 @@ export default function AdminPage() {
                             <Td style={{ color: UI.muted }}>{s.notes || "-"}</Td>
 
                             <Td>
-                              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                              <div className={layoutStyles.extracted17}>
                                 <button
                                   onClick={() => startEditSick(s)}
                                   style={{
@@ -1466,8 +1467,8 @@ export default function AdminPage() {
                                   onClick={() => deleteSickLeave(s.id)}
                                   style={{
                                     ...btnStyle,
-                                    border: "1px solid var(--legacy-color-fecaca)",
-                                    background: "var(--legacy-color-fee2e2)",
+                                    border: "1px solid var(--color-danger-border)",
+                                    background: "var(--color-accent-soft)",
                                     color: UI.danger,
                                     fontWeight: 1000,
                                   }}
@@ -1492,16 +1493,9 @@ export default function AdminPage() {
               subtitle="Recent activity across bookings, maintenance, holidays, sick leave and access changes."
             >
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  marginBottom: 10,
-                }}
+                className={layoutStyles.extracted18}
               >
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted19}>
                   <span style={pillStyle}>Showing {filteredActivityRows.length}</span>
                   <label style={{ display: "flex", gap: 8, alignItems: "center", color: UI.text, fontWeight: 800 }}>
                     <span>Day</span>
@@ -1519,35 +1513,29 @@ export default function AdminPage() {
               </div>
 
               <div style={{ ...panelStyle, marginBottom: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                <div className={layoutStyles.extracted20}>
                   <div style={{ fontWeight: 1000, color: UI.text }}>Activity per Hour</div>
                   <span style={pillStyle}>{activityDay || "No day selected"}</span>
                 </div>
 
                 <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(24, minmax(26px, 1fr))",
-                    gap: 6,
-                    alignItems: "end",
-                    minHeight: 220,
-                  }}
+                  className={layoutStyles.extracted21}
                 >
                   {activityByHour.map((item) => (
-                    <div key={item.hour} style={{ display: "grid", gap: 6, alignItems: "end" }}>
+                    <div key={item.hour} className={layoutStyles.extracted22}>
                       <div
                         title={`${item.label} - ${item.value} activit${item.value === 1 ? "y" : "ies"}`}
                         style={{
                           height: `${Math.max(8, (item.value / activityHourMax) * 160)}px`,
                           borderRadius: "10px 10px 4px 4px",
-                          border: `1px solid ${item.value ? UI.brand : "var(--legacy-color-dbe2ea)"}`,
+                          border: `1px solid ${item.value ? UI.brand : "var(--color-border)"}`,
                           background: item.value
                             ? "linear-gradient(180deg, rgba(29,78,216,0.22) 0%, rgba(29,78,216,0.82) 100%)"
-                            : "var(--legacy-color-eef2f7)",
+                            : "var(--color-brand-soft)",
                           display: "flex",
                           alignItems: "flex-start",
                           justifyContent: "center",
-                          color: item.value ? "var(--legacy-color-fff)" : UI.muted,
+                          color: item.value ? "var(--color-white)" : UI.muted,
                           fontSize: 11,
                           fontWeight: 900,
                           paddingTop: 6,
@@ -1564,12 +1552,7 @@ export default function AdminPage() {
               </div>
 
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: 10,
-                  marginBottom: 12,
-                }}
+                className={layoutStyles.extracted23}
               >
                 <div style={panelStyle}>
                   <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em" }}>
@@ -1596,7 +1579,7 @@ export default function AdminPage() {
                     Top Areas
                   </div>
                   {activitySummary.topAreas.length ? (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div className={layoutStyles.extracted24}>
                       {activitySummary.topAreas.map(([area, count]) => (
                         <span key={area} style={pillStyle}>
                           {area}: {count}
@@ -1609,8 +1592,8 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ overflowX: "auto" }}>
-                <table style={tableStyle}>
+              <div className={layoutStyles.extracted25}>
+                <table className={layoutStyles.extracted26}>
                   <thead>
                     <tr>
                       <Th>When</Th>
@@ -1680,14 +1663,7 @@ export default function AdminPage() {
               subtitle="Security-sensitive admin actions including role changes, user enable/disable, MFA resets and MFA migration."
             >
               <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  marginBottom: 10,
-                }}
+                className={layoutStyles.extracted27}
               >
                 <span style={pillStyle}>Showing {filteredAuditRows.length}</span>
                 <button onClick={fetchAuditLogs} style={btnStyle}>
@@ -1695,8 +1671,8 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              <div style={{ overflowX: "auto" }}>
-                <table style={tableStyle}>
+              <div className={layoutStyles.extracted28}>
+                <table className={layoutStyles.extracted29}>
                   <thead>
                     <tr>
                       <Th>When</Th>
@@ -1776,48 +1752,31 @@ export default function AdminPage() {
 
           {showAprilFools && activeTab === Tabs.APRIL_FOOLS && (
             <div
-              style={{
-                borderRadius: 22,
-                overflow: "hidden",
-                border: "1px solid var(--legacy-color-3f3f46)",
-                boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
-                background:
-                  "radial-gradient(circle at top, rgba(34,197,94,0.18) 0%, rgba(4,9,14,0.96) 36%, var(--legacy-color-020617) 100%)",
-                color: "var(--legacy-color-d1fae5)",
-              }}
+              className={layoutStyles.extracted30}
             >
               <div
-                style={{
-                  padding: "16px 18px",
-                  borderBottom: "1px solid rgba(255,255,255,0.08)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  background: "linear-gradient(90deg, rgba(127,29,29,0.88) 0%, rgba(17,24,39,0.88) 100%)",
-                }}
+                className={layoutStyles.extracted31}
               >
                 <div>
-                  <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", opacity: 0.75 }}>
+                  <div className={layoutStyles.extracted32}>
                     Critical Incident Console
                   </div>
-                  <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4, color: "var(--legacy-color-f8fafc)" }}>
+                  <div className={layoutStyles.extracted33}>
                     Bickers Systems Compromised
                   </div>
-                  <div style={{ fontSize: 13, marginTop: 6, color: "var(--legacy-color-fecaca)" }}>
+                  <div className={layoutStyles.extracted34}>
                     Internal admin access revoked. Payroll geese now in control.
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted35}>
                   <button
                     onClick={() => setSystemRecovered(true)}
                     style={{
                       ...btnStyle,
-                      border: "1px solid var(--legacy-color-22c55e)",
-                      background: "var(--legacy-color-14532d)",
-                      color: "var(--legacy-color-ecfdf5)",
+                      border: "1px solid var(--color-success-accent)",
+                      background: "var(--color-success)",
+                      color: "var(--color-success-soft)",
                       fontWeight: 1000,
                     }}
                   >
@@ -1829,7 +1788,7 @@ export default function AdminPage() {
                       ...btnStyle,
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "rgba(255,255,255,0.06)",
-                      color: "var(--legacy-color-f8fafc)",
+                      color: "var(--color-surface-subtle)",
                     }}
                   >
                     Exit prank
@@ -1837,13 +1796,9 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ padding: 20, display: "grid", gap: 18 }}>
+              <div className={layoutStyles.extracted36}>
                 <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: 14,
-                  }}
+                  className={layoutStyles.extracted37}
                 >
                   {[
                     { label: "Threat level", value: systemRecovered ? "Contained" : "Maximum nonsense" },
@@ -1853,17 +1808,12 @@ export default function AdminPage() {
                   ].map((item) => (
                     <div
                       key={item.label}
-                      style={{
-                        border: "1px solid rgba(74,222,128,0.24)",
-                        borderRadius: 16,
-                        padding: 14,
-                        background: "rgba(2,6,23,0.52)",
-                      }}
+                      className={layoutStyles.extracted38}
                     >
-                      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--legacy-color-86efac)" }}>
+                      <div className={layoutStyles.extracted39}>
                         {item.label}
                       </div>
-                      <div style={{ marginTop: 8, fontSize: 22, fontWeight: 1000, color: "var(--legacy-color-f0fdf4)" }}>
+                      <div className={layoutStyles.extracted40}>
                         {item.value}
                       </div>
                     </div>
@@ -1871,30 +1821,21 @@ export default function AdminPage() {
                 </div>
 
                 <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1.25fr 0.75fr",
-                    gap: 16,
-                  }}
+                  className={layoutStyles.extracted41}
                 >
                   <div
-                    style={{
-                      border: "1px solid rgba(74,222,128,0.24)",
-                      borderRadius: 16,
-                      padding: 16,
-                      background: "rgba(2,6,23,0.58)",
-                    }}
+                    className={layoutStyles.extracted42}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "var(--legacy-color-86efac)", marginBottom: 10 }}>
+                    <div className={layoutStyles.extracted43}>
                       Live breach feed
                     </div>
-                    <div style={{ display: "grid", gap: 8, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: 13 }}>
+                    <div className={layoutStyles.extracted44}>
                       {aprilFoolsFeed.map((line, index) => (
-                        <div key={line} style={{ color: index % 2 === 0 ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-bbf7d0)" }}>
+                        <div key={line} style={{ color: index % 2 === 0 ? "var(--color-success-soft)" : "var(--color-success-border)" }}>
                           [{String(8 + index).padStart(2, "0")}:{String((index * 7) % 60).padStart(2, "0")}:14] {line}
                         </div>
                       ))}
-                      <div style={{ color: systemRecovered ? "var(--legacy-color-86efac)" : "var(--legacy-color-fca5a5)", marginTop: 6 }}>
+                      <div style={{ color: systemRecovered ? "var(--color-success-border)" : "var(--color-danger-border)", marginTop: 6 }}>
                         {systemRecovered
                           ? "[09:12:00] Recovery complete. April Fools."
                           : "[09:11:52] Suggestion: press 'Restore systems' before Finance notices."}
@@ -1903,17 +1844,12 @@ export default function AdminPage() {
                   </div>
 
                   <div
-                    style={{
-                      border: "1px solid rgba(74,222,128,0.24)",
-                      borderRadius: 16,
-                      padding: 16,
-                      background: "rgba(2,6,23,0.58)",
-                    }}
+                    className={layoutStyles.extracted45}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "var(--legacy-color-86efac)", marginBottom: 12 }}>
+                    <div className={layoutStyles.extracted46}>
                       Recovery status
                     </div>
-                    <div style={{ display: "grid", gap: 12 }}>
+                    <div className={layoutStyles.extracted47}>
                       <FakeMeter label="Booking core" value={systemRecovered ? 100 : 13} />
                       <FakeMeter label="Holiday service" value={systemRecovered ? 100 : 41} />
                       <FakeMeter label="Workshop grid" value={systemRecovered ? 100 : 27} />
@@ -1928,7 +1864,7 @@ export default function AdminPage() {
                     borderRadius: 16,
                     padding: 16,
                     background: systemRecovered ? "rgba(20,83,45,0.35)" : "rgba(127,29,29,0.22)",
-                    color: systemRecovered ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
+                    color: systemRecovered ? "var(--color-success-soft)" : "var(--color-accent-soft)",
                     fontSize: 15,
                     fontWeight: 900,
                   }}
@@ -1964,7 +1900,7 @@ function Card({ title, subtitle, children }) {
         <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>{title}</div>
         {subtitle && <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>{subtitle}</div>}
       </div>
-      <div style={{ marginTop: 12 }}>{children}</div>
+      <div className={layoutStyles.extracted48}>{children}</div>
     </div>
   );
 }
@@ -1985,37 +1921,24 @@ function AdminStat({ icon, label, value, detail }) {
 function FakeMeter({ label, value }) {
   const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
   const tone =
-    safeValue >= 100 ? "var(--legacy-color-22c55e)" : safeValue >= 50 ? "var(--legacy-color-f59e0b)" : "var(--legacy-color-ef4444)";
+    safeValue >= 100 ? "var(--color-success-accent)" : safeValue >= 50 ? "var(--color-accent)" : "var(--color-danger)";
 
   return (
-    <div style={{ display: "grid", gap: 6 }}>
+    <div className={layoutStyles.extracted49}>
       <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 10,
-          fontSize: 12,
-          fontWeight: 800,
-          color: "var(--legacy-color-dcfce7)",
-        }}
+        className={layoutStyles.extracted50}
       >
         <span>{label}</span>
         <span>{safeValue}%</span>
       </div>
       <div
-        style={{
-          height: 12,
-          borderRadius: 999,
-          overflow: "hidden",
-          background: "rgba(255,255,255,0.08)",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
+        className={layoutStyles.extracted51}
       >
         <div
           style={{
             width: `${safeValue}%`,
             height: "100%",
-            background: `linear-gradient(90deg, ${tone} 0%, var(--legacy-color-86efac) 100%)`,
+            background: `linear-gradient(90deg, ${tone} 0%, var(--color-success-border) 100%)`,
             transition: "width 240ms ease",
           }}
         />
@@ -2090,12 +2013,12 @@ function HA_balanceTone(bal) {
 
 function HA_Pill({ tone = "default", children }) {
   const tones = {
-    default: { bg: "var(--legacy-color-f3f4f6)", fg: "var(--legacy-color-111827)", br: "var(--legacy-color-e5e7eb)" },
-    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--legacy-color-14532d)", br: "var(--legacy-color-bbf7d0)" },
-    warn: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-7c2d12)", br: "var(--legacy-color-fed7aa)" },
-    bad: { bg: "var(--legacy-color-fee2e2)", fg: "var(--legacy-color-7f1d1d)", br: "var(--legacy-color-fecaca)" },
-    info: { bg: UI.brandSoft, fg: UI.brand, br: "var(--legacy-color-dbeafe)" },
-    gray: { bg: "var(--legacy-color-e5e7eb)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
+    default: { bg: "var(--color-canvas)", fg: "var(--color-text)", br: "var(--color-border)" },
+    good: { bg: "var(--color-success-soft)", fg: "var(--color-success)", br: "var(--color-success-border)" },
+    warn: { bg: "var(--color-warning-soft)", fg: "var(--color-danger-hover)", br: "var(--color-warning-border)" },
+    bad: { bg: "var(--color-accent-soft)", fg: "var(--color-danger-hover)", br: "var(--color-danger-border)" },
+    info: { bg: UI.brandSoft, fg: UI.brand, br: "var(--color-brand-soft)" },
+    gray: { bg: "var(--color-border)", fg: "var(--color-text-muted)", br: "var(--color-border)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -2121,9 +2044,9 @@ function HA_Pill({ tone = "default", children }) {
 
 function HA_StatTile({ label, value, tone = "default" }) {
   const tones = {
-    default: { bg: "var(--legacy-color-fff)", br: "var(--legacy-color-e5e7eb)" },
-    soft: { bg: UI.brandSoft, br: "var(--legacy-color-dbeafe)" },
-    warn: { bg: "var(--legacy-color-fff7ed)", br: "var(--legacy-color-fed7aa)" },
+    default: { bg: "var(--color-white)", br: "var(--color-border)" },
+    soft: { bg: UI.brandSoft, br: "var(--color-brand-soft)" },
+    warn: { bg: "var(--color-warning-soft)", br: "var(--color-warning-border)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -2521,8 +2444,8 @@ function EmployeesHolidayAllowancesTab() {
       subtitle={`Work pattern sets base allowance (FT = ${HA_BASE_FULL_TIME}). Carry into next year capped at ${HA_MAX_CARRY}.`}
     >
       {/* Controls */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div className={layoutStyles.extracted52}>
+        <div className={layoutStyles.extracted53}>
           <span style={pillStyle}>Viewing: {yearView}</span>
           <select value={yearView} onChange={(e) => setYearView(Number(e.target.value))} style={selectStyle}>
             <option value={HA_thisYear}>{HA_thisYear} (Current)</option>
@@ -2530,7 +2453,7 @@ function EmployeesHolidayAllowancesTab() {
           </select>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div className={layoutStyles.extracted54}>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees..." style={topSearchStyle} />
           <span style={{ color: UI.muted, fontSize: 12 }}>
             Showing <b>{filteredRows.length}</b>
@@ -2540,12 +2463,12 @@ function EmployeesHolidayAllowancesTab() {
 
       {/* Add employee */}
       <div style={{ ...panelStyle, marginTop: 12 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div className={layoutStyles.extracted55}>
           <div style={{ fontWeight: 1000, color: UI.text }}>Add employee</div>
           <HA_Pill tone="info">Base: {HA_entitlementFor(newPattern)} days</HA_Pill>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr auto", gap: 10, marginTop: 10 }}>
+        <div className={layoutStyles.extracted56}>
           <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" style={inputStyle} />
           <select value={newPattern} onChange={(e) => setNewPattern(e.target.value)} style={selectStyle}>
             <option value="full_time">{HA_PATTERN_LABEL.full_time}</option>
@@ -2563,7 +2486,7 @@ function EmployeesHolidayAllowancesTab() {
           <button
             onClick={addEmployee}
             disabled={adding}
-            style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", fontWeight: 1000 }}
+            style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-surface)", fontWeight: 1000 }}
           >
             {adding ? "Adding..." : "Add"}
           </button>
@@ -2571,12 +2494,12 @@ function EmployeesHolidayAllowancesTab() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 10, marginTop: 12 }}>
+      <div className={layoutStyles.extracted57}>
         <HA_StatTile label="People" value={kpis.people} tone="soft" />
         <HA_StatTile label="Used" value={kpis.totalUsed} />
         <HA_StatTile label="Allowance" value={kpis.totalAllowance} />
         <HA_StatTile label="Carry" value={kpis.totalCarry} tone="warn" />
-        <div style={{ gridColumn: "1 / -1" }}>
+        <div className={layoutStyles.extracted58}>
           <HA_StatTile
             label="Total balance"
             value={kpis.totalBalance}
@@ -2586,8 +2509,8 @@ function EmployeesHolidayAllowancesTab() {
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: "auto", marginTop: 12 }}>
-        <table style={tableStyle}>
+      <div className={layoutStyles.extracted59}>
+        <table className={layoutStyles.extracted60}>
           <thead>
             <tr>
               <Th>Name</Th>
@@ -2631,7 +2554,7 @@ function EmployeesHolidayAllowancesTab() {
                 const recommendedCarry = HA_clamp(balThis, 0, HA_MAX_CARRY);
 
                 return (
-                  <tr key={r.id} style={{ background: idx % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-f8fafc)" }}>
+                  <tr key={r.id} style={{ background: idx % 2 === 0 ? "var(--color-surface)" : "var(--color-surface-subtle)" }}>
                     <Td>
                       <input
                         value={name}
@@ -2647,7 +2570,7 @@ function EmployeesHolidayAllowancesTab() {
                         <option value="three_days">{HA_PATTERN_LABEL.three_days}</option>
                       </select>
 
-                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div className={layoutStyles.extracted61}>
                         <HA_Pill tone="gray">Base {HA_entitlementFor(pattern)}</HA_Pill>
                         {pattern !== "full_time" ? <HA_Pill tone="info">Pro-rata</HA_Pill> : <HA_Pill tone="good">FT</HA_Pill>}
                       </div>
@@ -2664,7 +2587,7 @@ function EmployeesHolidayAllowancesTab() {
                     </Td>
 
                     <Td>
-                      <div style={{ display: "grid", gap: 6 }}>
+                      <div className={layoutStyles.extracted62}>
                         <input
                           type="number"
                           min={0}
@@ -2694,11 +2617,11 @@ function EmployeesHolidayAllowancesTab() {
                     </Td>
 
                     <Td>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <div className={layoutStyles.extracted63}>
                         <button
                           onClick={() => saveRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", fontWeight: 1000 }}
+                          style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-surface)", fontWeight: 1000 }}
                         >
                           {saving[r.id] ? "Saving..." : `Save (${yearView})`}
                         </button>
@@ -2706,7 +2629,7 @@ function EmployeesHolidayAllowancesTab() {
                         <button
                           onClick={() => deleteRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{ ...btnStyle, border: "1px solid var(--legacy-color-fecaca)", background: "var(--legacy-color-fee2e2)", color: UI.danger, fontWeight: 1000 }}
+                          style={{ ...btnStyle, border: "1px solid var(--color-danger-border)", background: "var(--color-accent-soft)", color: UI.danger, fontWeight: 1000 }}
                         >
                           Delete
                         </button>
@@ -2874,7 +2797,7 @@ const thStyle = {
   textTransform: "uppercase",
   letterSpacing: "0.04em",
   whiteSpace: "nowrap",
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
 };
 
 const tdStyle = {
@@ -2973,7 +2896,7 @@ const cellInputStyle = {
 const panelStyle = {
   border: UI.border,
   borderRadius: UI.radius,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   padding: 12,
   marginBottom: 12,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)",

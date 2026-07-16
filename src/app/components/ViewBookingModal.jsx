@@ -1,6 +1,7 @@
 
 "use client";
 
+import layoutStyles from "./ViewBookingModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
@@ -14,6 +15,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 import RouteLoadingOverlay from "./RouteLoadingOverlay";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -645,17 +647,17 @@ export default function ViewBookingModal({
 
   return (
     <div
-      style={overlay}
+      className={layoutStyles.extracted1}
       onClick={(e) => e.target === e.currentTarget && !editLoading && onClose?.()}
     >
-      <div style={modal}>
+      <div className={layoutStyles.extracted2}>
         {/* Header */}
-        <div style={header}>
+        <div className={layoutStyles.extracted3}>
           <div>
-            <div style={eyebrow}>Job #{booking.jobNumber || "-"}</div>
-            <h2 style={title}>{booking.client || "Booking Details"}</h2>
+            <div className={layoutStyles.extracted4}>Job #{booking.jobNumber || "-"}</div>
+            <h2 className={layoutStyles.extracted5}>{booking.client || "Booking Details"}</h2>
             {fromDeleted && (
-              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-6b7280)", fontWeight: 700 }}>
+              <div className={layoutStyles.extracted6}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
               </div>
@@ -673,7 +675,7 @@ export default function ViewBookingModal({
         </div>
 
         {/* Quick chips */}
-        <div style={chipRow}>
+        <div className={layoutStyles.extracted7}>
           <Chip good={!!booking.hasHS} label="HS" />
           <Chip good={!!booking.hasRiskAssessment} label="RA" />
           <Chip good={!!booking.hasHotel} label="Hotel" />
@@ -688,22 +690,22 @@ export default function ViewBookingModal({
         </div>
 
         {/*  TOP ROW: Overview & People+Kit split 50/50 */}
-        <div style={topSplit}>
-          <div style={topCol}>
-            <h3 style={sectionTitle}>Overview</h3>
-            <div style={sectionCard}>
+        <div className={layoutStyles.extracted8}>
+          <div className={layoutStyles.extracted9}>
+            <h3 className={layoutStyles.extracted10}>Overview</h3>
+            <div className={layoutStyles.extracted11}>
               <Field label="Production Company" value={booking.client || booking.productionCompany || "-"} />
               <Field label="Production" value={booking.production || "-"} />
               <Field
                 label="Quote Number"
                 value={
-                  <div style={quoteNumberActionRow}>
+                  <div className={layoutStyles.extracted12}>
                     <span>{String(booking.quoteNumber || viewableQuoteNumber || "").trim() || "-"}</span>
                     {canViewQuote ? (
                       <button
                         type="button"
                         onClick={() => router.push(quoteViewHref)}
-                        style={viewQuoteButton}
+                        className={layoutStyles.extracted13}
                       >
                         View quote
                       </button>
@@ -719,10 +721,10 @@ export default function ViewBookingModal({
               <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
 
               {booking.hasHotel ? (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ ...fieldLabel, marginBottom: 6 }}>Hotel</div>
-                  <div style={miniCard}>
-                    <div style={{ display: "grid", gap: 6, fontSize: 13, color: "var(--legacy-color-111)" }}>
+                <div className={layoutStyles.extracted14}>
+                  <div className={layoutStyles.extracted15}>Hotel</div>
+                  <div className={layoutStyles.extracted16}>
+                    <div className={layoutStyles.extracted17}>
                       <div>
                         <b>Cost per night:</b> {hotel.cost ? gbp(hotel.cost) : "-"}
                       </div>
@@ -740,23 +742,23 @@ export default function ViewBookingModal({
               )}
 
               {additionalContacts.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ ...fieldLabel, marginBottom: 6 }}>Additional Contacts</div>
-                  <div style={{ display: "grid", gap: 8 }}>
+                <div className={layoutStyles.extracted18}>
+                  <div className={layoutStyles.extracted19}>Additional Contacts</div>
+                  <div className={layoutStyles.extracted20}>
                     {additionalContacts.map((c, idx) => {
                       const name = c?.name || "Contact";
                       const email = c?.email || "";
                       const phone = c?.phone || "";
                       const dept = c?.department || c?.role || "";
                       return (
-                        <div key={idx} style={miniCard}>
-                          <div style={{ fontWeight: 800, fontSize: 13 }}>
+                        <div key={idx} className={layoutStyles.extracted21}>
+                          <div className={layoutStyles.extracted22}>
                             {name}{" "}
                             {dept ? (
-                              <span style={{ opacity: 0.7, fontWeight: 700 }}>({dept})</span>
+                              <span className={layoutStyles.extracted23}>({dept})</span>
                             ) : null}
                           </div>
-                          <div style={{ fontSize: 13, color: "var(--legacy-color-111)" }}>
+                          <div className={layoutStyles.extracted24}>
                             {email ? <div>Email: {email}</div> : null}
                             {phone ? <div>Phone: {phone}</div> : null}
                           </div>
@@ -771,21 +773,21 @@ export default function ViewBookingModal({
             </div>
           </div>
 
-          <div style={topCol}>
-            <h3 style={sectionTitle}>People & Kit</h3>
-            <div style={sectionCard}>
+          <div className={layoutStyles.extracted25}>
+            <h3 className={layoutStyles.extracted26}>People & Kit</h3>
+            <div className={layoutStyles.extracted27}>
               <Field label="Employees" value={employeesPrettyText} />
 
               <Field
                 label="Vehicles"
                 value={
                   vehiclesPrettyWithStatus.length ? (
-                    <div style={tagWrap}>
+                    <div className={layoutStyles.extracted28}>
                       {vehiclesPrettyWithStatus.map((v, i) => (
-                        <span key={`${v.id}-${i}`} style={tagPill}>
+                        <span key={`${v.id}-${i}`} className={layoutStyles.extracted29}>
                           {v.name}
-                          {v.plate && <span style={tagSub}>{v.plate}</span>}
-                          {v.status && <span style={tagStatus}>{v.status}</span>}
+                          {v.plate && <span className={layoutStyles.extracted30}>{v.plate}</span>}
+                          {v.status && <span className={layoutStyles.extracted31}>{v.status}</span>}
                         </span>
                       ))}
                     </div>
@@ -799,9 +801,9 @@ export default function ViewBookingModal({
                 label="Equipment"
                 value={
                   Array.isArray(booking.equipment) && booking.equipment.length ? (
-                    <div style={tagWrap}>
+                    <div className={layoutStyles.extracted32}>
                       {booking.equipment.map((e, i) => (
-                        <span key={`${e}-${i}`} style={tagPill}>
+                        <span key={`${e}-${i}`} className={layoutStyles.extracted33}>
                           {e}
                         </span>
                       ))}
@@ -816,10 +818,10 @@ export default function ViewBookingModal({
         </div>
 
         {/*  REST OF CONTENT full width below */}
-        <div style={belowStack}>
+        <div className={layoutStyles.extracted34}>
           {hasEmployeesByDate && dayKeys.length > 0 && (
             <Section title="Employees by Day">
-              <div style={notesGrid}>
+              <div className={layoutStyles.extracted35}>
                 {dayKeys.map((date) => {
                   const list = employeesByDate?.[date] || [];
                   const grouped = groupEmployeesByRole(list);
@@ -833,20 +835,20 @@ export default function ViewBookingModal({
                     : date;
 
                   return (
-                    <div key={date} style={noteCard}>
-                      <div style={noteDate}>{pretty}</div>
+                    <div key={date} className={layoutStyles.extracted36}>
+                      <div className={layoutStyles.extracted37}>{pretty}</div>
 
                       {Object.keys(grouped).length ? (
-                        <div style={{ display: "grid", gap: 6 }}>
+                        <div className={layoutStyles.extracted38}>
                           {Object.entries(grouped).map(([role, names]) => (
-                            <div key={role} style={{ fontSize: 13 }}>
-                              <div style={{ fontWeight: 800, marginBottom: 2 }}>{role}</div>
-                              <div style={{ color: "var(--legacy-color-111)" }}>{names.join(", ")}</div>
+                            <div key={role} className={layoutStyles.extracted39}>
+                              <div className={layoutStyles.extracted40}>{role}</div>
+                              <div className={layoutStyles.extracted41}>{names.join(", ")}</div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 13, color: "var(--legacy-color-6b7280)" }}>No one assigned.</div>
+                        <div className={layoutStyles.extracted42}>No one assigned.</div>
                       )}
                     </div>
                   );
@@ -857,7 +859,7 @@ export default function ViewBookingModal({
 
           {hasCallTimesByDate && dayKeys.length > 0 && (
             <Section title="Call Times by Day">
-              <div style={notesGrid}>
+              <div className={layoutStyles.extracted43}>
                 {dayKeys.map((d) => {
                   const pretty = toDateSafe(d)
                     ? toDateSafe(d).toLocaleDateString("en-GB", {
@@ -867,9 +869,9 @@ export default function ViewBookingModal({
                       })
                     : d;
                   return (
-                    <div key={d} style={noteCard}>
-                      <div style={noteDate}>{pretty}</div>
-                      <div style={noteText}>{callTimesByDate?.[d] || "-"}</div>
+                    <div key={d} className={layoutStyles.extracted44}>
+                      <div className={layoutStyles.extracted45}>{pretty}</div>
+                      <div className={layoutStyles.extracted46}>{callTimesByDate?.[d] || "-"}</div>
                     </div>
                   );
                 })}
@@ -881,7 +883,7 @@ export default function ViewBookingModal({
             Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length >
               0 && (
               <Section title="Day Notes">
-                <div style={notesGrid}>
+                <div className={layoutStyles.extracted47}>
                   {Object.keys(booking.notesByDate)
                     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                     .sort((a, b) => new Date(a) - new Date(b))
@@ -907,9 +909,9 @@ export default function ViewBookingModal({
                         : date;
 
                       return (
-                        <div key={date} style={noteCard}>
-                          <div style={noteDate}>{pretty}</div>
-                          <div style={noteText}>{final}</div>
+                        <div key={date} className={layoutStyles.extracted48}>
+                          <div className={layoutStyles.extracted49}>{pretty}</div>
+                          <div className={layoutStyles.extracted50}>{final}</div>
                         </div>
                       );
                     })}
@@ -919,7 +921,7 @@ export default function ViewBookingModal({
 
           {booking.notes && (
             <Section title="Notes">
-              <div style={noteBox}>{booking.notes}</div>
+              <div className={layoutStyles.extracted51}>{booking.notes}</div>
             </Section>
           )}
 
@@ -928,14 +930,14 @@ export default function ViewBookingModal({
             if (!files.length) return null;
             return (
               <Section title="Attachments">
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted52}>
                   {files.map((f, i) => (
                     <a
                       key={f.url || i}
                       href={f.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={fileBtn}
+                      className={layoutStyles.extracted53}
                       title={f.label}
                     >
                       {f.label}
@@ -948,7 +950,7 @@ export default function ViewBookingModal({
         </div>
 
         {/* Footer meta */}
-        <div style={{ display: "none" }}>
+        <div className={layoutStyles.extracted54}>
           {booking?.createdBy && (
             <div>
               Created by <b>{booking.createdBy}</b>
@@ -968,43 +970,43 @@ export default function ViewBookingModal({
         </div>
 
         {/* Actions */}
-        <details style={historyDetails}>
-          <summary style={historySummary}>
+        <details className={layoutStyles.extracted55}>
+          <summary className={layoutStyles.extracted56}>
             Modification trail
-            <span style={historyCount}>{historyTrail.length}</span>
+            <span className={layoutStyles.extracted57}>{historyTrail.length}</span>
           </summary>
-          <div style={historyBody}>
+          <div className={layoutStyles.extracted58}>
             {visibleHistoryTrail.length ? (
               visibleHistoryTrail.map((entry) => (
-                <div key={entry.id} style={historyItem}>
-                  <div style={historyTopRow}>
-                    <span style={historyAction}>{entry.action}</span>
-                    <span style={historyMeta}>
+                <div key={entry.id} className={layoutStyles.extracted59}>
+                  <div className={layoutStyles.extracted60}>
+                    <span className={layoutStyles.extracted61}>{entry.action}</span>
+                    <span className={layoutStyles.extracted62}>
                       {entry.user}
                       {" | "}
                       {fmtDateTimeShort(entry.at)}
                     </span>
                   </div>
                   {entry.changes.length ? (
-                    <div style={historyChanges}>
+                    <div className={layoutStyles.extracted63}>
                       {entry.changes.map((change, idx) => (
-                        <div key={`${entry.id}-change-${idx}`} style={historyChangeLine}>
+                        <div key={`${entry.id}-change-${idx}`} className={layoutStyles.extracted64}>
                           {change}
                         </div>
                       ))}
                     </div>
                   ) : null}
-                  {entry.note ? <div style={historyNote}>{entry.note}</div> : null}
+                  {entry.note ? <div className={layoutStyles.extracted65}>{entry.note}</div> : null}
                 </div>
               ))
             ) : (
-              <div style={historyEmpty}>No modification history recorded for this job.</div>
+              <div className={layoutStyles.extracted66}>No modification history recorded for this job.</div>
             )}
             {historyTrail.length > 3 ? (
               <button
                 type="button"
                 onClick={() => setShowFullHistory((prev) => !prev)}
-                style={historyToggleBtn}
+                className={layoutStyles.extracted67}
               >
                 {showFullHistory ? "Show less" : `See more (${historyTrail.length - 3} older)`}
               </button>
@@ -1013,17 +1015,17 @@ export default function ViewBookingModal({
         </details>
 
         {!fromDeleted && (
-          <details style={deleteDetails}>
-            <summary style={deleteSummary}>Delete options</summary>
-            <div style={deleteBody}>
-              <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>
+          <details className={layoutStyles.extracted68}>
+            <summary className={layoutStyles.extracted69}>Delete options</summary>
+            <div className={layoutStyles.extracted70}>
+              <div className={layoutStyles.extracted71}>
                 Reason for delete (required)
               </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted72}>
                 {DELETE_REASON_OPTIONS.map((r) => (
                   <label
                     key={r}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
+                    className={layoutStyles.extracted73}
                   >
                     <input
                       type="checkbox"
@@ -1044,21 +1046,14 @@ export default function ViewBookingModal({
                   placeholder="Other reason..."
                   value={deleteReasonOther}
                   onChange={(e) => setDeleteReasonOther(e.target.value)}
-                  style={{
-                    marginTop: 8,
-                    width: "100%",
-                    border: "1px solid var(--legacy-color-d1d5db)",
-                    borderRadius: 8,
-                    padding: "7px 9px",
-                    fontSize: 12,
-                  }}
+                  className={layoutStyles.extracted74}
                 />
               )}
             </div>
           </details>
         )}
 
-        <div style={footerMeta}>
+        <div className={layoutStyles.extracted75}>
           {booking?.createdBy && (
             <div>
               Created by <b>{booking.createdBy}</b>
@@ -1077,13 +1072,13 @@ export default function ViewBookingModal({
           )}
         </div>
 
-        <div style={actions}>
+        <div className={layoutStyles.extracted76}>
           {fromDeleted ? (
             <>
-              <button onClick={handleRestore} style={{ ...btn, background: "var(--legacy-color-111827)" }}>
+              <button onClick={handleRestore} className={layoutStyles.extracted77}>
                 Restore
               </button>
-              <button onClick={onClose} style={{ ...btn, background: "var(--legacy-color-6c757d)" }}>
+              <button onClick={onClose} className={layoutStyles.extracted78}>
                 Close
               </button>
             </>
@@ -1095,7 +1090,7 @@ export default function ViewBookingModal({
                   disabled={editLoading}
                   style={{
                     ...btn,
-                    background: "var(--legacy-color-1f4b7a)",
+                    background: "var(--color-brand)",
                     cursor: editLoading ? "not-allowed" : "pointer",
                     opacity: editLoading ? 0.58 : 1,
                   }}
@@ -1108,7 +1103,7 @@ export default function ViewBookingModal({
                 disabled={editLoading}
                 style={{
                   ...btn,
-                  background: "var(--legacy-color-0d6efd)",
+                  background: "var(--color-info)",
                   cursor: editLoading ? "wait" : "pointer",
                   opacity: editLoading ? 0.82 : 1,
                 }}
@@ -1120,7 +1115,7 @@ export default function ViewBookingModal({
                 disabled={editLoading}
                 style={{
                   ...btn,
-                  background: "var(--legacy-color-dc3545)",
+                  background: "var(--color-danger)",
                   cursor: editLoading ? "not-allowed" : "pointer",
                   opacity: editLoading ? 0.58 : 1,
                 }}
@@ -1132,7 +1127,7 @@ export default function ViewBookingModal({
                 disabled={editLoading}
                 style={{
                   ...btn,
-                  background: "var(--legacy-color-6c757d)",
+                  background: "var(--color-text-muted)",
                   cursor: editLoading ? "not-allowed" : "pointer",
                   opacity: editLoading ? 0.58 : 1,
                 }}
@@ -1159,17 +1154,17 @@ export default function ViewBookingModal({
 function Section({ title, children, full = false }) {
   return (
     <section style={{ gridColumn: full ? "1 / -1" : "auto" }}>
-      <h3 style={sectionTitle}>{title}</h3>
-      <div style={compactSectionCard}>{children}</div>
+      <h3 className={layoutStyles.extracted79}>{title}</h3>
+      <div className={layoutStyles.extracted80}>{children}</div>
     </section>
   );
 }
 
 function Field({ label, value }) {
   return (
-    <div style={fieldRow}>
-      <div style={fieldLabel}>{label}</div>
-      <div style={fieldValue}>{value || "-"}</div>
+    <div className={layoutStyles.extracted81}>
+      <div className={layoutStyles.extracted82}>{label}</div>
+      <div className={layoutStyles.extracted83}>{value || "-"}</div>
     </div>
   );
 }
@@ -1179,7 +1174,7 @@ function QuoteStatusPill({ summary }) {
   return (
     <span style={{ ...quoteStatusPill, ...tone }}>
       <span>{summary?.label || "Not started"}</span>
-      {summary?.detail ? <span style={quoteStatusDetail}>{summary.detail}</span> : null}
+      {summary?.detail ? <span className={layoutStyles.extracted84}>{summary.detail}</span> : null}
     </span>
   );
 }
@@ -1189,9 +1184,9 @@ const Chip = ({ good, label, title }) => (
     title={title}
     style={{
       ...chip,
-      background: good ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
-      color: good ? "var(--legacy-color-166534)" : "var(--legacy-color-991b1b)",
-      borderColor: good ? "var(--legacy-color-86efac)" : "var(--legacy-color-fecaca)",
+      background: good ? "var(--color-success-soft)" : "var(--color-accent-soft)",
+      color: good ? "var(--color-success)" : "var(--color-danger)",
+      borderColor: good ? "var(--color-success-border)" : "var(--color-danger-border)",
     }}
   >
     {label} {good ? "Yes" : "No"}
@@ -1202,9 +1197,9 @@ const Tag = ({ children, dark, success }) => (
   <span
     style={{
       ...tag,
-      background: success ? "var(--legacy-color-dcfce7)" : dark ? "var(--legacy-color-e0f2fe)" : "var(--legacy-color-f8fafc)",
-      color: success ? "var(--legacy-color-166534)" : dark ? "var(--legacy-color-075985)" : "var(--legacy-color-334155)",
-      border: success ? "1px solid var(--legacy-color-86efac)" : dark ? "1px solid var(--legacy-color-7dd3fc)" : "1px solid var(--legacy-color-e2e8f0)",
+      background: success ? "var(--color-success-soft)" : dark ? "var(--color-info-soft)" : "var(--color-surface-subtle)",
+      color: success ? "var(--color-success)" : dark ? "var(--color-brand)" : "var(--color-text-muted)",
+      border: success ? "1px solid var(--color-success-border)" : dark ? "1px solid var(--color-info-border)" : "1px solid var(--color-border)",
     }}
   >
     {children}
@@ -1224,8 +1219,8 @@ const overlay = {
 };
 
 const modal = {
-  background: "var(--legacy-color-f8fafc)",
-  color: "var(--legacy-color-0f172a)",
+  background: "var(--color-surface-subtle)",
+  color: "var(--color-text)",
   width: "min(1240px, 98vw)",
   maxHeight: "94vh",
   overflow: "auto",
@@ -1242,17 +1237,17 @@ const header = {
   gap: 12,
   marginBottom: 7,
   paddingBottom: 7,
-  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
+  borderBottom: "1px solid var(--color-border)",
 };
 
 const eyebrow = {
   fontSize: 11,
   letterSpacing: 0,
   textTransform: "uppercase",
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
   fontWeight: 800,
 };
-const title = { margin: 0, fontSize: 19, lineHeight: 1.08, color: "var(--legacy-color-0f172a)", fontWeight: 900 };
+const title = { margin: 0, fontSize: 19, lineHeight: 1.08, color: "var(--color-text)", fontWeight: 900 };
 
 const badge = {
   padding: "5px 10px",
@@ -1286,21 +1281,21 @@ const belowStack = {
 const sectionTitle = {
   margin: "0 0 4px 0",
   fontSize: 11.5,
-  color: "var(--legacy-color-475569)",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: 0,
   fontWeight: 900,
 };
 const sectionCard = {
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-dbe4ef)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border)",
   borderRadius: 9,
   padding: 8,
   boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
 };
 const compactSectionCard = {
-  background: "rgba(255,255,255,0.62)",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  background: "color-mix(in srgb, var(--color-surface) 62%, transparent)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 6,
   boxShadow: "none",
@@ -1311,10 +1306,10 @@ const fieldRow = {
   gridTemplateColumns: "118px 1fr",
   gap: 8,
   padding: "3px 0",
-  borderBottom: "1px solid var(--legacy-color-edf2f7)",
+  borderBottom: "1px solid var(--color-brand-soft)",
 };
-const fieldLabel = { color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 700 };
-const fieldValue = { color: "var(--legacy-color-0f172a)", fontSize: 12.5, fontWeight: 600 };
+const fieldLabel = { color: "var(--color-text-muted)", fontSize: 11.5, fontWeight: 700 };
+const fieldValue = { color: "var(--color-text)", fontSize: 12.5, fontWeight: 600 };
 
 const quoteNumberActionRow = {
   display: "flex",
@@ -1325,10 +1320,10 @@ const quoteNumberActionRow = {
 };
 
 const viewQuoteButton = {
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 999,
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-1f4b7a)",
+  background: "var(--color-surface)",
+  color: "var(--color-brand)",
   padding: "2px 8px",
   fontSize: 11,
   fontWeight: 900,
@@ -1356,10 +1351,10 @@ const quoteStatusDetail = {
   whiteSpace: "nowrap",
 };
 const quoteStatusTone = (tone) => {
-  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", borderColor: "var(--legacy-color-86efac)" };
-  if (tone === "blue") return { background: "var(--legacy-color-e0f2fe)", color: "var(--legacy-color-075985)", borderColor: "var(--legacy-color-7dd3fc)" };
-  if (tone === "amber") return { background: "var(--legacy-color-fef3c7)", color: "var(--legacy-color-92400e)", borderColor: "var(--legacy-color-fcd34d)" };
-  return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", borderColor: "var(--legacy-color-fecaca)" };
+  if (tone === "green") return { background: "var(--color-success-soft)", color: "var(--color-success)", borderColor: "var(--color-success-border)" };
+  if (tone === "blue") return { background: "var(--color-info-soft)", color: "var(--color-brand)", borderColor: "var(--color-info-border)" };
+  if (tone === "amber") return { background: "var(--color-accent-soft)", color: "var(--color-warning)", borderColor: "var(--color-warning-border)" };
+  return { background: "var(--color-accent-soft)", color: "var(--color-danger)", borderColor: "var(--color-danger-border)" };
 };
 
 const notesGrid = {
@@ -1368,17 +1363,17 @@ const notesGrid = {
   gap: 5,
 };
 const noteCard = {
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border)",
   borderRadius: 7,
   padding: "6px 8px",
 };
-const noteDate = { fontWeight: 900, fontSize: 11.5, marginBottom: 2, color: "var(--legacy-color-0f172a)" };
-const noteText = { fontSize: 12, color: "var(--legacy-color-334155)" };
+const noteDate = { fontWeight: 900, fontSize: 11.5, marginBottom: 2, color: "var(--color-text)" };
+const noteText = { fontSize: 12, color: "var(--color-text-muted)" };
 
 const noteBox = {
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-dbe4ef)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border)",
   borderRadius: 7,
   padding: "6px 8px",
   lineHeight: 1.4,
@@ -1391,12 +1386,12 @@ const tagPill = {
   alignItems: "center",
   gap: 5,
   padding: "2px 6px",
-  background: "var(--legacy-color-f8fafc)",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--color-border)",
   borderRadius: 999,
   fontSize: 10.5,
   whiteSpace: "nowrap",
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontWeight: 700,
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
@@ -1404,21 +1399,21 @@ const tagStatus = {
   marginLeft: 6,
   padding: "2px 6px",
   borderRadius: 999,
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-surface)",
   fontSize: 11,
   fontWeight: 800,
 };
 
-const chip = { padding: "2px 7px", borderRadius: 999, fontSize: 10.5, border: "1px solid var(--legacy-color-cbd5e1)", fontWeight: 800 };
+const chip = { padding: "2px 7px", borderRadius: 999, fontSize: 10.5, border: "1px solid var(--color-border-strong)", fontWeight: 800 };
 
 const tag = {
   display: "inline-flex",
   alignItems: "center",
   gap: 5,
   padding: "2px 7px",
-  background: "var(--legacy-color-f8fafc)",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--color-border)",
   borderRadius: 999,
   fontSize: 10.5,
   whiteSpace: "nowrap",
@@ -1428,18 +1423,18 @@ const tag = {
 const fileBtn = {
   display: "inline-block",
   padding: "3px 7px",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-0f172a)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   borderRadius: 999,
   textDecoration: "none",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   fontSize: 10.5,
 };
 
 const historyDetails = {
   marginTop: 9,
   paddingTop: 6,
-  borderTop: "1px solid var(--legacy-color-e2e8f0)",
+  borderTop: "1px solid var(--color-border)",
 };
 
 const historySummary = {
@@ -1452,15 +1447,15 @@ const historySummary = {
   padding: "3px 0",
   fontSize: 12,
   fontWeight: 800,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
 };
 
 const historyCount = {
   minWidth: 20,
   padding: "1px 6px",
   borderRadius: 999,
-  background: "var(--legacy-color-e2e8f0)",
-  color: "var(--legacy-color-334155)",
+  background: "var(--color-border)",
+  color: "var(--color-text-muted)",
   fontSize: 11,
   textAlign: "center",
 };
@@ -1473,9 +1468,9 @@ const historyBody = {
 
 const historyItem = {
   padding: "6px 7px",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
 const historyTopRow = {
@@ -1489,18 +1484,18 @@ const historyTopRow = {
 const historyAction = {
   fontSize: 12,
   fontWeight: 800,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
 };
 
 const historyMeta = {
   fontSize: 12,
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
 };
 
 const historyNote = {
   marginTop: 4,
   fontSize: 12,
-  color: "var(--legacy-color-334155)",
+  color: "var(--color-text-muted)",
   whiteSpace: "pre-wrap",
 };
 
@@ -1512,12 +1507,12 @@ const historyChanges = {
 
 const historyChangeLine = {
   fontSize: 12,
-  color: "var(--legacy-color-334155)",
+  color: "var(--color-text-muted)",
 };
 
 const historyEmpty = {
   fontSize: 12,
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
 };
 
 const historyToggleBtn = {
@@ -1525,7 +1520,7 @@ const historyToggleBtn = {
   padding: 0,
   border: "none",
   background: "transparent",
-  color: "var(--legacy-color-2563eb)",
+  color: "var(--color-brand)",
   fontSize: 12,
   fontWeight: 700,
   cursor: "pointer",
@@ -1535,7 +1530,7 @@ const historyToggleBtn = {
 const deleteDetails = {
   marginTop: 8,
   paddingTop: 6,
-  borderTop: "1px solid var(--legacy-color-e2e8f0)",
+  borderTop: "1px solid var(--color-border)",
 };
 
 const deleteSummary = {
@@ -1544,7 +1539,7 @@ const deleteSummary = {
   padding: "3px 0",
   fontSize: 12,
   fontWeight: 800,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
 };
 
 const deleteBody = {
@@ -1554,8 +1549,8 @@ const deleteBody = {
 const footerMeta = {
   marginTop: 8,
   paddingTop: 8,
-  borderTop: "1px solid var(--legacy-color-e2e8f0)",
-  color: "var(--legacy-color-64748b)",
+  borderTop: "1px solid var(--color-border)",
+  color: "var(--color-text-muted)",
   fontSize: 11,
   display: "flex",
   gap: 12,
@@ -1568,13 +1563,13 @@ const actions = {
   justifyContent: "flex-end",
   marginTop: 8,
   paddingTop: 8,
-  borderTop: "1px solid var(--legacy-color-e2e8f0)",
+  borderTop: "1px solid var(--color-border)",
   flexWrap: "wrap",
 };
 
 const btn = {
   padding: "7px 11px",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: 8,
   cursor: "pointer",
@@ -1584,29 +1579,15 @@ const btn = {
 };
 
 const miniCard = {
-  background: "var(--legacy-color-f8fafc)",
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 7,
 };
 
 function statusColor(status = "") {
-  const map = {
-    Confirmed: "var(--legacy-color-fde047)",
-    "First Pencil": "var(--legacy-color-93c5fd)",
-    "Second Pencil": "var(--legacy-color-ef4444)",
-    DNH: "var(--legacy-color-c2c2c2)",
-    Complete: "var(--legacy-color-22c55e)",
-    "Action Required": "var(--legacy-color-ff7b00)",
-    Holiday: "var(--legacy-color-d1d5db)",
-    Maintenance: "var(--legacy-color-fb923c)",
-    Lost: "var(--legacy-color-ef4444)",
-    Postponed: "var(--legacy-color-f59e0b)",
-    Cancelled: "var(--legacy-color-ef4444)",
-    Enquiry: "var(--legacy-color-e5e7eb)",
-  };
-  return map[status] || "var(--legacy-color-e5e7eb)";
+  return getFixedJobStatusStyle(status).bg;
 }
 function onStatusColor(status = "") {
-  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "var(--legacy-color-111)" : "var(--legacy-color-fff)";
+  return getFixedJobStatusStyle(status).text;
 }

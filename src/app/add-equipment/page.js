@@ -1,6 +1,7 @@
 // src/app/add-equipment/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
@@ -16,6 +17,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -33,19 +35,7 @@ const clearBookingReferenceCache = () => {
 };
 
 /* ───────────────── Mini design system (match your newer pages) ───────────────── */
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 16,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowMd: "0 10px 26px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-};
+const UI = UI_TOKENS;
 
 const shell = { minHeight: "100vh", background: UI.bg, color: UI.text };
 const main = { flex: 1, padding: "24px 18px 40px", maxWidth: 1200, margin: "0 auto" };
@@ -78,16 +68,16 @@ const input = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 12,
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   outline: "none",
 };
 const textarea = { ...input, minHeight: 220, resize: "vertical" };
 const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
 
-const btn = (bg = "var(--legacy-color-fff)", fg = UI.text, bd = "1px solid var(--legacy-color-e5e7eb)") => ({
+const btn = (bg = "var(--color-white)", fg = UI.text, bd = "1px solid var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -258,19 +248,19 @@ export default function AddEquipmentPage() {
   return (
     <HeaderSidebarLayout>
       <div style={shell}>
-        <main style={main}>
-          <div style={headerRow}>
+        <main className={layoutStyles.extracted1}>
+          <div className={layoutStyles.extracted2}>
             <div>
-              <h1 style={h1}>Add Equipment</h1>
+              <h1 className={layoutStyles.extracted3}>Add Equipment</h1>
               <div style={sub}>Create a new equipment record. Next inspection can auto-calc from last date + frequency.</div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button style={btn("var(--legacy-color-fff)", UI.text)} onClick={() => router.back()}>
+            <div className={layoutStyles.extracted4}>
+              <button style={btn("var(--color-white)", UI.text)} onClick={() => router.back()}>
                 ← Cancel
               </button>
               <button
-                style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                 onClick={handleSave}
                 disabled={!canSave || saving}
                 title={!canSave ? "Fill Name and Category" : ""}
@@ -280,13 +270,13 @@ export default function AddEquipmentPage() {
             </div>
           </div>
 
-          <div style={{ height: 14 }} />
+          <div className={layoutStyles.extracted5} />
 
-          <form onSubmit={handleSave} style={{ display: "grid", gap: 14 }}>
+          <form onSubmit={handleSave} className={layoutStyles.extracted6}>
             <div style={{ ...card, padding: 14 }}>
               <div style={sectionTitle}>Equipment Information</div>
 
-              <div style={grid}>
+              <div className={layoutStyles.extracted7}>
                 <div style={col(4)}>
                   <label style={label}>Name *</label>
                   <input
@@ -378,7 +368,7 @@ export default function AddEquipmentPage() {
             <div style={{ ...card, padding: 14 }}>
               <div style={sectionTitle}>Inspection</div>
 
-              <div style={grid}>
+              <div className={layoutStyles.extracted8}>
                 <div style={col(4)}>
                   <label style={label}>Last Inspection</label>
                   <input type="date" name="lastInspection" value={equipment.lastInspection} onChange={handleChange} style={input} />
@@ -415,13 +405,13 @@ export default function AddEquipmentPage() {
               />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" style={btn("var(--legacy-color-fff)", UI.text)} onClick={() => router.back()}>
+            <div className={layoutStyles.extracted9}>
+              <button type="button" style={btn("var(--color-white)", UI.text)} onClick={() => router.back()}>
                 Cancel
               </button>
               <button
                 type="submit"
-                style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                 disabled={!canSave || saving}
               >
                 {saving ? "Saving…" : "Save Equipment"}

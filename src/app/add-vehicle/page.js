@@ -1,6 +1,7 @@
 // src/app/add-vehicle/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -23,24 +24,10 @@ import {
   uniqueVehicleCategoryNames,
 } from "@/app/utils/vehicleCategorySettings";
 import { ArrowLeft, Save } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* UI tokens */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowMd: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  danger: "var(--legacy-color-dc2626)",
-};
+const UI = UI_TOKENS;
 
 const shell = { minHeight: "100vh", background: UI.bg, color: UI.text };
 const main = { flex: 1, padding: "16px 16px 32px", maxWidth: 1280, margin: "0 auto" };
@@ -62,25 +49,25 @@ const input = {
   borderRadius: UI.radiusSm,
   border: UI.border,
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   outline: "none",
 };
 const textarea = { ...input, minHeight: 92, resize: "vertical" };
 
-const btn = (bg = "var(--legacy-color-fff)", fg = UI.text, bd = "1px solid var(--legacy-color-e5e7eb)") => ({
+const btn = (bg = "var(--color-white)", fg = UI.text, bd = "1px solid var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 8,
   padding: "6px 9px",
   borderRadius: UI.radiusSm,
-  border: bg === UI.brand ? `1px solid ${UI.brand}` : bd === "1px solid var(--legacy-color-e5e7eb)" ? `1px solid ${UI.brandBorder}` : bd,
+  border: bg === UI.brand ? `1px solid ${UI.brand}` : bd === "1px solid var(--color-border)" ? `1px solid ${UI.brandBorder}` : bd,
   background:
     bg === UI.brand
-      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
-      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
-  color: bg === UI.brand ? "var(--legacy-color-fff)" : fg,
+      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
+  color: bg === UI.brand ? "var(--color-white)" : fg,
   fontWeight: 800,
   cursor: "pointer",
   textDecoration: "none",
@@ -709,22 +696,22 @@ export default function AddVehiclePage() {
     return (
       <HeaderSidebarLayout>
         <div style={shell}>
-          <main style={{ ...main, maxWidth: 860 }}>
-            <div style={headerRow}>
+          <main className={layoutStyles.extracted1}>
+            <div className={layoutStyles.extracted2}>
               <div>
-                <h1 style={h1}>Add Retention Plate</h1>
+                <h1 className={layoutStyles.extracted3}>Add Retention Plate</h1>
                 <div style={sub}>Create a simple number plate record and track the retention expiry date.</div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" className="add-vehicle-action" style={btn("var(--legacy-color-fff)", UI.text)} onClick={handleCancel}>
+              <div className={layoutStyles.extracted4}>
+                <button type="button" className="add-vehicle-action" style={btn("var(--color-white)", UI.text)} onClick={handleCancel}>
                   <ArrowLeft size={15} />
                   Cancel
                 </button>
                 <button
                   type="button"
                   className="add-vehicle-action"
-                  style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
+                  style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                   onClick={handleSubmit}
                   disabled={!canSave || saving}
                   title={!canSave ? "Fill Number Plate" : ""}
@@ -735,13 +722,13 @@ export default function AddVehiclePage() {
               </div>
             </div>
 
-            <div style={{ height: 14 }} />
+            <div className={layoutStyles.extracted5} />
 
-            <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
+            <form onSubmit={handleSubmit} className={layoutStyles.extracted6}>
               <div style={{ ...card, padding: 12 }}>
                 <div style={sectionTitle}>Number Plate Details</div>
 
-                <div className="add-vehicle-form-grid" style={grid}>
+                <div className={`add-vehicle-form-grid ${layoutStyles.extracted7}`} >
                   <div style={col(6)}>
                     <label style={label}>Number Plate *</label>
                     <input
@@ -786,7 +773,7 @@ export default function AddVehiclePage() {
 
                   <div style={col(12)}>
                     <label style={label}>Category</label>
-                    <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...input, background: "var(--legacy-color-f8fafc)" }} />
+                    <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...input, background: "var(--color-surface-subtle)" }} />
                   </div>
 
                   <div style={col(12)}>
@@ -802,15 +789,15 @@ export default function AddVehiclePage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-                <button type="button" className="add-vehicle-action" style={btn("var(--legacy-color-fff)", UI.text)} onClick={handleCancel}>
+              <div className={layoutStyles.extracted8}>
+                <button type="button" className="add-vehicle-action" style={btn("var(--color-white)", UI.text)} onClick={handleCancel}>
                   <ArrowLeft size={15} />
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="add-vehicle-action"
-                  style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
+                  style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                   disabled={!canSave || saving}
                 >
                   <Save size={15} />
@@ -824,7 +811,7 @@ export default function AddVehiclePage() {
         <style jsx global>{`
           input:disabled, select:disabled, textarea:disabled { opacity: 0.7; cursor: not-allowed; }
           button:disabled { opacity: 0.7; cursor: not-allowed; }
-          input:focus, select:focus, textarea:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
+          input:focus, select:focus, textarea:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
           .add-vehicle-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowMd} !important; }
           @media (max-width: 820px) {
             .add-vehicle-form-grid > div { grid-column: span 12 !important; }
@@ -837,10 +824,10 @@ export default function AddVehiclePage() {
   return (
     <HeaderSidebarLayout>
       <div style={shell}>
-        <main style={main}>
-          <div style={headerRow}>
+        <main className={layoutStyles.extracted9}>
+          <div className={layoutStyles.extracted10}>
             <div>
-              <h1 style={h1}>{isNumberPlateMode ? "Add Retention Plate" : "Add Vehicle"}</h1>
+              <h1 className={layoutStyles.extracted11}>{isNumberPlateMode ? "Add Retention Plate" : "Add Vehicle"}</h1>
               <div style={sub}>
                 {isNumberPlateMode
                   ? "Create a simple number plate record and track the retention expiry date."
@@ -848,15 +835,15 @@ export default function AddVehiclePage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" className="add-vehicle-action" style={btn("var(--legacy-color-fff)", UI.text)} onClick={handleCancel}>
+            <div className={layoutStyles.extracted12}>
+              <button type="button" className="add-vehicle-action" style={btn("var(--color-white)", UI.text)} onClick={handleCancel}>
                 <ArrowLeft size={15} />
                 Cancel
               </button>
               <button
                 type="button"
                 className="add-vehicle-action"
-                style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                 onClick={handleSubmit}
                 disabled={!canSave || saving}
                 title={!canSave ? (isNumberPlateMode ? "Fill Number Plate" : "Fill Name, Registration, and Category") : ""}
@@ -867,14 +854,14 @@ export default function AddVehiclePage() {
             </div>
           </div>
 
-          <div style={{ height: 14 }} />
+          <div className={layoutStyles.extracted13} />
 
-          <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
+          <form onSubmit={handleSubmit} className={layoutStyles.extracted14}>
             {/* Main details */}
             <div style={{ ...card, padding: 12 }}>
               <div style={sectionTitle}>Main Information</div>
 
-              <div className="add-vehicle-form-grid" style={grid}>
+              <div className={`add-vehicle-form-grid ${layoutStyles.extracted15}`} >
                 <div style={col(4)}>
                   <label style={label}>Name *</label>
                   <input name="name" value={formData.name} onChange={handleChange} style={input} placeholder="e.g., Silverado" />
@@ -996,7 +983,7 @@ export default function AddVehiclePage() {
             <div style={{ ...card, padding: 12 }}>
               <div style={sectionTitle}>Maintenance</div>
 
-              <div className="add-vehicle-form-grid" style={grid}>
+              <div className={`add-vehicle-form-grid ${layoutStyles.extracted16}`} >
                 {/* MOT */}
                 <div style={col(12)}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: UI.text, marginBottom: 8 }}>MOT</div>
@@ -1088,7 +1075,7 @@ export default function AddVehiclePage() {
 
                     <div style={col(4)}>
                       <label style={label}>Inspection Frequency (weeks)</label>
-                      <input value="8" readOnly style={{ ...input, background: "var(--legacy-color-f8fafc)" }} />
+                      <input value="8" readOnly style={{ ...input, background: "var(--color-surface-subtle)" }} />
                     </div>
 
                     <div style={col(4)}>
@@ -1119,7 +1106,7 @@ export default function AddVehiclePage() {
             {/* Additional maintenance */}
             <div style={{ ...card, padding: 12 }}>
               <div style={sectionTitle}>Additional Maintenance</div>
-              <div className="add-vehicle-form-grid" style={{ ...grid, marginTop: 10, marginBottom: 12 }}>
+              <div className={`add-vehicle-form-grid ${layoutStyles.extracted17}`} >
                 <div style={col(4)}>
                   <label style={label}>Warranty</label>
                   <select name="warranty" value={formData.warranty} onChange={handleChange} style={input}>
@@ -1135,7 +1122,7 @@ export default function AddVehiclePage() {
               </div>
 
               <div style={helpText}>Tick the extra maintenance lines this vehicle needs.</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, marginBottom: 12 }}>
+              <div className={layoutStyles.extracted18}>
                 {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
                   const checked = shownAdditionalMaintenance.includes(section.key) || sectionHasValue(formData, section);
                   return (
@@ -1146,7 +1133,7 @@ export default function AddVehiclePage() {
                         alignItems: "center",
                         gap: 7,
                         border: checked ? `1px solid ${UI.brandBorder}` : UI.border,
-                        background: checked ? UI.brandSoft : "var(--legacy-color-fff)",
+                        background: checked ? UI.brandSoft : "var(--color-surface)",
                         color: UI.text,
                         borderRadius: UI.radius,
                         padding: "7px 9px",
@@ -1160,7 +1147,7 @@ export default function AddVehiclePage() {
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleAdditionalMaintenance(section.key)}
-                        style={{ margin: 0 }}
+                        className={layoutStyles.extracted19}
                       />
                       {section.label}
                     </label>
@@ -1169,7 +1156,7 @@ export default function AddVehiclePage() {
               </div>
 
               {visibleAdditionalMaintenanceSections.length ? (
-                <div className="add-vehicle-form-grid" style={grid}>
+                <div className={`add-vehicle-form-grid ${layoutStyles.extracted20}`} >
                   {visibleAdditionalMaintenanceSections.flatMap((section) =>
                     section.fields.map((field) => (
                       <div key={`${section.key}-${field.name}`} style={col(3)}>
@@ -1192,15 +1179,15 @@ export default function AddVehiclePage() {
             </div>
 
             {/* Footer actions (redundant + nice UX) */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="add-vehicle-action" style={btn("var(--legacy-color-fff)", UI.text)} onClick={handleCancel}>
+            <div className={layoutStyles.extracted21}>
+              <button type="button" className="add-vehicle-action" style={btn("var(--color-white)", UI.text)} onClick={handleCancel}>
                 <ArrowLeft size={15} />
                 Cancel
               </button>
               <button
                 type="submit"
                 className="add-vehicle-action"
-                style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                 disabled={!canSave || saving}
               >
                 <Save size={15} />
@@ -1214,7 +1201,7 @@ export default function AddVehiclePage() {
       <style jsx global>{`
         input:disabled, select:disabled, textarea:disabled { opacity: 0.7; cursor: not-allowed; }
         button:disabled { opacity: 0.7; cursor: not-allowed; }
-        input:focus, select:focus, textarea:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
+        input:focus, select:focus, textarea:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
         .add-vehicle-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowMd} !important; }
         @media (max-width: 820px) {
           .add-vehicle-form-grid > div { grid-column: span 12 !important; }

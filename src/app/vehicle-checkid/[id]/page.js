@@ -1,25 +1,17 @@
 // src/app/vehicle-checkid/[id]/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation"; // ← use this
 import { doc, getDoc } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../../firebaseConfig";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* UI tokens (unchanged) */
-const UI = {
-  page: "var(--legacy-color-f3f4f6)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  subtext: "var(--legacy-color-64748b)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  radius: 12,
-  radiusSm: 8,
-  shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
-  shadowMd: "0 8px 24px rgba(2, 6, 23, 0.08)",
-};
+const UI = UI_TOKENS;
 const shell = { minHeight: "100vh", background: UI.page, color: UI.text, fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif" };
 const main = { flex: 1, padding: "28px 28px 40px", maxWidth: 900, margin: "0 auto" };
 const h1 = { fontSize: 26, lineHeight: "30px", fontWeight: 800, marginBottom: 8, color: UI.text };
@@ -27,7 +19,7 @@ const meta = { fontSize: 13, color: UI.subtext };
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm, padding: 16 };
 const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
 const value = { fontSize: 14, color: UI.text, fontWeight: 700 };
-const itemRow = { display: "grid", gridTemplateColumns: "58px 1fr 110px", alignItems: "center", gap: 10, borderBottom: "1px solid var(--legacy-color-eef2f7)", padding: "8px 0" };
+const itemRow = { display: "grid", gridTemplateColumns: "58px 1fr 110px", alignItems: "center", gap: 10, borderBottom: "1px solid var(--color-brand-soft)", padding: "8px 0" };
 const badge = (variant) => ({
   display: "inline-flex",
   alignItems: "center",
@@ -36,9 +28,9 @@ const badge = (variant) => ({
   borderRadius: 999,
   fontSize: 12,
   fontWeight: 800,
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  background: variant === "submitted" ? "var(--legacy-color-ecfdf5)" : variant === "draft" ? "var(--legacy-color-f8fafc)" : "var(--legacy-color-fff)",
-  color: variant === "submitted" ? "var(--legacy-color-065f46)" : "var(--legacy-color-111827)",
+  border: "1px solid var(--color-border)",
+  background: variant === "submitted" ? "var(--color-success-soft)" : variant === "draft" ? "var(--color-surface-subtle)" : "var(--color-surface)",
+  color: variant === "submitted" ? "var(--color-success)" : "var(--color-text)",
 });
 const statusChip = (s) => ({
   display: "inline-flex",
@@ -46,11 +38,11 @@ const statusChip = (s) => ({
   minWidth: 84,
   padding: "6px 10px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   fontSize: 12,
   fontWeight: 800,
-  background: s === "serviceable" ? "var(--legacy-color-f0fdf4)" : s === "defect" ? "var(--legacy-color-fef2f2)" : s === "na" ? "var(--legacy-color-f8fafc)" : "var(--legacy-color-fff)",
-  color: s === "serviceable" ? "var(--legacy-color-166534)" : s === "defect" ? "var(--legacy-color-991b1b)" : "var(--legacy-color-111827)",
+  background: s === "serviceable" ? "var(--color-success-soft)" : s === "defect" ? "var(--color-danger-soft)" : s === "na" ? "var(--color-surface-subtle)" : "var(--color-surface)",
+  color: s === "serviceable" ? "var(--color-success)" : s === "defect" ? "var(--color-danger)" : "var(--color-text)",
 });
 
 export default function VehicleCheckDetailPage() {
@@ -102,7 +94,7 @@ export default function VehicleCheckDetailPage() {
     return (
       <HeaderSidebarLayout>
         <div style={shell}>
-          <main style={main}>
+          <main className={layoutStyles.extracted1}>
             <div style={{ ...card, textAlign: "center" }}>Loading…</div>
           </main>
         </div>
@@ -114,22 +106,14 @@ export default function VehicleCheckDetailPage() {
     return (
       <HeaderSidebarLayout>
         <div style={shell}>
-          <main style={main}>
+          <main className={layoutStyles.extracted2}>
             <div style={{ ...card, textAlign: "center" }}>
               Vehicle check not found.
               {error && <div style={{ marginTop: 6, color: UI.subtext, fontSize: 12 }}>{error}</div>}
-              <div style={{ marginTop: 10 }}>
+              <div className={layoutStyles.extracted3}>
                 <Link
                   href="/vehicle-checks"
-                  style={{
-                    display: "inline-flex",
-                    gap: 8,
-                    padding: "6px 10px",
-                    border: "1px solid var(--legacy-color-e5e7eb)",
-                    borderRadius: 8,
-                    fontWeight: 800,
-                    background: "var(--legacy-color-fff)",
-                  }}
+                  className={layoutStyles.extracted4}
                 >
                   ← Back to list
                 </Link>
@@ -147,8 +131,8 @@ export default function VehicleCheckDetailPage() {
   return (
     <HeaderSidebarLayout>
       <div style={shell}>
-        <main style={main}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <main className={layoutStyles.extracted5}>
+          <div className={layoutStyles.extracted6}>
             <h1 style={h1}>Vehicle Defect Report</h1>
             <span style={badge(row.status || "draft")}>{row.status || "draft"}</span>
           </div>
@@ -156,7 +140,7 @@ export default function VehicleCheckDetailPage() {
 
           {/* Summary */}
           <div style={{ ...card, marginTop: 14 }}>
-            <div style={grid2}>
+            <div className={layoutStyles.extracted7}>
               <Field label="Date"><div style={value}>{row.dateISO || "-"}</div></Field>
               <Field label="Time"><div style={value}>{row.time || "-"}</div></Field>
               <Field label="Job"><div style={value}>{row.jobId || "-"}</div></Field>
@@ -170,17 +154,10 @@ export default function VehicleCheckDetailPage() {
               <Field label="Odometer"><div style={value}>{row.odometer || "-"}</div></Field>
             </div>
 
-            <div style={{ marginTop: 12 }}>
+            <div className={layoutStyles.extracted8}>
               <Field label="Additional Notes">
                 <div
-                  style={{
-                    whiteSpace: "pre-wrap",
-                    background: "var(--legacy-color-fafafa)",
-                    border: "1px solid var(--legacy-color-e5e7eb)",
-                    borderRadius: 8,
-                    padding: 12,
-                    fontSize: 13,
-                  }}
+                  className={layoutStyles.extracted9}
                 >
                   {row.notes?.trim() ? row.notes : "—"}
                 </div>
@@ -190,16 +167,16 @@ export default function VehicleCheckDetailPage() {
 
           {/* Daily Check */}
           <div style={{ ...card, marginTop: 14 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 16 }}>Daily Check</div>
+            <div className={layoutStyles.extracted10}>Daily Check</div>
             {items.length === 0 ? (
               <div style={{ color: UI.subtext, fontSize: 13 }}>No items recorded.</div>
             ) : (
               items.map((it, idx) => (
-                <div key={idx} style={itemRow}>
+                <div key={idx} className={layoutStyles.extracted11}>
                   <div style={{ fontWeight: 800, color: UI.subtext }}>
                     {String(it.i ?? idx + 1).padStart(2, "0")}
                   </div>
-                  <div style={{ fontWeight: 700 }}>{it.label || "-"}</div>
+                  <div className={layoutStyles.extracted12}>{it.label || "-"}</div>
                   <div><span style={statusChip(it.status)}>{labelForStatus(it.status)}</span></div>
                 </div>
               ))
@@ -209,22 +186,14 @@ export default function VehicleCheckDetailPage() {
           {/* Defect Notes */}
           {items.some((i) => i.status === "defect") && (
             <div style={{ ...card, marginTop: 14 }}>
-              <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 16 }}>Defect Notes</div>
+              <div className={layoutStyles.extracted13}>Defect Notes</div>
               {items.filter((i) => i.status === "defect").map((it, idx) => (
-                <div key={`def-${idx}`} style={{ borderBottom: "1px solid var(--legacy-color-eef2f7)", padding: "8px 0" }}>
-                  <div style={{ fontWeight: 800 }}>
+                <div key={`def-${idx}`} className={layoutStyles.extracted14}>
+                  <div className={layoutStyles.extracted15}>
                     {String(it.i ?? idx + 1).padStart(2, "0")} · {it.label}
                   </div>
                   <div
-                    style={{
-                      whiteSpace: "pre-wrap",
-                      background: "var(--legacy-color-fafafa)",
-                      border: "1px solid var(--legacy-color-e5e7eb)",
-                      borderRadius: 8,
-                      padding: 10,
-                      fontSize: 13,
-                      marginTop: 6,
-                    }}
+                    className={layoutStyles.extracted16}
                   >
                     {it.note?.trim() ? it.note : "—"}
                   </div>
@@ -235,46 +204,32 @@ export default function VehicleCheckDetailPage() {
 
           {/* Photos */}
           <div style={{ ...card, marginTop: 14 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 16 }}>Photos</div>
+            <div className={layoutStyles.extracted17}>Photos</div>
             {photos.length === 0 ? (
               <div style={{ color: UI.subtext, fontSize: 13 }}>No photos attached.</div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
+              <div className={layoutStyles.extracted18}>
                 {photos.map((u, i) => (
                   <a
                     key={`${u}-${i}`}
                     href={u}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      display: "block",
-                      border: "1px solid var(--legacy-color-e5e7eb)",
-                      borderRadius: 8,
-                      overflow: "hidden",
-                      background: "var(--legacy-color-fafafa)",
-                    }}
+                    className={layoutStyles.extracted19}
                     title="Open full image"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={u} alt={`photo ${i + 1}`} style={{ width: "100%", height: 140, objectFit: "cover" }} />
+                    <img src={u} alt={`photo ${i + 1}`} className={layoutStyles.extracted20} />
                   </a>
                 ))}
               </div>
             )}
           </div>
 
-          <div style={{ marginTop: 12 }}>
+          <div className={layoutStyles.extracted21}>
             <Link
               href="/vehicle-checks"
-              style={{
-                display: "inline-flex",
-                gap: 8,
-                padding: "8px 12px",
-                border: "1px solid var(--legacy-color-e5e7eb)",
-                borderRadius: 8,
-                background: "var(--legacy-color-fff)",
-                fontWeight: 800,
-              }}
+              className={layoutStyles.extracted22}
             >
               ← Back to list
             </Link>
@@ -289,7 +244,7 @@ export default function VehicleCheckDetailPage() {
 function Field({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize: 12, color: "var(--legacy-color-64748b)", fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div className={layoutStyles.extracted23}>{label}</div>
       {children}
     </div>
   );

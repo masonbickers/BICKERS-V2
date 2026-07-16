@@ -1,17 +1,19 @@
 // src/app/recce-form/[id]/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = { text:"var(--legacy-color-111827)", muted:"var(--legacy-color-6b7280)", bg:"var(--legacy-color-ffffff)", border:"1px solid var(--legacy-color-e5e7eb)", radiusLg:12, radius:8, shadow:"0 6px 16px rgba(0,0,0,0.06)" };
+const UI = UI_TOKENS;
 const card = { background:UI.bg, border:UI.border, borderRadius:UI.radiusLg, boxShadow:UI.shadow, padding:16 };
 
 const Row = ({ label, value }) =>
   value ? (
-    <div style={{ display:"grid", gridTemplateColumns:"160px 1fr", gap:12, margin:"6px 0" }}>
+    <div className={layoutStyles.extracted1}>
       <div style={{ fontWeight:800, color:UI.text }}>{label}</div>
       <div style={{ whiteSpace:"pre-wrap", fontWeight:600, color:UI.text }}>{value}</div>
     </div>
@@ -117,44 +119,44 @@ export default function RecceFormPage() {
   const bust = updatedAt ? String(updatedAt.getTime()) : "";
 
   return (
-    <div style={{ minHeight:"100vh", background:"var(--legacy-color-f3f4f6)", padding:24 }}>
-      <div style={{ maxWidth:900, margin:"0 auto", display:"grid", gap:16 }}>
+    <div className={layoutStyles.extracted2}>
+      <div className={layoutStyles.extracted3}>
         {/* Header */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div className={layoutStyles.extracted4}>
           <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:UI.text }}>Recce Form</h1>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={() => router.back()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid var(--legacy-color-e5e7eb)", background:"var(--legacy-color-f9fafb)", fontWeight:700, cursor:"pointer" }}>← Back</button>
-            <button onClick={() => window.location.reload()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid var(--legacy-color-e5e7eb)", background:"var(--legacy-color-f9fafb)", fontWeight:700, cursor:"pointer" }} title="Force refresh">Refresh</button>
-            <button onClick={() => window.print()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid var(--legacy-color-111827)", background:"var(--legacy-color-111827)", color:"var(--legacy-color-fff)", fontWeight:700, cursor:"pointer" }}>Print</button>
+          <div className={layoutStyles.extracted5}>
+            <button onClick={() => router.back()} className={layoutStyles.extracted6}>← Back</button>
+            <button onClick={() => window.location.reload()} className={layoutStyles.extracted7} title="Force refresh">Refresh</button>
+            <button onClick={() => window.print()} className={layoutStyles.extracted8}>Print</button>
           </div>
         </div>
 
         {/* Status / meta */}
         <div style={{ ...card }}>
           {loading && <div style={{ color:UI.muted, fontWeight:700 }}>Loading…</div>}
-          {error && <div style={{ color:"var(--legacy-color-b91c1c)", fontWeight:800 }}>{error}</div>}
+          {error && <div className={layoutStyles.extracted9}>{error}</div>}
 
           {!loading && !error && recce && (
-            <div style={{ display:"grid", gap:16 }}>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:String(recce.status||"").toLowerCase()==="approved"?"var(--legacy-color-34d399)":"var(--legacy-color-7cff9a)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
+            <div className={layoutStyles.extracted10}>
+              <div className={layoutStyles.extracted11}>
+                <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:String(recce.status||"").toLowerCase()==="approved"?"var(--color-success-accent)":"var(--color-success-accent)", border:"1px solid var(--color-border-strong)", color:"var(--shell-sidebar-bg)" }}>
                   {(recce.status || "Submitted").toUpperCase()}
                 </span>
 
                 {recce.bookingId && (
-                  <span title="Booking ID" style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"var(--legacy-color-e5e7eb)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
+                  <span title="Booking ID" className={layoutStyles.extracted12}>
                     Booking: {recce.bookingId}
                   </span>
                 )}
 
                 {submittedAt && (
-                  <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"var(--legacy-color-e5e7eb)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
+                  <span className={layoutStyles.extracted13}>
                     Submitted {submittedAt.toLocaleString("en-GB")}
                   </span>
                 )}
 
                 {updatedAt && (
-                  <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"var(--legacy-color-eef2ff)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
+                  <span className={layoutStyles.extracted14}>
                     Last updated {updatedAt.toLocaleString("en-GB")}
                   </span>
                 )}
@@ -177,18 +179,18 @@ export default function RecceFormPage() {
                 <Row label="Created At" value={submittedAt ? submittedAt.toLocaleString("en-GB") : (answers.createdAt || "")} />
 
                 {/* Photos */}
-                <div style={{ marginTop:18 }}>
+                <div className={layoutStyles.extracted15}>
                   <div style={{ fontWeight:800, color:UI.text, marginBottom:8 }}>Photos</div>
                   {photoUrls.length === 0 ? (
                     <div style={{ color:UI.muted, fontWeight:600 }}>No photos attached.</div>
                   ) : (
-                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(140px, 1fr))", gap:10 }}>
+                    <div className={layoutStyles.extracted16}>
                       {photoUrls.map((url, i) => {
                         const src = bust ? `${url}${url.includes("?") ? "&" : "?"}v=${bust}` : url;
                         return (
-                          <a key={`${url}-${i}`} href={url} target="_blank" rel="noreferrer" title="Open full size" style={{ display:"block", borderRadius:10, overflow:"hidden", border:"1px solid var(--legacy-color-e5e7eb)", background:"var(--legacy-color-f9fafb)" }}>
+                          <a key={`${url}-${i}`} href={url} target="_blank" rel="noreferrer" title="Open full size" className={layoutStyles.extracted17}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={src} alt={`Recce photo ${i + 1}`} style={{ width:"100%", height:140, objectFit:"cover", display:"block" }} />
+                            <img src={src} alt={`Recce photo ${i + 1}`} className={layoutStyles.extracted18} />
                           </a>
                         );
                       })}
@@ -198,9 +200,9 @@ export default function RecceFormPage() {
 
                 {/* Raw data (debug) */}
                 {Object.keys(answers).length > 0 && (
-                  <details style={{ marginTop:12 }}>
+                  <details className={layoutStyles.extracted19}>
                     <summary style={{ cursor:"pointer", fontWeight:800, color:UI.muted }}>Raw data (debug)</summary>
-                    <pre style={{ marginTop:8, fontSize:12, background:"var(--legacy-color-f8fafc)", padding:12, borderRadius:8, overflowX:"auto" }}>
+                    <pre className={layoutStyles.extracted20}>
 {JSON.stringify(answers, null, 2)}
                     </pre>
                   </details>

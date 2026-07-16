@@ -1,6 +1,7 @@
 // src/app/components/holidayform.jsx
 "use client";
 
+import layoutStyles from "./holidayform.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
@@ -16,6 +17,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { CalendarPlus, Check, X } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
@@ -856,11 +858,11 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   };
 
   return (
-    <div style={overlay}>
+    <div className={layoutStyles.extracted1}>
       <div style={modal}>
         {/* Header */}
-        <div style={headerRow}>
-          <div style={titleRow}>
+        <div className={layoutStyles.extracted2}>
+          <div className={layoutStyles.extracted3}>
             <span style={iconBox}>
               <CalendarPlus size={18} />
             </span>
@@ -874,10 +876,10 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={form}>
+        <form onSubmit={handleSubmit} className={layoutStyles.extracted4}>
           {/* Employee */}
-          <div style={fieldGroup}>
-            <label style={label}>Employee</label>
+          <div className={layoutStyles.extracted5}>
+            <label className={layoutStyles.extracted6}>Employee</label>
             <select value={employee} onChange={(e) => setEmployee(e.target.value)} style={input} required>
               <option value="">Select employee…</option>
               {employees.map((emp) => (
@@ -889,8 +891,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Type toggle */}
-          <div style={fieldGroup}>
-            <label style={label}>Holiday Type</label>
+          <div className={layoutStyles.extracted7}>
+            <label className={layoutStyles.extracted8}>Holiday Type</label>
             <select
               value={isMultiDay ? "multi" : "single"}
               onChange={(e) => setIsMultiDay(e.target.value === "multi")}
@@ -903,8 +905,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 
           {/* Dates */}
           {!isMultiDay ? (
-            <div style={fieldGroup}>
-              <label style={label}>Date</label>
+            <div className={layoutStyles.extracted9}>
+              <label className={layoutStyles.extracted10}>Date</label>
               <input
                 type="date"
                 value={holidayDate}
@@ -914,14 +916,14 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               />
             </div>
           ) : (
-            <div style={formGrid}>
-              <div style={fieldGroup}>
-                <label style={label}>Start Date</label>
+            <div className={layoutStyles.extracted11}>
+              <div className={layoutStyles.extracted12}>
+                <label className={layoutStyles.extracted13}>Start Date</label>
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required style={input} />
               </div>
 
-              <div style={fieldGroup}>
-                <label style={label}>End Date</label>
+              <div className={layoutStyles.extracted14}>
+                <label className={layoutStyles.extracted15}>End Date</label>
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required style={input} />
               </div>
             </div>
@@ -939,24 +941,24 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                   allowanceInfo.remainingPaid <= 0
                     ? "rgba(239,68,68,0.12)"
                     : "rgba(59,130,246,0.12)",
-                color: "var(--legacy-color-0f172a)",
+                color: "var(--color-text)",
                 borderRadius: 8,
                 padding: 10,
                 fontSize: 13,
                 lineHeight: 1.35,
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>
+              <div className={layoutStyles.extracted16}>
                 Allowance check ({allowanceInfo.year})
               </div>
-              <div style={{ opacity: 0.95 }}>
+              <div className={layoutStyles.extracted17}>
                 Allowance: <b>{allowanceInfo.allowance}</b> • Used (approved paid):{" "}
                 <b>{allowanceInfo.usedPaidApproved}</b> • Remaining paid:{" "}
                 <b>{allowanceInfo.remainingPaid}</b> • This request:{" "}
                 <b>{allowanceInfo.requestedDays}</b>
               </div>
               {allowanceInfo.msg ? (
-                <div style={{ marginTop: 6, opacity: 0.9 }}>{allowanceInfo.msg}</div>
+                <div className={layoutStyles.extracted18}>{allowanceInfo.msg}</div>
               ) : null}
             </div>
           ) : null}
@@ -964,19 +966,11 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           {/*  Holiday conflict warning */}
           {holidayConflictMsg ? (
             <div
-              style={{
-                border: "1px solid rgba(239,68,68,0.45)",
-                background: "rgba(239,68,68,0.12)",
-                color: "var(--legacy-color-7f1d1d)",
-                borderRadius: 8,
-                padding: 10,
-                fontSize: 13,
-                lineHeight: 1.35,
-              }}
+              className={layoutStyles.extracted19}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Holiday conflict</div>
+              <div className={layoutStyles.extracted20}>Holiday conflict</div>
               <div>{holidayConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-991b1b)", fontWeight: 700 }}>
+              <div className={layoutStyles.extracted21}>
                 You can’t submit an overlapping holiday for the same employee (unless it’s AM vs PM half-day on the same date).
               </div>
             </div>
@@ -985,19 +979,11 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           {/*  Job/crew conflict warning */}
           {jobConflictMsg ? (
             <div
-              style={{
-                border: "1px solid rgba(245,158,11,0.55)",
-                background: "rgba(245,158,11,0.14)",
-                color: "var(--legacy-color-78350f)",
-                borderRadius: 8,
-                padding: 10,
-                fontSize: 13,
-                lineHeight: 1.35,
-              }}
+              className={layoutStyles.extracted22}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Job conflict</div>
+              <div className={layoutStyles.extracted23}>Job conflict</div>
               <div>{jobConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-92400e)", fontWeight: 700 }}>
+              <div className={layoutStyles.extracted24}>
                 Remove them from the job first, or choose different holiday dates.
               </div>
             </div>
@@ -1005,29 +991,29 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 
           {/*  Half day controls */}
           <div style={halfWrap}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div className={layoutStyles.extracted25}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 13, color: "var(--legacy-color-0f172a)" }}>Half day</div>
-                <div style={{ fontSize: 12, color: "var(--legacy-color-5f6f82)", marginTop: 2, fontWeight: 700 }}>
+                <div className={layoutStyles.extracted26}>Half day</div>
+                <div className={layoutStyles.extracted27}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <label className={layoutStyles.extracted28}>
                 <input
                   type="checkbox"
                   checked={startHalfDay}
                   onChange={(e) => setStartHalfDay(e.target.checked)}
                 />
-                <span style={{ fontSize: 13, color: "var(--legacy-color-0f172a)", fontWeight: 800 }}>
+                <span className={layoutStyles.extracted29}>
                   {isMultiDay ? "Start half" : "Half day"}
                 </span>
               </label>
             </div>
 
             {startHalfDay ? (
-              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+              <div className={layoutStyles.extracted30}>
                 <div>
-                  <label style={label}>Start AM / PM</label>
+                  <label className={layoutStyles.extracted31}>Start AM / PM</label>
                   <select value={startAMPM} onChange={(e) => setStartAMPM(e.target.value)} style={input}>
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
@@ -1036,21 +1022,21 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 
                 {isMultiDay ? (
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                      <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <div className={layoutStyles.extracted32}>
+                      <label className={layoutStyles.extracted33}>End half day</label>
+                      <label className={layoutStyles.extracted34}>
                         <input
                           type="checkbox"
                           checked={endHalfDay}
                           onChange={(e) => setEndHalfDay(e.target.checked)}
                         />
-                        <span style={{ fontSize: 13, color: "var(--legacy-color-0f172a)", fontWeight: 800 }}>End half</span>
+                        <span className={layoutStyles.extracted35}>End half</span>
                       </label>
                     </div>
 
                     {endHalfDay ? (
-                      <div style={{ marginTop: 8 }}>
-                        <label style={label}>End AM / PM</label>
+                      <div className={layoutStyles.extracted36}>
+                        <label className={layoutStyles.extracted37}>End AM / PM</label>
                         <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
                           <option value="AM">AM</option>
                           <option value="PM">PM</option>
@@ -1061,22 +1047,22 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                 ) : null}
               </div>
             ) : isMultiDay ? (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <div className={layoutStyles.extracted38}>
+                <div className={layoutStyles.extracted39}>
+                  <label className={layoutStyles.extracted40}>End half day</label>
+                  <label className={layoutStyles.extracted41}>
                     <input
                       type="checkbox"
                       checked={endHalfDay}
                       onChange={(e) => setEndHalfDay(e.target.checked)}
                     />
-                    <span style={{ fontSize: 13, color: "var(--legacy-color-0f172a)", fontWeight: 800 }}>End half</span>
+                    <span className={layoutStyles.extracted42}>End half</span>
                   </label>
                 </div>
 
                 {endHalfDay ? (
-                  <div style={{ marginTop: 8 }}>
-                    <label style={label}>End AM / PM</label>
+                  <div className={layoutStyles.extracted43}>
+                    <label className={layoutStyles.extracted44}>End AM / PM</label>
                     <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
@@ -1088,8 +1074,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Reason */}
-          <div style={fieldGroup}>
-            <label style={label}>Reason</label>
+          <div className={layoutStyles.extracted45}>
+            <label className={layoutStyles.extracted46}>Reason</label>
             <textarea
               value={holidayReason}
               onChange={(e) => setHolidayReason(e.target.value)}
@@ -1101,8 +1087,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Paid vs unpaid */}
-          <div style={fieldGroup}>
-            <label style={label}>Paid status</label>
+          <div className={layoutStyles.extracted47}>
+            <label className={layoutStyles.extracted48}>Paid status</label>
             <select value={paidStatus} onChange={(e) => setPaidStatus(e.target.value)} style={input}>
               <option value="Paid" disabled={!paidAllowed}>
                 Paid{!paidAllowed ? " (no paid remaining)" : ""}
@@ -1111,13 +1097,13 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </select>
 
             {paidStatus === "Paid" && paidAllowed && !paidEnoughForThisRequest ? (
-              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-92400e)", fontWeight: 700 }}>
+              <div className={layoutStyles.extracted49}>
                 Not enough paid remaining for this request — pick Unpaid or split.
               </div>
             ) : null}
           </div>
 
-          <div style={actions}>
+          <div className={layoutStyles.extracted50}>
             <button type="button" onClick={handleBack} style={secondaryBtn}>
               Cancel
             </button>
@@ -1141,14 +1127,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   );
 }
 
-const UI = {
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  border: "var(--legacy-color-d7dee8)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-};
+const UI = UI_TOKENS;
 
 const overlay = {
   position: "fixed",
@@ -1166,7 +1145,7 @@ const modal = {
   borderRadius: 8,
   padding: 14,
   color: UI.text,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   border: `1px solid ${UI.border}`,
   boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
 };
@@ -1178,7 +1157,7 @@ const headerRow = {
   gap: 12,
   marginBottom: 14,
   paddingBottom: 12,
-  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
+  borderBottom: "1px solid var(--color-border)",
 };
 
 const titleRow = {
@@ -1223,7 +1202,7 @@ const closeBtn = {
   height: 34,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-f8fbfe)",
+  background: "var(--color-surface-subtle)",
   color: UI.muted,
   cursor: "pointer",
   display: "inline-flex",
@@ -1252,7 +1231,7 @@ const label = {
   display: "block",
   fontSize: 12,
   fontWeight: 900,
-  color: "var(--legacy-color-475569)",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };
@@ -1261,8 +1240,8 @@ const input = {
   width: "100%",
   padding: "10px 11px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  backgroundColor: "var(--legacy-color-ffffff)",
+  border: "1px solid var(--color-border-strong)",
+  backgroundColor: "var(--color-surface)",
   color: UI.text,
   outline: "none",
   fontSize: 14,
@@ -1272,15 +1251,15 @@ const input = {
 
 const halfWrap = {
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-f8fbfe)",
+  background: "var(--color-surface-subtle)",
   borderRadius: 8,
   padding: 10,
 };
 
 const globalOptionCSS = `
 select option {
-  background: var(--legacy-color-ffffff) !important;
-  color: var(--legacy-color-0f172a) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
 }
 `;
 
@@ -1300,8 +1279,8 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-  color: "var(--legacy-color-fff)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 13,
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
@@ -1315,7 +1294,7 @@ const secondaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   fontWeight: 800,
   fontSize: 13,

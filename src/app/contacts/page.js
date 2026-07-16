@@ -1,5 +1,6 @@
 "use client";
-import { useRouter } from "next/navigation";
+
+import layoutStyles from "./page.styles.module.css";import { useRouter } from "next/navigation";
 
 export default function ContactsPage() {
   const router = useRouter();
@@ -43,21 +44,14 @@ export default function ContactsPage() {
   ];
 
   return (
-    <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto", fontFamily: "Arial, sans-serif", color: "var(--legacy-color-111)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <h1 style={{ color: "var(--legacy-color-fff)" }}>Contacts</h1>
+    <div className={layoutStyles.extracted1}>
+      <div className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
+          <h1 className={layoutStyles.extracted4}>Contacts</h1>
         </div>
         <button
           onClick={() => router.push("/dashboard")}
-          style={{
-            backgroundColor: "var(--legacy-color-1976d2)",
-            color: "#white",
-            border: "none",
-            padding: "10px 16px",
-            borderRadius: "4px",
-            cursor: "pointer"
-          }}
+          className={layoutStyles.extracted5}
         >
           ← Back to Dashboard
         </button>
@@ -66,23 +60,17 @@ export default function ContactsPage() {
       {contacts.map((c, i) => (
         <div
           key={i}
-          style={{
-            backgroundColor: "var(--legacy-color-f9f9f9)",
-            padding: "20px",
-            marginBottom: "20px",
-            borderRadius: "8px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
-          }}
+          className={layoutStyles.extracted6}
         >
-          <h2 style={{ marginBottom: 5 }}>{c.name}</h2>
-          <p style={{ margin: 0, fontWeight: "bold" }}>{c.role}</p>
+          <h2 className={layoutStyles.extracted7}>{c.name}</h2>
+          <p className={layoutStyles.extracted8}>{c.role}</p>
           {c.email && (
-            <p style={{ margin: "4px 0" }}>
+            <p className={layoutStyles.extracted9}>
                <a href={`mailto:${c.email}`}>{c.email}</a>
             </p>
           )}
           {c.phone && (
-            <p style={{ margin: "4px 0" }}>
+            <p className={layoutStyles.extracted10}>
                <a href={`tel:${c.phone.replace(/[^+\d]/g, "")}`}>{c.phone}</a>
             </p>
           )}

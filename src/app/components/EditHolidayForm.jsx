@@ -1,6 +1,7 @@
 // src/app/components/EditHolidayForm.jsx
 "use client";
 
+import layoutStyles from "./EditHolidayForm.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db, auth } from "../../../firebaseConfig";
@@ -428,24 +429,24 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
   };
 
   return (
-    <div style={overlay}>
-      <div style={modal}>
+    <div className={layoutStyles.extracted1}>
+      <div className={layoutStyles.extracted2}>
         {/* Header */}
-        <div style={headerRow}>
-          <div style={{ display: "grid", gap: 2 }}>
-            <h2 style={modalTitle}>{loading ? "Loading…" : "Edit Holiday"}</h2>
+        <div className={layoutStyles.extracted3}>
+          <div className={layoutStyles.extracted4}>
+            <h2 className={layoutStyles.extracted5}>{loading ? "Loading…" : "Edit Holiday"}</h2>
 
             {!loading ? (
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.70)" }}>
+              <div className={layoutStyles.extracted6}>
                 Status:{" "}
-                <b style={{ color: "rgba(255,255,255,0.92)" }}>
+                <b className={layoutStyles.extracted7}>
                   {approved ? "Approved" : "Not approved"}
                 </b>
                 {holidayRec?.status ? (
                   <>
                     {" "}
                     • Record:{" "}
-                    <b style={{ color: "rgba(255,255,255,0.92)" }}>
+                    <b className={layoutStyles.extracted8}>
                       {String(holidayRec.status)}
                     </b>
                   </>
@@ -454,7 +455,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
                   <>
                     {" "}
                     • Signed in:{" "}
-                    <b style={{ color: "rgba(255,255,255,0.92)" }}>{userEmail}</b>{" "}
+                    <b className={layoutStyles.extracted9}>{userEmail}</b>{" "}
                     • {isAdmin ? "Admin" : "Staff"}
                   </>
                 ) : null}
@@ -462,38 +463,30 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
             ) : null}
           </div>
 
-          <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
+          <button onClick={handleBack} className={layoutStyles.extracted10} aria-label="Close" type="button">
             x
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+        <form onSubmit={handleSubmit} className={layoutStyles.extracted11}>
           {!canEditRecord ? (
             <div
-              style={{
-                padding: "10px 12px",
-                borderRadius: 10,
-                background: "rgba(245,158,11,0.12)",
-                border: "1px solid rgba(245,158,11,0.35)",
-                color: "rgba(255,244,214,0.92)",
-                fontSize: 12.5,
-                lineHeight: 1.45,
-              }}
+              className={layoutStyles.extracted12}
             >
               This holiday has already been approved. Only an admin can edit it now.
             </div>
           ) : null}
           <fieldset
             disabled={loading || saving || !canEditRecord}
-            style={{ display: "grid", gap: 12, border: "none", padding: 0, margin: 0, minWidth: 0 }}
+            className={layoutStyles.extracted13}
           >
           {/* Employee */}
           <div>
-            <label style={label}>Employee</label>
+            <label className={layoutStyles.extracted14}>Employee</label>
             <select
               value={employee}
               onChange={(e) => setEmployee(e.target.value)}
-              style={input}
+              className={layoutStyles.extracted15}
               required
             >
               <option value="">Select employee…</option>
@@ -507,11 +500,11 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
           {/* Type toggle */}
           <div>
-            <label style={label}>Holiday Type</label>
+            <label className={layoutStyles.extracted16}>Holiday Type</label>
             <select
               value={isMultiDay ? "multi" : "single"}
               onChange={(e) => setIsMultiDay(e.target.value === "multi")}
-              style={input}
+              className={layoutStyles.extracted17}
               disabled={loading}
             >
               <option value="single">Single Day</option>
@@ -522,38 +515,38 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           {/* Dates */}
           {!isMultiDay ? (
             <div>
-              <label style={label}>Date</label>
+              <label className={layoutStyles.extracted18}>Date</label>
               <input
                 type="date"
                 value={holidayDate}
                 onChange={(e) => setHolidayDate(e.target.value)}
                 required
-                style={input}
+                className={layoutStyles.extracted19}
                 disabled={loading}
               />
             </div>
           ) : (
             <>
               <div>
-                <label style={label}>Start Date</label>
+                <label className={layoutStyles.extracted20}>Start Date</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   required
-                  style={input}
+                  className={layoutStyles.extracted21}
                   disabled={loading}
                 />
               </div>
 
               <div>
-                <label style={label}>End Date</label>
+                <label className={layoutStyles.extracted22}>End Date</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   required
-                  style={input}
+                  className={layoutStyles.extracted23}
                   disabled={loading}
                 />
               </div>
@@ -561,37 +554,37 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           )}
 
           {/* Half day controls */}
-          <div style={halfWrap}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div className={layoutStyles.extracted24}>
+            <div className={layoutStyles.extracted25}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
+                <div className={layoutStyles.extracted26}>
                   Half day
                 </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
+                <div className={layoutStyles.extracted27}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <label className={layoutStyles.extracted28}>
                 <input
                   type="checkbox"
                   checked={startHalfDay}
                   onChange={(e) => setStartHalfDay(e.target.checked)}
                   disabled={loading}
                 />
-                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
+                <span className={layoutStyles.extracted29}>
                   {isMultiDay ? "Start half" : "Half day"}
                 </span>
               </label>
             </div>
 
             {startHalfDay ? (
-              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+              <div className={layoutStyles.extracted30}>
                 <div>
-                  <label style={label}>Start AM / PM</label>
+                  <label className={layoutStyles.extracted31}>Start AM / PM</label>
                   <select
                     value={startAMPM}
                     onChange={(e) => setStartAMPM(e.target.value)}
-                    style={input}
+                    className={layoutStyles.extracted32}
                     disabled={loading}
                   >
                     <option value="AM">AM</option>
@@ -601,26 +594,26 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
                 {isMultiDay ? (
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                      <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <div className={layoutStyles.extracted33}>
+                      <label className={layoutStyles.extracted34}>End half day</label>
+                      <label className={layoutStyles.extracted35}>
                         <input
                           type="checkbox"
                           checked={endHalfDay}
                           onChange={(e) => setEndHalfDay(e.target.checked)}
                           disabled={loading}
                         />
-                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                        <span className={layoutStyles.extracted36}>End half</span>
                       </label>
                     </div>
 
                     {endHalfDay ? (
-                      <div style={{ marginTop: 8 }}>
-                        <label style={label}>End AM / PM</label>
+                      <div className={layoutStyles.extracted37}>
+                        <label className={layoutStyles.extracted38}>End AM / PM</label>
                         <select
                           value={endAMPM}
                           onChange={(e) => setEndAMPM(e.target.value)}
-                          style={input}
+                          className={layoutStyles.extracted39}
                           disabled={loading}
                         >
                           <option value="AM">AM</option>
@@ -632,27 +625,27 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
                 ) : null}
               </div>
             ) : isMultiDay ? (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <div className={layoutStyles.extracted40}>
+                <div className={layoutStyles.extracted41}>
+                  <label className={layoutStyles.extracted42}>End half day</label>
+                  <label className={layoutStyles.extracted43}>
                     <input
                       type="checkbox"
                       checked={endHalfDay}
                       onChange={(e) => setEndHalfDay(e.target.checked)}
                       disabled={loading}
                     />
-                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                    <span className={layoutStyles.extracted44}>End half</span>
                   </label>
                 </div>
 
                 {endHalfDay ? (
-                  <div style={{ marginTop: 8 }}>
-                    <label style={label}>End AM / PM</label>
+                  <div className={layoutStyles.extracted45}>
+                    <label className={layoutStyles.extracted46}>End AM / PM</label>
                     <select
                       value={endAMPM}
                       onChange={(e) => setEndAMPM(e.target.value)}
-                      style={input}
+                      className={layoutStyles.extracted47}
                       disabled={loading}
                     >
                       <option value="AM">AM</option>
@@ -666,25 +659,25 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
           {/* Reason */}
           <div>
-            <label style={label}>Reason</label>
+            <label className={layoutStyles.extracted48}>Reason</label>
             <textarea
               value={holidayReason}
               onChange={(e) => setHolidayReason(e.target.value)}
               rows={3}
               placeholder="e.g. Family holiday / Sick / Appointment..."
               required
-              style={{ ...input, minHeight: 70, resize: "vertical", paddingTop: 12 }}
+              className={layoutStyles.extracted49}
               disabled={loading}
             />
           </div>
 
           {/* Paid vs unpaid */}
           <div>
-            <label style={label}>Paid status</label>
+            <label className={layoutStyles.extracted50}>Paid status</label>
             <select
               value={paidStatus}
               onChange={(e) => setPaidStatus(e.target.value)}
-              style={input}
+              className={layoutStyles.extracted51}
               disabled={loading}
             >
               <option value="Paid">Paid</option>
@@ -705,7 +698,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
             </button>
           </fieldset>
 
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className={layoutStyles.extracted52}>
             <button
               type="button"
               onClick={handleRequestDelete}
@@ -724,12 +717,12 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
               Request delete (approved only)
             </button>
 
-            <button type="button" onClick={handleBack} style={ghostBtn} disabled={saving}>
+            <button type="button" onClick={handleBack} className={layoutStyles.extracted53} disabled={saving}>
               Cancel
             </button>
           </div>
 
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", marginTop: 2 }}>
+          <div className={layoutStyles.extracted54}>
             Deletion requests are reviewed on the HR page. An admin must approve before the holiday is removed.
           </div>
         </form>
@@ -755,7 +748,7 @@ const modal = {
   width: "min(520px, 95vw)",
   borderRadius: 16,
   padding: 18,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   background: "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
   border: "1px solid rgba(255,255,255,0.08)",
   boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
@@ -779,7 +772,7 @@ const modalTitle = {
 const closeBtn = {
   border: "none",
   background: "transparent",
-  color: "var(--legacy-color-cbd5e1)",
+  color: "var(--color-border-strong)",
   fontSize: 20,
   cursor: "pointer",
   padding: 6,
@@ -800,7 +793,7 @@ const input = {
   borderRadius: 10,
   border: "1px solid rgba(255,255,255,0.10)",
   backgroundColor: "rgba(255,255,255,0.14)",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   outline: "none",
   fontSize: 14,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
@@ -816,8 +809,8 @@ const halfWrap = {
 
 const globalOptionCSS = `
 select option {
-  background: var(--legacy-color-0b0b0b) !important;
-  color: var(--legacy-color-fff) !important;
+  background: var(--shell-sidebar-bg) !important;
+  color: var(--color-white) !important;
 }
 `;
 
@@ -833,8 +826,8 @@ const primaryBtn = {
   padding: 12,
   borderRadius: 10,
   border: "1px solid rgba(37,99,235,0.55)",
-  background: "linear-gradient(180deg, var(--legacy-color-2563eb) 0%, var(--legacy-color-1d4ed8) 100%)",
-  color: "var(--legacy-color-fff)",
+  background: "linear-gradient(180deg, var(--color-brand) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 14,
 };
@@ -844,8 +837,8 @@ const dangerBtn = {
   padding: 12,
   borderRadius: 10,
   border: "1px solid rgba(185,28,28,0.55)",
-  background: "linear-gradient(180deg, var(--legacy-color-991b1b) 0%, var(--legacy-color-7f1d1d) 100%)",
-  color: "var(--legacy-color-fee2e2)",
+  background: "linear-gradient(180deg, var(--color-danger) 0%, var(--color-danger-hover) 100%)",
+  color: "var(--color-accent-soft)",
   fontWeight: 800,
   fontSize: 14,
 };

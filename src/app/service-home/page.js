@@ -1,21 +1,13 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────── Visual tokens (same as your Vehicles page) ──────────────── */
-const UI = {
-  page: "var(--legacy-color-f3f4f6)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  subtext: "var(--legacy-color-64748b)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  radius: 12,
-  radiusSm: 8,
-  shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
-  shadowMd: "0 8px 24px rgba(2, 6, 23, 0.08)",
-};
+const UI = UI_TOKENS;
 
 const shell = {
   minHeight: "100vh",
@@ -152,8 +144,8 @@ export default function ServiceHomePage() {
   return (
     <HeaderSidebarLayout>
       <div style={{ display: "flex", ...shell }}>
-        <main style={main}>
-          <div style={subbar}>
+        <main className={layoutStyles.extracted1}>
+          <div className={layoutStyles.extracted2}>
             <h1 style={h1}>Service Management</h1>
             <div style={{ fontSize: 12, color: UI.subtext }}>
               Service • MOT • Checks • Repairs • History
@@ -161,7 +153,7 @@ export default function ServiceHomePage() {
           </div>
 
           {/* GRID */}
-          <div style={grid}>
+          <div className={layoutStyles.extracted3}>
             {SECTIONS.map((section, i) => (
               <Tile
                 key={i}

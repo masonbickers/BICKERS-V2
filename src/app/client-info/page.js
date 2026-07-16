@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { onSnapshot } from "firebase/firestore";
@@ -13,29 +14,17 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  brandSoft: "var(--legacy-color-eff6ff)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const chip = {
   padding: "6px 10px",
   borderRadius: 999,
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  background: "var(--legacy-color-f1f5f9)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface-hover)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 700,
@@ -363,14 +352,7 @@ export default function ClientInfoPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 16,
-            flexWrap: "wrap",
-          }}
+          className={layoutStyles.extracted1}
         >
           <div>
             <h1 style={{ color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 }}>Client Info</h1>
@@ -378,11 +360,11 @@ export default function ClientInfoPage() {
               A client directory built from booking history, booking contacts, crew demand, dates, and outcomes.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted2}>
             <span style={chip}>{clients.length} clients</span>
-            <span style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)" }}>{bookings.length} active bookings</span>
-            <span style={{ ...chip, background: "var(--legacy-color-fef3c7)", borderColor: "var(--legacy-color-fde68a)" }}>{deletedJobs.length} deleted records</span>
-            <Link href="/client-emails" style={{ ...chip, textDecoration: "none", background: "var(--legacy-color-fff)" }}>
+            <span style={{ ...chip, background: UI.brandSoft, borderColor: "var(--color-brand-soft)" }}>{bookings.length} active bookings</span>
+            <span style={{ ...chip, background: "var(--color-accent-soft)", borderColor: "var(--color-warning-border)" }}>{deletedJobs.length} deleted records</span>
+            <Link href="/client-emails" style={{ ...chip, textDecoration: "none", background: "var(--color-surface)" }}>
               View emails →
             </Link>
           </div>
@@ -398,22 +380,22 @@ export default function ClientInfoPage() {
               width: "100%",
               padding: "10px 12px",
               borderRadius: UI.radiusSm,
-              border: "1px solid var(--legacy-color-d1d5db)",
+              border: "1px solid var(--color-border)",
               fontSize: 14,
               outline: "none",
-              background: "var(--legacy-color-fff)",
+              background: "var(--color-surface)",
             }}
           />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 360px) minmax(0, 1fr)", gap: UI.gap }}>
           <div style={{ ...surface, padding: 12, maxHeight: "calc(100vh - 220px)", overflow: "auto" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Client List</div>
+            <div className={layoutStyles.extracted3}>
+              <div className={layoutStyles.extracted4}>Client List</div>
               <div style={{ color: UI.muted, fontSize: 12 }}>{filteredClients.length} shown</div>
             </div>
 
-            <div style={{ display: "grid", gap: 8 }}>
+            <div className={layoutStyles.extracted5}>
               {filteredClients.length ? (
                 filteredClients.map((client) => {
                   const isSelected = client.key === selectedClient?.key;
@@ -426,13 +408,13 @@ export default function ClientInfoPage() {
                         textAlign: "left",
                         padding: 12,
                         borderRadius: 12,
-                        border: isSelected ? "1px solid var(--legacy-color-93c5fd)" : "1px solid var(--legacy-color-e5e7eb)",
-                        background: isSelected ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-fff)",
+                        border: isSelected ? "1px solid var(--color-info-border)" : "1px solid var(--color-border)",
+                        background: isSelected ? "var(--color-info-soft)" : "var(--color-surface)",
                         boxShadow: isSelected ? UI.shadowHover : "none",
                         cursor: "pointer",
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div className={layoutStyles.extracted6}>
                         <div style={{ fontWeight: 900, color: UI.text }}>{client.name}</div>
                         <span style={chip}>{client.totalJobs}</span>
                       </div>
@@ -455,7 +437,7 @@ export default function ClientInfoPage() {
             {selectedClient ? (
               <>
                 <div style={{ ...surface, padding: 18 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                  <div className={layoutStyles.extracted7}>
                     <div>
                       <div style={{ fontSize: 28, fontWeight: 900, color: UI.text }}>{selectedClient.name}</div>
                       <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
@@ -468,47 +450,42 @@ export default function ClientInfoPage() {
                   </div>
 
                   <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                      gap: 12,
-                      marginTop: 16,
-                    }}
+                    className={layoutStyles.extracted8}
                   >
                     <div style={{ ...surface, padding: 12 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Total jobs</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.totalJobs}</div>
+                      <div className={layoutStyles.extracted9}>{selectedClient.totalJobs}</div>
                     </div>
                     <div style={{ ...surface, padding: 12 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Confirmed</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.confirmedJobs}</div>
+                      <div className={layoutStyles.extracted10}>{selectedClient.confirmedJobs}</div>
                     </div>
                     <div style={{ ...surface, padding: 12 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg length</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.avgLength}</div>
+                      <div className={layoutStyles.extracted11}>{selectedClient.avgLength}</div>
                     </div>
                     <div style={{ ...surface, padding: 12 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg crew</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.avgCrew}</div>
+                      <div className={layoutStyles.extracted12}>{selectedClient.avgCrew}</div>
                     </div>
                     <div style={{ ...surface, padding: 12 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.firstPencilJobs}</div>
+                      <div className={layoutStyles.extracted13}>{selectedClient.firstPencilJobs}</div>
                     </div>
                     <div style={{ ...surface, padding: 12 }}>
                       <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Dead outcomes</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.lostJobs}</div>
+                      <div className={layoutStyles.extracted14}>{selectedClient.lostJobs}</div>
                     </div>
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: UI.gap }}>
                   <div style={{ ...surface, padding: 16 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-                      <div style={{ fontWeight: 900, fontSize: 16 }}>Recent bookings</div>
+                    <div className={layoutStyles.extracted15}>
+                      <div className={layoutStyles.extracted16}>Recent bookings</div>
                       <div style={{ color: UI.muted, fontSize: 12 }}>{selectedClientJobs.length} records</div>
                     </div>
-                    <div style={{ display: "grid", gap: 8 }}>
+                    <div className={layoutStyles.extracted17}>
                       {selectedClientJobs.slice(0, 12).map((job) => {
                         const status = job.__deleted ? "Deleted" : prettifyStatus(job.status);
                         const anchorDate =
@@ -523,15 +500,15 @@ export default function ClientInfoPage() {
                               gap: 10,
                               padding: 10,
                               borderRadius: 10,
-                              border: "1px solid var(--legacy-color-e5e7eb)",
+                              border: "1px solid var(--color-border)",
                               textDecoration: "none",
                               color: UI.text,
                               alignItems: "center",
                             }}
                           >
-                            <div style={{ fontWeight: 900 }}>{job.jobNumber || "No job #"}</div>
+                            <div className={layoutStyles.extracted18}>{job.jobNumber || "No job #"}</div>
                             <div>
-                              <div style={{ fontWeight: 700 }}>{job.location || "No location"}</div>
+                              <div className={layoutStyles.extracted19}>{job.location || "No location"}</div>
                               <div style={{ color: UI.muted, fontSize: 12 }}>{fmtDate(anchorDate)}</div>
                             </div>
                             <div style={{ color: UI.muted, fontSize: 13 }}>{status}</div>
@@ -546,12 +523,12 @@ export default function ClientInfoPage() {
 
                   <div style={{ display: "grid", gap: UI.gap }}>
                     <div style={{ ...surface, padding: 16 }}>
-                      <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>Contacts on bookings</div>
-                      <div style={{ display: "grid", gap: 8 }}>
+                      <div className={layoutStyles.extracted20}>Contacts on bookings</div>
+                      <div className={layoutStyles.extracted21}>
                         {selectedClient.contacts.length ? (
                           selectedClient.contacts.map((contact) => (
-                            <div key={`${contact.email}-${contact.phone}-${contact.name}`} style={{ borderBottom: "1px solid var(--legacy-color-eef2f7)", paddingBottom: 8 }}>
-                              <div style={{ fontWeight: 800 }}>{contactTitle(contact)}</div>
+                            <div key={`${contact.email}-${contact.phone}-${contact.name}`} className={layoutStyles.extracted22}>
+                              <div className={layoutStyles.extracted23}>{contactTitle(contact)}</div>
                               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
                                 {[contact.email, contact.phone].filter(Boolean).join(" • ") || "No direct detail saved"}
                               </div>
@@ -564,8 +541,8 @@ export default function ClientInfoPage() {
                     </div>
 
                     <div style={{ ...surface, padding: 16 }}>
-                      <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>Coverage</div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div className={layoutStyles.extracted24}>Coverage</div>
+                      <div className={layoutStyles.extracted25}>
                         {selectedClient.locations.length ? (
                           selectedClient.locations.slice(0, 16).map((location) => (
                             <span key={location} style={chip}>
@@ -578,13 +555,13 @@ export default function ClientInfoPage() {
                       </div>
 
                       {!!selectedClient.aliases.length && (
-                        <div style={{ marginTop: 14 }}>
+                        <div className={layoutStyles.extracted26}>
                           <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase", marginBottom: 8 }}>
                             Name variants
                           </div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div className={layoutStyles.extracted27}>
                             {selectedClient.aliases.map((alias) => (
-                              <span key={alias} style={{ ...chip, background: "var(--legacy-color-fff)" }}>
+                              <span key={alias} style={{ ...chip, background: "var(--color-surface)" }}>
                                 {alias}
                               </span>
                             ))}

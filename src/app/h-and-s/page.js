@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -27,24 +28,9 @@ import {
   ShieldAlert,
   Wrench,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -62,7 +48,7 @@ const panel = { ...surface, padding: 12 };
 const cardBase = {
   ...surface,
   padding: 12,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 const cardHover = {
@@ -73,7 +59,7 @@ const cardHover = {
 const metricCard = { ...surface, padding: 12, minWidth: 0 };
 const premiumSection = {
   ...cardBase,
-  border: "1px solid var(--legacy-color-d7e1ea)",
+  border: "1px solid var(--color-border)",
   boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
 };
 const commandGrid = {
@@ -138,7 +124,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -157,7 +143,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -176,8 +162,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -195,7 +181,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -210,7 +196,7 @@ const smallLabel = {
 
 const tableCell = {
   padding: "10px 12px",
-  borderBottom: "1px solid var(--legacy-color-eef2f7)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   fontSize: 13,
   color: UI.text,
   verticalAlign: "middle",
@@ -219,7 +205,7 @@ const tableCell = {
 const tableHead = {
   ...tableCell,
   color: UI.muted,
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontSize: 11.5,
   fontWeight: 900,
   textTransform: "uppercase",
@@ -560,9 +546,9 @@ function registerState(item) {
 }
 
 function registerToneStyle(tone) {
-  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-fecaca)" };
-  if (tone === "amber") return { background: "var(--legacy-color-fff7ed)", color: "var(--legacy-color-9a3412)", border: "1px solid var(--legacy-color-fed7aa)" };
-  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", border: "1px solid var(--legacy-color-bbf7d0)" };
+  if (tone === "danger") return { background: "var(--color-accent-soft)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+  if (tone === "amber") return { background: "var(--color-warning-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
+  if (tone === "green") return { background: "var(--color-success-soft)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -576,11 +562,11 @@ function displayStatus(row) {
 
 function statusStyle(row) {
   const status = lower(row.maintenance?.status || row.status);
-  if (status === "resolved") return { background: "var(--legacy-color-e0f2fe)", color: "var(--legacy-color-075985)", border: "1px solid var(--legacy-color-bae6fd)" };
-  if (status === "scheduled") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", border: "1px solid var(--legacy-color-bbf7d0)" };
-  if (status === "in_progress") return { background: "var(--legacy-color-fef3c7)", color: "var(--legacy-color-92400e)", border: "1px solid var(--legacy-color-fde68a)" };
-  if (row.bucket === "immediate") return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-fecaca)" };
-  if (row.bucket === "declined") return { background: "var(--legacy-color-ffedd5)", color: "var(--legacy-color-9a3412)", border: "1px solid var(--legacy-color-fed7aa)" };
+  if (status === "resolved") return { background: "var(--color-info-soft)", color: "var(--color-brand)", border: "1px solid var(--color-info-border)" };
+  if (status === "scheduled") return { background: "var(--color-success-soft)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
+  if (status === "in_progress") return { background: "var(--color-accent-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
+  if (row.bucket === "immediate") return { background: "var(--color-accent-soft)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+  if (row.bucket === "declined") return { background: "var(--color-accent-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -703,14 +689,14 @@ function sortRows(rows) {
 function KpiCard({ label, value, detail, icon: Icon, tone = "brand" }) {
   const colors = {
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
-    danger: { bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)", border: "var(--legacy-color-fecaca)" },
-    amber: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-9a3412)", border: "var(--legacy-color-fed7aa)" },
-    green: { bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)", border: "var(--legacy-color-bbf7d0)" },
+    danger: { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "var(--color-danger-border)" },
+    amber: { bg: "var(--color-warning-soft)", fg: "var(--color-warning)", border: "var(--color-warning-border)" },
+    green: { bg: "var(--color-success-soft)", fg: "var(--color-success)", border: "var(--color-success-border)" },
   }[tone];
 
   return (
     <div style={{ ...surface, padding: 12, minHeight: 92 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+      <div className={layoutStyles.extracted1}>
         <div>
           <p style={smallLabel}>{label}</p>
           <div style={{ marginTop: 7, color: UI.text, fontSize: 27, lineHeight: 1, fontWeight: 950 }}>{value}</div>
@@ -739,9 +725,9 @@ function KpiCard({ label, value, detail, icon: Icon, tone = "brand" }) {
 function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
   const colors = {
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
-    danger: { bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)", border: "var(--legacy-color-fecaca)" },
-    amber: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-9a3412)", border: "var(--legacy-color-fed7aa)" },
-    green: { bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)", border: "var(--legacy-color-bbf7d0)" },
+    danger: { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "var(--color-danger-border)" },
+    amber: { bg: "var(--color-warning-soft)", fg: "var(--color-warning)", border: "var(--color-warning-border)" },
+    green: { bg: "var(--color-success-soft)", fg: "var(--color-success)", border: "var(--color-success-border)" },
   }[tone];
 
   return (
@@ -774,11 +760,11 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
       >
         <Icon size={19} />
       </span>
-      <span style={{ minWidth: 0 }}>
+      <span className={layoutStyles.extracted2}>
         <span style={{ display: "block", color: UI.text, fontWeight: 900, fontSize: 14 }}>{title}</span>
         <span style={{ display: "block", color: UI.muted, fontSize: 12.5, lineHeight: 1.3, marginTop: 2 }}>{detail}</span>
       </span>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+      <span className={layoutStyles.extracted3}>
         <span
           style={{
             minWidth: 34,
@@ -806,16 +792,16 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
 function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
   const colors =
     tone === "danger"
-      ? { bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" }
+      ? { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", fg: "var(--color-danger)" }
       : tone === "amber"
-      ? { bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" }
+      ? { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", fg: "var(--color-warning)" }
       : tone === "ok"
-      ? { bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" }
+      ? { bg: "var(--color-success-soft)", border: "var(--color-success-border)", fg: "var(--color-success)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
 
   return (
     <div style={{ ...metricCard, minHeight: 92 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted4}>
         <div>
           <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{title}</div>
           <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
@@ -845,7 +831,7 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
 function Tile({ title, description, onClick, rightBadges = [], icon: Icon = ShieldCheck }) {
   const baseStyle = {
     ...cardBase,
-    background: "var(--legacy-color-ffffff)",
+    background: "var(--color-surface)",
     height: "100%",
     minHeight: 82,
     padding: "11px 12px",
@@ -866,13 +852,7 @@ function Tile({ title, description, onClick, rightBadges = [], icon: Icon = Shie
       onMouseLeave={(event) => Object.assign(event.currentTarget.style, baseStyle)}
     >
       <div
-        style={{
-          width: "100%",
-          display: "grid",
-          gridTemplateColumns: "34px minmax(0, 1fr) auto",
-          alignItems: "center",
-          gap: 10,
-        }}
+        className={layoutStyles.extracted5}
       >
         <span
           aria-hidden="true"
@@ -890,22 +870,22 @@ function Tile({ title, description, onClick, rightBadges = [], icon: Icon = Shie
         >
           <Icon size={17} strokeWidth={2.2} />
         </span>
-        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 5 }}>
+        <div className={layoutStyles.extracted6}>
           <div style={{ fontWeight: 800, fontSize: 14.5, lineHeight: 1.18, color: UI.text }}>{title}</div>
           <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {description}
           </div>
           {rightBadges.length ? (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <div className={layoutStyles.extracted7}>
               {rightBadges.map((item, index) => {
                 const tone = item.tone || "soft";
                 const style =
                   tone === "danger"
-                    ? badge("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")
+                    ? badge("var(--color-danger-soft)", "var(--color-danger)")
                     : tone === "amber"
-                    ? badge("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)")
+                    ? badge("var(--color-warning-soft)", "var(--color-warning)")
                     : tone === "green"
-                    ? badge("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)")
+                    ? badge("var(--color-success-soft)", "var(--color-success)")
                     : badge(UI.brandSoft, UI.brand);
                 return (
                   <span key={index} style={style}>
@@ -926,17 +906,17 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
   const safeTotal = Math.max(Number(total || 0), 0);
   const okPct = safeTotal ? Math.round((Number(ok || 0) / safeTotal) * 100) : 100;
   const soonPct = safeTotal ? Math.round((Number(soon || 0) / safeTotal) * 100) : 0;
-  const background = `conic-gradient(var(--legacy-color-16a34a) 0 ${okPct}%, var(--legacy-color-f59e0b) ${okPct}% ${okPct + soonPct}%, var(--legacy-color-dc2626) ${okPct + soonPct}% 100%)`;
+  const background = `conic-gradient(var(--color-success) 0 ${okPct}%, var(--color-accent) ${okPct}% ${okPct + soonPct}%, var(--color-danger) ${okPct + soonPct}% 100%)`;
 
   return (
     <div style={{ ...surface, padding: 12 }}>
-      <div style={{ ...sectionHeader, marginBottom: 10 }}>
+      <div className={layoutStyles.extracted8}>
         <div>
           <h2 style={{ ...titleMd, fontSize: 15 }}>{title}</h2>
           <div style={hint}>{safeTotal} records tracked</div>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <div className={layoutStyles.extracted9}>
         <div
           style={{
             width: 126,
@@ -953,8 +933,8 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
               width: 82,
               height: 82,
               borderRadius: "50%",
-              background: "var(--legacy-color-ffffff)",
-              border: "1px solid var(--legacy-color-e5eaf0)",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-brand-soft)",
               display: "grid",
               placeItems: "center",
               color: UI.text,
@@ -965,10 +945,10 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
             {safeTotal}
           </div>
         </div>
-        <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-          <RingLegend color="var(--legacy-color-16a34a)" label={labels[0]} value={ok} />
-          <RingLegend color="var(--legacy-color-f59e0b)" label={labels[1]} value={soon} />
-          <RingLegend color="var(--legacy-color-dc2626)" label={labels[2]} value={overdue} />
+        <div className={layoutStyles.extracted10}>
+          <RingLegend color="var(--color-success)" label={labels[0]} value={ok} />
+          <RingLegend color="var(--color-accent)" label={labels[1]} value={soon} />
+          <RingLegend color="var(--color-danger)" label={labels[2]} value={overdue} />
         </div>
       </div>
     </div>
@@ -979,7 +959,7 @@ function RingLegend({ color, label, value }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: UI.text, fontWeight: 750 }}>
       <span style={{ width: 9, height: 9, borderRadius: 2, background: color, flexShrink: 0 }} />
-      <span style={{ minWidth: 76 }}>{label}</span>
+      <span className={layoutStyles.extracted11}>{label}</span>
       <span style={{ color: UI.muted }}>{value}</span>
     </div>
   );
@@ -1270,12 +1250,12 @@ export default function HealthSafetyPage() {
   return (
     <HeaderSidebarLayout>
       <main style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted12}>
           <div>
             <h1 style={h1}>H&S</h1>
             <p style={sub}>Vehicle checks, defect routes and maintenance follow-up in one place.</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted13}>
             <button type="button" style={btn("ghost")} onClick={loadData}>
               <RefreshCcw size={15} />
               Refresh
@@ -1289,7 +1269,7 @@ export default function HealthSafetyPage() {
 
         {showAddRegister ? (
           <section style={{ ...panel, marginBottom: 12 }}>
-            <div style={sectionHeader}>
+            <div className={layoutStyles.extracted14}>
               <div>
                 <h2 style={titleMd}>Add H&S register item</h2>
                 <div style={hint}>Create a new register record for inspections, policies, training or workshop checks.</div>
@@ -1356,16 +1336,16 @@ export default function HealthSafetyPage() {
                 {addingRegister ? "Creating..." : "Create Item"}
               </button>
             </div>
-            <label style={{ display: "block", marginTop: 10 }}>
+            <label className={layoutStyles.extracted15}>
               <p style={smallLabel}>Notes</p>
               <textarea value={newRegisterItem.notes} onChange={(event) => updateNewRegisterItem("notes", event.target.value)} rows={3} style={{ ...input, resize: "vertical" }} />
             </label>
           </section>
         ) : null}
 
-        <section className="hs-command-grid" style={commandGrid}>
+        <section className={`hs-command-grid ${layoutStyles.extracted16}`} >
           <div style={{ ...surface, padding: 12 }}>
-            <div style={sectionHeader}>
+            <div className={layoutStyles.extracted17}>
               <div>
                 <h2 style={titleMd}>Home</h2>
                 <div style={hint}>H&S register, inspection evidence and defect review status.</div>
@@ -1373,7 +1353,7 @@ export default function HealthSafetyPage() {
               <span style={sectionTag}>All sections</span>
             </div>
 
-            <div className="hs-summary-grid" style={summaryGrid}>
+            <div className={`hs-summary-grid ${layoutStyles.extracted18}`} >
               <SummaryCard
                 title="Immediate"
                 value={loading ? "-" : counts.immediate}
@@ -1404,7 +1384,7 @@ export default function HealthSafetyPage() {
               />
             </div>
 
-            <div style={{ ...sectionHeader, marginTop: 14, marginBottom: 8 }}>
+            <div className={layoutStyles.extracted19}>
               <div>
                 <h2 style={{ ...titleMd, fontSize: 15 }}>H&S workspaces</h2>
                 <div style={hint}>Register areas and defect queues grouped by how they are used.</div>
@@ -1414,14 +1394,14 @@ export default function HealthSafetyPage() {
               </button>
             </div>
 
-            <div className="hs-ops-grid" style={opsGrid}>
+            <div className={`hs-ops-grid ${layoutStyles.extracted20}`} >
               {workspaceTiles.map((tile) => (
                 <Tile key={tile.title} {...tile} />
               ))}
             </div>
           </div>
 
-          <aside style={{ display: "grid", gap: 12 }}>
+          <aside className={layoutStyles.extracted21}>
             <RiskRing
               title="Inspection Status"
               total={registerItems.length}
@@ -1442,19 +1422,19 @@ export default function HealthSafetyPage() {
         </section>
 
         <section className="hs-layout">
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className={layoutStyles.extracted22}>
             <div id="hs-register" style={{ ...premiumSection, overflow: "hidden", padding: 14 }}>
-              <div style={sectionHeader}>
+              <div className={layoutStyles.extracted23}>
                 <div>
                   <h2 style={titleMd}>H&S register</h2>
                   <div style={hint}>Inspection dates, certificates, workshop checks, PPE, training and policy records.</div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ position: "relative", width: "min(320px, 100%)" }}>
+                <div className={layoutStyles.extracted24}>
+                  <div className={layoutStyles.extracted25}>
                     <Search
                       size={15}
                       color={UI.muted}
-                      style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}
+                      className={layoutStyles.extracted26}
                     />
                     <input
                       value={registerQuery}
@@ -1491,15 +1471,15 @@ export default function HealthSafetyPage() {
               </div>
 
               <div style={{ ...surface, boxShadow: "none", overflowX: "auto", marginTop: 10 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980, tableLayout: "fixed" }}>
+                <table className={layoutStyles.extracted27}>
                   <colgroup>
-                    <col style={{ width: "14%" }} />
-                    <col style={{ width: "24%" }} />
-                    <col style={{ width: "12%" }} />
-                    <col style={{ width: "12%" }} />
-                    <col style={{ width: "22%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "6%" }} />
+                    <col className={layoutStyles.extracted28} />
+                    <col className={layoutStyles.extracted29} />
+                    <col className={layoutStyles.extracted30} />
+                    <col className={layoutStyles.extracted31} />
+                    <col className={layoutStyles.extracted32} />
+                    <col className={layoutStyles.extracted33} />
+                    <col className={layoutStyles.extracted34} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -1521,24 +1501,24 @@ export default function HealthSafetyPage() {
                           key={item.id}
                           onClick={() => router.push(`/h-and-s/${encodeURIComponent(item.id)}`)}
                           title="Open H&S register record"
-                          style={{ cursor: "pointer" }}
+                          className={layoutStyles.extracted35}
                         >
                           <td style={tableCell}>
-                            <div style={{ fontWeight: 900 }}>{item.section}</div>
+                            <div className={layoutStyles.extracted36}>{item.section}</div>
                             <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>{item.owner}</div>
                           </td>
                           <td style={tableCell}>
-                            <div style={{ fontWeight: 900 }}>{item.item}</div>
+                            <div className={layoutStyles.extracted37}>{item.item}</div>
                             {item.notes ? (
                               <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.25, marginTop: 2 }}>{item.notes}</div>
                             ) : null}
                           </td>
                           <td style={tableCell}>{frequencyLabelFromWeeks(item.frequencyWeeks, item.frequency)}</td>
                           <td style={tableCell}>
-                            <span style={{ fontWeight: 900 }}>{fmtDate(item.nextDue)}</span>
+                            <span className={layoutStyles.extracted38}>{fmtDate(item.nextDue)}</span>
                           </td>
                           <td style={tableCell}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <div className={layoutStyles.extracted39}>
                               {item.certificateUrl ? (
                                 <a
                                   href={item.certificateUrl}
@@ -1554,8 +1534,8 @@ export default function HealthSafetyPage() {
                                     fontSize: 12,
                                     fontWeight: 900,
                                     border: UI.border,
-                                    background: "var(--legacy-color-ecfdf5)",
-                                    color: "var(--legacy-color-166534)",
+                                    background: "var(--color-success-soft)",
+                                    color: "var(--color-success)",
                                     textDecoration: "none",
                                   }}
                                 >
@@ -1573,7 +1553,7 @@ export default function HealthSafetyPage() {
                                     fontSize: 12,
                                     fontWeight: 900,
                                     border: UI.border,
-                                    background: "var(--legacy-color-f8fafc)",
+                                    background: "var(--color-surface-subtle)",
                                     color: UI.muted,
                                   }}
                                 >

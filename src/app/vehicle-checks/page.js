@@ -1,6 +1,7 @@
 // src/app/vehicle-checks/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { collection, getDocs, query } from "firebase/firestore";
@@ -14,26 +15,10 @@ import {
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* UI tokens */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 
@@ -68,7 +53,7 @@ const chip = {
   padding: "5px 9px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
-  background: "var(--legacy-color-f1f5f9)",
+  background: "var(--color-surface-hover)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -88,7 +73,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -108,7 +93,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -127,8 +112,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -151,10 +136,10 @@ const inputBase = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
-const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "12px 0 0" };
 
 const sectionHeader = {
   display: "flex",
@@ -169,19 +154,19 @@ const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
 
 /* table */
 const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden" };
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontSize: 11.5,
   textTransform: "uppercase",
   letterSpacing: 0,
 };
 
 /* pills */
-const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
+const pill = (bg, fg, borderColor = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -195,11 +180,11 @@ const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
 });
 
 const statusBadge = (state) => {
-  if (state === "OK") return pill("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)", "var(--legacy-color-bbf7d0)");
-  if (state === "DEFECT") return pill("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)", "var(--legacy-color-fecaca)");
-  if (state === "DRAFT") return pill("var(--legacy-color-f8fafc)", "var(--legacy-color-111827)", "var(--legacy-color-e5e7eb)");
-  if (state === "MISSING") return pill("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)", "var(--legacy-color-fed7aa)");
-  return pill("var(--legacy-color-ffffff)", "var(--legacy-color-111827)");
+  if (state === "OK") return pill("var(--color-success-soft)", "var(--color-success)", "var(--color-success-border)");
+  if (state === "DEFECT") return pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)");
+  if (state === "DRAFT") return pill("var(--color-surface-subtle)", "var(--color-text)", "var(--color-border)");
+  if (state === "MISSING") return pill("var(--color-warning-soft)", "var(--color-warning)", "var(--color-warning-border)");
+  return pill("var(--color-white)", "var(--color-text)");
 };
 
 /* Helpers */
@@ -451,7 +436,7 @@ export default function VehicleChecksDashboardPage() {
     <HeaderSidebarLayout>
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         .vehicle-checks-kpi-grid {
           display: grid;
@@ -475,13 +460,13 @@ export default function VehicleChecksDashboardPage() {
 
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Vehicle Checks</h1>
             <div style={sub}>Dashboard of required checks for confirmed jobs (past + today).</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <Link href="/vehicle-checks/defects" className="vehicle-checks-action" style={btn("ghost")}>
               <AlertTriangle size={15} />
               Defects
@@ -514,12 +499,12 @@ export default function VehicleChecksDashboardPage() {
 
         {/* Filters */}
         <section style={{ ...cardBase, marginBottom: 12 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted3}>
             <div>
               <h2 style={titleMd}>Filters</h2>
               <div style={hint}>Search across job, vehicle, employees, and check notes.</div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className={layoutStyles.extracted4}>
               <span style={chipSoft}>{rows.length} rows</span>
               <button
                 type="button"
@@ -536,9 +521,9 @@ export default function VehicleChecksDashboardPage() {
             </div>
           </div>
 
-          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--legacy-color-fff)" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--color-surface)" }}>
             <div className="vehicle-checks-filter-grid">
-              <label style={{ position: "relative", display: "block" }}>
+              <label className={layoutStyles.extracted5}>
                 <Search
                   size={16}
                   style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
@@ -563,7 +548,7 @@ export default function VehicleChecksDashboardPage() {
               </select>
             </div>
 
-            <div style={divider} />
+            <div className={layoutStyles.extracted6} />
 
             <div
               style={{
@@ -576,18 +561,18 @@ export default function VehicleChecksDashboardPage() {
                 marginTop: 12,
               }}
             >
-              <span style={pill("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)", "var(--legacy-color-bbf7d0)")}>OK</span>
-              <span style={pill("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)", "var(--legacy-color-fecaca)")}>Defect</span>
-              <span style={pill("var(--legacy-color-f8fafc)", "var(--legacy-color-111827)", "var(--legacy-color-e5e7eb)")}>Draft</span>
-              <span style={pill("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)", "var(--legacy-color-fed7aa)")}>Missing</span>
-              <span style={{ marginLeft: 6 }}>Tip: type a reg plate, job #, or driver name.</span>
+              <span style={pill("var(--color-success-soft)", "var(--color-success)", "var(--color-success-border)")}>OK</span>
+              <span style={pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)")}>Defect</span>
+              <span style={pill("var(--color-surface-subtle)", "var(--color-text)", "var(--color-border)")}>Draft</span>
+              <span style={pill("var(--color-warning-soft)", "var(--color-warning)", "var(--color-warning-border)")}>Missing</span>
+              <span className={layoutStyles.extracted7}>Tip: type a reg plate, job #, or driver name.</span>
             </div>
           </div>
         </section>
 
         {/* Table */}
         <div style={tableWrap}>
-          <table style={{ width: "100%", minWidth: 980, borderCollapse: "collapse" }}>
+          <table className={layoutStyles.extracted8}>
             <thead>
               <tr>
                 <th style={{ ...theadTh, textAlign: "left" }}>Date</th>
@@ -629,27 +614,27 @@ export default function VehicleChecksDashboardPage() {
                   const openLabel = r.checks?.length ? "View" : "Create check";
 
                   return (
-                    <tr key={`${r.jobId}-${r.dateISO}-${i}`} style={{ background: i % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)" }}>
-                      <td style={thtd}>{formatDisplayDate(r.dateISO)}</td>
-                      <td style={thtd}>
+                    <tr key={`${r.jobId}-${r.dateISO}-${i}`} style={{ background: i % 2 ? "var(--color-surface)" : "var(--color-surface)" }}>
+                      <td className={layoutStyles.extracted9}>{formatDisplayDate(r.dateISO)}</td>
+                      <td className={layoutStyles.extracted10}>
                         <span style={{ fontWeight: 900, color: UI.text }}>{r.jobLabel}</span>
                       </td>
-                      <td style={thtd}>{r.client || "-"}</td>
-                      <td style={thtd} title={r.vehicles || ""}>
+                      <td className={layoutStyles.extracted11}>{r.client || "-"}</td>
+                      <td className={layoutStyles.extracted12} title={r.vehicles || ""}>
                         {r.vehicles ? clampText(r.vehicles, 52) : "-"}
                       </td>
-                      <td style={{ ...thtd, maxWidth: 320 }} title={(r.employees || []).join(", ")}>
+                      <td className={layoutStyles.extracted13} title={(r.employees || []).join(", ")}>
                         {employeesDisplay}
                       </td>
-                      <td style={thtd}>
+                      <td className={layoutStyles.extracted14}>
                         <span style={statusBadge(r.state)}>{r.state}</span>
                       </td>
-                      <td style={thtd}>
+                      <td className={layoutStyles.extracted15}>
                         <span style={chip}>
                           {r.submittedCount}/{r.draftCount}
                         </span>
                       </td>
-                      <td style={{ ...thtd, textAlign: "right" }}>
+                      <td className={layoutStyles.extracted16}>
                         <Link href={openHref} className="vehicle-checks-action" style={btn("pill")}>
                           {openLabel}
                         </Link>
@@ -664,8 +649,8 @@ export default function VehicleChecksDashboardPage() {
       </div>
 
       <style jsx global>{`
-        .vehicle-checks-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
-        table thead th { border-bottom: 1px solid var(--legacy-color-e5e7eb) !important; }
+        .vehicle-checks-action:hover { background: var(--color-surface-subtle) !important; border-color: var(--shell-muted) !important; }
+        table thead th { border-bottom: 1px solid var(--color-border) !important; }
       `}</style>
     </HeaderSidebarLayout>
   );
@@ -675,12 +660,12 @@ export default function VehicleChecksDashboardPage() {
 function KPI({ label, value, sub, tone = "default", icon: Icon = ClipboardCheck }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "var(--legacy-color-991b1b)", bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)" }
+      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
       : tone === "amber"
-      ? { fg: "var(--legacy-color-9a3412)", bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)" }
+      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--legacy-color-d7dee8)" };
+      : { fg: UI.text, bg: "var(--color-surface-subtle)", border: "var(--color-border)" };
 
   return (
     <div
@@ -693,7 +678,7 @@ function KPI({ label, value, sub, tone = "default", icon: Icon = ClipboardCheck 
         ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted17}>
         <div>
           <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
             {label}

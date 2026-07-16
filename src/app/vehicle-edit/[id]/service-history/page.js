@@ -1,24 +1,15 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../../../firebaseConfig";
 import { formatDateForDisplay, normalizeServiceRecord, toDateLike } from "@/app/utils/serviceRecordCompat";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 10,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 18px 24px", background: UI.bg, minHeight: "100vh" };
 const topBar = {
@@ -40,8 +31,8 @@ const btn = {
   gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
-  border: "1px solid var(--legacy-color-d1d5db)",
-  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontWeight: 900,
   cursor: "pointer",
@@ -155,7 +146,7 @@ export default function VehicleServiceHistoryPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={topBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={title}>Service History</h1>
             <div style={subtitle}>{vehicleLabel}</div>
@@ -178,7 +169,7 @@ export default function VehicleServiceHistoryPage() {
               {serviceHistoryItems.length === 0 ? (
                 <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className={layoutStyles.extracted2}>
                   {serviceHistoryItems.map((item, index) => (
                     <div
                       key={item.bookingId || `${item.completedDate}-${index}`}
@@ -188,10 +179,10 @@ export default function VehicleServiceHistoryPage() {
                           : undefined
                       }
                       style={{
-                        border: "1px solid var(--legacy-color-e5e7eb)",
+                        border: "1px solid var(--color-border)",
                         borderRadius: 12,
                         padding: 10,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                         cursor: item.bookingId ? "pointer" : "default",
                       }}
                     >

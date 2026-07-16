@@ -1,5 +1,6 @@
 "use client";
-import Link from "next/link";
+
+import layoutStyles from "./header.styles.module.css";import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -16,34 +17,20 @@ export default function Header() {
 
   return (
     <header
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "60px",
-        backgroundColor: "var(--legacy-color-000)",
-        color: "var(--legacy-color-fff)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 24px",
-        zIndex: 1000,
-        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
-      }}
+      className={layoutStyles.extracted1}
     >
-      <div style={{ fontWeight: 600, fontSize: "16px", whiteSpace: "nowrap" }}>
+      <div className={layoutStyles.extracted2}>
         Bickers Booking System
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "30px" }}>
-        <nav style={{ display: "flex", gap: "24px" }}>
+      <div className={layoutStyles.extracted3}>
+        <nav className={layoutStyles.extracted4}>
           {navLinks.map(({ label, path }) => (
             <Link
               key={label}
               href={path}
               style={{
-                color: pathname === path ? "var(--legacy-color-4caf50)" : "var(--legacy-color-fff)",
+                color: pathname === path ? "var(--color-success-accent)" : "var(--color-white)",
                 fontWeight: pathname === path ? "bold" : "normal",
                 textDecoration: "none",
                 fontSize: "14px",
@@ -55,65 +42,32 @@ export default function Header() {
         </nav>
 
         {/* User Menu */}
-        <div style={{ position: "relative" }}>
+        <div className={layoutStyles.extracted5}>
           <button
             onClick={() => setShowMenu((prev) => !prev)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--legacy-color-fff)",
-              fontSize: "14px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
+            className={layoutStyles.extracted6}
           >
             <img
               src="/user-icon.png" // replace with your icon
               alt="User"
-              style={{ width: 28, height: 28, borderRadius: "50%" }}
+              className={layoutStyles.extracted7}
             />
             <span>Mason</span>
           </button>
 
           {showMenu && (
             <div
-              style={{
-                position: "absolute",
-                top: "110%",
-                right: 0,
-                backgroundColor: "var(--legacy-color-fff)",
-                color: "var(--legacy-color-000)",
-                boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                borderRadius: "6px",
-                padding: "10px 0",
-                minWidth: "160px",
-                zIndex: 1001,
-              }}
+              className={layoutStyles.extracted8}
             >
               <Link
                 href="/settings"
-                style={{
-                  display: "block",
-                  padding: "10px 16px",
-                  textDecoration: "none",
-                  color: "var(--legacy-color-000)",
-                  fontSize: "14px",
-                  borderBottom: "1px solid var(--legacy-color-eee)",
-                }}
+                className={layoutStyles.extracted9}
               >
                 Settings
               </Link>
               <Link
                 href="/login"
-                style={{
-                  display: "block",
-                  padding: "10px 16px",
-                  textDecoration: "none",
-                  color: "var(--legacy-color-000)",
-                  fontSize: "14px",
-                }}
+                className={layoutStyles.extracted10}
               >
                 Logout
               </Link>

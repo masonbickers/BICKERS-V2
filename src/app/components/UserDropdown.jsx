@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./UserDropdown.styles.module.css";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -8,41 +9,23 @@ export default function UserDropdown({ name = "Mason Bickers", email = "masonbic
   const router = useRouter();
 
   return (
-    <div style={{ position: "relative", marginLeft: "auto" }}>
+    <div className={layoutStyles.extracted1}>
       <div
         onClick={() => setOpen(!open)}
-        style={{
-          padding: "10px 14px",
-          borderRadius: "50%",
-          background: "var(--legacy-color-333)",
-          color: "var(--legacy-color-fff)",
-          cursor: "pointer",
-          userSelect: "none"
-        }}
+        className={layoutStyles.extracted2}
       >
         M
       </div>
 
       {open && (
-        <div style={{
-          position: "absolute",
-          top: "110%",
-          right: 0,
-          background: "var(--legacy-color-1f1f1f)",
-          color: "var(--legacy-color-fff)",
-          borderRadius: "8px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-          zIndex: 1000,
-          width: "220px",
-          padding: "10px"
-        }}>
-          <div style={{ borderBottom: "1px solid var(--legacy-color-444)", paddingBottom: "8px", marginBottom: "8px" }}>
-            <div style={{ fontWeight: 600 }}>{name}</div>
-            <div style={{ fontSize: "0.85rem", color: "var(--legacy-color-aaa)" }}>{email}</div>
+        <div className={layoutStyles.extracted3}>
+          <div className={layoutStyles.extracted4}>
+            <div className={layoutStyles.extracted5}>{name}</div>
+            <div className={layoutStyles.extracted6}>{email}</div>
           </div>
-          <div style={{ padding: "8px 0", cursor: "pointer" }}>Settings</div>
-          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/profile")}>Profile</div>
-          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/login")}>Log out</div>
+          <div className={layoutStyles.extracted7}>Settings</div>
+          <div className={layoutStyles.extracted8} onClick={() => router.push("/profile")}>Profile</div>
+          <div className={layoutStyles.extracted9} onClick={() => router.push("/login")}>Log out</div>
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -14,16 +15,9 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  bg: "var(--legacy-color-f3f6f9)",
-  panel: "var(--legacy-color-ffffff)",
-  border: "var(--legacy-color-d8e2ee)",
-  text: "var(--legacy-color-061426)",
-  muted: "var(--legacy-color-586b82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  red: "var(--legacy-color-b91c1c)",
-};
+const UI = UI_TOKENS;
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const DEFAULT_QUOTE_SETTINGS = {
@@ -42,7 +36,7 @@ const slugify = (value) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || `quote-template-${Date.now()}`;
 
-const QUOTE_SECTION_GREY = "var(--legacy-color-bfbfbf)";
+const QUOTE_SECTION_GREY = "var(--shell-muted)";
 const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "50%"];
 const DEFAULT_DISCOUNT = "10%";
 
@@ -263,7 +257,7 @@ const button = {
   gap: 6,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 900,
@@ -271,19 +265,19 @@ const button = {
   textDecoration: "none",
   cursor: "pointer",
 };
-const primaryButton = { ...button, background: UI.brand, borderColor: UI.brand, color: "var(--legacy-color-fff)" };
-const dangerButton = { ...button, borderColor: "var(--legacy-color-fecdd3)", background: "var(--legacy-color-fff1f2)", color: UI.red };
+const primaryButton = { ...button, background: UI.brand, borderColor: UI.brand, color: "var(--color-surface)" };
+const dangerButton = { ...button, borderColor: "var(--color-danger-border)", background: "var(--color-danger-soft)", color: UI.var(--color-danger) };
 const smallButton = { ...button, minHeight: 30, padding: "0 9px", fontSize: 12 };
 const tabButton = (active) => ({
   ...button,
   borderColor: active ? UI.brand : UI.border,
-  background: active ? UI.brand : "var(--legacy-color-fff)",
-  color: active ? "var(--legacy-color-fff)" : UI.text,
+  background: active ? UI.brand : "var(--color-surface)",
+  color: active ? "var(--color-white)" : UI.text,
 });
 const notice = {
-  border: "1px solid var(--legacy-color-bfdbfe)",
-  background: "var(--legacy-color-eff6ff)",
-  color: "var(--legacy-color-1e3a8a)",
+  border: "1px solid var(--color-info-border)",
+  background: "var(--color-info-soft)",
+  color: "var(--color-brand)",
   borderRadius: 8,
   padding: "9px 10px",
   fontSize: 12,
@@ -294,7 +288,7 @@ const input = {
   minHeight: 36,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 700,
@@ -307,7 +301,7 @@ const label = { display: "block", color: UI.muted, fontSize: 11, fontWeight: 900
 const previewShell = {
   border: `1px solid ${UI.border}`,
   borderRadius: 8,
-  background: "var(--legacy-color-e5ebf2)",
+  background: "var(--color-brand-soft)",
   padding: 10,
   overflowX: "auto",
 };
@@ -315,10 +309,10 @@ const previewPaper = {
   width: 760,
   minHeight: 980,
   margin: "0 auto",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   boxShadow: "0 16px 35px rgba(15, 23, 42, 0.16)",
   fontFamily: "Arial, Helvetica, sans-serif",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
 };
 const previewFrame = {
   minHeight: 980,
@@ -329,8 +323,8 @@ const quoteBanner = {
   width: "100%",
   height: 106,
   flex: "0 0 auto",
-  borderBottom: "3px solid var(--legacy-color-000)",
-  background: "var(--legacy-color-111)",
+  borderBottom: "3px solid var(--color-text)",
+  background: "var(--shell-sidebar-bg)",
 };
 const quoteBannerImage = {
   width: "100%",
@@ -344,60 +338,60 @@ const headerTable = {
   tableLayout: "fixed",
 };
 const labelCell = {
-  borderLeft: "1px solid var(--legacy-color-000)",
-  borderRight: "1px solid var(--legacy-color-000)",
+  borderLeft: "1px solid var(--color-text)",
+  borderRight: "1px solid var(--color-text)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1.08,
   fontWeight: 900,
   textAlign: "center",
   background: QUOTE_SECTION_GREY,
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
 };
 const valueCell = {
-  borderLeft: "1px solid var(--legacy-color-000)",
-  borderRight: "1px solid var(--legacy-color-000)",
+  borderLeft: "1px solid var(--color-text)",
+  borderRight: "1px solid var(--color-text)",
   padding: "1px 8px",
   minHeight: 16,
   fontSize: 10.5,
   lineHeight: 1.08,
   textAlign: "center",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-000)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
 };
 const descriptionLabel = {
-  borderTop: "1px solid var(--legacy-color-000)",
-  borderBottom: "1px solid var(--legacy-color-000)",
+  borderTop: "1px solid var(--color-text)",
+  borderBottom: "1px solid var(--color-text)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1,
   textAlign: "center",
   fontWeight: 900,
   background: QUOTE_SECTION_GREY,
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
 };
 const servicePreview = {
   width: "100%",
-  borderBottom: "1px solid var(--legacy-color-000)",
+  borderBottom: "1px solid var(--color-text)",
   padding: "1px 8px",
   fontSize: 11.4,
   lineHeight: 1.05,
   fontWeight: 900,
   textAlign: "center",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   boxSizing: "border-box",
 };
 const quoteTable = {
   width: "100%",
   borderCollapse: "collapse",
   tableLayout: "fixed",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   fontFamily: "Arial, Helvetica, sans-serif",
 };
 const descriptionHeader = {
-  border: "1px solid var(--legacy-color-000)",
-  background: "var(--legacy-color-000)",
-  color: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--shell-sidebar-bg)",
+  color: "var(--color-white)",
   padding: "2px 6px",
   textAlign: "left",
   width: "74.1%",
@@ -411,7 +405,7 @@ const qtyHeader = { ...descriptionHeader, width: "4.25%", textAlign: "center" };
 const unitPriceHeader = { ...descriptionHeader, width: "10.25%", textAlign: "center" };
 const totalHeader = { ...descriptionHeader, width: "11.4%", textAlign: "center" };
 const sectionCell = {
-  border: "1px solid var(--legacy-color-000)",
+  border: "1px solid var(--color-border-strong)",
   padding: "1px 8px",
   fontWeight: 900,
   textAlign: "center",
@@ -419,7 +413,7 @@ const sectionCell = {
   fontSize: 10.2,
   lineHeight: 1,
   height: 14,
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   boxSizing: "border-box",
 };
 const sectionCellInner = {
@@ -435,7 +429,7 @@ const sectionTitleInput = {
   border: "none",
   outline: "none",
   background: "transparent",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   textAlign: "center",
   fontSize: 10.2,
   lineHeight: 1,
@@ -455,10 +449,10 @@ const quoteSectionButton = {
   alignItems: "center",
   justifyContent: "center",
   gap: 2,
-  border: "1px solid var(--legacy-color-64748b)",
+  border: "1px solid var(--color-text-muted)",
   borderRadius: 3,
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-111827)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   padding: "1px 5px",
   fontSize: 9,
   lineHeight: 1,
@@ -467,18 +461,18 @@ const quoteSectionButton = {
 };
 const quoteSectionDangerButton = {
   ...quoteSectionButton,
-  border: "1px solid var(--legacy-color-fecaca)",
-  background: "var(--legacy-color-fff7f7)",
-  color: "var(--legacy-color-b91c1c)",
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
 };
 const quoteCell = {
   borderWidth: 1,
   borderStyle: "solid",
-  borderColor: "var(--legacy-color-000)",
+  borderColor: "var(--color-border-strong)",
   padding: 0,
   verticalAlign: "middle",
   height: 14,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   boxSizing: "border-box",
 };
 const quoteLineDescriptionWrap = {
@@ -494,18 +488,18 @@ const quoteLineDeleteButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid var(--legacy-color-fecaca)",
+  border: "1px solid var(--color-danger-border)",
   borderRadius: 2,
-  background: "var(--legacy-color-fff7f7)",
-  color: "var(--legacy-color-b91c1c)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
   padding: 0,
   cursor: "pointer",
 };
 const quoteLineLockButton = {
   ...quoteLineDeleteButton,
-  border: "1px solid var(--legacy-color-bfdbfe)",
-  background: "var(--legacy-color-eff6ff)",
-  color: "var(--legacy-color-1d4ed8)",
+  border: "1px solid var(--color-info-border)",
+  background: "var(--color-info-soft)",
+  color: "var(--color-brand)",
 };
 const statusPill = (kind = "shared") => ({
   display: "inline-flex",
@@ -514,9 +508,9 @@ const statusPill = (kind = "shared") => ({
   minHeight: 14,
   padding: "0 5px",
   borderRadius: 999,
-  border: kind === "custom" ? "1px solid var(--legacy-color-fbbf24)" : kind === "excluded" ? "1px solid var(--legacy-color-fecaca)" : "1px solid var(--legacy-color-bfdbfe)",
-  background: kind === "custom" ? "var(--legacy-color-fffbeb)" : kind === "excluded" ? "var(--legacy-color-fff1f2)" : "var(--legacy-color-eff6ff)",
-  color: kind === "custom" ? "var(--legacy-color-92400e)" : kind === "excluded" ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-1d4ed8)",
+  border: kind === "custom" ? "1px solid var(--color-warning-border)" : kind === "excluded" ? "1px solid var(--color-danger-border)" : "1px solid var(--color-info-border)",
+  background: kind === "custom" ? "var(--color-warning-soft)" : kind === "excluded" ? "var(--color-danger-soft)" : "var(--color-info-soft)",
+  color: kind === "custom" ? "var(--color-warning)" : kind === "excluded" ? "var(--color-danger)" : "var(--color-brand)",
   fontSize: 8.5,
   lineHeight: 1,
   fontWeight: 900,
@@ -528,7 +522,7 @@ const lineText = {
   outline: "none",
   fontSize: 10,
   lineHeight: "13px",
-  color: "var(--legacy-color-000)",
+  color: "var(--color-text)",
   background: "transparent",
   padding: "0 5px",
   margin: 0,
@@ -541,20 +535,20 @@ const moneyText = { ...lineText, textAlign: "right", paddingRight: 7 };
 const totalText = { ...lineText, textAlign: "right", padding: "0 5px 0 2px" };
 const discountQuoteCell = {
   ...quoteCell,
-  background: "var(--legacy-color-ff0000)",
-  borderColor: "var(--legacy-color-ff0000)",
+  background: "var(--color-danger)",
+  borderColor: "var(--color-danger)",
 };
 const discountLineText = {
   ...lineText,
-  color: "var(--legacy-color-fff)",
-  background: "var(--legacy-color-ff0000)",
+  color: "var(--color-white)",
+  background: "var(--color-danger)",
   fontWeight: 900,
 };
 const discountQtyText = { ...discountLineText, textAlign: "center" };
 const discountMoneyText = { ...discountLineText, textAlign: "right", paddingRight: 7 };
-const discountTotalText = { ...totalText, color: "var(--legacy-color-fff)", background: "var(--legacy-color-ff0000)", fontWeight: 900 };
+const discountTotalText = { ...totalText, color: "var(--color-white)", background: "var(--color-danger)", fontWeight: 900 };
 const emptyPreviewCell = {
-  border: "1px solid var(--legacy-color-000)",
+  border: "1px solid var(--color-border-strong)",
   padding: 14,
   color: UI.muted,
   textAlign: "center",
@@ -564,7 +558,7 @@ const emptyPreviewCell = {
 const quotePrintSpacer = {
   flex: "1 1 auto",
   minHeight: 0,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 const quoteFooter = {
   display: "flex",
@@ -572,11 +566,11 @@ const quoteFooter = {
   alignItems: "stretch",
   justifyContent: "space-between",
 };
-const footerBlackFill = { flex: 1, background: "var(--legacy-color-000)", minHeight: 34 };
+const footerBlackFill = { flex: 1, background: "var(--shell-sidebar-bg)", minHeight: 34 };
 const totalRows = {
   width: 230,
-  borderLeft: "1px solid var(--legacy-color-000)",
-  borderTop: "1px solid var(--legacy-color-000)",
+  borderLeft: "1px solid var(--color-text)",
+  borderTop: "1px solid var(--color-text)",
 };
 const totalRow = {
   display: "flex",
@@ -586,7 +580,7 @@ const totalRow = {
   padding: "3px 8px",
   fontSize: 11,
   fontWeight: 900,
-  borderBottom: "1px solid var(--legacy-color-000)",
+  borderBottom: "1px solid var(--color-text)",
 };
 const vatText = {
   padding: "3px 8px",
@@ -621,63 +615,63 @@ function QuoteTemplatePreview({
 
   return (
     <section style={previewShell}>
-      <div style={previewPaper}>
-        <div style={previewFrame}>
-          <div style={quoteBanner}>
+      <div className={layoutStyles.extracted1}>
+        <div className={layoutStyles.extracted2}>
+          <div className={layoutStyles.extracted3}>
             {/* eslint-disable-next-line @next/next/no-img-element -- This mirrors the quote page print header. */}
-            <img src="/quote-carbon-header.png" alt="Bickers Action quotation" style={quoteBannerImage} />
+            <img src="/quote-carbon-header.png" alt="Bickers Action quotation" className={layoutStyles.extracted4} />
           </div>
 
-          <table style={headerTable}>
+          <table className={layoutStyles.extracted5}>
             <tbody>
               <tr>
-                <td style={labelCell}>Quote Date</td>
-                <td style={labelCell}>Job No</td>
-                <td style={labelCell}>Quote No</td>
+                <td className={layoutStyles.extracted6}>Quote Date</td>
+                <td className={layoutStyles.extracted7}>Job No</td>
+                <td className={layoutStyles.extracted8}>Quote No</td>
               </tr>
               <tr>
-                <td style={valueCell}></td>
-                <td style={valueCell}></td>
-                <td style={valueCell}></td>
+                <td className={layoutStyles.extracted9}></td>
+                <td className={layoutStyles.extracted10}></td>
+                <td className={layoutStyles.extracted11}></td>
               </tr>
               <tr>
-                <td style={labelCell}>Production Company</td>
-                <td style={labelCell}>Production</td>
-                <td style={labelCell}>Production Contact</td>
+                <td className={layoutStyles.extracted12}>Production Company</td>
+                <td className={layoutStyles.extracted13}>Production</td>
+                <td className={layoutStyles.extracted14}>Production Contact</td>
               </tr>
               <tr>
-                <td style={valueCell}></td>
-                <td style={valueCell}></td>
-                <td style={valueCell}></td>
+                <td className={layoutStyles.extracted15}></td>
+                <td className={layoutStyles.extracted16}></td>
+                <td className={layoutStyles.extracted17}></td>
               </tr>
               <tr>
-                <td style={labelCell}>Location</td>
-                <td style={labelCell}>Shoot Dates</td>
-                <td style={labelCell}>Bickers Contact</td>
+                <td className={layoutStyles.extracted18}>Location</td>
+                <td className={layoutStyles.extracted19}>Shoot Dates</td>
+                <td className={layoutStyles.extracted20}>Bickers Contact</td>
               </tr>
               <tr>
-                <td style={valueCell}></td>
-                <td style={valueCell}></td>
-                <td style={valueCell}></td>
+                <td className={layoutStyles.extracted21}></td>
+                <td className={layoutStyles.extracted22}></td>
+                <td className={layoutStyles.extracted23}></td>
               </tr>
             </tbody>
           </table>
 
-          <div style={descriptionLabel}>Description of Services</div>
+          <div className={layoutStyles.extracted24}>Description of Services</div>
           <input
             value={template?.serviceDescription || ""}
             onChange={(event) => onTemplateChange?.({ serviceDescription: event.target.value })}
-            style={{ ...servicePreview, border: "none", borderBottom: "1px solid var(--legacy-color-000)", outline: "none" }}
+            className={layoutStyles.extracted25}
             placeholder="Description of services"
           />
 
-          <table style={quoteTable}>
+          <table className={layoutStyles.extracted26}>
             <thead>
               <tr>
-                <th style={descriptionHeader}>DESCRIPTION</th>
-                <th style={qtyHeader}>QTY</th>
-                <th style={unitPriceHeader}>UNIT PRICE</th>
-                <th style={totalHeader}>TOTAL</th>
+                <th className={layoutStyles.extracted27}>DESCRIPTION</th>
+                <th className={layoutStyles.extracted28}>QTY</th>
+                <th className={layoutStyles.extracted29}>UNIT PRICE</th>
+                <th className={layoutStyles.extracted30}>TOTAL</th>
               </tr>
             </thead>
             <tbody>
@@ -690,28 +684,28 @@ function QuoteTemplatePreview({
                     const canDiscount = isEquipmentSection(row.section);
                     return (
                       <tr key={row.key}>
-                        <td colSpan={4} style={sectionCell}>
-                          <div style={sectionCellInner}>
+                        <td colSpan={4} className={layoutStyles.extracted31}>
+                          <div className={layoutStyles.extracted32}>
                             <input
                               value={row.section}
                               onChange={(event) => onRenameSection?.(row.section, event.target.value)}
-                              style={sectionTitleInput}
+                              className={layoutStyles.extracted33}
                               title="Edit section name"
                             />
-                            <div style={quoteSectionActions}>
+                            <div className={layoutStyles.extracted34}>
                               {canDiscount && !hasDiscount ? (
-                                <button type="button" onClick={() => onAddDiscount?.(row.section)} style={quoteSectionButton}>
+                                <button type="button" onClick={() => onAddDiscount?.(row.section)} className={layoutStyles.extracted35}>
                                   <Percent size={10} />
                                   Discount
                                 </button>
                               ) : null}
                               {canDiscount && hasDiscount ? (
-                                <button type="button" onClick={() => onRemoveDiscount?.(row.section)} style={quoteSectionDangerButton}>
+                                <button type="button" onClick={() => onRemoveDiscount?.(row.section)} className={layoutStyles.extracted36}>
                                   <Trash2 size={10} />
                                   Discount
                                 </button>
                               ) : null}
-                              <button type="button" onClick={() => onAddLine?.(row.section)} style={quoteSectionButton}>
+                              <button type="button" onClick={() => onAddLine?.(row.section)} className={layoutStyles.extracted37}>
                                 <Plus size={10} />
                                 Line
                               </button>
@@ -748,7 +742,7 @@ function QuoteTemplatePreview({
                   return (
                     <tr key={row.key}>
                       <td style={cellStyle}>
-                        <div style={quoteLineDescriptionWrap}>
+                        <div className={layoutStyles.extracted38}>
                           <input
                             value={item.description || ""}
                             onChange={(event) => onLineChange?.(row.index, { description: event.target.value })}
@@ -774,7 +768,7 @@ function QuoteTemplatePreview({
                           <button
                             type="button"
                             onClick={() => onRemoveLine?.(row.index)}
-                            style={quoteLineDeleteButton}
+                            className={layoutStyles.extracted39}
                             title="Delete line"
                           >
                             <Trash2 size={11} />
@@ -838,15 +832,15 @@ function QuoteTemplatePreview({
             </tbody>
           </table>
 
-          <div style={quotePrintSpacer}></div>
-          <div style={quoteFooter}>
-            <div style={footerBlackFill}></div>
-            <div style={totalRows}>
-              <div style={totalRow}>
+          <div className={layoutStyles.extracted40}></div>
+          <div className={layoutStyles.extracted41}>
+            <div className={layoutStyles.extracted42}></div>
+            <div className={layoutStyles.extracted43}>
+              <div className={layoutStyles.extracted44}>
                 <span>Total Price GBP</span>
                 <strong>{money(subtotal)}</strong>
               </div>
-              <div style={vatText}>Excludes VAT</div>
+              <div className={layoutStyles.extracted45}>Excludes VAT</div>
             </div>
           </div>
         </div>
@@ -1224,14 +1218,14 @@ export default function QuoteTemplatesPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+        <div className={layoutStyles.extracted46}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>Quote Templates</h1>
+            <h1 className={layoutStyles.extracted47}>Quote Templates</h1>
             <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
               View and edit the templates used by the quote builder.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted48}>
             <Link href="/completed-quotes" style={button}>
               <ArrowLeft size={14} />
               Completed Quotes
@@ -1245,10 +1239,10 @@ export default function QuoteTemplatesPage() {
           </div>
         </div>
 
-        {message ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "var(--legacy-color-166534)", fontWeight: 800 }}>{message}</div> : null}
-        {error ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: UI.red, fontWeight: 800 }}>{error}</div> : null}
+        {message ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "var(--color-success)", fontWeight: 800 }}>{message}</div> : null}
+        {error ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: UI.var(--color-danger), fontWeight: 800 }}>{error}</div> : null}
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <div className={layoutStyles.extracted49}>
           <button type="button" onClick={() => setActiveTab("templates")} style={tabButton(activeTab === "templates")}>
             Templates
           </button>
@@ -1261,20 +1255,20 @@ export default function QuoteTemplatesPage() {
         </div>
 
         {activeTab === "templates" ? (
-        <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0, 1fr)", gap: 10, alignItems: "start" }}>
+        <div className={layoutStyles.extracted50}>
           <aside style={{ ...surface, padding: 10 }}>
-            <div style={{ position: "relative", marginBottom: 10 }}>
+            <div className={layoutStyles.extracted51}>
               <Search size={15} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search templates..." style={{ ...input, paddingLeft: 34 }} />
             </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <div className={layoutStyles.extracted52}>
               <button type="button" onClick={addTemplate} style={button}><Plus size={14} /> New</button>
               <button type="button" onClick={duplicateTemplate} disabled={!selectedTemplate} style={button}><Copy size={14} /> Duplicate</button>
             </div>
             <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
               {loading ? "Loading..." : `${visibleTemplates.length} of ${templates.length} templates`}
             </div>
-            <div style={{ display: "grid", gap: 6, maxHeight: "calc(100vh - 245px)", overflowY: "auto" }}>
+            <div className={layoutStyles.extracted53}>
               {visibleTemplates.map((template) => {
                 const active = template.id === selectedId;
                 return (
@@ -1287,12 +1281,12 @@ export default function QuoteTemplatesPage() {
                       padding: 9,
                       borderRadius: 8,
                       border: `1px solid ${active ? UI.brand : UI.border}`,
-                      background: active ? "var(--legacy-color-edf3f8)" : "var(--legacy-color-fff)",
+                      background: active ? "var(--color-brand-soft)" : "var(--color-surface)",
                       color: UI.text,
                       cursor: "pointer",
                     }}
                   >
-                    <div style={{ fontSize: 13, fontWeight: 900 }}>{template.serviceDescription || template.file || template.id}</div>
+                    <div className={layoutStyles.extracted54}>{template.serviceDescription || template.file || template.id}</div>
                     <div style={{ color: UI.muted, fontSize: 11, marginTop: 2 }}>{template.file || template.id}</div>
                   </button>
                 );
@@ -1304,9 +1298,9 @@ export default function QuoteTemplatesPage() {
             {!selectedTemplate ? (
               <div style={{ color: UI.muted, fontWeight: 800 }}>Select a template to edit.</div>
             ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                <div style={notice}>Template-only change. Editing selected template only. Changes here will not update other templates.</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              <div className={layoutStyles.extracted55}>
+                <div className={layoutStyles.extracted56}>Template-only change. Editing selected template only. Changes here will not update other templates.</div>
+                <div className={layoutStyles.extracted57}>
                   <div>
                     <label style={label}>Template ID</label>
                     <input value={selectedTemplate.id || ""} onChange={(event) => updateSelectedId(event.target.value)} style={input} />
@@ -1325,8 +1319,8 @@ export default function QuoteTemplatesPage() {
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    border: `1px solid ${selectedTemplate.excludeFromSharedRates ? "var(--legacy-color-fbbf24)" : UI.border}`,
-                    background: selectedTemplate.excludeFromSharedRates ? "var(--legacy-color-fffbeb)" : "var(--legacy-color-fff)",
+                    border: `1px solid ${selectedTemplate.excludeFromSharedRates ? "var(--color-warning-border)" : UI.border}`,
+                    background: selectedTemplate.excludeFromSharedRates ? "var(--color-warning-soft)" : "var(--color-surface)",
                     borderRadius: 8,
                     padding: 10,
                     fontSize: 13,
@@ -1341,23 +1335,23 @@ export default function QuoteTemplatesPage() {
                   />
                   Exclude this template from Shared Rates updates
                   {selectedTemplate.excludeFromSharedRates ? (
-                    <span style={{ color: "var(--legacy-color-92400e)", fontSize: 12 }}>Excluded from Shared Rates</span>
+                    <span className={layoutStyles.extracted58}>Excluded from Shared Rates</span>
                   ) : (
                     <span style={{ color: UI.muted, fontSize: 12 }}>Template can receive Shared Rate updates</span>
                   )}
                 </label>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <div className={layoutStyles.extracted59}>
                   <div>
                     <label style={{ ...label, marginBottom: 2 }}>Quote Template Editor</label>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700 }}>
                       Edit lines directly on the quote layout.
                     </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 5 }}>
-                      <span style={{ fontSize: 11, fontWeight: 900, color: "var(--legacy-color-1d4ed8)" }}>Shared Rate = can update globally</span>
-                      <span style={{ fontSize: 11, fontWeight: 900, color: "var(--legacy-color-92400e)" }}>Custom Price = skipped by Shared Rates</span>
+                    <div className={layoutStyles.extracted60}>
+                      <span className={layoutStyles.extracted61}>Shared Rate = can update globally</span>
+                      <span className={layoutStyles.extracted62}>Custom Price = skipped by Shared Rates</span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div className={layoutStyles.extracted63}>
                     <button type="button" onClick={addSection} style={button}>
                       <Plus size={14} />
                       Add section
@@ -1395,11 +1389,11 @@ export default function QuoteTemplatesPage() {
 
         {activeTab === "shared" ? (
           <main style={{ ...surface, padding: 12 }}>
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={notice}>Global shared rate update. Applying a row here can update multiple templates.</div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted64}>
+              <div className={layoutStyles.extracted65}>Global shared rate update. Applying a row here can update multiple templates.</div>
+              <div className={layoutStyles.extracted66}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>Shared Rates</h2>
+                  <h2 className={layoutStyles.extracted67}>Shared Rates</h2>
                   <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700, marginTop: 3 }}>
                     Manage repeated line descriptions across all quote templates.
                   </div>
@@ -1409,7 +1403,7 @@ export default function QuoteTemplatesPage() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gap: 6, overflowX: "auto" }}>
+              <div className={layoutStyles.extracted68}>
                 <div style={{ minWidth: 980, display: "grid", gridTemplateColumns: "minmax(230px, 1.2fr) 90px 110px minmax(220px, 1fr) 130px 118px", gap: 6, alignItems: "center", color: UI.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", padding: "0 2px" }}>
                   <div>Shared line</div>
                   <div>Templates</div>
@@ -1431,25 +1425,25 @@ export default function QuoteTemplatesPage() {
                         gap: 6,
                         alignItems: "center",
                         padding: 6,
-                        border: `1px solid ${hasVariance ? "var(--legacy-color-fbbf24)" : UI.border}`,
+                        border: `1px solid ${hasVariance ? "var(--color-warning-border)" : UI.border}`,
                         borderRadius: 8,
-                        background: hasVariance ? "var(--legacy-color-fffbeb)" : "var(--legacy-color-f8fafc)",
+                        background: hasVariance ? "var(--color-warning-soft)" : "var(--color-surface-subtle)",
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 900 }}>{summary.label}</div>
+                        <div className={layoutStyles.extracted69}>{summary.label}</div>
                         <div style={{ color: UI.muted, fontSize: 11, marginTop: 1 }}>
                           {summary.updateLineCount} update / {summary.excludedTemplateCount} templates excluded / {summary.lockedLineCount} custom
                         </div>
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 900 }}>{summary.updateTemplateCount}/{summary.templateCount}</div>
+                      <div className={layoutStyles.extracted70}>{summary.updateTemplateCount}/{summary.templateCount}</div>
                       <input
                         value={draft.unitPrice ?? ""}
                         onChange={(event) => updateGlobalDraft(summary.id, { unitPrice: event.target.value })}
                         style={compactInput}
                         placeholder="Unit"
                       />
-                      <div style={{ color: hasVariance ? "var(--legacy-color-92400e)" : UI.muted, fontSize: 11, fontWeight: 800, lineHeight: 1.35 }}>
+                      <div style={{ color: hasVariance ? "var(--color-warning)" : UI.muted, fontSize: 11, fontWeight: 800, lineHeight: 1.35 }}>
                         {summary.unitPrices.length > 1 ? `Varies: ${summary.unitPriceSummary}` : `Unit: ${summary.unitPriceSummary}`}
                         <br />
                         {summary.totalModes.length > 1 ? `Modes vary: ${summary.totalModeSummary}` : `Mode: ${summary.totalModeSummary}`}
@@ -1478,15 +1472,15 @@ export default function QuoteTemplatesPage() {
 
         {activeTab === "defaults" ? (
           <main style={{ ...surface, padding: 12 }}>
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={notice}>Quote-wide defaults. These settings are separate from individual template line items.</div>
+            <div className={layoutStyles.extracted71}>
+              <div className={layoutStyles.extracted72}>Quote-wide defaults. These settings are separate from individual template line items.</div>
               <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>Defaults / Settings</h2>
+                <h2 className={layoutStyles.extracted73}>Defaults / Settings</h2>
                 <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700, marginTop: 3 }}>
                   General defaults for quote creation and footer wording.
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              <div className={layoutStyles.extracted74}>
                 <div>
                   <label style={label}>Global fallback Bickers Contact</label>
                   <input value={quoteDefaults.defaultBickersContact || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, defaultBickersContact: event.target.value }))} style={input} />
@@ -1504,7 +1498,7 @@ export default function QuoteTemplatesPage() {
                 <label style={label}>Footer Contact Text</label>
                 <textarea value={quoteDefaults.footerInfoText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, footerInfoText: event.target.value }))} style={{ ...input, minHeight: 70, resize: "vertical" }} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              <div className={layoutStyles.extracted75}>
                 <div>
                   <label style={label}>VAT Text</label>
                   <input value={quoteDefaults.vatText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, vatText: event.target.value }))} style={input} />
@@ -1526,45 +1520,36 @@ export default function QuoteTemplatesPage() {
 
         {pendingSharedRate ? (
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 60,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 16,
-              background: "rgba(15, 23, 42, 0.45)",
-            }}
+            className={layoutStyles.extracted76}
             onClick={() => setPendingSharedRate(null)}
           >
             <div style={{ ...surface, width: "min(620px, 100%)", padding: 16 }} onClick={(event) => event.stopPropagation()}>
-              <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Confirm Global Shared Rate Update</div>
+              <div className={layoutStyles.extracted77}>Confirm Global Shared Rate Update</div>
               <div style={{ color: UI.muted, fontSize: 13, fontWeight: 700, lineHeight: 1.45, marginBottom: 12 }}>
                 Found <strong>{pendingSharedRate.occurrenceCount}</strong> matching line{pendingSharedRate.occurrenceCount === 1 ? "" : "s"} across{" "}
                 <strong>{pendingSharedRate.templateCount}</strong> template{pendingSharedRate.templateCount === 1 ? "" : "s"}.
               </div>
-              <div style={{ ...notice, marginBottom: 12 }}>Global shared rate update. This affects multiple templates and saves immediately.</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 12 }}>
+              <div className={layoutStyles.extracted78}>Global shared rate update. This affects multiple templates and saves immediately.</div>
+              <div className={layoutStyles.extracted79}>
                 <div>
                   <label style={label}>Shared Line</label>
-                  <div style={{ fontWeight: 900 }}>{pendingSharedRate.label}</div>
+                  <div className={layoutStyles.extracted80}>{pendingSharedRate.label}</div>
                 </div>
                 <div>
                   <label style={label}>New Values</label>
-                  <div style={{ fontWeight: 900 }}>{pendingSharedRate.unitPrice || "blank"} / {pendingSharedRate.totalMode}</div>
+                  <div className={layoutStyles.extracted81}>{pendingSharedRate.unitPrice || "blank"} / {pendingSharedRate.totalMode}</div>
                 </div>
                 <div>
                   <label style={label}>Will Update</label>
-                  <div style={{ fontWeight: 900 }}>{pendingSharedRate.updateLineCount} lines / {pendingSharedRate.updateTemplateCount} templates</div>
+                  <div className={layoutStyles.extracted82}>{pendingSharedRate.updateLineCount} lines / {pendingSharedRate.updateTemplateCount} templates</div>
                 </div>
                 <div>
                   <label style={label}>Skipped</label>
-                  <div style={{ fontWeight: 900 }}>{pendingSharedRate.excludedTemplateCount} templates / {pendingSharedRate.lockedLineCount} custom lines</div>
+                  <div className={layoutStyles.extracted83}>{pendingSharedRate.excludedTemplateCount} templates / {pendingSharedRate.lockedLineCount} custom lines</div>
                 </div>
               </div>
               <label style={label}>Preview Affected Lines</label>
-              <div style={{ maxHeight: 280, overflow: "auto", border: `1px solid ${UI.border}`, borderRadius: 8, marginBottom: 14, background: "var(--legacy-color-f8fafc)" }}>
+              <div style={{ maxHeight: 280, overflow: "auto", border: `1px solid ${UI.border}`, borderRadius: 8, marginBottom: 14, background: "var(--color-surface-subtle)" }}>
                 <div
                   style={{
                     minWidth: 860,
@@ -1572,7 +1557,7 @@ export default function QuoteTemplatesPage() {
                     gridTemplateColumns: "1.1fr 1.3fr 90px 90px 105px 105px 145px",
                     gap: 0,
                     padding: 7,
-                    background: "var(--legacy-color-e5e7eb)",
+                    background: "var(--color-border)",
                     color: UI.text,
                     fontSize: 10.5,
                     fontWeight: 900,
@@ -1615,7 +1600,7 @@ export default function QuoteTemplatesPage() {
                   );
                 })}
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted84}>
                 <button type="button" onClick={() => setPendingSharedRate(null)} style={button}>Cancel</button>
                 <button type="button" onClick={confirmApplyGlobalRate} disabled={saving || !pendingSharedRate.updateLineCount} style={{ ...primaryButton, opacity: saving || !pendingSharedRate.updateLineCount ? 0.75 : 1 }}>
                   {saving ? "Applying..." : "Apply Shared Rate"}

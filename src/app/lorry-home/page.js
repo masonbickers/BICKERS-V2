@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDocs } from "firebase/firestore";
@@ -67,33 +68,24 @@ export default function LorryDashboardPage() {
   const filteredLorries = applyFilter(lorries);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--legacy-color-f4f4f5)", fontFamily: "Arial, sans-serif", color: "var(--legacy-color-333)" }}>
+    <div className={layoutStyles.extracted1}>
       {/* Sidebar */}
 
 
       {/* Main */}
-      <main style={{ flex: 1, padding: 40 }}>
+      <main className={layoutStyles.extracted2}>
         <button
           onClick={() => router.back()}
-          style={{
-            marginBottom: 20,
-            padding: "8px 16px",
-            border: "none",
-            borderRadius: 4,
-            backgroundColor: "var(--legacy-color-555)",
-            color: "var(--legacy-color-fff)",
-            cursor: "pointer",
-            width: "fit-content"
-          }}
+          className={layoutStyles.extracted3}
         >
           ← Back
         </button>
 
-        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>Lorry Overview</h1>
+        <h1 className={layoutStyles.extracted4}>Lorry Overview</h1>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ marginRight: 10 }}>Filter:</label>
-          <select onChange={(e) => setFilter(e.target.value)} style={inputStyle}>
+        <div className={layoutStyles.extracted5}>
+          <label className={layoutStyles.extracted6}>Filter:</label>
+          <select onChange={(e) => setFilter(e.target.value)} className={layoutStyles.extracted7}>
             <option value="none">None</option>
             <option value="mot">MOT Due Soon</option>
             <option value="service">Service Due</option>
@@ -102,45 +94,45 @@ export default function LorryDashboardPage() {
           </select>
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "var(--legacy-color-fff)", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-          <thead style={{ backgroundColor: "var(--legacy-color-1976d2)", color: "var(--legacy-color-fff)" }}>
+        <table className={layoutStyles.extracted8}>
+          <thead className={layoutStyles.extracted9}>
             <tr>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>Type</th>
-              <th style={thStyle}>Reg</th>
-              <th style={thStyle}>Mileage</th>
-              <th style={thStyle}>Last Service</th>
-              <th style={thStyle}>Next Service</th>
-              <th style={thStyle}>MOT Due</th>
-              <th style={thStyle}>Tacho Cal Due</th>
-              <th style={thStyle}>Driver</th>
-              <th style={thStyle}>Notes</th>
-              <th style={thStyle}>Action</th>
+              <th className={layoutStyles.extracted10}>Name</th>
+              <th className={layoutStyles.extracted11}>Type</th>
+              <th className={layoutStyles.extracted12}>Reg</th>
+              <th className={layoutStyles.extracted13}>Mileage</th>
+              <th className={layoutStyles.extracted14}>Last Service</th>
+              <th className={layoutStyles.extracted15}>Next Service</th>
+              <th className={layoutStyles.extracted16}>MOT Due</th>
+              <th className={layoutStyles.extracted17}>Tacho Cal Due</th>
+              <th className={layoutStyles.extracted18}>Driver</th>
+              <th className={layoutStyles.extracted19}>Notes</th>
+              <th className={layoutStyles.extracted20}>Action</th>
             </tr>
           </thead>
           <tbody>
             {filteredLorries.map(lorry => (
-              <tr key={lorry.id} style={{ borderBottom: "1px solid var(--legacy-color-ddd)" }}>
-                <td style={tdStyle}>{lorry.name}</td>
-                <td style={tdStyle}>{lorry.type}</td>
-                <td style={tdStyle}>{lorry.registration}</td>
-                <td style={tdStyle}>{getOdometerValue(lorry).toLocaleString()} mi</td>
-                <td style={tdStyle}>{lorry.lastService}</td>
-                <td style={tdStyle}>{lorry.nextService}</td>
-                <td style={tdStyle}>{lorry.motDue}</td>
-                <td style={tdStyle}>{lorry.tachoCalDue}</td>
-                <td style={tdStyle}>{lorry.assignedDriver}</td>
-                <td style={tdStyle}>{lorry.notes}</td>
-                <td style={tdStyle}>
-                  <button style={editButton} onClick={() => router.push(`/lorry-info/${lorry.id}`)}>View</button>
+              <tr key={lorry.id} className={layoutStyles.extracted21}>
+                <td className={layoutStyles.extracted22}>{lorry.name}</td>
+                <td className={layoutStyles.extracted23}>{lorry.type}</td>
+                <td className={layoutStyles.extracted24}>{lorry.registration}</td>
+                <td className={layoutStyles.extracted25}>{getOdometerValue(lorry).toLocaleString()} mi</td>
+                <td className={layoutStyles.extracted26}>{lorry.lastService}</td>
+                <td className={layoutStyles.extracted27}>{lorry.nextService}</td>
+                <td className={layoutStyles.extracted28}>{lorry.motDue}</td>
+                <td className={layoutStyles.extracted29}>{lorry.tachoCalDue}</td>
+                <td className={layoutStyles.extracted30}>{lorry.assignedDriver}</td>
+                <td className={layoutStyles.extracted31}>{lorry.notes}</td>
+                <td className={layoutStyles.extracted32}>
+                  <button className={layoutStyles.extracted33} onClick={() => router.push(`/lorry-info/${lorry.id}`)}>View</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div style={{ marginTop: 30, textAlign: "right" }}>
-          <button style={addButton} onClick={() => router.push("/add-lorry")}>+ Add Lorry</button>
+        <div className={layoutStyles.extracted34}>
+          <button className={layoutStyles.extracted35} onClick={() => router.push("/add-lorry")}>+ Add Lorry</button>
         </div>
       </main>
     </div>
@@ -150,18 +142,18 @@ export default function LorryDashboardPage() {
 // Styles
 const navButton = {
   background: "transparent",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   border: "none",
   fontSize: 16,
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid var(--legacy-color-333)",
+  borderBottom: "1px solid var(--color-text)",
 };
 
 const inputStyle = {
   padding: "8px 12px",
-  border: "1px solid var(--legacy-color-ccc)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: "4px",
 };
 
@@ -178,8 +170,8 @@ const tdStyle = {
 
 const addButton = {
   padding: "10px 20px",
-  backgroundColor: "var(--legacy-color-1976d2)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-info)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: 4,
   cursor: "pointer",
@@ -187,8 +179,8 @@ const addButton = {
 
 const editButton = {
   padding: "6px 12px",
-  backgroundColor: "var(--legacy-color-4caf50)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-success-accent)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: 4,
   cursor: "pointer",

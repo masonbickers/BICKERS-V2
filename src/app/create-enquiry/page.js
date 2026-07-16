@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { addDoc, collection, doc, getDocs, setDoc } from "firebase/firestore";
@@ -36,22 +37,9 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  radius: 8,
-  shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   minHeight: "100vh",
@@ -154,7 +142,7 @@ const accordionBtn = {
   padding: "8px 10px",
   borderRadius: UI.radius,
   border: UI.border,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: 12.5,
@@ -169,7 +157,7 @@ const input = {
   padding: "7px 9px",
   fontSize: 13,
   color: UI.text,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   boxSizing: "border-box",
 };
 
@@ -188,8 +176,8 @@ const btn = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radius,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
-  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-surface)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -224,7 +212,7 @@ const pill = {
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "var(--legacy-color-e2e8f0)", margin: "12px 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "12px 0" };
 const FILM_DEPARTMENTS = [
   "Production",
   "Director",
@@ -246,7 +234,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1280px) {
     .create-booking-grid { grid-template-columns: 1fr !important; }
@@ -630,7 +618,7 @@ export default function CreateEnquiryPage() {
       <style>{focusCss}</style>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          <div style={pageHeader}>
+          <div className={layoutStyles.extracted1}>
             <div>
               <h1 style={h1Style}>Create Enquiry</h1>
               <div style={pageSub}>Capture the early job details now. Dates and crew can be added later if they are not known yet.</div>
@@ -641,13 +629,13 @@ export default function CreateEnquiryPage() {
             </div>
           </div>
 
-          <div style={headerChecks}>
+          <div className={layoutStyles.extracted2}>
             <div style={headerChecksBox}>
               <span style={iconBox(dateKnown ? UI.green : UI.brand, dateKnown ? UI.greenSoft : UI.brandSoft, dateKnown ? UI.greenBorder : UI.brandBorder)}>
                 <CalendarDays size={17} />
               </span>
-              <div style={{ display: "grid", gap: 4, flex: 1 }}>
-                <label style={{ ...checkboxRow, marginBottom: 0 }}>
+              <div className={layoutStyles.extracted3}>
+                <label className={layoutStyles.extracted4}>
                   <input type="checkbox" checked={dateKnown} onChange={(e) => setDateKnown(e.target.checked)} />
                   Dates available
                 </label>
@@ -661,8 +649,8 @@ export default function CreateEnquiryPage() {
               <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
                 <CheckCircle2 size={17} />
               </span>
-              <div style={{ display: "grid", gap: 4, flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: 13 }}>Enquiry workflow</div>
+              <div className={layoutStyles.extracted5}>
+                <div className={layoutStyles.extracted6}>Enquiry workflow</div>
                 <div style={{ fontSize: 12, color: UI.muted }}>
                   Saved as an enquiry and excluded from asset availability checks.
                 </div>
@@ -671,10 +659,10 @@ export default function CreateEnquiryPage() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div style={formShell}>
-              <div className="create-booking-grid" style={sectionGrid}>
+            <div className={layoutStyles.extracted7}>
+              <div className={`create-booking-grid ${layoutStyles.extracted8}`} >
                 <div style={card}>
-                  <div style={sectionTitleRow}>
+                  <div className={layoutStyles.extracted9}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Job Info</h3>
                   </div>
@@ -683,9 +671,9 @@ export default function CreateEnquiryPage() {
                   <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={input} />
 
                   <label style={label}>Status</label>
-                  <input value="Enquiry" readOnly style={{ ...input, background: "var(--legacy-color-f8fafc)", color: UI.muted }} />
+                  <input value="Enquiry" readOnly style={{ ...input, background: "var(--color-surface-subtle)", color: UI.muted }} />
 
-                  <div style={divider} />
+                  <div className={layoutStyles.extracted10} />
 
                   <label style={label}>Shoot Type</label>
                   <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={input}>
@@ -705,36 +693,36 @@ export default function CreateEnquiryPage() {
                   <label style={label}>Location</label>
                   <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} placeholder="Optional at enquiry stage" />
 
-                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--legacy-color-f8fafc)" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 }}>
+                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--color-surface-subtle)" }}>
+                    <label className={layoutStyles.extracted11}>
                       <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
                       Add invoicing details
                     </label>
                     {showInvoicingDetails && (
-                      <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                      <div className={layoutStyles.extracted12}>
                         <div>
                           <label style={{ ...label, marginTop: 0 }}>Purchase Order (PO)</label>
-                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="PO reference for invoicing" />
+                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="PO reference for invoicing" />
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                        <div className={layoutStyles.extracted13}>
                           <div>
                             <label style={{ ...label, marginTop: 0 }}>Invoicing contact</label>
-                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="Name" />
+                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="Name" />
                           </div>
                           <div>
                             <label style={{ ...label, marginTop: 0 }}>Email</label>
-                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="accounts@example.com" />
+                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="accounts@example.com" />
                           </div>
                         </div>
                         <div>
                           <label style={{ ...label, marginTop: 0 }}>Phone</label>
-                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="Optional phone number" />
+                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="Optional phone number" />
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <div style={divider} />
+                  <div className={layoutStyles.extracted14} />
 
                   <div
                     style={{
@@ -742,11 +730,11 @@ export default function CreateEnquiryPage() {
                       padding: 10,
                       borderRadius: UI.radius,
                       border: UI.border,
-                      background: "var(--legacy-color-f8fafc)",
+                      background: "var(--color-surface-subtle)",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
+                    <div className={layoutStyles.extracted15}>
+                      <span className={layoutStyles.extracted16}>Contacts</span>
                       <button type="button" onClick={handleAddContactRow} style={{ ...btn(), padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
                         + Add contact
                       </button>
@@ -759,11 +747,11 @@ export default function CreateEnquiryPage() {
                           marginBottom: 8,
                           padding: 8,
                           borderRadius: UI.radius,
-                          background: "var(--legacy-color-ffffff)",
-                          border: "1px solid var(--legacy-color-e5e7eb)",
+                          background: "var(--color-surface)",
+                          border: "1px solid var(--color-border)",
                         }}
                       >
-                        <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                        <div className={`create-enquiry-two ${layoutStyles.extracted17}`} >
                           <div>
                             <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Department</label>
                             <select value={row.department} onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)} style={input}>
@@ -791,7 +779,7 @@ export default function CreateEnquiryPage() {
                           </div>
                         </div>
 
-                        <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <div className={`create-enquiry-two ${layoutStyles.extracted18}`} >
                           <div>
                             <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Email</label>
                             <input type="email" value={row.email} onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)} style={input} placeholder="Email" />
@@ -802,7 +790,7 @@ export default function CreateEnquiryPage() {
                           </div>
                         </div>
 
-                        <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+                        <div className={layoutStyles.extracted19}>
                           <button
                             type="button"
                             onClick={() => handleRemoveContactRow(idx)}
@@ -811,9 +799,9 @@ export default function CreateEnquiryPage() {
                               padding: "4px 8px",
                               fontSize: 11,
                               borderRadius: 999,
-                              border: "1px solid var(--legacy-color-dc2626)",
-                              color: "var(--legacy-color-dc2626)",
-                              background: "var(--legacy-color-fff)",
+                              border: "1px solid var(--color-danger)",
+                              color: "var(--color-danger)",
+                              background: "var(--color-surface)",
                             }}
                           >
                             Remove
@@ -822,7 +810,7 @@ export default function CreateEnquiryPage() {
                       </div>
                     ))}
 
-                    <div style={{ marginTop: 6 }}>
+                    <div className={layoutStyles.extracted20}>
                       <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>
                         Quick add from saved contacts
                       </label>
@@ -875,12 +863,12 @@ export default function CreateEnquiryPage() {
                 </div>
 
                 <div style={card}>
-                  <div style={sectionTitleRow}>
+                  <div className={layoutStyles.extracted21}>
                     <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><CalendarDays size={17} /></span>
                     <h3 style={cardTitle}>Dates</h3>
                   </div>
 
-                  <label style={{ ...checkboxRow, marginBottom: 10 }}>
+                  <label className={layoutStyles.extracted22}>
                     <input type="checkbox" checked={dateKnown} onChange={(e) => setDateKnown(e.target.checked)} />
                     Date is available
                   </label>
@@ -890,7 +878,7 @@ export default function CreateEnquiryPage() {
                       <label style={label}>Start Date</label>
                       <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={input} />
 
-                      <label style={{ ...checkboxRow, marginTop: 10 }}>
+                      <label className={layoutStyles.extracted23}>
                         <input type="checkbox" checked={isRange} onChange={(e) => setIsRange(e.target.checked)} />
                         Multi-day enquiry
                       </label>
@@ -899,14 +887,14 @@ export default function CreateEnquiryPage() {
                       <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!isRange} style={{ ...input, opacity: isRange ? 1 : 0.55 }} />
                     </>
                   ) : (
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-f8fafc)", color: UI.muted, fontSize: 13 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
                       No dates recorded yet.
                     </div>
                   )}
 
-                  <div style={divider} />
+                  <div className={layoutStyles.extracted24} />
 
-                  <div style={{ ...sectionTitleRow, marginBottom: 8 }}>
+                  <div className={layoutStyles.extracted25}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Notes</h3>
                   </div>
@@ -915,18 +903,18 @@ export default function CreateEnquiryPage() {
                 </div>
 
                 <div style={card}>
-                  <div style={sectionTitleRow}>
+                  <div className={layoutStyles.extracted26}>
                     <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
                     <h3 style={cardTitle}>Vehicles</h3>
                   </div>
 
                   {referenceDataLoading && (
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-f8fafc)", color: UI.muted, fontSize: 13, marginBottom: 10 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13, marginBottom: 10 }}>
                       Loading vehicles and equipment...
                     </div>
                   )}
 
-                  <div style={{ position: "relative", marginBottom: 12 }}>
+                  <div className={layoutStyles.extracted27}>
                     <Search size={16} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
                     <input
                       type="text"
@@ -937,27 +925,27 @@ export default function CreateEnquiryPage() {
                     />
                   </div>
 
-                  <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                  <div className={`create-enquiry-two ${layoutStyles.extracted28}`} >
                     {filteredVehicleGroups.map(([group, items]) => {
                       const isOpen = openGroups[group] || false;
                       return (
                         <div key={group}>
                           <button type="button" onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span className={layoutStyles.extracted29}>
                               {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {group}
                             </span>
                             <span style={pill}>{items.length}</span>
                           </button>
 
                           {isOpen && (
-                            <div style={{ padding: "10px 6px" }}>
+                            <div className={layoutStyles.extracted30}>
                               {items.map((vehicle) => {
                                 const key = vehicle.id;
                                 const isSelected = vehicles.includes(key);
                                 return (
-                                  <label key={key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                  <label key={key} className={layoutStyles.extracted31}>
                                     <input type="checkbox" checked={isSelected} onChange={(e) => toggleVehicle(key, e.target.checked)} />
-                                    <span style={{ flex: 1 }}>
+                                    <span className={layoutStyles.extracted32}>
                                       {vehicle.name}
                                       {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                     </span>
@@ -975,32 +963,32 @@ export default function CreateEnquiryPage() {
                     <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
                   )}
 
-                  <div style={divider} />
+                  <div className={layoutStyles.extracted33} />
 
-                  <div style={sectionTitleRow}>
+                  <div className={layoutStyles.extracted34}>
                     <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><Package size={17} /></span>
                     <h3 style={cardTitle}>Equipment</h3>
                   </div>
 
-                  <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                  <div className={`create-enquiry-two ${layoutStyles.extracted35}`} >
                     {filteredEquipmentGroups.map(([group, items]) => {
                       const isOpen = openEquipGroups[group] || false;
                       return (
                         <div key={group}>
                           <button type="button" onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span className={layoutStyles.extracted36}>
                               {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {group}
                             </span>
                             <span style={pill}>{items.length}</span>
                           </button>
 
                           {isOpen && (
-                            <div style={{ padding: "10px 6px" }}>
+                            <div className={layoutStyles.extracted37}>
                               {items.map((rawName) => {
                                 const name = String(rawName || "").trim();
                                 const isSelected = equipment.includes(name);
                                 return (
-                                  <label key={name} style={{ display: "block", marginBottom: 6 }}>
+                                  <label key={name} className={layoutStyles.extracted38}>
                                     <input
                                       type="checkbox"
                                       checked={isSelected}
@@ -1026,7 +1014,7 @@ export default function CreateEnquiryPage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted39}>
                 <button type="submit" disabled={!canSave} style={{ ...btn("primary"), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "not-allowed" }}>
                   <Save size={14} />
                   {saving ? "Saving..." : "Save Enquiry"}

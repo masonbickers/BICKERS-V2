@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -35,36 +36,9 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  okBg: "var(--legacy-color-ecfdf5)",
-  okFg: "var(--legacy-color-065f46)",
-  okBorder: "var(--legacy-color-bbf7d0)",
-  warnBg: "var(--legacy-color-fff7ed)",
-  warnFg: "var(--legacy-color-9a3412)",
-  warnBorder: "var(--legacy-color-fed7aa)",
-  dangerBg: "var(--legacy-color-fef2f2)",
-  dangerFg: "var(--legacy-color-991b1b)",
-  dangerBorder: "var(--legacy-color-fecdd3)",
-  bookedBg: "var(--legacy-color-eef2ff)",
-  bookedFg: "var(--legacy-color-3730a3)",
-  bookedBorder: "var(--legacy-color-c7d2fe)",
-  noteBg: "var(--legacy-color-f0fdfa)",
-  noteFg: "var(--legacy-color-115e59)",
-  noteBorder: "var(--legacy-color-99f6e4)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
@@ -83,9 +57,9 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
-      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
-    color: primary ? "var(--legacy-color-fff)" : UI.text,
+      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -104,13 +78,13 @@ const input = {
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   width: "100%",
   outline: "none",
 };
 
-const pill = (bg, fg, border = "var(--legacy-color-d7dee8)") => ({
+const pill = (bg, fg, border = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -130,16 +104,16 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid var(--legacy-color-eef2f7)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   textAlign: "left",
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontWeight: 900,
 };
 
 const td = {
   padding: "11px 12px",
   fontSize: 13,
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
 };
 
@@ -656,7 +630,7 @@ export default function UsageOverviewPage() {
       <style jsx global>{`
         .usage-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
+        input:focus, select:focus, button:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
         .usage-kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -685,7 +659,7 @@ export default function UsageOverviewPage() {
           position: sticky;
           left: 0;
           z-index: 3;
-          box-shadow: 1px 0 0 var(--legacy-color-eef2f7);
+          box-shadow: 1px 0 0 var(--color-brand-soft);
         }
         .usage-matrix-table th:first-child { z-index: 4; }
         @media (max-width: 1320px) {
@@ -698,7 +672,7 @@ export default function UsageOverviewPage() {
       `}</style>
 
       <div style={pageWrap}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={title}>Usage Overview</h1>
             <div style={sub}>
@@ -706,7 +680,7 @@ export default function UsageOverviewPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <button type="button" className="usage-overview-action" style={btn("primary")} onClick={() => router.push("/vehicle-home")}>
               <Truck size={15} />
               Vehicle Home
@@ -728,7 +702,7 @@ export default function UsageOverviewPage() {
 
         <section style={{ ...card, padding: 12, marginBottom: 12 }}>
           <div className="usage-filter-grid">
-            <label style={{ position: "relative", display: "block" }}>
+            <label className={layoutStyles.extracted3}>
               <span style={fieldLabel}>Search</span>
               <Search size={16} style={{ position: "absolute", left: 11, bottom: 11, color: UI.muted }} />
               <input
@@ -790,7 +764,7 @@ export default function UsageOverviewPage() {
               </select>
             </Field>
 
-            <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+            <div className={layoutStyles.extracted4}>
               <Field label="Sort">
                 <select style={input} value={sort} onChange={(e) => setSort(e.target.value)}>
                   <option value="risk">Gaps first</option>
@@ -821,13 +795,13 @@ export default function UsageOverviewPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div className={layoutStyles.extracted5}>
             <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked</span>
             <span style={pill(UI.noteBg, UI.noteFg, UI.noteBorder)}>Manual note</span>
             <span style={pill(UI.warnBg, UI.warnFg, UI.warnBorder)}>Booking + note</span>
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Blank</span>
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{dayKeys.length} days</span>
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{vehicleSummaries.length} vehicles shown</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>Blank</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>{dayKeys.length} days</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>{vehicleSummaries.length} vehicles shown</span>
           </div>
         </section>
 
@@ -837,7 +811,7 @@ export default function UsageOverviewPage() {
             {loading ? (
               <EmptyLine>Loading usage data...</EmptyLine>
             ) : gapsToChase.length ? (
-              <div style={{ display: "grid", gap: 8 }}>
+              <div className={layoutStyles.extracted6}>
                 {gapsToChase.map((item) => (
                   <button
                     key={`${item.vehicle.id}-${item.dateISO}`}
@@ -853,7 +827,7 @@ export default function UsageOverviewPage() {
                     }}
                     onClick={() => openEdit(item.vehicle.id, item.dateISO)}
                   >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.vehicle.label}</span>
+                    <span className={layoutStyles.extracted7}>{item.vehicle.label}</span>
                     <span style={{ color: UI.warnFg }}>{fmtDate(item.dateISO)}</span>
                   </button>
                 ))}
@@ -868,7 +842,7 @@ export default function UsageOverviewPage() {
               title="Range Breakdown"
               meta={kpis.busiest ? `Busiest: ${kpis.busiest.label} (${kpis.busiest.coveredDays} days)` : "No vehicles in range"}
             />
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted8}>
               {kpis.topNotes.length ? (
                 kpis.topNotes.map(([note, count]) => (
                   <span key={note} style={pill(UI.noteBg, UI.noteFg, UI.noteBorder)}>
@@ -876,7 +850,7 @@ export default function UsageOverviewPage() {
                   </span>
                 ))
               ) : (
-                <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>No manual notes in this range</span>
+                <span style={pill("var(--color-surface-hover)", UI.text)}>No manual notes in this range</span>
               )}
               <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked days: {kpis.bookedSlots}</span>
               <span style={pill(UI.dangerBg, UI.dangerFg, UI.dangerBorder)}>Gaps: {kpis.missingSlots}</span>
@@ -885,13 +859,13 @@ export default function UsageOverviewPage() {
         </section>
 
         <section style={{ ...card, overflow: "hidden", marginBottom: 12 }}>
-          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted9}>
             <SectionHeader title="Vehicle Summary" meta="Sorted by the current priority" />
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{loading ? "Loading..." : `${vehicleSummaries.length} rows`}</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>{loading ? "Loading..." : `${vehicleSummaries.length} rows`}</span>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", minWidth: 960, borderCollapse: "collapse" }}>
+          <div className={layoutStyles.extracted10}>
+            <table className={layoutStyles.extracted11}>
               <thead>
                 <tr>
                   <th style={th}>Vehicle</th>
@@ -925,27 +899,27 @@ export default function UsageOverviewPage() {
 
                     return (
                       <tr key={row.id}>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted12}>
                           <div style={{ fontWeight: 950, color: UI.text }}>{row.label}</div>
                           <div style={{ marginTop: 2, fontSize: 12, color: UI.muted }}>{row.id}</div>
                         </td>
-                        <td style={td}>{row.category || "-"}</td>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted13}>{row.category || "-"}</td>
+                        <td className={layoutStyles.extracted14}>
                           <span style={row.todayNote?.note ? pill(UI.noteBg, UI.noteFg, UI.noteBorder) : row.todayBookings.length ? pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder) : pill(UI.dangerBg, UI.dangerFg, UI.dangerBorder)}>
                             {todayStatus}
                           </span>
                         </td>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted15}>
                           <Progress value={row.utilisation} />
                         </td>
-                        <td style={td}>{row.bookedDays}</td>
-                        <td style={td}>{row.notedDays}</td>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted16}>{row.bookedDays}</td>
+                        <td className={layoutStyles.extracted17}>{row.notedDays}</td>
+                        <td className={layoutStyles.extracted18}>
                           <span style={row.missingDays ? pill(UI.dangerBg, UI.dangerFg, UI.dangerBorder) : pill(UI.okBg, UI.okFg, UI.okBorder)}>
                             {row.missingDays}
                           </span>
                         </td>
-                        <td style={td}>{row.topNote ? `${row.topNote[0]} (${row.topNote[1]})` : "-"}</td>
+                        <td className={layoutStyles.extracted19}>{row.topNote ? `${row.topNote[0]} (${row.topNote[1]})` : "-"}</td>
                       </tr>
                     );
                   })
@@ -956,14 +930,14 @@ export default function UsageOverviewPage() {
         </section>
 
         <section style={{ ...card, overflow: "hidden" }}>
-          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted20}>
             <SectionHeader title="Daily Matrix" meta="Click any cell to add or edit a day note" />
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>
               {matrixRows.length} of {vehicleSummaries.length} vehicles
             </span>
           </div>
 
-          <div style={{ overflow: "auto", maxHeight: 620 }}>
+          <div className={layoutStyles.extracted21}>
             <table className="usage-matrix-table" style={{ width: "100%", minWidth: Math.max(920, 260 + dayKeys.length * 118), borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -987,7 +961,7 @@ export default function UsageOverviewPage() {
                 ) : (
                   matrixRows.map((vehicle) => (
                     <tr key={vehicle.id}>
-                      <td style={{ ...td, minWidth: 260, background: "var(--legacy-color-fff)" }}>
+                      <td className={layoutStyles.extracted22}>
                         <div style={{ fontWeight: 950, color: UI.text }}>{vehicle.label}</div>
                         <div style={{ marginTop: 2, fontSize: 12, color: UI.muted }}>{vehicle.category || "-"}</div>
                       </td>
@@ -1003,7 +977,7 @@ export default function UsageOverviewPage() {
                             ? { bg: UI.noteBg, fg: UI.noteFg, border: UI.noteBorder }
                             : hasBooking
                               ? { bg: UI.bookedBg, fg: UI.bookedFg, border: UI.bookedBorder }
-                              : { bg: "var(--legacy-color-ffffff)", fg: UI.muted, border: "var(--legacy-color-e5eaf1)" };
+                              : { bg: "var(--color-white)", fg: UI.muted, border: "var(--color-brand-soft)" };
                         const label = hasNote ? noteShort(noteDoc) : hasBooking ? `${bookingsForDay.length} booking${bookingsForDay.length === 1 ? "" : "s"}` : "-";
                         const titleText = hasNote
                           ? displayNote(noteDoc)
@@ -1012,7 +986,7 @@ export default function UsageOverviewPage() {
                             : "No booking or note";
 
                         return (
-                          <td key={dateISO} style={{ ...td, textAlign: "center", padding: 7 }}>
+                          <td key={dateISO} className={layoutStyles.extracted23}>
                             <button
                               type="button"
                               title={titleText}
@@ -1049,29 +1023,21 @@ export default function UsageOverviewPage() {
 
       {editModal ? (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.36)",
-            zIndex: 1000,
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
+          className={layoutStyles.extracted24}
           role="dialog"
           aria-modal="true"
         >
           <div
             style={{
               width: "min(94vw, 640px)",
-              background: "var(--legacy-color-fff)",
+              background: "var(--color-surface)",
               border: UI.border,
               borderRadius: UI.radius,
               boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
               padding: 16,
             }}
           >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div className={layoutStyles.extracted25}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 950, color: UI.text }}>Set Day Note</div>
                 <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
@@ -1084,9 +1050,9 @@ export default function UsageOverviewPage() {
               </button>
             </div>
 
-            <div style={{ height: 1, background: "var(--legacy-color-e5eaf1)", margin: "14px 0" }} />
+            <div className={layoutStyles.extracted26} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+            <div className={layoutStyles.extracted27}>
               <Field label="Note">
                 <select
                   style={input}
@@ -1136,7 +1102,7 @@ export default function UsageOverviewPage() {
               Leave note as <b>No note</b> to clear the visible cell. Existing job text is kept unless you clear it.
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted28}>
               <button type="button" className="usage-overview-action" style={btn()} onClick={() => setEditModal(null)} disabled={!!savingKey}>
                 Cancel
               </button>
@@ -1164,7 +1130,7 @@ const fieldLabel = {
 
 function Field({ label, children }) {
   return (
-    <label style={{ display: "block", minWidth: 0 }}>
+    <label className={layoutStyles.extracted29}>
       <span style={fieldLabel}>{label}</span>
       {children}
     </label>
@@ -1173,7 +1139,7 @@ function Field({ label, children }) {
 
 function SectionHeader({ title: sectionTitle, meta }) {
   return (
-    <div style={{ minWidth: 0 }}>
+    <div className={layoutStyles.extracted30}>
       <div style={{ color: UI.text, fontSize: 15, fontWeight: 950 }}>{sectionTitle}</div>
       {meta ? <div style={{ marginTop: 3, color: UI.muted, fontSize: 12.5 }}>{meta}</div> : null}
     </div>
@@ -1185,10 +1151,10 @@ function EmptyLine({ children }) {
 }
 
 function Progress({ value }) {
-  const tone = value >= 80 ? { bg: UI.okBg, fg: UI.okFg, fill: "var(--legacy-color-16a34a)" } : value >= 45 ? { bg: UI.warnBg, fg: UI.warnFg, fill: "var(--legacy-color-f59e0b)" } : { bg: UI.dangerBg, fg: UI.dangerFg, fill: "var(--legacy-color-ef4444)" };
+  const tone = value >= 80 ? { bg: UI.okBg, fg: UI.okFg, fill: "var(--color-success)" } : value >= 45 ? { bg: UI.warnBg, fg: UI.warnFg, fill: "var(--color-accent)" } : { bg: UI.dangerBg, fg: UI.dangerFg, fill: "var(--color-danger)" };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 150 }}>
-      <div style={{ height: 8, flex: 1, borderRadius: 999, background: tone.bg, overflow: "hidden", border: "1px solid var(--legacy-color-e5eaf1)" }}>
+    <div className={layoutStyles.extracted31}>
+      <div style={{ height: 8, flex: 1, borderRadius: 999, background: tone.bg, overflow: "hidden", border: "1px solid var(--color-brand-soft)" }}>
         <div style={{ width: `${Math.max(0, Math.min(100, value))}%`, height: "100%", background: tone.fill }} />
       </div>
       <span style={{ minWidth: 38, textAlign: "right", color: tone.fg, fontSize: 12, fontWeight: 950 }}>{value}%</span>

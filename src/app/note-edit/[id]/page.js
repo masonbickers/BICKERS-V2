@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { auth, db } from "../../../../firebaseConfig";
@@ -121,27 +122,27 @@ export default function EditNoteForm() {
   
 
   return (
-    <div style={mainContainerStyle}>
-      <main style={mainContentStyle}>
-        <div style={headerStyle}>
+    <div className={layoutStyles.extracted1}>
+      <main className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
 
-          <button onClick={handleHome} style={backButtonStyle}>Back</button>
+          <button onClick={handleHome} className={layoutStyles.extracted4}>Back</button>
         </div>
 
-        <h1 style={pageTitleStyle}>Edit Note</h1>
+        <h1 className={layoutStyles.extracted5}>Edit Note</h1>
 
-        <div style={formContainerStyle}>
-          <h2 style={formTitleStyle}>Update Note</h2>
+        <div className={layoutStyles.extracted6}>
+          <h2 className={layoutStyles.extracted7}>Update Note</h2>
           <form onSubmit={handleSubmit}>
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Employee (optional)</label>
+            <div className={layoutStyles.extracted8}>
+              <label className={layoutStyles.extracted9}>Employee (optional)</label>
               <select
                 value={employee}
                 onChange={(e) => {
                   setEmployee(e.target.value);
                   if (!e.target.value) setBlocksEmployeeBooking(false);
                 }}
-                style={inputStyle}
+                className={layoutStyles.extracted10}
               >
                 <option value="">No one specific</option>
                 {employees.map((emp) => (
@@ -152,7 +153,7 @@ export default function EditNoteForm() {
               </select>
             </div>
 
-            <label style={checkRowStyle}>
+            <label className={layoutStyles.extracted11}>
               <input
                 type="checkbox"
                 checked={blocksEmployeeBooking}
@@ -162,38 +163,34 @@ export default function EditNoteForm() {
               <span>Mark employee unavailable for bookings</span>
             </label>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Date</label>
+            <div className={layoutStyles.extracted12}>
+              <label className={layoutStyles.extracted13}>Date</label>
               <input
                 type="date"
                 value={noteDate}
                 onChange={(e) => setNoteDate(e.target.value)}
                 required
-                style={inputStyle}
+                className={layoutStyles.extracted14}
               />
             </div>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Note Text</label>
+            <div className={layoutStyles.extracted15}>
+              <label className={layoutStyles.extracted16}>Note Text</label>
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 required
-                style={inputStyle}
+                className={layoutStyles.extracted17}
               />
             </div>
 
-            <button type="submit" style={buttonStyle}>Update Note</button>
-            <button type="button" onClick={handleCancel} style={cancelButtonStyle}>Cancel</button>
+            <button type="submit" className={layoutStyles.extracted18}>Update Note</button>
+            <button type="button" onClick={handleCancel} className={layoutStyles.extracted19}>Cancel</button>
 
             <button
                 type="button"
                 onClick={handleDelete}
-                style={{
-                    ...cancelButtonStyle,
-                    backgroundColor: "var(--legacy-color-880808)", // darker red
-                    marginTop: "10px",
-                }}
+                className={layoutStyles.extracted20}
                 >
                 Delete Note
             </button>
@@ -206,17 +203,17 @@ export default function EditNoteForm() {
 }
 
 //  Styles (reuse from original NoteForm)
-const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "var(--legacy-color-1e1e1e)", color: "var(--legacy-color-fff)", minHeight: "100vh", padding: "40px" };
-const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "var(--legacy-color-121212)", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
+const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "var(--shell-sidebar-bg)", color: "var(--color-white)", minHeight: "100vh", padding: "40px" };
+const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "var(--shell-sidebar-bg)", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
 const headerStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" };
 const logoStyle = { width: "180px", height: "auto" };
-const backButtonStyle = { backgroundColor: "var(--legacy-color-f44336)", color: "var(--legacy-color-fff)", border: "none", padding: "8px 16px", fontSize: "14px", cursor: "pointer", borderRadius: "6px" };
+const backButtonStyle = { backgroundColor: "var(--color-warning)", color: "var(--color-white)", border: "none", padding: "8px 16px", fontSize: "14px", cursor: "pointer", borderRadius: "6px" };
 const pageTitleStyle = { fontSize: "32px", fontWeight: "bold", textAlign: "center", marginBottom: "20px" };
-const formContainerStyle = { backgroundColor: "var(--legacy-color-222)", padding: "30px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
-const formTitleStyle = { fontSize: "24px", fontWeight: "bold", marginBottom: "20px", color: "var(--legacy-color-fff)" };
+const formContainerStyle = { backgroundColor: "var(--shell-sidebar-bg)", padding: "30px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
+const formTitleStyle = { fontSize: "24px", fontWeight: "bold", marginBottom: "20px", color: "var(--color-white)" };
 const inputContainerStyle = { marginBottom: "15px" };
-const labelStyle = { fontSize: "14px", fontWeight: "600", marginBottom: "5px", display: "block", color: "var(--legacy-color-fff)" };
-const checkRowStyle = { display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 15, color: "var(--legacy-color-fff)", fontSize: 14, fontWeight: 700 };
-const inputStyle = { width: "100%", padding: "12px", marginBottom: "10px", borderRadius: "6px", border: "1px solid var(--legacy-color-444)", fontSize: "14px", backgroundColor: "var(--legacy-color-333)", color: "var(--legacy-color-fff)" };
-const buttonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--legacy-color-1976d2)", color: "var(--legacy-color-fff)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" };
-const cancelButtonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--legacy-color-f44336)", color: "var(--legacy-color-fff)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "10px" };
+const labelStyle = { fontSize: "14px", fontWeight: "600", marginBottom: "5px", display: "block", color: "var(--color-white)" };
+const checkRowStyle = { display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 15, color: "var(--color-white)", fontSize: 14, fontWeight: 700 };
+const inputStyle = { width: "100%", padding: "12px", marginBottom: "10px", borderRadius: "6px", border: "1px solid var(--color-brand-hover)", fontSize: "14px", backgroundColor: "var(--shell-sidebar-bg)", color: "var(--color-white)" };
+const buttonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--color-info)", color: "var(--color-white)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" };
+const cancelButtonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--color-warning)", color: "var(--color-white)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "10px" };

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Home, Receipt, RotateCcw, Search } from "lucide-react";
@@ -14,30 +15,10 @@ import {
   useDataAccessState,
 } from "../utils/firestoreAccess";
 import { useSessionScroll, useSessionState } from "../utils/useSessionState";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
 
-const UI = {
-  bg: "var(--legacy-color-f3f6f9)",
-  panel: "var(--legacy-color-ffffff)",
-  border: "var(--legacy-color-d8e2ee)",
-  borderSoft: "var(--legacy-color-e7edf5)",
-  text: "var(--legacy-color-061426)",
-  muted: "var(--legacy-color-586b82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-eaf3fc)",
-  green: "var(--legacy-color-16a34a)",
-  greenSoft: "var(--legacy-color-dcfce7)",
-  greenBorder: "var(--legacy-color-86efac)",
-  amber: "var(--legacy-color-f59e0b)",
-  amberSoft: "var(--legacy-color-fef3c7)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  purple: "var(--legacy-color-6d4aff)",
-  purpleSoft: "var(--legacy-color-f0ebff)",
-  purpleBorder: "var(--legacy-color-d8ccff)",
-  red: "var(--legacy-color-ef4444)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-  slateSoft: "var(--legacy-color-eef3f8)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   minHeight: "100vh",
@@ -83,7 +64,7 @@ const inputStyle = {
   height: 36,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 700,
@@ -99,7 +80,7 @@ const btn = {
   gap: 6,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 900,
@@ -113,7 +94,7 @@ const primaryBtn = {
   ...btn,
   background: UI.brand,
   borderColor: UI.brand,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
 };
 
 const chip = {
@@ -147,12 +128,12 @@ const tableEl = {
 const th = {
   padding: "7px 10px",
   textAlign: "left",
-  color: "var(--legacy-color-4f6278)",
+  color: "var(--color-text-muted)",
   fontSize: 11,
   fontWeight: 900,
   textTransform: "uppercase",
   borderBottom: `1px solid ${UI.borderSoft}`,
-  background: "var(--legacy-color-fbfdff)",
+  background: "var(--color-surface-subtle)",
 };
 
 const td = {
@@ -174,58 +155,19 @@ const statusStyles = {
   "Ready to Invoice": {
     background: UI.amberSoft,
     borderColor: UI.amberBorder,
-    color: "var(--legacy-color-92400e)",
+    color: "var(--color-warning)",
   },
   Invoiced: {
-    background: "var(--legacy-color-e0e7ff)",
-    borderColor: "var(--legacy-color-c7d2fe)",
-    color: "var(--legacy-color-3730a3)",
+    background: "var(--color-brand-soft)",
+    borderColor: "var(--color-info-border)",
+    color: "var(--color-brand)",
   },
   Paid: {
     background: UI.greenSoft,
     borderColor: UI.greenBorder,
-    color: "var(--legacy-color-166534)",
+    color: "var(--color-success)",
   },
-  Complete: {
-    background: "var(--legacy-color-92d18c)",
-    borderColor: "var(--legacy-color-111111)",
-    color: "var(--legacy-color-0b0b0b)",
-  },
-  "Action Required": {
-    background: "var(--legacy-color-ff973b)",
-    borderColor: "var(--legacy-color-111111)",
-    color: "var(--legacy-color-0b0b0b)",
-  },
-  Confirmed: {
-    background: "var(--legacy-color-f3f970)",
-    borderColor: "var(--legacy-color-111111)",
-    color: "var(--legacy-color-0b0b0b)",
-  },
-  "First Pencil": {
-    background: "var(--legacy-color-89caf5)",
-    borderColor: "var(--legacy-color-111111)",
-    color: "var(--legacy-color-0b0b0b)",
-  },
-  "Second Pencil": {
-    background: "var(--legacy-color-f73939)",
-    borderColor: "var(--legacy-color-111111)",
-    color: "var(--legacy-color-ffffff)",
-  },
-  DNH: {
-    background: "var(--legacy-color-d0d0d0)",
-    borderColor: "var(--legacy-color-d0d0d0)",
-    color: "var(--legacy-color-0b0b0b)",
-  },
-  Cancelled: {
-    background: "var(--legacy-color-e5e7eb)",
-    borderColor: "var(--legacy-color-d1d5db)",
-    color: "var(--legacy-color-111827)",
-  },
-  Enquiry: {
-    background: UI.purpleSoft,
-    borderColor: UI.purpleBorder,
-    color: UI.purple,
-  },
+  ...Object.fromEntries(Object.entries(FIXED_JOB_STATUS_STYLES).map(([status, style]) => [status, { background: style.bg, borderColor: style.border, color: style.text }])),
   Default: {
     background: UI.slateSoft,
     borderColor: UI.border,
@@ -235,11 +177,11 @@ const statusStyles = {
 
 const focusCss = `
   .finance-control:focus {
-    border-color: var(--legacy-color-1f4b7a) !important;
+    border-color: var(--color-brand) !important;
     box-shadow: 0 0 0 3px rgba(31, 75, 122, 0.14);
   }
   .finance-row:hover {
-    background: var(--legacy-color-f8fbff);
+    background: var(--color-surface-subtle);
   }
   @media (max-width: 980px) {
     .finance-header {
@@ -437,28 +379,22 @@ function SectionTable({ title, jobs }) {
   return (
     <section style={surface}>
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          padding: "8px 10px",
-        }}
+        className={layoutStyles.extracted1}
       >
         <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: UI.text }}>{title}</h2>
         <span style={chip}>{jobs.length}</span>
       </div>
       <div style={tableWrap}>
-        <table style={tableEl}>
+        <table className={layoutStyles.extracted2}>
           <colgroup>
-            <col style={{ width: 92 }} />
-            <col style={{ width: 190 }} />
+            <col className={layoutStyles.extracted3} />
+            <col className={layoutStyles.extracted4} />
             <col />
-            <col style={{ width: 142 }} />
-            <col style={{ width: 120 }} />
-            <col style={{ width: 220 }} />
-            <col style={{ width: 140 }} />
-            <col style={{ width: 118 }} />
+            <col className={layoutStyles.extracted5} />
+            <col className={layoutStyles.extracted6} />
+            <col className={layoutStyles.extracted7} />
+            <col className={layoutStyles.extracted8} />
+            <col className={layoutStyles.extracted9} />
           </colgroup>
           <thead>
             <tr>
@@ -654,13 +590,13 @@ export default function FinanceQueuePage() {
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
       <div style={pageWrap}>
-        <header className="finance-header" style={headerBar}>
+        <header className={`finance-header ${layoutStyles.extracted10}`} >
           <div>
             <h1 style={h1}>Finance Queue</h1>
           </div>
           <div
-            className="finance-actions"
-            style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}
+            className={`finance-actions ${layoutStyles.extracted11}`}
+            
           >
             <Link href="/job-home" style={primaryBtn}>
               <Home size={14} />
@@ -674,7 +610,7 @@ export default function FinanceQueuePage() {
         </header>
 
         <section className="finance-toolbar" style={toolbar}>
-          <label style={{ position: "relative", display: "block" }}>
+          <label className={layoutStyles.extracted12}>
             <Search
               size={16}
               style={{ position: "absolute", left: 12, top: 10, color: UI.muted, pointerEvents: "none" }}

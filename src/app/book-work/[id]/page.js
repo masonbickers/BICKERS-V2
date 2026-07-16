@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { db } from "../../../../firebaseConfig";
@@ -113,33 +114,33 @@ export default function BookWorkPage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ padding: 40, maxWidth: 700, color: "var(--legacy-color-111)" }}>
+      <div className={layoutStyles.extracted1}>
         <h1>Book Maintenance for Vehicle</h1>
-        <h2 style={{ marginTop: 10, color: "var(--legacy-color-111)" }}>
+        <h2 className={layoutStyles.extracted2}>
           {vehicle?.name || vehicle?.registration || "Loading..."}
         </h2>
 
-        <label style={label}>Booking Mode</label>
-        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        <label className={layoutStyles.extracted3}>Booking Mode</label>
+        <div className={layoutStyles.extracted4}>
           <button onClick={() => setMode("single")} style={mode === "single" ? activeMode : modeBtn}>Single Day</button>
           <button onClick={() => setMode("multi")} style={mode === "multi" ? activeMode : modeBtn}>Multi-Day</button>
           <button onClick={() => setMode("offroad")} style={mode === "offroad" ? activeMode : modeBtn}>Off Road Until Fixed</button>
         </div>
 
-        <label style={label}>Start Date</label>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={input} />
+        <label className={layoutStyles.extracted5}>Start Date</label>
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={layoutStyles.extracted6} />
 
         {mode === "multi" && (
           <>
-            <label style={label}>End Date</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={input} />
+            <label className={layoutStyles.extracted7}>End Date</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={layoutStyles.extracted8} />
           </>
         )}
 
         {mode !== "offroad" && (
           <>
-            <label style={label}>Maintenance Type</label>
-            <select value={maintenanceType} onChange={(e) => setMaintenanceType(e.target.value)} style={input}>
+            <label className={layoutStyles.extracted9}>Maintenance Type</label>
+            <select value={maintenanceType} onChange={(e) => setMaintenanceType(e.target.value)} className={layoutStyles.extracted10}>
               <option value="">Select…</option>
               <option value="General Service">General Service</option>
               <option value="Brake Test">Brake Test</option>
@@ -152,25 +153,25 @@ export default function BookWorkPage() {
 
             {maintenanceType === "Other" && (
               <>
-                <label style={label}>Custom Reason</label>
-                <input type="text" value={customReason} onChange={(e) => setCustomReason(e.target.value)} style={input} />
+                <label className={layoutStyles.extracted11}>Custom Reason</label>
+                <input type="text" value={customReason} onChange={(e) => setCustomReason(e.target.value)} className={layoutStyles.extracted12} />
               </>
             )}
           </>
         )}
 
-        <label style={label}>Notes</label>
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...input, height: 100 }} />
+        <label className={layoutStyles.extracted13}>Notes</label>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} className={layoutStyles.extracted14} />
 
-        <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-          <button onClick={checkExistingBookings} style={checkBtn}> Check Availability</button>
-          <button onClick={handleSubmit} style={submitBtn}> Book Maintenance</button>
-          <button onClick={() => router.push("/vehicles")} style={cancelBtn}> Cancel</button>
+        <div className={layoutStyles.extracted15}>
+          <button onClick={checkExistingBookings} className={layoutStyles.extracted16}> Check Availability</button>
+          <button onClick={handleSubmit} className={layoutStyles.extracted17}> Book Maintenance</button>
+          <button onClick={() => router.push("/vehicles")} className={layoutStyles.extracted18}> Cancel</button>
         </div>
 
         {existingBookings.length > 0 && (
-          <div style={{ marginTop: 30 }}>
-            <h3 style={{ color: "var(--legacy-color-dc2626)" }}>Warning Conflicting Bookings:</h3>
+          <div className={layoutStyles.extracted19}>
+            <h3 className={layoutStyles.extracted20}>Warning Conflicting Bookings:</h3>
             <ul>
               {existingBookings.map((b, i) => (
                 <li key={i}>
@@ -191,15 +192,15 @@ const input = {
   width: "100%",
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid var(--legacy-color-ccc)",
+  border: "1px solid var(--color-border-strong)",
   fontSize: 14,
   marginTop: 5,
 };
 const submitBtn = {
   marginTop: 20,
   padding: "10px 20px",
-  backgroundColor: "var(--legacy-color-10b981)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-success-accent)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: 6,
   cursor: "pointer",
@@ -207,22 +208,22 @@ const submitBtn = {
 };
 const cancelBtn = {
   ...submitBtn,
-  backgroundColor: "var(--legacy-color-ef4444)",
+  backgroundColor: "var(--color-danger)",
 };
 const checkBtn = {
   ...submitBtn,
-  backgroundColor: "var(--legacy-color-3b82f6)",
+  backgroundColor: "var(--color-info)",
 };
 const modeBtn = {
   padding: "8px 12px",
   borderRadius: 6,
-  border: "1px solid var(--legacy-color-ccc)",
-  background: "var(--legacy-color-f3f4f6)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-canvas)",
   cursor: "pointer",
 };
 const activeMode = {
   ...modeBtn,
-  backgroundColor: "var(--legacy-color-10b981)",
-  color: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-success-accent)",
+  color: "var(--color-white)",
   border: "none",
 };

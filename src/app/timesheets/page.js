@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
@@ -31,6 +32,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const DAYS = [
   "Monday",
@@ -429,10 +431,10 @@ function getTimesheetStatus(ts) {
       key: "missing",
       label: "Missing",
       helper: "No saved timesheet for this week.",
-      text: "var(--legacy-color-9f1239)",
-      bg: "var(--legacy-color-fff1f2)",
-      border: "var(--legacy-color-fecdd3)",
-      accent: "var(--legacy-color-e11d48)",
+      text: "var(--color-danger)",
+      bg: "var(--color-danger-soft)",
+      border: "var(--color-danger-border)",
+      accent: "var(--color-danger)",
       clickable: false,
     };
   }
@@ -447,10 +449,10 @@ function getTimesheetStatus(ts) {
       key: "approved",
       label: "Approved",
       helper: "Approved and closed for review.",
-      text: "var(--legacy-color-166534)",
-      bg: "var(--legacy-color-dcfce7)",
-      border: "var(--legacy-color-86efac)",
-      accent: "var(--legacy-color-16a34a)",
+      text: "var(--color-success)",
+      bg: "var(--color-success-soft)",
+      border: "var(--color-success-border)",
+      accent: "var(--color-success)",
       clickable: true,
     };
   }
@@ -460,10 +462,10 @@ function getTimesheetStatus(ts) {
       key: "submitted",
       label: "Submitted",
       helper: "Submitted and awaiting final review.",
-      text: "var(--legacy-color-14532d)",
-      bg: "var(--legacy-color-ecfdf5)",
-      border: "var(--legacy-color-86efac)",
-      accent: "var(--legacy-color-22c55e)",
+      text: "var(--color-success)",
+      bg: "var(--color-success-soft)",
+      border: "var(--color-success-border)",
+      accent: "var(--color-success-accent)",
       clickable: true,
     };
   }
@@ -472,38 +474,15 @@ function getTimesheetStatus(ts) {
     key: "draft",
     label: "Draft",
     helper: "Saved but not submitted by the employee.",
-    text: "var(--legacy-color-92400e)",
-    bg: "var(--legacy-color-fffbeb)",
-    border: "var(--legacy-color-fcd34d)",
-    accent: "var(--legacy-color-f59e0b)",
+    text: "var(--color-warning)",
+    bg: "var(--color-warning-soft)",
+    border: "var(--color-warning-border)",
+    accent: "var(--color-accent)",
     clickable: true,
   };
 }
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  ink: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   flex: 1,
@@ -566,7 +545,7 @@ const chip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.var(--color-danger) };
   return base;
 };
 
@@ -588,15 +567,15 @@ const btn = (kind = "ghost") => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-      color: "var(--legacy-color-fff)",
+      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
   }
   return {
     ...base,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+    background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
     color: UI.ink,
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
   };
@@ -643,7 +622,7 @@ const focusCss = `
   input:focus, select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -1179,7 +1158,7 @@ export default function TimesheetListPage() {
     borderRadius: UI.radiusSm,
     border: UI.border,
     fontSize: 13,
-    background: "var(--legacy-color-fff)",
+    background: "var(--color-surface)",
     outline: "none",
     color: UI.ink,
   };
@@ -1189,7 +1168,7 @@ export default function TimesheetListPage() {
     { label: "Submitted", value: overview.submitted, icon: FileClock, color: UI.green, bg: UI.greenSoft, border: UI.greenBorder },
     { label: "Approved", value: overview.approved, icon: CheckCircle2, color: UI.green, bg: UI.greenSoft, border: UI.greenBorder },
     { label: "Draft", value: overview.draft, icon: PencilLine, color: UI.amber, bg: UI.amberSoft, border: UI.amberBorder },
-    { label: "Missing", value: overview.missing, icon: AlertTriangle, color: UI.red, bg: UI.redSoft, border: UI.redBorder },
+    { label: "Missing", value: overview.missing, icon: AlertTriangle, color: UI.var(--color-danger), bg: UI.redSoft, border: UI.redBorder },
   ];
   const compactReviewView = true;
 
@@ -1236,8 +1215,8 @@ export default function TimesheetListPage() {
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
       <div style={pageWrap}>
-        <div style={{ width: "100%", maxWidth: 1600, margin: "0 auto" }}>
-          <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
+          <div className={layoutStyles.extracted2}>
             <div>
               <h1 style={h1}>Timesheet Submissions</h1>
               <p style={sub}>
@@ -1247,18 +1226,13 @@ export default function TimesheetListPage() {
             </div>
 
             <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-              }}
+              className={layoutStyles.extracted3}
             >
               {[
-                { label: "Approved", bg: "var(--legacy-color-dcfce7)", dot: "var(--legacy-color-16a34a)" },
-                { label: "Submitted", bg: "var(--legacy-color-ecfdf5)", dot: "var(--legacy-color-22c55e)" },
-                { label: "Draft", bg: "var(--legacy-color-fffbeb)", dot: "var(--legacy-color-f59e0b)" },
-                { label: "Missing", bg: "var(--legacy-color-fff1f2)", dot: "var(--legacy-color-e11d48)" },
+                { label: "Approved", bg: "var(--color-success-soft)", dot: "var(--color-success)" },
+                { label: "Submitted", bg: "var(--color-success-soft)", dot: "var(--color-success-accent)" },
+                { label: "Draft", bg: "var(--color-warning-soft)", dot: "var(--color-accent)" },
+                { label: "Missing", bg: "var(--color-danger-soft)", dot: "var(--color-danger)" },
               ].map((item) => (
                 <span
                   key={item.label}
@@ -1274,7 +1248,7 @@ export default function TimesheetListPage() {
                     borderColor: "rgba(148,163,184,0.18)",
                     fontSize: 12,
                     fontWeight: 800,
-                    color: "var(--legacy-color-334155)",
+                    color: "var(--color-text-muted)",
                   }}
                 >
                   <span
@@ -1292,8 +1266,8 @@ export default function TimesheetListPage() {
           </div>
 
           <section style={{ ...cardStyle, padding: compactReviewView ? 10 : cardStyle.padding, marginBottom: UI.gap }}>
-            <div style={sectionHeader}>
-              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+            <div className={layoutStyles.extracted4}>
+              <div className={layoutStyles.extracted5}>
                 <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
                   <CalendarDays size={17} />
                 </span>
@@ -1376,9 +1350,9 @@ export default function TimesheetListPage() {
               alignItems: "end",
             }}
           >
-            <div style={{ minWidth: 0 }}>
+            <div className={layoutStyles.extracted6}>
               <label style={labelStyle}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span className={layoutStyles.extracted7}>
                   <Search size={13} /> Search employee
                 </span>
               </label>
@@ -1397,7 +1371,7 @@ export default function TimesheetListPage() {
 
             <div>
               <label style={labelStyle}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span className={layoutStyles.extracted8}>
                   <Filter size={13} /> Status focus
                 </span>
               </label>
@@ -1421,7 +1395,7 @@ export default function TimesheetListPage() {
 
             <div>
               <label style={labelStyle}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span className={layoutStyles.extracted9}>
                   <CalendarDays size={13} /> Reporting week
                 </span>
               </label>
@@ -1445,7 +1419,7 @@ export default function TimesheetListPage() {
 
             <div>
               <label style={labelStyle}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span className={layoutStyles.extracted10}>
                   <BarChart3 size={13} /> Sort by
                 </span>
               </label>
@@ -1464,7 +1438,7 @@ export default function TimesheetListPage() {
               </select>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted11}>
               <button
                 type="button"
                 onClick={() => {
@@ -1501,12 +1475,12 @@ export default function TimesheetListPage() {
 
           {isAdmin && settingsOpen ? (
             <section style={{ ...cardStyle, marginBottom: UI.gap, padding: 14 }}>
-              <div style={{ ...sectionHeader, marginBottom: 10 }}>
+              <div className={layoutStyles.extracted12}>
                 <div>
                   <h2 style={titleMd}>Timesheet Display Settings</h2>
                   <div style={hint}>Tick people who should be hidden from this overview.</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <div className={layoutStyles.extracted13}>
                   <button
                     type="button"
                     onClick={() => setHiddenEmployeeKeys([])}
@@ -1526,14 +1500,7 @@ export default function TimesheetListPage() {
               </div>
 
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 8,
-                  maxHeight: 320,
-                  overflowY: "auto",
-                  paddingRight: 4,
-                }}
+                className={layoutStyles.extracted14}
               >
                 {settingsEmployees.map((employee) => {
                   const hideKey = getTimesheetEmployeeHideKey(employee);
@@ -1551,7 +1518,7 @@ export default function TimesheetListPage() {
                         padding: "8px 9px",
                         border: UI.border,
                         borderRadius: UI.radiusSm,
-                        background: checked ? "var(--legacy-color-fff7ed)" : "var(--legacy-color-fff)",
+                        background: checked ? "var(--color-warning-soft)" : "var(--color-surface)",
                         cursor: "pointer",
                       }}
                     >
@@ -1567,7 +1534,7 @@ export default function TimesheetListPage() {
                           });
                         }}
                       />
-                      <span style={{ minWidth: 0 }}>
+                      <span className={layoutStyles.extracted15}>
                         <span style={{ display: "block", fontSize: 13, fontWeight: 800, color: UI.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {label}
                         </span>
@@ -1596,11 +1563,11 @@ export default function TimesheetListPage() {
           ) : error ? (
             <div
               style={{
-                background: "var(--legacy-color-fff1f2)",
+                background: "var(--color-danger-soft)",
                 borderRadius: UI.radius,
                 border: `1px solid ${UI.redBorder}`,
                 padding: 18,
-                color: UI.red,
+                color: UI.var(--color-danger),
                 fontSize: 14,
                 fontWeight: 600,
               }}
@@ -1653,12 +1620,7 @@ export default function TimesheetListPage() {
                       </span>
                       <div>
                         <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            flexWrap: "wrap",
-                          }}
+                          className={layoutStyles.extracted16}
                         >
                           <h2
                             style={{
@@ -1702,26 +1664,26 @@ export default function TimesheetListPage() {
                         {
                           label: "Approved",
                           value: summary.approved,
-                          bg: "var(--legacy-color-dcfce7)",
-                          color: "var(--legacy-color-166534)",
+                          bg: "var(--color-success-soft)",
+                          color: "var(--color-success)",
                         },
                         {
                           label: "Submitted",
                           value: summary.submitted,
-                          bg: "var(--legacy-color-ecfdf5)",
-                          color: "var(--legacy-color-166534)",
+                          bg: "var(--color-success-soft)",
+                          color: "var(--color-success)",
                         },
                         {
                           label: "Draft",
                           value: summary.draft,
-                          bg: "var(--legacy-color-fffbeb)",
-                          color: "var(--legacy-color-92400e)",
+                          bg: "var(--color-warning-soft)",
+                          color: "var(--color-warning)",
                         },
                         {
                           label: "Missing",
                           value: summary.missing,
-                          bg: "var(--legacy-color-fff1f2)",
-                          color: "var(--legacy-color-9f1239)",
+                          bg: "var(--color-danger-soft)",
+                          color: "var(--color-danger)",
                         },
                       ].map((item) => (
                         item.value > 0 || !compactReviewView ? (
@@ -1777,7 +1739,7 @@ export default function TimesheetListPage() {
                           key={weekStart}
                           onClick={() => ts && router.push(`/timesheet-id/${ts.id}`)}
                           style={{
-                            background: "var(--legacy-color-ffffff)",
+                            background: "var(--color-surface)",
                             borderRadius: UI.radius,
                             borderWidth: 1,
                             borderStyle: "solid",
@@ -1891,7 +1853,7 @@ export default function TimesheetListPage() {
                                 justifyContent: compactReviewView ? "space-between" : "initial",
                                 padding: compactReviewView ? "6px 7px" : "10px 11px",
                                 borderRadius: UI.radius,
-                                background: "var(--legacy-color-f8fbfd)",
+                                background: "var(--color-surface-subtle)",
                                 border: UI.border,
                               }}
                             >
@@ -1963,11 +1925,11 @@ export default function TimesheetListPage() {
                                   ...btn("primary"),
                                   padding: compactReviewView ? "5px 8px" : "6px 10px",
                                   fontSize: compactReviewView ? 11.5 : 12.5,
-                                  borderColor: "var(--legacy-color-047857)",
+                                  borderColor: "var(--color-success)",
                                   background: isApproving
                                     ? UI.greenSoft
-                                    : "linear-gradient(180deg, var(--legacy-color-22c55e) 0%, var(--legacy-color-15803d) 100%)",
-                                  color: isApproving ? UI.green : "var(--legacy-color-ffffff)",
+                                    : "linear-gradient(180deg, var(--color-success-accent) 0%, var(--color-success) 100%)",
+                                  color: isApproving ? UI.green : "var(--color-white)",
                                   boxShadow: isApproving
                                     ? UI.shadowSm
                                     : "0 8px 18px rgba(21,128,61,0.22)",
@@ -1987,8 +1949,8 @@ export default function TimesheetListPage() {
                                   fontSize: compactReviewView ? 11.5 : 12.5,
                                   background: isCreatingManual
                                     ? UI.brandSoft
-                                    : "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-                                  color: isCreatingManual ? UI.brand : "var(--legacy-color-ffffff)",
+                                    : "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+                                  color: isCreatingManual ? UI.brand : "var(--color-white)",
                                   boxShadow: isCreatingManual
                                     ? UI.shadowSm
                                     : "0 8px 18px rgba(31,75,122,0.18)",
@@ -2002,7 +1964,7 @@ export default function TimesheetListPage() {
                                 style={{
                                   fontSize: 16,
                                   fontWeight: 800,
-                                  color: status.clickable ? UI.brand : "var(--legacy-color-94a3b8)",
+                                  color: status.clickable ? UI.brand : "var(--shell-muted)",
                                 }}
                               >
                                 {status.clickable ? <ChevronRight size={16} /> : "-"}

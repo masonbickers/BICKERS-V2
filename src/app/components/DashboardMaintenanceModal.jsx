@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./DashboardMaintenanceModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { arrayUnion, deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
@@ -829,45 +830,45 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const eventDocuments = documentList(event?.documents);
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div style={modal}>
-        <div style={header}>
+    <div className={layoutStyles.extracted1} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
+      <div className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
           <div>
-            <div style={eyebrow}>Dashboard Maintenance</div>
-            <h2 style={title}>{modalTitle}</h2>
+            <div className={layoutStyles.extracted4}>Dashboard Maintenance</div>
+            <h2 className={layoutStyles.extracted5}>{modalTitle}</h2>
           </div>
-          <button onClick={onClose} style={closeBtn} type="button" aria-label="Close">
+          <button onClick={onClose} className={layoutStyles.extracted6} type="button" aria-label="Close">
             X
           </button>
         </div>
 
-        <div style={card}>
-          {bookingActionError ? <div style={{ ...feedbackError, margin: 10 }}>{bookingActionError}</div> : null}
-          {bookingActionMessage ? <div style={{ ...feedbackSuccess, margin: 10 }}>{bookingActionMessage}</div> : null}
-          <div style={summaryStrip}>
+        <div className={layoutStyles.extracted7}>
+          {bookingActionError ? <div className={layoutStyles.extracted8}>{bookingActionError}</div> : null}
+          {bookingActionMessage ? <div className={layoutStyles.extracted9}>{bookingActionMessage}</div> : null}
+          <div className={layoutStyles.extracted10}>
             {summaryCards.map((item) => (
-              <div key={item.label} style={summaryTile}>
-                <div style={summaryLabel}>{item.label}</div>
-                <div style={summaryValue}>{item.value}</div>
+              <div key={item.label} className={layoutStyles.extracted11}>
+                <div className={layoutStyles.extracted12}>{item.label}</div>
+                <div className={layoutStyles.extracted13}>{item.value}</div>
               </div>
             ))}
           </div>
 
-          <div style={detailsPanel}>
+          <div className={layoutStyles.extracted14}>
             {detailRows.map((item) => (
               <Row key={item.label} label={item.label} value={item.value} />
             ))}
             {eventDocuments.length ? (
-              <div style={documentsBlock}>
-                <div style={labelStyle}>Documents</div>
-                <div style={documentLinks}>
+              <div className={layoutStyles.extracted15}>
+                <div className={layoutStyles.extracted16}>Documents</div>
+                <div className={layoutStyles.extracted17}>
                   {eventDocuments.map((item, index) => (
                     <a
                       key={`${item.url || item.name}-${index}`}
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={documentLink}
+                      className={layoutStyles.extracted18}
                     >
                       {item.label || item.name || `Document ${index + 1}`}
                     </a>
@@ -876,30 +877,30 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
               </div>
             ) : null}
             {hasDisplayValue(bookingDetails.notes) ? (
-              <div style={notesBlock}>
-                <div style={labelStyle}>Notes</div>
-                <div style={notesText}>{bookingDetails.notes}</div>
+              <div className={layoutStyles.extracted19}>
+                <div className={layoutStyles.extracted20}>Notes</div>
+                <div className={layoutStyles.extracted21}>{bookingDetails.notes}</div>
               </div>
             ) : null}
           </div>
         </div>
 
         {canAttachGeneratedAppointmentDocuments ? (
-          <div style={documentUploadCard}>
-            <div style={jobEditorTitle}>Completion Documents</div>
-            <div style={jobEditorSubtitle}>
+          <div className={layoutStyles.extracted22}>
+            <div className={layoutStyles.extracted23}>Completion Documents</div>
+            <div className={layoutStyles.extracted24}>
               Attach the inspection paperwork for this maintenance appointment.
             </div>
-            <div style={jobGrid}>
+            <div className={layoutStyles.extracted25}>
               {generatedAppointmentKinds.brake ? (
                 <Field label="Brake Test Document">
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                     onChange={(e) => setBrakeTestDocumentFile(e.target.files?.[0] || null)}
-                    style={fieldInput}
+                    className={layoutStyles.extracted26}
                   />
-                  {brakeTestDocumentFile ? <div style={fileHint}>{brakeTestDocumentFile.name}</div> : null}
+                  {brakeTestDocumentFile ? <div className={layoutStyles.extracted27}>{brakeTestDocumentFile.name}</div> : null}
                 </Field>
               ) : null}
               {generatedAppointmentKinds.pmi ? (
@@ -908,17 +909,17 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                     type="file"
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                     onChange={(e) => setPmiDocumentFile(e.target.files?.[0] || null)}
-                    style={fieldInput}
+                    className={layoutStyles.extracted28}
                   />
-                  {pmiDocumentFile ? <div style={fileHint}>{pmiDocumentFile.name}</div> : null}
+                  {pmiDocumentFile ? <div className={layoutStyles.extracted29}>{pmiDocumentFile.name}</div> : null}
                 </Field>
               ) : null}
             </div>
             {!canCompleteGeneratedAppointment ? (
-              <div style={jobEditorActions}>
+              <div className={layoutStyles.extracted30}>
                 <button
                   type="button"
-                  style={primaryBtn}
+                  className={layoutStyles.extracted31}
                   onClick={handleSaveGeneratedAppointmentDocuments}
                   disabled={completingAppointment}
                 >
@@ -929,11 +930,11 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           </div>
         ) : null}
 
-        <div style={actions}>
+        <div className={layoutStyles.extracted32}>
           {canBook && (
             <button
               type="button"
-              style={primaryBtn}
+              className={layoutStyles.extracted33}
               onClick={() =>
                 setShowBookType(
                   eventType === "SERVICE"
@@ -955,7 +956,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           {vehicleId && (
             <button
               type="button"
-              style={ghostBtn}
+              className={layoutStyles.extracted34}
               onClick={() => router.push(`/vehicle-edit/${encodeURIComponent(vehicleId)}`)}
             >
               Open Vehicle
@@ -963,7 +964,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           )}
 
           {canEditBooking && (
-            <button type="button" style={primaryBtn} onClick={() => setShowEditBooking(true)}>
+            <button type="button" className={layoutStyles.extracted35} onClick={() => setShowEditBooking(true)}>
               Edit Booking
             </button>
           )}
@@ -971,7 +972,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           {canQuickCompleteBooking && (
             <button
               type="button"
-              style={successBtn}
+              className={layoutStyles.extracted36}
               onClick={handleMarkBookingComplete}
               disabled={completingBooking}
             >
@@ -982,7 +983,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           {canCompleteGeneratedAppointment && (
             <button
               type="button"
-              style={successBtn}
+              className={layoutStyles.extracted37}
               onClick={handleMarkGeneratedAppointmentComplete}
               disabled={completingAppointment}
             >
@@ -991,13 +992,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           )}
 
           {canManageJob && (
-            <button type="button" style={primaryBtn} onClick={() => setShowEditJob((prev) => !prev)}>
+            <button type="button" className={layoutStyles.extracted38} onClick={() => setShowEditJob((prev) => !prev)}>
               {showEditJob ? "Close Editor" : "Edit Job"}
             </button>
           )}
 
           {canQuickCompleteJob && (
-            <button type="button" style={successBtn} onClick={handleMarkJobComplete} disabled={savingJob}>
+            <button type="button" className={layoutStyles.extracted39} onClick={handleMarkJobComplete} disabled={savingJob}>
               {savingJob ? "Saving..." : "Mark Complete"}
             </button>
           )}
@@ -1005,7 +1006,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           {canManageJob && (
             <button
               type="button"
-              style={ghostBtn}
+              className={layoutStyles.extracted40}
               onClick={() => router.push(`/maintenance-jobs?jobId=${encodeURIComponent(bookingId)}`)}
             >
               Open Jobs
@@ -1013,20 +1014,20 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           )}
 
           {canDeleteBooking && (
-            <button type="button" style={dangerBtn} onClick={handleDelete} disabled={deleting}>
+            <button type="button" className={layoutStyles.extracted41} onClick={handleDelete} disabled={deleting}>
               {deleting ? "Deleting..." : "Delete Booking"}
             </button>
           )}
 
           {canManageJob && (
-            <button type="button" style={dangerBtn} onClick={handleDeleteJob} disabled={deleting}>
+            <button type="button" className={layoutStyles.extracted42} onClick={handleDeleteJob} disabled={deleting}>
               {deleting ? "Deleting..." : "Delete Job"}
             </button>
           )}
         </div>
 
         {showBookType && vehicleId && (
-          <div style={{ margin: "0 12px 12px" }}>
+          <div className={layoutStyles.extracted43}>
             <MaintenanceBookingForm
               vehicleId={vehicleId}
               type={showBookType}
@@ -1052,7 +1053,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         )}
 
         {showEditBooking && canEditBooking && (
-          <div style={{ margin: "0 12px 12px" }}>
+          <div className={layoutStyles.extracted44}>
             <EditMaintenanceBookingForm
               bookingId={bookingId}
               vehicleId={vehicleId || undefined}
@@ -1066,16 +1067,16 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         )}
 
         {showEditJob && canManageJob && (
-          <div style={jobEditorCard}>
-            <div style={jobEditorTitle}>Edit Maintenance Job</div>
-            <div style={jobEditorSubtitle}>
+          <div className={layoutStyles.extracted45}>
+            <div className={layoutStyles.extracted46}>Edit Maintenance Job</div>
+            <div className={layoutStyles.extracted47}>
               Keep the workflow details complete here so the job can move cleanly from planning through invoice close-out.
             </div>
-            {jobEditorError ? <div style={feedbackError}>{jobEditorError}</div> : null}
-            {jobEditorMessage ? <div style={feedbackSuccess}>{jobEditorMessage}</div> : null}
-            <div style={jobGrid}>
+            {jobEditorError ? <div className={layoutStyles.extracted48}>{jobEditorError}</div> : null}
+            {jobEditorMessage ? <div className={layoutStyles.extracted49}>{jobEditorMessage}</div> : null}
+            <div className={layoutStyles.extracted50}>
               <Field label="Type">
-                <select value={jobType} onChange={(e) => setJobType(e.target.value)} style={fieldInput}>
+                <select value={jobType} onChange={(e) => setJobType(e.target.value)} className={layoutStyles.extracted51}>
                   <option value="service">Service</option>
                   <option value="mot">MOT</option>
                   <option value="inspection">Inspection</option>
@@ -1083,7 +1084,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                 </select>
               </Field>
               <Field label="Status">
-                <select value={jobStatus} onChange={(e) => setJobStatus(e.target.value)} style={fieldInput}>
+                <select value={jobStatus} onChange={(e) => setJobStatus(e.target.value)} className={layoutStyles.extracted52}>
                   {MAINTENANCE_JOB_WORKFLOW_STAGES.map((stage) => (
                     <option key={stage} value={stage}>
                       {MAINTENANCE_STAGE_LABELS[stage] || stage}
@@ -1092,16 +1093,16 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                 </select>
               </Field>
               <Field label="Job Title" full>
-                <input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} style={fieldInput} />
+                <input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className={layoutStyles.extracted53} />
               </Field>
               <Field label="Planned Date">
-                <input type="date" value={jobPlannedDate} onChange={(e) => setJobPlannedDate(e.target.value)} style={fieldInput} />
+                <input type="date" value={jobPlannedDate} onChange={(e) => setJobPlannedDate(e.target.value)} className={layoutStyles.extracted54} />
               </Field>
               <Field label="Due Date">
-                <input type="date" value={jobDueDate} onChange={(e) => setJobDueDate(e.target.value)} style={fieldInput} />
+                <input type="date" value={jobDueDate} onChange={(e) => setJobDueDate(e.target.value)} className={layoutStyles.extracted55} />
               </Field>
               <Field label="Priority">
-                <select value={jobPriority} onChange={(e) => setJobPriority(e.target.value)} style={fieldInput}>
+                <select value={jobPriority} onChange={(e) => setJobPriority(e.target.value)} className={layoutStyles.extracted56}>
                   <option value="low">Low</option>
                   <option value="normal">Normal</option>
                   <option value="high">High</option>
@@ -1109,40 +1110,40 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                 </select>
               </Field>
               <Field label="Provider">
-                <input value={jobProvider} onChange={(e) => setJobProvider(e.target.value)} style={fieldInput} />
+                <input value={jobProvider} onChange={(e) => setJobProvider(e.target.value)} className={layoutStyles.extracted57} />
               </Field>
               <Field label="Booked Date">
-                <input type="date" value={jobBookedDate} onChange={(e) => setJobBookedDate(e.target.value)} style={fieldInput} />
+                <input type="date" value={jobBookedDate} onChange={(e) => setJobBookedDate(e.target.value)} className={layoutStyles.extracted58} />
               </Field>
               <Field label="Assigned To">
-                <input value={jobAssignedToName} onChange={(e) => setJobAssignedToName(e.target.value)} style={fieldInput} />
+                <input value={jobAssignedToName} onChange={(e) => setJobAssignedToName(e.target.value)} className={layoutStyles.extracted59} />
               </Field>
               <Field label="Total Cost">
-                <input value={jobTotalCost} onChange={(e) => setJobTotalCost(e.target.value)} style={fieldInput} />
+                <input value={jobTotalCost} onChange={(e) => setJobTotalCost(e.target.value)} className={layoutStyles.extracted60} />
               </Field>
               <Field label="PO Number">
-                <input value={jobPoNumber} onChange={(e) => setJobPoNumber(e.target.value)} style={fieldInput} />
+                <input value={jobPoNumber} onChange={(e) => setJobPoNumber(e.target.value)} className={layoutStyles.extracted61} />
               </Field>
               <Field label="Invoice Ref">
-                <input value={jobInvoiceRef} onChange={(e) => setJobInvoiceRef(e.target.value)} style={fieldInput} />
+                <input value={jobInvoiceRef} onChange={(e) => setJobInvoiceRef(e.target.value)} className={layoutStyles.extracted62} />
               </Field>
               <Field label="Completion Notes" full>
                 <textarea
                   value={jobCompletionNotes}
                   onChange={(e) => setJobCompletionNotes(e.target.value)}
                   rows={4}
-                  style={{ ...fieldInput, resize: "vertical" }}
+                  className={layoutStyles.extracted63}
                 />
               </Field>
               <Field label="Notes" full>
-                <textarea value={jobNotes} onChange={(e) => setJobNotes(e.target.value)} rows={4} style={{ ...fieldInput, resize: "vertical" }} />
+                <textarea value={jobNotes} onChange={(e) => setJobNotes(e.target.value)} rows={4} className={layoutStyles.extracted64} />
               </Field>
             </div>
-            <div style={jobEditorActions}>
-              <button type="button" style={ghostBtn} onClick={() => setShowEditJob(false)} disabled={savingJob}>
+            <div className={layoutStyles.extracted65}>
+              <button type="button" className={layoutStyles.extracted66} onClick={() => setShowEditJob(false)} disabled={savingJob}>
                 Cancel
               </button>
-              <button type="button" style={primaryBtn} onClick={handleSaveJob} disabled={savingJob}>
+              <button type="button" className={layoutStyles.extracted67} onClick={handleSaveJob} disabled={savingJob}>
                 {savingJob ? "Saving..." : "Save Job"}
               </button>
             </div>
@@ -1155,9 +1156,9 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
 function Row({ label, value }) {
   return (
-    <div style={row}>
-      <div style={labelStyle}>{label}</div>
-      <div style={valueStyle}>{value || EMPTY_VALUE}</div>
+    <div className={layoutStyles.extracted68}>
+      <div className={layoutStyles.extracted69}>{label}</div>
+      <div className={layoutStyles.extracted70}>{value || EMPTY_VALUE}</div>
     </div>
   );
 }
@@ -1165,7 +1166,7 @@ function Row({ label, value }) {
 function Field({ label, children, full = false }) {
   return (
     <div style={full ? fullField : undefined}>
-      <div style={fieldLabel}>{label}</div>
+      <div className={layoutStyles.extracted71}>{label}</div>
       {children}
     </div>
   );
@@ -1186,12 +1187,12 @@ const modal = {
   width: "min(760px, calc(100vw - 32px))",
   maxHeight: "90vh",
   overflow: "auto",
-  background: "var(--legacy-color-f3f6f9)",
-  border: "1px solid var(--legacy-color-d7dee8)",
+  background: "var(--color-canvas)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
   padding: 0,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
 };
 
 const header = {
@@ -1200,13 +1201,13 @@ const header = {
   alignItems: "center",
   gap: 12,
   padding: "14px 16px",
-  background: "var(--legacy-color-ffffff)",
-  borderBottom: "1px solid var(--legacy-color-d7dee8)",
+  background: "var(--color-surface)",
+  borderBottom: "1px solid var(--color-border)",
 };
 
 const eyebrow = {
   fontSize: 11,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: ".08em",
   fontWeight: 900,
@@ -1216,7 +1217,7 @@ const title = {
   margin: "3px 0 0",
   fontSize: 22,
   lineHeight: 1.08,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontWeight: 900,
   letterSpacing: 0,
 };
@@ -1224,21 +1225,21 @@ const title = {
 const closeBtn = {
   width: 34,
   height: 34,
-  border: "1px solid var(--legacy-color-d7dee8)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   fontSize: 14,
   lineHeight: 1,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const card = {
-  border: "1px solid var(--legacy-color-d7dee8)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 10,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   margin: 12,
   overflow: "hidden",
 };
@@ -1251,8 +1252,8 @@ const summaryStrip = {
 };
 
 const summaryTile = {
-  border: "1px solid var(--legacy-color-d7dee8)",
-  background: "var(--legacy-color-f8fafc)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface-subtle)",
   borderRadius: 8,
   padding: "10px 11px",
   minWidth: 0,
@@ -1260,7 +1261,7 @@ const summaryTile = {
 
 const summaryLabel = {
   fontSize: 11,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: ".04em",
@@ -1269,32 +1270,32 @@ const summaryLabel = {
 
 const summaryValue = {
   fontSize: 13.5,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontWeight: 900,
   lineHeight: 1.35,
   overflowWrap: "anywhere",
 };
 
 const detailsPanel = {
-  border: "1px solid var(--legacy-color-e3ebf3)",
+  border: "1px solid var(--color-brand-soft)",
   borderRadius: 8,
   overflow: "hidden",
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
 };
 
 const documentUploadCard = {
   margin: "0 12px 12px",
-  border: "1px solid var(--legacy-color-d7dee8)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 12,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
 };
 
 const documentsBlock = {
   padding: 10,
-  borderTop: "1px solid var(--legacy-color-e3ebf3)",
-  background: "var(--legacy-color-ffffff)",
+  borderTop: "1px solid var(--color-brand-soft)",
+  background: "var(--color-surface)",
 };
 
 const documentLinks = {
@@ -1309,9 +1310,9 @@ const documentLink = {
   alignItems: "center",
   padding: "5px 8px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-c8d6e3)",
-  background: "var(--legacy-color-edf3f8)",
-  color: "var(--legacy-color-1f4b7a)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-brand-soft)",
+  color: "var(--color-brand)",
   fontSize: 12,
   fontWeight: 800,
   textDecoration: "none",
@@ -1319,7 +1320,7 @@ const documentLink = {
 
 const fileHint = {
   marginTop: 6,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
   fontWeight: 700,
   overflowWrap: "anywhere",
@@ -1330,13 +1331,13 @@ const row = {
   gridTemplateColumns: "150px minmax(0, 1fr)",
   gap: 14,
   padding: "8px 11px",
-  borderBottom: "1px solid var(--legacy-color-e8eef5)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   alignItems: "start",
 };
 
 const labelStyle = {
   fontSize: 11.5,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: ".035em",
@@ -1345,7 +1346,7 @@ const labelStyle = {
 
 const valueStyle = {
   fontSize: 13.5,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontWeight: 800,
   lineHeight: 1.4,
   overflowWrap: "anywhere",
@@ -1355,11 +1356,11 @@ const notesBlock = {
   display: "grid",
   gap: 6,
   padding: "10px 11px",
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
 };
 
 const notesText = {
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontSize: 13.5,
   fontWeight: 800,
   lineHeight: 1.45,
@@ -1377,9 +1378,9 @@ const actions = {
 const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-1f4b7a)",
-  background: "var(--legacy-color-1f4b7a)",
-  color: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-brand)",
+  background: "var(--color-brand)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
@@ -1388,9 +1389,9 @@ const primaryBtn = {
 const ghostBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-c8d6e3)",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-0f172a)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
@@ -1399,9 +1400,9 @@ const ghostBtn = {
 const successBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-15803d)",
-  background: "var(--legacy-color-15803d)",
-  color: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-success)",
+  background: "var(--color-success)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(21,128,61,0.16)",
@@ -1410,9 +1411,9 @@ const successBtn = {
 const dangerBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-b91c1c)",
-  background: "var(--legacy-color-b91c1c)",
-  color: "var(--legacy-color-fff)",
+  border: "1px solid var(--color-danger)",
+  background: "var(--color-danger)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(185,28,28,0.14)",
@@ -1420,23 +1421,23 @@ const dangerBtn = {
 
 const jobEditorCard = {
   margin: "0 12px 12px",
-  border: "1px solid var(--legacy-color-d7dee8)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 12,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
 };
 
 const jobEditorTitle = {
   fontSize: 16,
   fontWeight: 800,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   marginBottom: 6,
 };
 
 const jobEditorSubtitle = {
   fontSize: 13,
   lineHeight: 1.45,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   marginBottom: 12,
 };
 
@@ -1448,7 +1449,7 @@ const jobGrid = {
 
 const fieldLabel = {
   fontSize: 12,
-  color: "var(--legacy-color-5f6f82)",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   textTransform: "uppercase",
   marginBottom: 6,
@@ -1458,9 +1459,9 @@ const fieldInput = {
   width: "100%",
   padding: "9px 10px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-c8d6e3)",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-0f172a)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   fontSize: 14,
 };
 
@@ -1474,16 +1475,16 @@ const feedbackBase = {
 
 const feedbackError = {
   ...feedbackBase,
-  background: "var(--legacy-color-fef2f2)",
-  border: "1px solid var(--legacy-color-fecaca)",
-  color: "var(--legacy-color-991b1b)",
+  background: "var(--color-danger-soft)",
+  border: "1px solid var(--color-danger-border)",
+  color: "var(--color-danger)",
 };
 
 const feedbackSuccess = {
   ...feedbackBase,
-  background: "var(--legacy-color-eff6ff)",
-  border: "1px solid var(--legacy-color-bfdbfe)",
-  color: "var(--legacy-color-1d4ed8)",
+  background: "var(--color-info-soft)",
+  border: "1px solid var(--color-info-border)",
+  color: "var(--color-brand)",
 };
 
 const fullField = {

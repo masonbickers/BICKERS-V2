@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -35,25 +36,10 @@ import {
 } from "firebase/firestore";
 import Papa from "papaparse";
 import { ArrowLeft, Download, FilePlus2, Plus, RotateCcw, Search, Settings } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* UI tokens */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 6,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  red: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
 const headerBar = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", marginBottom: 4 };
@@ -72,7 +58,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -90,8 +76,8 @@ const btn = (kind = "primary") => {
     padding: "5px 8px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -109,7 +95,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -157,7 +143,7 @@ const formatDateWithStyle = (raw, options = {}) => {
   const diff = daysUntil(d);
   let style = {};
   if (!suppressStatus) {
-    if (diff < 0) style = { color: UI.red, fontWeight: 950 };
+    if (diff < 0) style = { color: UI.var(--color-danger), fontWeight: 950 };
     else if (diff <= soonDays) style = { color: UI.amber, fontWeight: 950 };
   } else {
     style = { color: UI.muted, fontWeight: 800 };
@@ -730,7 +716,7 @@ export default function VehicleMaintenancePage() {
         input:focus, select:focus, button:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: var(--legacy-color-9fb7cf) !important;
+          border-color: var(--shell-muted) !important;
         }
         .vehicles-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         .vehicles-filter-grid {
@@ -759,7 +745,7 @@ export default function VehicleMaintenancePage() {
 
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Vehicle Maintenance Overview</h1>
             <button
@@ -784,7 +770,7 @@ export default function VehicleMaintenancePage() {
             </button>
           </div>
 
-          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <button type="button" className="vehicles-action" onClick={() => router.push("/vehicle-home")} style={btn("ghost")}>
               <ArrowLeft size={15} />
               Back
@@ -824,7 +810,7 @@ export default function VehicleMaintenancePage() {
         {/* Controls */}
         <div style={{ ...card, padding: 6, marginBottom: UI.gap }}>
           <div className="vehicles-filter-grid">
-            <div style={{ position: "relative" }}>
+            <div className={layoutStyles.extracted3}>
               <div style={smallLabel}>Search</div>
               <Search size={14} style={{ position: "absolute", left: 9, bottom: 8, color: UI.muted }} />
               <input
@@ -857,10 +843,10 @@ export default function VehicleMaintenancePage() {
               </select>
             </div>
 
-            <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <span style={chip("var(--legacy-color-fff)", UI.text)}>{kpis.count} vehicles</span>
-              <span style={chip("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)")}>Due soon: {kpis.soon}</span>
-              <span style={chip("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")}>Overdue: {kpis.overdue}</span>
+            <div className={layoutStyles.extracted4}>
+              <span style={chip("var(--color-white)", UI.text)}>{kpis.count} vehicles</span>
+              <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>Due soon: {kpis.soon}</span>
+              <span style={chip("var(--color-danger-soft)", "var(--color-danger)")}>Overdue: {kpis.overdue}</span>
 
               <button
                 type="button"
@@ -879,7 +865,7 @@ export default function VehicleMaintenancePage() {
           </div>
 
           {/* CSV import */}
-          <div style={{ marginTop: 2, display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted5}>
             <VehicleCSVImport
               disabled={importing}
               dataAccessState={dataAccessState}
@@ -894,13 +880,7 @@ export default function VehicleMaintenancePage() {
 
           {categories.some((category) => getCategoryColor(category)) ? (
             <div
-              style={{
-                marginTop: 6,
-                display: "flex",
-                gap: 5,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
+              className={layoutStyles.extracted6}
             >
               <span style={{ fontSize: 11, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
                 Fleet colours
@@ -919,7 +899,7 @@ export default function VehicleMaintenancePage() {
                         padding: "3px 7px",
                         borderRadius: 999,
                         border: UI.border,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                         color: UI.text,
                         fontSize: 11.5,
                         fontWeight: 850,
@@ -946,9 +926,9 @@ export default function VehicleMaintenancePage() {
 
         {/* Table */}
         <div style={{ ...card, overflow: "hidden", marginLeft: -18, marginRight: -18, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
-          <div style={{ overflowX: "auto" }}>
+          <div className={layoutStyles.extracted7}>
             <div className="vh-sticky">
-              <table style={{ width: "100%", minWidth: 1420, borderCollapse: "collapse", fontSize: 12 }}>
+              <table className={layoutStyles.extracted8}>
                 <thead>
                   <tr>
                     {[
@@ -973,8 +953,8 @@ export default function VehicleMaintenancePage() {
                         style={{
                           padding: "5px 10px",
                           background: UI.brand,
-                          color: "var(--legacy-color-fff)",
-                          borderBottom: "1px solid var(--legacy-color-5b92ce)",
+                          color: "var(--color-white)",
+                          borderBottom: "1px solid var(--color-text-muted)",
                           whiteSpace: "nowrap",
                           textAlign: "left",
                           fontWeight: 900,
@@ -987,10 +967,10 @@ export default function VehicleMaintenancePage() {
                           ...(header.label === "Insured Until" ? { width: 118 } : {}),
                         }}
                       >
-                        <span style={{ display: "inline-flex", flexDirection: "column", gap: 1, lineHeight: 1.1 }}>
+                        <span className={layoutStyles.extracted9}>
                           <span>{header.label}</span>
                           {header.count ? (
-                            <span style={{ color: "var(--legacy-color-dbeafe)", fontSize: 10.5, fontWeight: 850 }}>
+                            <span className={layoutStyles.extracted10}>
                               {header.count}
                             </span>
                           ) : null}
@@ -1002,7 +982,7 @@ export default function VehicleMaintenancePage() {
 
                 {Object.entries(groupedByCategory).sort(([a], [b]) => compareVehicleCategories(a, b)).map(([category, list]) => {
                   const categoryColor = getCategoryColor(category);
-                  const categoryBackground = categoryColor ? `${categoryColor}18` : "var(--legacy-color-edf3f8)";
+                  const categoryBackground = categoryColor ? `${categoryColor}18` : "var(--color-brand-soft)";
                   return (
                   <tbody key={category}>
                     <tr
@@ -1049,14 +1029,14 @@ export default function VehicleMaintenancePage() {
 
                     {expandedCategories[category] &&
                       list.map((v, i) => {
-                        const zebra = i % 2 === 0 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-f8fafc)";
+                        const zebra = i % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
                         const retentionPlate = isRetentionPlate(v);
                         const outOfUse = isVehicleOutOfUse(v);
                         const reg = v.registration || v.reg || "-";
 
                         const rowTd = {
                           padding: "4px 10px",
-                          borderBottom: "1px solid var(--legacy-color-dbe1ea)",
+                          borderBottom: "1px solid var(--color-border)",
                           whiteSpace: "nowrap",
                           verticalAlign: "middle",
                         };
@@ -1094,7 +1074,7 @@ export default function VehicleMaintenancePage() {
                             : 21,
                           suppressStatus: outOfUse,
                         };
-                        const rowBackground = outOfUse ? "var(--legacy-color-f1f5f9)" : zebra;
+                        const rowBackground = outOfUse ? "var(--color-surface-hover)" : zebra;
 
                         return (
                           <tr
@@ -1119,7 +1099,7 @@ export default function VehicleMaintenancePage() {
                             {/* Tax Status */}
                             <td style={taxCell} onClick={(e) => e.stopPropagation()}>
                               <select
-                                style={miniSelect}
+                                className={layoutStyles.extracted11}
                                 value={v.taxStatus || "Taxed"}
                                 onChange={(e) => handleTaxStatusChange(v, e.target.value)}
                                 disabled={savingKey === `${v.id}:taxStatus`}
@@ -1137,7 +1117,7 @@ export default function VehicleMaintenancePage() {
                               <select
                                 style={{
                                   ...miniSelect,
-                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "var(--legacy-color-000)" } : {}),
+                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "var(--color-text)" } : {}),
                                 }}
                                 value={insuranceStatus}
                                 onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
@@ -1181,7 +1161,7 @@ export default function VehicleMaintenancePage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
-          <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
+          <span style={{ color: UI.var(--color-danger), fontWeight: 900 }}>red</span> = overdue.
         </div>
 
         {categorySettingsOpen ? (
@@ -1203,16 +1183,7 @@ export default function VehicleMaintenancePage() {
 
         {insuranceDatePrompt ? (
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 50,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 16,
-              background: "rgba(15,23,42,0.42)",
-            }}
+            className={layoutStyles.extracted12}
             onClick={() => setInsuranceDatePrompt(null)}
           >
             <div
@@ -1224,7 +1195,7 @@ export default function VehicleMaintenancePage() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ marginBottom: 12 }}>
+              <div className={layoutStyles.extracted13}>
                 <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>Set insured until date</div>
                 <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
                   {insuranceDatePrompt.vehicle?.name || insuranceDatePrompt.vehicle?.registration || "Vehicle"}
@@ -1242,7 +1213,7 @@ export default function VehicleMaintenancePage() {
                 autoFocus
               />
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div className={layoutStyles.extracted14}>
                 <button type="button" className="vehicles-action" style={btn("ghost")} onClick={() => setInsuranceDatePrompt(null)}>
                   Cancel
                 </button>
@@ -1262,16 +1233,7 @@ export default function VehicleMaintenancePage() {
 
         {taxDatePrompt ? (
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 50,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 16,
-              background: "rgba(15,23,42,0.42)",
-            }}
+            className={layoutStyles.extracted15}
             onClick={() => setTaxDatePrompt(null)}
           >
             <div
@@ -1283,7 +1245,7 @@ export default function VehicleMaintenancePage() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ marginBottom: 12 }}>
+              <div className={layoutStyles.extracted16}>
                 <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>Set road tax date</div>
                 <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
                   {taxDatePrompt.vehicle?.name || taxDatePrompt.vehicle?.registration || "Vehicle"}
@@ -1301,7 +1263,7 @@ export default function VehicleMaintenancePage() {
                 autoFocus
               />
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div className={layoutStyles.extracted17}>
                 <button type="button" className="vehicles-action" style={btn("ghost")} onClick={() => setTaxDatePrompt(null)}>
                   Cancel
                 </button>
@@ -1395,7 +1357,7 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled, dataAcces
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+    <div className={layoutStyles.extracted18}>
   
      
     </div>
@@ -1411,9 +1373,9 @@ function renderDateCell(raw, baseStyle, options) {
 const miniSelect = {
   width: "100%",
   padding: "3px 8px",
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   borderRadius: 10,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   fontSize: 12,
   cursor: "pointer",
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   collection,
@@ -19,6 +20,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ────────────────────────────────────────────────────────────────
    CONFIG
@@ -76,21 +78,7 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 /* ────────────────────────────────────────────────────────────────
    MINI DESIGN SYSTEM (matches your newer pages)
 ──────────────────────────────────────────────────────────────── */
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  brandSoft: "var(--legacy-color-eff6ff)",
-  danger: "var(--legacy-color-ef4444)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const headerBar = { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" };
@@ -112,8 +100,8 @@ const chip = {
   gap: 8,
   padding: "6px 10px",
   borderRadius: 999,
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  background: "var(--legacy-color-f1f5f9)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface-hover)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 900,
@@ -121,11 +109,11 @@ const chip = {
 
 const input = {
   width: "100%",
-  border: "1px solid var(--legacy-color-d1d5db)",
+  border: "1px solid var(--color-border)",
   borderRadius: UI.radiusSm,
   padding: "10px 12px",
   outline: "none",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   fontSize: 14,
 };
 
@@ -138,8 +126,8 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-d1d5db)",
-      background: "var(--legacy-color-fff)",
+      border: "1px solid var(--color-border)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -150,9 +138,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-fecaca)",
-      background: "var(--legacy-color-fee2e2)",
-      color: "var(--legacy-color-7f1d1d)",
+      border: "1px solid var(--color-danger-border)",
+      background: "var(--color-accent-soft)",
+      color: "var(--color-danger-hover)",
       fontWeight: 900,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -163,7 +151,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "var(--legacy-color-fff)",
+    color: "var(--color-white)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -172,12 +160,12 @@ const btn = (kind = "primary") => {
 
 function Pill({ tone = "default", children }) {
   const tones = {
-    default: { bg: "var(--legacy-color-f3f4f6)", fg: "var(--legacy-color-111827)", br: "var(--legacy-color-e5e7eb)" },
-    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--legacy-color-14532d)", br: "var(--legacy-color-bbf7d0)" },
-    warn: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-7c2d12)", br: "var(--legacy-color-fed7aa)" },
-    bad: { bg: "var(--legacy-color-fee2e2)", fg: "var(--legacy-color-7f1d1d)", br: "var(--legacy-color-fecaca)" },
-    info: { bg: "var(--legacy-color-e0f2fe)", fg: "var(--legacy-color-0c4a6e)", br: "var(--legacy-color-bae6fd)" },
-    gray: { bg: "var(--legacy-color-e5e7eb)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
+    default: { bg: "var(--color-canvas)", fg: "var(--color-text)", br: "var(--color-border)" },
+    good: { bg: "var(--color-success-soft)", fg: "var(--color-success)", br: "var(--color-success-border)" },
+    warn: { bg: "var(--color-warning-soft)", fg: "var(--color-danger-hover)", br: "var(--color-warning-border)" },
+    bad: { bg: "var(--color-accent-soft)", fg: "var(--color-danger-hover)", br: "var(--color-danger-border)" },
+    info: { bg: "var(--color-info-soft)", fg: "var(--color-brand-hover)", br: "var(--color-info-border)" },
+    gray: { bg: "var(--color-border)", fg: "var(--color-text-muted)", br: "var(--color-border)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -203,9 +191,9 @@ function Pill({ tone = "default", children }) {
 
 function StatTile({ label, value, tone = "default" }) {
   const tones = {
-    default: { bg: "var(--legacy-color-fff)", br: "var(--legacy-color-e5e7eb)" },
-    soft: { bg: UI.brandSoft, br: "var(--legacy-color-dbeafe)" },
-    warn: { bg: "var(--legacy-color-fff7ed)", br: "var(--legacy-color-fed7aa)" },
+    default: { bg: "var(--color-white)", br: "var(--color-border)" },
+    soft: { bg: UI.brandSoft, br: "var(--color-brand-soft)" },
+    warn: { bg: "var(--color-warning-soft)", br: "var(--color-warning-border)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -637,7 +625,7 @@ export default function EmployeesAdminPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Employees — Holiday Allowances</h1>
             <div style={sub}>
@@ -646,7 +634,7 @@ export default function EmployeesAdminPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <span style={chip}>Viewing: {yearView}</span>
             <select
               value={yearView}
@@ -671,12 +659,12 @@ export default function EmployeesAdminPage() {
         >
           {/* Add employee */}
           <div style={{ ...card, ...cardPad }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted3}>
               <div style={{ fontWeight: 950, color: UI.text }}>Add employee</div>
               <Pill tone="info">Base: {entitlementFor(newPattern)} days</Pill>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr auto", gap: 10, marginTop: 12 }}>
+            <div className={layoutStyles.extracted4}>
               <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" style={input} />
               <select value={newPattern} onChange={(e) => setNewPattern(e.target.value)} style={select}>
                 <option value="full_time">{PATTERN_LABEL.full_time}</option>
@@ -715,12 +703,12 @@ export default function EmployeesAdminPage() {
 
             <div style={{ ...card, ...cardPad }}>
               <div style={{ fontWeight: 950, color: UI.text, marginBottom: 10 }}>Totals ({yearView})</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+              <div className={layoutStyles.extracted5}>
                 <StatTile label="People" value={kpis.people} tone="soft" />
                 <StatTile label="Used" value={kpis.totalUsed} />
                 <StatTile label="Allowance" value={kpis.totalAllowance} />
                 <StatTile label="Carry" value={kpis.totalCarry} tone="warn" />
-                <div style={{ gridColumn: "1 / -1" }}>
+                <div className={layoutStyles.extracted6}>
                   <StatTile label="Total balance" value={kpis.totalBalance} tone={kpis.totalBalance < 0 ? "warn" : "soft"} />
                 </div>
               </div>
@@ -730,39 +718,39 @@ export default function EmployeesAdminPage() {
 
         {/* Table */}
         <div style={{ ...card, marginTop: UI.gap }}>
-          <div style={{ padding: 14, borderBottom: "1px solid var(--legacy-color-e5e7eb)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted7}>
             <div style={{ fontWeight: 950, color: UI.text }}>Allowances table</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted8}>
               <span style={chip}>Carry cap: {MAX_CARRY}</span>
               <span style={chip}>Base FT: {BASE_FULL_TIME}</span>
             </div>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1180 }}>
+          <div className={layoutStyles.extracted9}>
+            <table className={layoutStyles.extracted10}>
               <thead>
                 <tr>
-                  <th style={th}>Name</th>
-                  <th style={th}>Work Pattern</th>
-                  <th style={th}>Allowance</th>
-                  <th style={th}>Carry</th>
-                  <th style={th}>Total</th>
-                  <th style={th}>Used</th>
-                  <th style={th}>Balance</th>
-                  <th style={th}>Actions</th>
+                  <th className={layoutStyles.extracted11}>Name</th>
+                  <th className={layoutStyles.extracted12}>Work Pattern</th>
+                  <th className={layoutStyles.extracted13}>Allowance</th>
+                  <th className={layoutStyles.extracted14}>Carry</th>
+                  <th className={layoutStyles.extracted15}>Total</th>
+                  <th className={layoutStyles.extracted16}>Used</th>
+                  <th className={layoutStyles.extracted17}>Balance</th>
+                  <th className={layoutStyles.extracted18}>Actions</th>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td style={td} colSpan={8}>
+                    <td className={layoutStyles.extracted19} colSpan={8}>
                       Loading...
                     </td>
                   </tr>
                 ) : filteredRows.length === 0 ? (
                   <tr>
-                    <td style={td} colSpan={8}>
+                    <td className={layoutStyles.extracted20} colSpan={8}>
                       No employees found.
                     </td>
                   </tr>
@@ -782,11 +770,11 @@ export default function EmployeesAdminPage() {
                     const balThis = balanceForYear(r, thisYear);
                     const recommendedCarry = clamp(balThis, 0, MAX_CARRY);
 
-                    const zebra = idx % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-f8fafc)";
+                    const zebra = idx % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
 
                     return (
                       <tr key={r.id} style={{ background: zebra }}>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted21}>
                           <input
                             value={name}
                             onChange={(ev) => onEditName(r.id, ev.target.value)}
@@ -794,7 +782,7 @@ export default function EmployeesAdminPage() {
                           />
                         </td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted22}>
                           <select
                             value={pattern}
                             onChange={(ev) => onEditPattern(r, ev.target.value)}
@@ -805,13 +793,13 @@ export default function EmployeesAdminPage() {
                             <option value="three_days">{PATTERN_LABEL.three_days}</option>
                           </select>
 
-                          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div className={layoutStyles.extracted23}>
                             <Pill tone="gray">Base {entitlementFor(pattern)}</Pill>
                             {pattern !== "full_time" ? <Pill tone="info">Pro-rata</Pill> : <Pill tone="good">FT</Pill>}
                           </div>
                         </td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted24}>
                           <input
                             type="number"
                             min={0}
@@ -821,8 +809,8 @@ export default function EmployeesAdminPage() {
                           />
                         </td>
 
-                        <td style={td}>
-                          <div style={{ display: "grid", gap: 6 }}>
+                        <td className={layoutStyles.extracted25}>
+                          <div className={layoutStyles.extracted26}>
                             <input
                               type="number"
                               min={0}
@@ -844,20 +832,20 @@ export default function EmployeesAdminPage() {
                           </div>
                         </td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted27}>
                           <Pill tone="info">{total}</Pill>
                         </td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted28}>
                           <Pill tone="gray">{used}</Pill>
                         </td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted29}>
                           <Pill tone={balanceTone(balance)}>{balance}</Pill>
                         </td>
 
-                        <td style={td}>
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <td className={layoutStyles.extracted30}>
+                          <div className={layoutStyles.extracted31}>
                             <button onClick={() => saveRow(r)} disabled={!!saving[r.id]} style={btn()}>
                               {saving[r.id] ? "Saving..." : `Save (${yearView})`}
                             </button>
@@ -875,7 +863,7 @@ export default function EmployeesAdminPage() {
             </table>
           </div>
 
-          <div style={{ padding: 14, borderTop: "1px solid var(--legacy-color-e5e7eb)", color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
+          <div style={{ padding: 14, borderTop: "1px solid var(--color-border)", color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
             <div>
               Tip: &quot;Used&quot; is calculated from the <code>holidays</code> collection (Mon-Fri only). Ensure{" "}
               <code>holidays.employee</code> matches the employee <code>name</code> exactly.
@@ -889,10 +877,10 @@ export default function EmployeesAdminPage() {
         {/* Year rollover info */}
         <div style={{ ...card, marginTop: UI.gap, ...cardPad }}>
           <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>What happens when the year changes?</div>
-          <div style={{ color: "var(--legacy-color-374151)", fontSize: 13, lineHeight: 1.6 }}>
+          <div className={layoutStyles.extracted32}>
             On <b>1 January {nextYear}</b>, this page automatically treats {nextYear} as the &quot;current year&quot;.
             It will read/write:
-            <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18 }}>
+            <ul className={layoutStyles.extracted33}>
               <li>
                 <code>{`employees.holidayAllowances["${nextYear}"]`}</code> and <code>{`employees.carryOverByYear["${nextYear}"]`}</code>
               </li>
@@ -917,18 +905,18 @@ export default function EmployeesAdminPage() {
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
-  background: "var(--legacy-color-f8fafc)",
+  borderBottom: "1px solid var(--color-border)",
+  background: "var(--color-surface-subtle)",
   position: "sticky",
   top: 0,
   zIndex: 1,
   fontWeight: 950,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   whiteSpace: "nowrap",
 };
 
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "top",
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -19,27 +20,17 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-163a63)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const chip = {
   padding: "4px 8px",
   borderRadius: 999,
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  background: "var(--legacy-color-f8fafc)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface-subtle)",
   color: UI.text,
   fontSize: 10,
   fontWeight: 700,
@@ -147,14 +138,7 @@ export default function SavedContactsPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 16,
-            flexWrap: "wrap",
-          }}
+          className={layoutStyles.extracted1}
         >
           <div>
             <h1 style={{ color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 }}>Saved Contacts</h1>
@@ -162,7 +146,7 @@ export default function SavedContactsPage() {
               Manage the shared saved-contact list used on create and edit booking.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <div className={layoutStyles.extracted2}>
             <span style={chip}>{contacts.length} contacts</span>
             <Link href="/create-booking" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none" }}>
               Back to booking →
@@ -180,10 +164,10 @@ export default function SavedContactsPage() {
               width: "100%",
               padding: "9px 11px",
               borderRadius: UI.radiusSm,
-              border: "1px solid var(--legacy-color-d1d5db)",
+              border: "1px solid var(--color-border)",
               fontSize: 13,
               outline: "none",
-              background: "var(--legacy-color-fff)",
+              background: "var(--color-surface)",
             }}
           />
         </div>
@@ -200,8 +184,8 @@ export default function SavedContactsPage() {
               fontWeight: 800,
               textTransform: "uppercase",
               letterSpacing: "0.06em",
-              background: "var(--legacy-color-f8fafc)",
-              borderBottom: "1px solid var(--legacy-color-e5e7eb)",
+              background: "var(--color-surface-subtle)",
+              borderBottom: "1px solid var(--color-border)",
             }}
           >
             <div>Name</div>
@@ -211,7 +195,7 @@ export default function SavedContactsPage() {
             <div>Actions</div>
           </div>
 
-          <div style={{ display: "grid" }}>
+          <div className={layoutStyles.extracted3}>
             {filteredContacts.length ? (
               filteredContacts.map((contact, index) => {
                 const isEditing = editingId === contact.id;
@@ -224,8 +208,8 @@ export default function SavedContactsPage() {
                       gap: 10,
                       padding: "10px 12px",
                       alignItems: "center",
-                      background: index % 2 ? "var(--legacy-color-fcfdff)" : "var(--legacy-color-ffffff)",
-                      borderBottom: "1px solid var(--legacy-color-eef2f7)",
+                      background: index % 2 ? "var(--color-surface)" : "var(--color-surface)",
+                      borderBottom: "1px solid var(--color-brand-soft)",
                     }}
                   >
                     <div>
@@ -233,7 +217,7 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.name}
                           onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
+                          className={layoutStyles.extracted4}
                         />
                       ) : (
                         <div style={{ fontWeight: 800, fontSize: 13, color: UI.text }}>{contact.name || "-"}</div>
@@ -245,7 +229,7 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.email}
                           onChange={(e) => setDraft((prev) => ({ ...prev, email: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
+                          className={layoutStyles.extracted5}
                         />
                       ) : (
                         <div style={{ fontWeight: 700, fontSize: 13, color: UI.text, wordBreak: "break-word" }}>{contact.email || "-"}</div>
@@ -257,7 +241,7 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.department}
                           onChange={(e) => setDraft((prev) => ({ ...prev, department: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
+                          className={layoutStyles.extracted6}
                         />
                       ) : (
                         <div style={{ fontSize: 12, color: UI.muted }}>{contact.department || "-"}</div>
@@ -269,14 +253,14 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.phone}
                           onChange={(e) => setDraft((prev) => ({ ...prev, phone: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
+                          className={layoutStyles.extracted7}
                         />
                       ) : (
                         <div style={{ fontSize: 12, color: UI.muted }}>{contact.phone || contact.number || "-"}</div>
                       )}
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div className={layoutStyles.extracted8}>
                       {isEditing ? (
                         <>
                           <button
@@ -286,8 +270,8 @@ export default function SavedContactsPage() {
                             style={{
                               padding: "7px 10px",
                               borderRadius: 999,
-                              border: "1px solid var(--legacy-color-bfdbfe)",
-                              background: "var(--legacy-color-eff6ff)",
+                              border: "1px solid var(--color-info-border)",
+                              background: "var(--color-info-soft)",
                               color: UI.brand,
                               fontWeight: 800,
                               cursor: "pointer",
@@ -301,8 +285,8 @@ export default function SavedContactsPage() {
                             style={{
                               padding: "7px 10px",
                               borderRadius: 999,
-                              border: "1px solid var(--legacy-color-e5e7eb)",
-                              background: "var(--legacy-color-fff)",
+                              border: "1px solid var(--color-border)",
+                              background: "var(--color-surface)",
                               color: UI.text,
                               fontWeight: 700,
                               cursor: "pointer",
@@ -319,8 +303,8 @@ export default function SavedContactsPage() {
                             style={{
                               padding: "7px 10px",
                               borderRadius: 999,
-                              border: "1px solid var(--legacy-color-e5e7eb)",
-                              background: "var(--legacy-color-fff)",
+                              border: "1px solid var(--color-border)",
+                              background: "var(--color-surface)",
                               color: UI.text,
                               fontWeight: 700,
                               cursor: "pointer",
@@ -331,15 +315,7 @@ export default function SavedContactsPage() {
                           <button
                             type="button"
                             onClick={() => removeContact(contact)}
-                            style={{
-                              padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid var(--legacy-color-fecaca)",
-                              background: "var(--legacy-color-fff)",
-                              color: "var(--legacy-color-b91c1c)",
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
+                            className={layoutStyles.extracted9}
                           >
                             Delete
                           </button>

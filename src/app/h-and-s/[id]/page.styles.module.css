@@ -1,0 +1,279 @@
+
+
+.extracted1 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.extracted2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-success-border);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.extracted3 {
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 12.5px;
+  font-weight: 850;
+  margin-bottom: 10px;
+}
+
+.extracted4 {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.extracted5 {
+  position: relative;
+  margin-top: 6px;
+}
+
+.extracted6 {
+  position: absolute;
+  left: 10px;
+  top: 11px;
+}
+
+.extracted7 {
+  display: grid;
+  gap: 7px;
+}
+
+.extracted8 {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.extracted9 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted10 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted11 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.extracted12 {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.extracted13 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.extracted14 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.extracted15 {
+  display: grid;
+  gap: 12px;
+}
+
+.extracted16 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted17 {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+.extracted18 {
+  display: grid;
+  grid-template-columns: minmax(92px, 1fr) 28px 28px;
+  gap: 5px;
+  align-items: center;
+}
+
+.extracted19 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted20 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted21 {
+  display: grid;
+  gap: 6px;
+}
+
+.extracted22 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted23 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted24 {
+  display: grid;
+  gap: 8px;
+}
+
+.extracted25 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.extracted26 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.extracted27 {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.extracted28 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.extracted29 {
+  display: none;
+}
+
+.extracted30 {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.extracted31 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted32 {
+  display: grid;
+  gap: 10px;
+}
+
+.extracted33 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.extracted34 {
+  display: none;
+}
+
+.extracted35 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted36 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted37 {
+  display: grid;
+  gap: 10px;
+}
+
+.extracted38 {
+  display: grid;
+  gap: 6px;
+}
+
+.extracted39 {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px solid var(--color-brand-soft);
+}

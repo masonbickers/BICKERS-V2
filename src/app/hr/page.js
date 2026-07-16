@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -44,37 +45,13 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /*  Hide specific employees from the holiday usage chart */
 const HIDE_FROM_HOLIDAY_USAGE_GRAPH = new Set(["paul bickers"]);
 
 /* Mini design system */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  accent: "var(--legacy-color-8b5e3c)",
-  accentSoft: "var(--legacy-color-f5ede6)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fee2e2)",
-  redBorder: "var(--legacy-color-fecaca)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "16px 16px 32px",
@@ -172,7 +149,7 @@ const btn = (kind = "primary") => {
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.redBorder}`,
       background: UI.redSoft,
-      color: UI.red,
+      color: UI.var(--color-danger),
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -189,7 +166,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -207,8 +184,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -221,19 +198,19 @@ const btn = (kind = "primary") => {
 /* Table styles (match your other tables) */
 const tableWrap = {
   overflow: "auto",
-  border: "1px solid var(--legacy-color-dde5ee)",
+  border: "1px solid var(--color-border)",
   borderRadius: UI.radius,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
 const th = {
   textAlign: "left",
   padding: "9px 10px",
-  borderBottom: "1px solid var(--legacy-color-dde5ee)",
+  borderBottom: "1px solid var(--color-border)",
   position: "sticky",
   top: 0,
-  background: "var(--legacy-color-f7f9fc)",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 800,
@@ -242,16 +219,16 @@ const th = {
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
-const td = { padding: "9px 10px", borderBottom: "1px solid var(--legacy-color-edf2f7)", verticalAlign: "top" };
+const td = { padding: "9px 10px", borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "top" };
 
 /* breakdown cell styles */
 const breakdownWrap = {
   maxHeight: 160,
   overflowY: "auto",
-  border: "1px solid var(--legacy-color-dde5ee)",
+  border: "1px solid var(--color-border)",
   borderRadius: UI.radius,
   padding: "8px 10px",
-  background: "var(--legacy-color-f7f9fc)",
+  background: "var(--color-surface-subtle)",
 };
 const breakdownList = { margin: 0, padding: 0, display: "grid", gap: 6 };
 const breakdownRow = (muted) => ({
@@ -260,9 +237,9 @@ const breakdownRow = (muted) => ({
   alignItems: "baseline",
   padding: "6px 8px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-dde5ee)",
-  background: muted ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-fff)",
-  color: muted ? "var(--legacy-color-6b7280)" : UI.text,
+  border: "1px solid var(--color-border)",
+  background: muted ? "var(--color-canvas)" : "var(--color-surface)",
+  color: muted ? "var(--color-text-muted)" : UI.text,
 });
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
@@ -317,7 +294,7 @@ const focusCss = `
   select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -863,9 +840,9 @@ export default function HRPage() {
       description: "View company policies and employee handbook.",
       link: "/hr-policies",
       icon: BookOpen,
-      color: "var(--legacy-color-7c3aed)",
-      bg: "var(--legacy-color-f5f3ff)",
-      border: "var(--legacy-color-ddd6fe)",
+      color: "var(--color-info)",
+      bg: "var(--color-info-soft)",
+      border: "var(--color-border)",
     },
   ];
 
@@ -877,8 +854,8 @@ export default function HRPage() {
         x={x + width / 2}
         y={y - 4}
         textAnchor="middle"
-        fill="var(--legacy-color-0f172a)"
-        style={{ fontSize: 11, fontWeight: 800 }}
+        fill="var(--color-text)"
+        className={layoutStyles.extracted1}
       >
         {fmtNum(value)}
       </text>
@@ -893,8 +870,8 @@ export default function HRPage() {
         x={x + width / 2}
         y={y - 4}
         textAnchor="middle"
-        fill="var(--legacy-color-64748b)"
-        style={{ fontSize: 11, fontWeight: 800 }}
+        fill="var(--color-text-muted)"
+        className={layoutStyles.extracted2}
       >
         {fmtNum(value)}
       </text>
@@ -933,7 +910,7 @@ export default function HRPage() {
         )}
 
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted3}>
           <div>
             <h1 style={h1}>HR</h1>
             <div style={sub}>
@@ -953,13 +930,7 @@ export default function HRPage() {
           </div>
 
           <div
-            style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-              alignItems: "center",
-            }}
+            className={layoutStyles.extracted4}
           >
             <select
               value={yearView}
@@ -990,7 +961,7 @@ export default function HRPage() {
               style={{
                 ...chip,
                 background: UI.brandSoft,
-                borderColor: "var(--legacy-color-dbeafe)",
+                borderColor: "var(--color-brand-soft)",
                 color: UI.brand,
               }}
             >
@@ -1029,9 +1000,9 @@ export default function HRPage() {
             labelText="Access"
             value={isAdmin ? "Admin" : "View only"}
             icon={ShieldCheck}
-            color="var(--legacy-color-7c3aed)"
-            bg="var(--legacy-color-f5f3ff)"
-            border="var(--legacy-color-ddd6fe)"
+            color="var(--color-info)"
+            bg="var(--color-info-soft)"
+            border="var(--color-border)"
             textValue
           />
         </div>
@@ -1048,8 +1019,8 @@ export default function HRPage() {
         >
           {/*  Usage chart */}
           <section style={card}>
-            <div style={sectionHeader}>
-              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+            <div className={layoutStyles.extracted5}>
+              <div className={layoutStyles.extracted6}>
                 <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
                   <BarChart3 size={17} />
                 </span>
@@ -1070,18 +1041,18 @@ export default function HRPage() {
                 No approved paid holidays yet for {yearView}, so there is nothing to chart.
               </div>
             ) : (
-              <div style={{ width: "100%", height: 300 }}>
+              <div className={layoutStyles.extracted7}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={usageData}
                     margin={{ top: 16, right: 24, left: 0, bottom: 24 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis
                       dataKey="name"
-                      tick={{ fontSize: 12, fill: "var(--legacy-color-6b7280)" }}
-                      axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
-                      tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                      tick={{ fontSize: 12, fill: "var(--color-text-muted)" }}
+                      axisLine={{ stroke: "var(--color-border)" }}
+                      tickLine={{ stroke: "var(--color-border)" }}
                       interval={0}
                       angle={-25}
                       textAnchor="end"
@@ -1090,22 +1061,22 @@ export default function HRPage() {
                     <YAxis
                       domain={[0, maxY]}
                       allowDecimals
-                      tick={{ fontSize: 12, fill: "var(--legacy-color-6b7280)" }}
-                      axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
-                      tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                      tick={{ fontSize: 12, fill: "var(--color-text-muted)" }}
+                      axisLine={{ stroke: "var(--color-border)" }}
+                      tickLine={{ stroke: "var(--color-border)" }}
                       label={{
                         value: "Days",
                         angle: -90,
                         position: "insideLeft",
                         offset: 8,
-                        style: { fontSize: 12, fill: "var(--legacy-color-6b7280)" },
+                        style: { fontSize: 12, fill: "var(--color-text-muted)" },
                       }}
                     />
                     <Tooltip
                       cursor={{ fill: "rgba(148,163,184,0.12)" }}
                       contentStyle={{
                         borderRadius: 10,
-                        border: "1px solid var(--legacy-color-e5e7eb)",
+                        border: "1px solid var(--color-border)",
                         boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
                         fontSize: 12,
                         color: UI.text,
@@ -1120,7 +1091,7 @@ export default function HRPage() {
                     />
 
                     {/* Allowance (grey) */}
-                    <Bar dataKey="allowance" fill="var(--legacy-color-94a3b8)" radius={[8, 8, 0, 0]}>
+                    <Bar dataKey="allowance" fill="var(--shell-muted)" radius={[8, 8, 0, 0]}>
                       <LabelList dataKey="allowance" content={renderAllowanceLabel} />
                     </Bar>
 
@@ -1138,8 +1109,8 @@ export default function HRPage() {
           <div style={{ display: "grid", gap: UI.gap }}>
             {/*  Requested holidays */}
             <section style={card}>
-              <div style={sectionHeader}>
-                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+              <div className={layoutStyles.extracted8}>
+                <div className={layoutStyles.extracted9}>
                   <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
                     <Clock3 size={17} />
                   </span>
@@ -1166,7 +1137,7 @@ export default function HRPage() {
                   No pending holiday requests.
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className={layoutStyles.extracted10}>
                   {requestedHolidays.slice(0, 6).map((h) => {
                     const fromD = toDate(h.startDate);
                     const toD = toDate(h.endDate) || fromD;
@@ -1202,12 +1173,7 @@ export default function HRPage() {
                         }}
                       >
                         <div
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            justifyContent: "space-between",
-                            gap: 10,
-                          }}
+                          className={layoutStyles.extracted11}
                         >
                           <div style={{ fontWeight: 900, color: UI.text }}>
                             {h.employee || h.employeeCode || "Unknown"}
@@ -1229,7 +1195,7 @@ export default function HRPage() {
                           <span style={{ fontWeight: 800, color: UI.text }}>{requestedBy}</span>
                         </div>
 
-                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div className={layoutStyles.extracted12}>
                           <button
                             style={{
                               ...btn("approve"),
@@ -1279,8 +1245,8 @@ export default function HRPage() {
 
             {/*  Delete requested holidays */}
             <section style={card}>
-              <div style={sectionHeader}>
-                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+              <div className={layoutStyles.extracted13}>
+                <div className={layoutStyles.extracted14}>
                   <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}>
                     <Trash2 size={17} />
                   </span>
@@ -1307,7 +1273,7 @@ export default function HRPage() {
                   No delete requests.
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className={layoutStyles.extracted15}>
                   {deleteRequestedHolidays.slice(0, 6).map((h) => {
                     const fromD = toDate(h.startDate);
                     const toD = toDate(h.endDate) || fromD;
@@ -1335,12 +1301,7 @@ export default function HRPage() {
                         }}
                       >
                         <div
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            justifyContent: "space-between",
-                            gap: 10,
-                          }}
+                          className={layoutStyles.extracted16}
                         >
                           <div style={{ fontWeight: 900, color: UI.text }}>
                             {h.employee || h.employeeCode || "Unknown"}
@@ -1361,7 +1322,7 @@ export default function HRPage() {
                           Requested by: <b style={{ color: UI.text }}>{h.deleteRequestedBy || "-"}</b>
                         </div>
 
-                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div className={layoutStyles.extracted17}>
                           <button
                             style={{
                               ...btn("approve"),
@@ -1414,16 +1375,9 @@ export default function HRPage() {
         </div>
 
         {/* HR Docs */}
-        <section style={{ marginTop: 12 }}>
+        <section className={layoutStyles.extracted18}>
           <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: 10,
-              marginBottom: 6,
-              flexWrap: "wrap",
-            }}
+            className={layoutStyles.extracted19}
           >
             <div>
               <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>HR Shortcuts</div>
@@ -1456,8 +1410,8 @@ export default function HRPage() {
                   }
                 }}
               >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                <div className={layoutStyles.extracted20}>
+                  <div className={layoutStyles.extracted21}>
                     <span style={iconBox(d.color, d.bg, d.border)}>
                       <Icon size={17} />
                     </span>

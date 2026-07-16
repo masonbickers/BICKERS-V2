@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { onSnapshot } from "firebase/firestore";
@@ -10,23 +11,9 @@ import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 import { formatQuoteDate, getCompletedQuoteRows, quoteMatchesSearch } from "@/app/utils/completedQuotes";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  bg: "var(--legacy-color-f3f6f9)",
-  panel: "var(--legacy-color-ffffff)",
-  border: "var(--legacy-color-d8e2ee)",
-  borderSoft: "var(--legacy-color-e7edf5)",
-  text: "var(--legacy-color-061426)",
-  muted: "var(--legacy-color-586b82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-eaf3fc)",
-  green: "var(--legacy-color-16a34a)",
-  greenSoft: "var(--legacy-color-dcfce7)",
-  greenBorder: "var(--legacy-color-86efac)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { minHeight: "100vh", background: UI.bg, color: UI.text, padding: "12px 14px 24px" };
 const headerBar = {
@@ -59,7 +46,7 @@ const input = {
   height: 36,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 700,
@@ -75,7 +62,7 @@ const btn = {
   gap: 6,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 900,
@@ -83,7 +70,7 @@ const btn = {
   padding: "0 12px",
   whiteSpace: "nowrap",
 };
-const primaryBtn = { ...btn, background: UI.brand, borderColor: UI.brand, color: "var(--legacy-color-fff)" };
+const primaryBtn = { ...btn, background: UI.brand, borderColor: UI.brand, color: "var(--color-surface)" };
 const chip = (kind = "neutral") => {
   const base = {
     minHeight: 28,
@@ -113,12 +100,12 @@ const table = { width: "100%", minWidth: 980, borderCollapse: "collapse", tableL
 const th = {
   padding: "8px 10px",
   textAlign: "left",
-  color: "var(--legacy-color-4f6278)",
+  color: "var(--color-text-muted)",
   fontSize: 11,
   fontWeight: 900,
   textTransform: "uppercase",
   borderBottom: `1px solid ${UI.borderSoft}`,
-  background: "var(--legacy-color-fbfdff)",
+  background: "var(--color-surface-subtle)",
 };
 const td = {
   padding: "7px 10px",
@@ -170,12 +157,12 @@ export default function CompletedQuotesPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Completed Quotes</h1>
             <div style={sub}>Saved quotes across all jobs, with direct links back into the quote builder.</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <Link href="/job-home" style={btn}>
               <Home size={14} />
               Jobs Home
@@ -191,7 +178,7 @@ export default function CompletedQuotesPage() {
           </div>
         </div>
 
-        <div style={statGrid}>
+        <div className={layoutStyles.extracted3}>
           <section style={statCard}>
             <div style={statLabel}>Completed Quotes</div>
             <div style={statValue}>{rows.length}</div>
@@ -203,7 +190,7 @@ export default function CompletedQuotesPage() {
         </div>
 
         <div style={toolbar}>
-          <div style={{ position: "relative" }}>
+          <div className={layoutStyles.extracted4}>
             <Search size={15} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} aria-hidden />
             <input
               value={search}
@@ -226,7 +213,7 @@ export default function CompletedQuotesPage() {
         </div>
 
         <div style={tableWrap}>
-          <table style={table}>
+          <table className={layoutStyles.extracted5}>
             <thead>
               <tr>
                 <th style={{ ...th, width: "12%" }}>Quote</th>

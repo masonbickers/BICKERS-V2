@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
@@ -22,20 +23,9 @@ import {
   buildVehicleDueEvents,
 } from "@/app/utils/maintenanceCalendar";
 import { db } from "../../../firebaseConfig";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  bg: "var(--legacy-color-f4f7fb)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  shadow: "0 10px 30px rgba(15,23,42,0.06)",
-  maintenance: "var(--legacy-color-f97316)",
-  service: "var(--legacy-color-2563eb)",
-  mot: "var(--legacy-color-dc2626)",
-  dueService: "var(--legacy-color-93c5fd)",
-  dueMot: "var(--legacy-color-fca5a5)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   background: UI.bg,
@@ -134,7 +124,7 @@ export default function WorkshopPage() {
           allDay: true,
           backgroundColor: color,
           borderColor: color,
-          textColor: "var(--legacy-color-0f172a)",
+          textColor: "var(--color-text)",
           extendedProps: event,
         };
       }),
@@ -160,7 +150,7 @@ export default function WorkshopPage() {
           allDay: true,
           backgroundColor: color,
           borderColor: color,
-          textColor: "var(--legacy-color-0f172a)",
+          textColor: "var(--color-text)",
           extendedProps: event,
         };
       }),
@@ -177,7 +167,7 @@ export default function WorkshopPage() {
         allDay: true,
         backgroundColor: UI.maintenance,
         borderColor: UI.maintenance,
-        textColor: "var(--legacy-color-0f172a)",
+        textColor: "var(--color-text)",
         extendedProps: event,
       })),
     [maintenanceJobs]
@@ -221,23 +211,17 @@ export default function WorkshopPage() {
         }}
       >
         <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 16,
-            flexWrap: "wrap",
-          }}
+          className={layoutStyles.extracted1}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted2}>
             <button
               type="button"
               onClick={() => router.back()}
               style={{
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid var(--legacy-color-d1d5db)",
-                background: "var(--legacy-color-fff)",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
                 color: UI.text,
                 fontWeight: 900,
                 cursor: "pointer",
@@ -255,23 +239,20 @@ export default function WorkshopPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={legendPill("var(--legacy-color-fff7ed)", UI.maintenance)}>Maintenance: {counts.maintenance}</span>
-            <span style={legendPill("var(--legacy-color-fff7ed)", UI.maintenance)}>Job cards: {counts.jobs}</span>
-            <span style={legendPill("var(--legacy-color-eff6ff)", UI.service)}>Service booked: {counts.service}</span>
-            <span style={legendPill("var(--legacy-color-fef2f2)", UI.mot)}>MOT booked: {counts.mot}</span>
-            <span style={legendPill("var(--legacy-color-f8fafc)", UI.text)}>Due dates: {counts.due}</span>
+          <div className={layoutStyles.extracted3}>
+            <span style={legendPill("var(--color-warning-soft)", UI.maintenance)}>Maintenance: {counts.maintenance}</span>
+            <span style={legendPill("var(--color-warning-soft)", UI.maintenance)}>Job cards: {counts.jobs}</span>
+            <span style={legendPill("var(--color-info-soft)", UI.service)}>Service booked: {counts.service}</span>
+            <span style={legendPill("var(--color-danger-soft)", UI.mot)}>MOT booked: {counts.mot}</span>
+            <span style={legendPill("var(--color-surface-subtle)", UI.text)}>Due dates: {counts.due}</span>
           </div>
         </div>
       </div>
 
-      <div style={{ padding: "14px 18px 18px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div className={layoutStyles.extracted4}>
         <div style={{ ...card, padding: 16, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-            }}
+            className={layoutStyles.extracted5}
           >
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -299,7 +280,7 @@ export default function WorkshopPage() {
             }}
           />
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 14 }}>
+          <div className={layoutStyles.extracted6}>
             <LegendSwatch color={UI.maintenance} label="General maintenance booking" />
             <LegendSwatch color={UI.maintenance} label="Workshop job card" />
             <LegendSwatch color={UI.service} label="Booked service" />
@@ -330,7 +311,7 @@ export default function WorkshopPage() {
 
 function LegendSwatch({ color, label }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <div className={layoutStyles.extracted7}>
       <span
         style={{
           width: 14,
@@ -352,7 +333,7 @@ function legendPill(bg, fg) {
     alignItems: "center",
     padding: "7px 10px",
     borderRadius: 999,
-    border: "1px solid var(--legacy-color-e5e7eb)",
+    border: "1px solid var(--color-border)",
     background: bg,
     color: fg,
     fontSize: 12,
