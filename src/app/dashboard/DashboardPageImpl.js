@@ -3845,16 +3845,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               let text = tone.text;
               let border = getWorkDiaryBorder(status, tone.border);
 
-              let risky = !!event.isRisky;
-              if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
-                risky = getVehicleRisk(event.vehicles, {
-                  offRoadTracking: Boolean(event?.offRoadTracking),
-                }).risky;
-              }
-
-              if (risky) {
-              }
-
               const shoot = String(event.shootType || "").toLowerCase();
               const bookingStatuses = new Set([
                 "confirmed",
@@ -3864,7 +3854,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 "dnh",
               ]);
 
-              if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
+              if (bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
                 bg = NIGHT_SHOOT_STYLE.bg;
                 text = NIGHT_SHOOT_STYLE.text;
                 border = getWorkDiaryBorder(status, NIGHT_SHOOT_STYLE.border);
