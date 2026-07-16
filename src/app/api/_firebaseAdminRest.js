@@ -239,14 +239,19 @@ export async function adminDeleteDocument(collection, documentId) {
   return true;
 }
 
-export async function adminListDocuments(collection) {
+export async function adminListDocuments(collection, options = {}) {
   const token = await getFirebaseAdminAccessToken();
   const docs = [];
   let pageToken = "";
+  const maxDocuments = Number.isFinite(options.maxDocuments)
+    ? Math.max(1, Math.floor(options.maxDocuments))
+    : Infinity;
 
   do {
-    const params = new URLSearchParams({ pageSize: "300" });
+    const remaining = maxDocuments - docs.length;
+    const params = new URLSearchParams({ pageSize: String(Math.min(300, remaining)) });
     if (pageToken) params.set("pageToken", pageToken);
+    if (options.orderBy) params.set("orderBy", String(options.orderBy));
 
     const res = await fetch(`${FIRESTORE_BASE_URL}/${collection}?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -262,7 +267,7 @@ export async function adminListDocuments(collection) {
       });
     });
     pageToken = data.nextPageToken || "";
-  } while (pageToken);
+  } while (pageToken && docs.length < maxDocuments);
 
-  return docs;
+  return docs.slice(0, maxDocuments);
 }

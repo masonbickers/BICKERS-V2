@@ -1,25 +1,17 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
-import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../../firebaseConfig";
 import {
   collection,
   doc,
-  getDoc,
-  getDocs,
-  setDoc,
   addDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  query,
-  orderBy,
-  where,
-  limit,
 } from "firebase/firestore";
 import {
   Activity,
@@ -291,11 +283,13 @@ const buildAdminActivityRows = (data = {}) => {
   return rows.slice(0, 500);
 };
 
-const fetchAdminOverviewDataFromServer = async () => {
+const fetchAdminOverviewDataFromServer = async (section = "access", day = "") => {
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error("Not signed in.");
   const idToken = await currentUser.getIdToken();
-  const res = await fetch("/api/admin/overview", {
+  const params = new URLSearchParams({ section });
+  if (day) params.set("day", day);
+  const res = await fetch(`/api/admin/overview?${params.toString()}`, {
     headers: { Authorization: `Bearer ${idToken}` },
     cache: "no-store",
   });
@@ -336,13 +330,16 @@ export default function AdminPage() {
   });
 
   const [employees, setEmployees] = useState([]);
-  const [allowances, setAllowances] = useState([]);
   const [sickLeaves, setSickLeaves] = useState([]);
   const [activityRows, setActivityRows] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityDay, setActivityDay] = useState(() => fmtYMD(new Date()));
   const [auditRows, setAuditRows] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const [holidayReloadKey, setHolidayReloadKey] = useState(0);
+  const [loadedSections, setLoadedSections] = useState({});
+  const [sectionLoading, setSectionLoading] = useState({});
+  const loadingSectionsRef = useRef(new Set());
   const [systemRecovered, setSystemRecovered] = useState(false);
 
   // Sick form (add)
@@ -424,84 +421,101 @@ export default function AdminPage() {
     }
   };
 
-  const refreshServerAccess = async (currentUser) => {
-    const idToken = await currentUser.getIdToken();
-    const res = await fetch("/api/security/bootstrap-access", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${idToken}` },
-      cache: "no-store",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || "Could not refresh admin access.");
-    return data?.access || {};
-  };
-
   /* -------------------------------------------
      Auth + Admin gate
       allow if email in ADMIN_EMAILS OR server-bootstrapped role is admin/platformAdmin
   -------------------------------------------- */
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    if (authAccess.loading) {
       setChecking(true);
-      try {
-        if (!u) {
-          router.push("/login");
-          return;
-        }
+      return;
+    }
 
-        const email = String(u.email || "").trim().toLowerCase();
-        const access = await refreshServerAccess(u);
-        const role = String(access?.role || "").trim().toLowerCase();
-        const isAdminRole = ["admin", "platformadmin"].includes(role);
-        const isAllowListed = ADMIN_EMAILS.includes(email);
+    const currentUser = authAccess.realUser || authAccess.user;
+    if (!currentUser) {
+      router.push("/login");
+      return;
+    }
 
-        if (!isAllowListed && !isAdminRole) {
-          router.push("/home");
-          return;
-        }
+    if (!authAccess.accessReady) {
+      setChecking(true);
+      return;
+    }
 
-        setMe(u);
-        await bootstrap();
-      } catch (error) {
-        console.error("Admin bootstrap failed:", error);
-        showToast("error", error?.message || "Could not load admin data.");
-      } finally {
-        setChecking(false);
-      }
-    });
+    const email = String(currentUser.email || "").trim().toLowerCase();
+    const role = String(authAccess.userDoc?.role || "").trim().toLowerCase();
+    const isAdminRole = authAccess.isAdmin || ["admin", "platformadmin"].includes(role);
+    if (!ADMIN_EMAILS.includes(email) && !isAdminRole) {
+      router.push("/home");
+      return;
+    }
 
-    return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setMe(currentUser);
+    setChecking(false);
+  }, [
+    authAccess.accessReady,
+    authAccess.isAdmin,
+    authAccess.loading,
+    authAccess.realUser,
+    authAccess.user,
+    authAccess.userDoc,
+    router,
+  ]);
 
   /* -------------------------------------------
      Fetch
   -------------------------------------------- */
-  const bootstrap = async () => {
-    setActivityLoading(true);
-    setAuditLoading(true);
+  const loadSection = async (section, { force = false, day = "" } = {}) => {
+    const cacheKey = section === "activity" ? `${section}:${day}` : section;
+    if (!force && (loadedSections[cacheKey] || loadingSectionsRef.current.has(cacheKey))) return;
+    loadingSectionsRef.current.add(cacheKey);
+    setSectionLoading((current) => ({ ...current, [section]: true }));
+    if (section === "activity") setActivityLoading(true);
+    if (section === "audit") setAuditLoading(true);
     try {
-      const overview = await fetchAdminOverviewData();
-      hydrateAdminOverview(overview);
+      const overview = await fetchAdminOverviewDataFromServer(section, day);
+      hydrateAdminOverview(overview, section);
+      setLoadedSections((current) => ({ ...current, [cacheKey]: true }));
+    } catch (error) {
+      console.error(`Failed to load admin ${section}:`, error);
+      showToast("error", error?.message || `Could not load ${section} data.`);
     } finally {
-      setActivityLoading(false);
-      setAuditLoading(false);
+      loadingSectionsRef.current.delete(cacheKey);
+      setSectionLoading((current) => ({ ...current, [section]: false }));
+      if (section === "activity") setActivityLoading(false);
+      if (section === "audit") setAuditLoading(false);
     }
   };
 
-  const fetchAdminOverviewData = async () => {
-    return fetchAdminOverviewDataFromServer();
+  const sectionForTab = (tab) => {
+    if (tab === Tabs.SICK) return "sick";
+    if (tab === Tabs.ACTIVITY) return "activity";
+    if (tab === Tabs.AUDIT) return "audit";
+    return tab === Tabs.ACCESS ? "access" : "";
   };
 
-  const hydrateAdminOverview = (overview = {}) => {
-    const deduped = dedupeUsersByEmail(overview.users || []);
-    setUsers(deduped.users);
-    setUsersMeta(deduped.meta);
-    setEmployees(overview.employees || []);
-    setAllowances(overview.holidayAllowances || []);
-    setSickLeaves(overview.sickLeave || []);
-    setActivityRows(buildAdminActivityRows(overview));
-    setAuditRows(
+  const bootstrap = async () => {
+    if (activeTab === Tabs.HOLIDAY) {
+      setHolidayReloadKey((value) => value + 1);
+      return;
+    }
+    const section = sectionForTab(activeTab);
+    if (section) await loadSection(section, { force: true, day: section === "activity" ? activityDay : "" });
+  };
+
+  const hydrateAdminOverview = (overview = {}, section = overview.section) => {
+    if (section === "access") {
+      const deduped = dedupeUsersByEmail(overview.users || []);
+      setUsers(deduped.users);
+      setUsersMeta(deduped.meta);
+      setEmployees(overview.employees || []);
+    }
+    if (section === "sick") {
+      setEmployees(overview.employees || []);
+      setSickLeaves(overview.sickLeave || []);
+    }
+    if (section === "activity") setActivityRows(buildAdminActivityRows(overview));
+    if (section === "audit") setAuditRows(
       (overview.adminAuditLogs || []).slice(0, 200).map((data) => ({
         id: data.id,
         ...data,
@@ -510,33 +524,26 @@ export default function AdminPage() {
     );
   };
 
+  useEffect(() => {
+    if (checking) return;
+    const section = sectionForTab(activeTab);
+    if (section) loadSection(section, { day: section === "activity" ? activityDay : "" });
+    // loadSection intentionally uses the latest cache state; tab/day changes trigger this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activityDay, checking]);
+
   const fetchUsers = async () => {
-    const overview = await fetchAdminOverviewData();
-    const deduped = dedupeUsersByEmail(overview.users || []);
-    setUsers(deduped.users);
-    setUsersMeta(deduped.meta);
-  };
-
-  const fetchEmployees = async () => {
-    const overview = await fetchAdminOverviewData();
-    setEmployees(overview.employees || []);
-  };
-
-  const fetchAllowances = async () => {
-    const overview = await fetchAdminOverviewData();
-    setAllowances(overview.holidayAllowances || []);
+    await loadSection("access", { force: true });
   };
 
   const fetchSickLeaves = async () => {
-    const overview = await fetchAdminOverviewData();
-    setSickLeaves(overview.sickLeave || []);
+    await loadSection("sick", { force: true });
   };
 
   const fetchActivity = async () => {
     setActivityLoading(true);
     try {
-      const overview = await fetchAdminOverviewData();
-      setActivityRows(buildAdminActivityRows(overview));
+      await loadSection("activity", { force: true, day: activityDay });
     } catch (err) {
       console.error("Failed to load activity:", err);
       setActivityRows([]);
@@ -548,16 +555,7 @@ export default function AdminPage() {
   const fetchAuditLogs = async () => {
     setAuditLoading(true);
     try {
-      const overview = await fetchAdminOverviewData();
-      setAuditRows(
-        (overview.adminAuditLogs || []).slice(0, 200).map((data) => {
-          return {
-            id: data.id,
-            ...data,
-            at: toDateSafe(data.createdAt),
-          };
-        })
-      );
+      await loadSection("audit", { force: true });
     } catch (err) {
       console.error("Failed to load admin audit logs:", err);
       setAuditRows([]);
@@ -638,37 +636,6 @@ export default function AdminPage() {
     } finally {
       setDeletingUserId("");
     }
-  };
-
-  /* -------------------------------------------
-     Holiday allowance management (legacy table)
-  -------------------------------------------- */
-  const upsertAllowance = async (employeeId, patch) => {
-    const ref = doc(db, "holidayAllowances", employeeId);
-    const existing = await getDoc(ref);
-
-    const base = existing.exists()
-      ? existing.data()
-      : {
-          employeeId,
-          annualAllowanceDays: 28,
-          carryOverDays: 0,
-          usedDays: 0,
-          createdAt: serverTimestamp(),
-        };
-
-    await setDoc(
-      ref,
-      {
-        ...base,
-        ...patch,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    showToast("ok", "Holiday allowance saved");
-    await fetchAllowances();
   };
 
   /* -------------------------------------------
@@ -777,6 +744,7 @@ export default function AdminPage() {
   const filteredActivityRows = useMemo(() => {
     const q = qText.trim().toLowerCase();
     return activityRows.filter((row) => {
+      if (activityDay && fmtYMD(row.at) !== activityDay) return false;
       if (!q) return true;
       return [row.user, row.action, row.area, row.details]
         .filter(Boolean)
@@ -784,7 +752,7 @@ export default function AdminPage() {
         .toLowerCase()
         .includes(q);
     });
-  }, [activityRows, qText]);
+  }, [activityDay, activityRows, qText]);
 
   const filteredUsers = useMemo(() => {
     const q = qText.trim().toLowerCase();
@@ -987,8 +955,12 @@ export default function AdminPage() {
             detail={`raw ${usersMeta.rawCount}, duplicates ${usersMeta.duplicates}`}
           />
           <AdminStat icon={<Users size={17} />} label="Employees" value={employees.length} detail="loaded from employees" />
-          <AdminStat icon={<CalendarDays size={17} />} label="Allowances" value={allowances.length} detail="holiday records" />
-          <AdminStat icon={<HeartPulse size={17} />} label="Sick Leave" value={sickLeaves.length} detail="active records" />
+          <AdminStat
+            icon={<HeartPulse size={17} />}
+            label="Sick Leave"
+            value={loadedSections.sick ? sickLeaves.length : "—"}
+            detail={loadedSections.sick ? "active records" : "loads when opened"}
+          />
         </div>
 
         {/* Tabs */}
@@ -1062,7 +1034,11 @@ export default function AdminPage() {
                   </thead>
 
                   <tbody>
-                    {filteredUsers.length === 0 ? (
+                    {sectionLoading.access ? (
+                      <tr>
+                        <td colSpan={5} style={emptyTd}>Loading access records...</td>
+                      </tr>
+                    ) : filteredUsers.length === 0 ? (
                       <tr>
                         <td colSpan={5} style={emptyTd}>
                           {users.length === 0 ? (
@@ -1205,7 +1181,7 @@ export default function AdminPage() {
           )}
 
           {/* HOLIDAY */}
-          {activeTab === Tabs.HOLIDAY && <EmployeesHolidayAllowancesTab />}
+          {activeTab === Tabs.HOLIDAY && <EmployeesHolidayAllowancesTab key={holidayReloadKey} />}
 
           {/* SICK */}
           {activeTab === Tabs.SICK && (
@@ -2162,7 +2138,7 @@ function EmployeesHolidayAllowancesTab() {
     const load = async () => {
       setLoading(true);
       try {
-        const overview = await fetchAdminOverviewDataFromServer();
+        const overview = await fetchAdminOverviewDataFromServer("holiday");
         const list = (overview.employees || []).map((employee) => {
           const x = employee || {};
           const pattern = x.workPattern || HA_DEFAULT_PATTERN;
@@ -2980,4 +2956,3 @@ const panelStyle = {
 };
 
 const rowStyle = { background: UI.card };
-

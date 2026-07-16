@@ -74,36 +74,76 @@ const sortNewest = (a, b) =>
   new Date(b?.createdAt || b?.updatedAt || 0).getTime() -
   new Date(a?.createdAt || a?.updatedAt || 0).getTime();
 
+const VALID_SECTIONS = new Set(["access", "sick", "holiday", "activity", "audit"]);
+
+const dayKey = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+};
+
+const activityHistoryDocsForDay = (docs, selectedDay) =>
+  docs.flatMap((row) => {
+    const history = Array.isArray(row.data?.history) ? row.data.history : [];
+    if (!history.length) {
+      return [row.data?.updatedAt, row.data?.createdAt].some((value) => dayKey(value) === selectedDay)
+        ? [row]
+        : [];
+    }
+    const selectedHistory = history.filter((entry) =>
+      dayKey(entry?.timestamp || entry?.updatedAt || row.data?.updatedAt || row.data?.createdAt) === selectedDay
+    );
+    return selectedHistory.length
+      ? [{ ...row, data: { ...row.data, history: selectedHistory } }]
+      : [];
+  });
+
+const activityDocsForDay = (docs, selectedDay, fields) =>
+  docs.filter(({ data }) => fields.some((field) => dayKey(data?.[field]) === selectedDay));
+
 export async function GET(req) {
   try {
     const admin = await requireAdminFromRequest(req);
     if (admin.error) return admin.error;
 
-    const [
-      users,
-      employees,
-      holidayAllowances,
-      sickLeave,
-      adminAuditLogs,
-      bookings,
-      maintenanceBookings,
-      maintenanceJobs,
-      holidays,
-    ] = await Promise.all([
-      adminListDocuments("users"),
-      adminListDocuments("employees"),
-      adminListDocuments("holidayAllowances"),
-      adminListDocuments("sickLeave"),
-      adminListDocuments("adminAuditLogs"),
-      adminListDocuments("bookings"),
-      adminListDocuments("maintenanceBookings"),
-      adminListDocuments("maintenanceJobs"),
-      adminListDocuments("holidays"),
-    ]);
+    const url = new URL(req.url);
+    const section = String(url.searchParams.get("section") || "access").trim().toLowerCase();
+    if (!VALID_SECTIONS.has(section)) return jsonError("Unknown admin overview section.", 400);
+
+    const selectedDay = /^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get("day") || "")
+      ? url.searchParams.get("day")
+      : new Date().toISOString().slice(0, 10);
+
+    const requestedCollections = {
+      access: ["users", "employees"],
+      sick: ["employees", "sickLeave"],
+      holiday: ["employees", "holidays"],
+      activity: ["users", "sickLeave", "bookings", "maintenanceBookings", "maintenanceJobs", "holidays"],
+      audit: ["adminAuditLogs"],
+    }[section];
+
+    const entries = await Promise.all(
+      requestedCollections.map(async (collectionName) => {
+        const options = collectionName === "adminAuditLogs"
+          ? { maxDocuments: 250, orderBy: "createdAt desc" }
+          : {};
+        return [collectionName, await adminListDocuments(collectionName, options)];
+      })
+    );
+    const loaded = Object.fromEntries(entries);
+    const users = loaded.users || [];
+    const employees = loaded.employees || [];
+    const sickLeave = loaded.sickLeave || [];
+    const adminAuditLogs = loaded.adminAuditLogs || [];
+    const bookings = loaded.bookings || [];
+    const maintenanceBookings = loaded.maintenanceBookings || [];
+    const maintenanceJobs = loaded.maintenanceJobs || [];
+    const holidays = loaded.holidays || [];
 
     const scopedUsers = filterDocsForAdminCompany(users, admin.userData);
     const scopedEmployees = filterDocsForAdminCompany(employees, admin.userData);
-    const scopedHolidayAllowances = filterDocsForAdminCompany(holidayAllowances, admin.userData);
     const scopedSickLeave = filterDocsForAdminCompany(sickLeave, admin.userData);
     const scopedAuditLogs = filterDocsForAdminCompany(adminAuditLogs, admin.userData);
     const scopedBookings = filterDocsForAdminCompany(bookings, admin.userData);
@@ -111,17 +151,36 @@ export async function GET(req) {
     const scopedMaintenanceJobs = filterDocsForAdminCompany(maintenanceJobs, admin.userData);
     const scopedHolidays = filterDocsForAdminCompany(holidays, admin.userData);
 
+    const activityBookings = section === "activity"
+      ? activityHistoryDocsForDay(scopedBookings, selectedDay)
+      : scopedBookings;
+    const activityMaintenanceBookings = section === "activity"
+      ? activityHistoryDocsForDay(scopedMaintenanceBookings, selectedDay)
+      : scopedMaintenanceBookings;
+    const activityMaintenanceJobs = section === "activity"
+      ? activityDocsForDay(scopedMaintenanceJobs, selectedDay, ["updatedAtServer", "updatedAt", "createdAt"])
+      : scopedMaintenanceJobs;
+    const activityHolidays = section === "activity"
+      ? activityDocsForDay(scopedHolidays, selectedDay, ["updatedAt", "createdAt", "startDate"])
+      : scopedHolidays;
+    const activitySickLeave = section === "activity"
+      ? activityDocsForDay(scopedSickLeave, selectedDay, ["updatedAt", "createdAt", "startDate"])
+      : scopedSickLeave;
+    const activityUsers = section === "activity"
+      ? activityDocsForDay(scopedUsers, selectedDay, ["updatedAt", "createdAt"])
+      : scopedUsers;
+
     return Response.json({
       ok: true,
-      users: mergeAccessUsers(scopedUsers, scopedEmployees),
+      section,
+      users: section === "access" ? mergeAccessUsers(scopedUsers, scopedEmployees) : activityUsers.map(withId),
       employees: scopedEmployees.map(withId).sort(sortByText("name")),
-      holidayAllowances: scopedHolidayAllowances.map(withId),
-      sickLeave: scopedSickLeave.map(withId).sort(sortNewest),
+      sickLeave: activitySickLeave.map(withId).sort(sortNewest),
       adminAuditLogs: scopedAuditLogs.map(withId).sort(sortNewest).slice(0, 250),
-      bookings: scopedBookings.map(withId),
-      maintenanceBookings: scopedMaintenanceBookings.map(withId),
-      maintenanceJobs: scopedMaintenanceJobs.map(withId),
-      holidays: scopedHolidays.map(withId),
+      bookings: activityBookings.map(withId),
+      maintenanceBookings: activityMaintenanceBookings.map(withId),
+      maintenanceJobs: activityMaintenanceJobs.map(withId),
+      holidays: activityHolidays.map(withId),
     });
   } catch (error) {
     console.error("Admin overview load failed:", error);

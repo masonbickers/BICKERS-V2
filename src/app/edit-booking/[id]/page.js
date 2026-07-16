@@ -3975,7 +3975,7 @@ export default function EditBookingPage() {
                         onChange={(e) => setIsCrewed(e.target.checked)}
                         style={{ margin: 0 }}
                       />
-                      Crewed
+                      Crewed — show in employee app
                     </label>
 
                     <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
@@ -3997,7 +3997,7 @@ export default function EditBookingPage() {
                       <span style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15 }}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
                     </div>
                     <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--legacy-color-166534)" : "var(--legacy-color-92400e)", background: isCrewed ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fff7ed)", border: `1px solid ${isCrewed ? "var(--legacy-color-86efac)" : "var(--legacy-color-fed7aa)"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
-                      {isCrewed ? "Crewed" : "Manual"}
+                      {isCrewed ? "Visible in employee app" : "Hidden from employee app"}
                     </span>
                   </div>
                 </div>
@@ -4895,7 +4895,7 @@ export default function EditBookingPage() {
                     </SummaryRow>
                     <SummaryRow label="Drivers">{employees.filter((e) => e.role === "Precision Driver").map((e) => e.name).join(", ") || "-"}</SummaryRow>
                     <SummaryRow label="Freelancers">{employees.filter((e) => e.role === "Freelancer").map((e) => e.name).join(", ") || "-"}</SummaryRow>
-                    <SummaryRow label="Crew">{`${isCrewed ? "Crewed" : "Manual"} - ${allocatedCrewCount} / ${Number(requiredCrewCount) || 0}`}</SummaryRow>
+                    <SummaryRow label="Crew">{`${isCrewed ? "Visible in employee app" : "Hidden from employee app"} - ${allocatedCrewCount} / ${Number(requiredCrewCount) || 0}`}</SummaryRow>
                   </div>
 
                   <div style={summarySection}>
@@ -4933,4 +4933,3 @@ export default function EditBookingPage() {
     </HeaderSidebarLayout>
   );
 }
-
