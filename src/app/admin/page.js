@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import {
   Activity,
+  Brush,
   CalendarDays,
   HeartPulse,
   ListChecks,
@@ -25,6 +26,7 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
+import GlobalStylingSettings from "./GlobalStylingSettings";
 import { ADMIN_EMAILS } from "@/app/utils/adminAccess";
 import {
   handleFirestoreAccessError,
@@ -66,6 +68,7 @@ const Tabs = {
   SICK: "Sick Leave",
   ACTIVITY: "Activity",
   AUDIT: "Audit Log",
+  STYLING: "Global Styling",
   APRIL_FOOLS: "April Fools",
 };
 
@@ -75,6 +78,7 @@ const TAB_ICONS = {
   [Tabs.SICK]: HeartPulse,
   [Tabs.ACTIVITY]: Activity,
   [Tabs.AUDIT]: ListChecks,
+  [Tabs.STYLING]: Brush,
   [Tabs.APRIL_FOOLS]: ShieldCheck,
 };
 
@@ -869,23 +873,25 @@ export default function AdminPage() {
           </div>
 
           <div style={headerActions}>
-            <div style={searchWrap}>
-              <Search size={15} color={UI.muted} />
-              <input
-                value={qText}
-                onChange={(e) => setQText(e.target.value)}
-                placeholder={
-                  activeTab === Tabs.ACTIVITY
-                    ? "Search activity (user, action, area)..."
-                    : activeTab === Tabs.AUDIT
-                    ? "Search audit log..."
-                    : activeTab === Tabs.ACCESS
-                    ? "Search users..."
-                    : "Search employees (name or email)..."
-                }
-                style={headerSearchInputStyle}
-              />
-            </div>
+            {activeTab !== Tabs.STYLING ? (
+              <div style={searchWrap}>
+                <Search size={15} color={UI.muted} />
+                <input
+                  value={qText}
+                  onChange={(e) => setQText(e.target.value)}
+                  placeholder={
+                    activeTab === Tabs.ACTIVITY
+                      ? "Search activity (user, action, area)..."
+                      : activeTab === Tabs.AUDIT
+                      ? "Search audit log..."
+                      : activeTab === Tabs.ACCESS
+                      ? "Search users..."
+                      : "Search employees (name or email)..."
+                  }
+                  style={headerSearchInputStyle}
+                />
+              </div>
+            ) : null}
 
             <button
               onClick={() => router.push("/admin/security-audit")}
@@ -1182,6 +1188,8 @@ export default function AdminPage() {
 
           {/* HOLIDAY */}
           {activeTab === Tabs.HOLIDAY && <EmployeesHolidayAllowancesTab key={holidayReloadKey} />}
+
+          {activeTab === Tabs.STYLING && <GlobalStylingSettings />}
 
           {/* SICK */}
           {activeTab === Tabs.SICK && (

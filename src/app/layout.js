@@ -7,6 +7,7 @@ import "./calendar-integration.css";
 import { AuthProvider } from "./context/authContext"; 
 import ProtectedLayout from "./components/ProtectedLayout"; 
 import AppCacheRefresh from "./components/AppCacheRefresh";
+import GlobalThemeProvider from "./components/GlobalThemeProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,6 +31,7 @@ export default function RootLayout({ children }) {
         <ClerkProvider signInUrl="/login" signUpUrl="/login">
           <AuthProvider>
             <AppCacheRefresh />
+            <GlobalThemeProvider />
             <ProtectedLayout>
               {children}
             </ProtectedLayout>
