@@ -1,13 +1,40 @@
+/*
+ * Application defaults
+ *
+ * Keep shared values in theme.css and shared element behaviour here. :where()
+ * intentionally gives these rules zero specificity, so a component or page
+ * class can override a default without !important.
+ */
 html,body{max-width:100vw;min-height:100%;overflow-x:hidden}
 html{background:var(--color-canvas)}
-body{margin:0;color:var(--color-text);background:var(--color-canvas);font:var(--font-size-md)/var(--line-height-normal) var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{min-height:100dvh;margin:0;color:var(--color-text);background:var(--color-canvas);font:var(--font-weight-normal) var(--font-size-md)/var(--line-height-normal) var(--font-sans);text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 *,*::before,*::after{box-sizing:border-box}
-button,input,select,textarea{font:inherit}
+:where(h1,h2,h3,h4,h5,h6,p,figure,blockquote,dl,dd){margin:0}
+:where(h1,h2,h3,h4,h5,h6){line-height:var(--line-height-tight);font-weight:var(--font-weight-extrabold);text-wrap:balance}
+:where(h1){font-size:var(--font-size-3xl)}
+:where(h2){font-size:var(--font-size-2xl)}
+:where(h3){font-size:var(--font-size-xl)}
+:where(h4,h5,h6){font-size:var(--font-size-lg)}
+:where(p){text-wrap:pretty}
+:where(ul,ol){margin:0;padding-inline-start:var(--space-5)}
+:where(hr){height:0;margin:var(--space-5) 0;border:0;border-top:var(--border-default)}
+:where(small){font-size:var(--font-size-xs)}
+:where(strong,b){font-weight:var(--font-weight-bold)}
+:where(button,input,select,textarea){font:inherit;color:inherit}
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),select,textarea){width:100%;min-height:var(--control-height-md);padding:var(--control-padding-y) var(--control-padding-x);background:var(--control-background);border:var(--control-border);border-radius:var(--control-radius)}
+:where(textarea){min-height:96px;resize:vertical}
+:where(input,textarea)::placeholder{color:var(--color-text-subtle);opacity:1}
+:where(input,textarea):read-only{background:var(--color-surface-subtle)}
+:where(fieldset){min-width:0;margin:0;padding:var(--space-4);border:var(--border-default);border-radius:var(--radius-md)}
+:where(legend){padding:0 var(--space-1);font-weight:var(--font-weight-bold)}
 button:not(:disabled),[role=button]:not([aria-disabled=true]),select:not(:disabled){cursor:pointer}
 button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allowed;opacity:.62}
 :where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--color-brand);outline-offset:2px;box-shadow:var(--focus-ring)}
 a{color:inherit;text-decoration:none}
-img,svg{max-width:100%}
+:where(img,picture,video,canvas,svg){max-width:100%}
+:where(img,picture,video,canvas){height:auto}
+:where(table){border-collapse:collapse;border-spacing:0}
+::selection{color:var(--color-text);background:var(--color-brand-border)}
 .app-shell-content{min-width:0;background:transparent}
 .app-shell-content>*{width:100%;max-width:100%;min-height:100%}
 @media(max-width:900px){:root{--page-padding-x:var(--space-3);--page-padding-y:var(--space-3)}.app-shell-content>*{min-height:auto}}
