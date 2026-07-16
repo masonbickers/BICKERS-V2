@@ -2,6 +2,14 @@ import { DEFAULT_CONTENT_LABELS, normalizeContentLabels } from "./contentLabels.
 import { APPEARANCE_SCHEMA_VERSION, DEFAULT_GLOBAL_THEME, normalizeGlobalTheme } from "./globalTheme.js";
 
 export const PLATFORM_APPEARANCE_ID = "__platform__";
+// Firestore reserves document IDs matching __.*__. Keep the public sentinel
+// above for API/UI state, but persist the platform record under a safe ID that
+// cannot collide with a normalized company ID (company IDs do not allow dots).
+export const PLATFORM_APPEARANCE_DOCUMENT_ID = "platform.default";
+
+export function appearanceDocumentId(companyId) {
+  return companyId === PLATFORM_APPEARANCE_ID ? PLATFORM_APPEARANCE_DOCUMENT_ID : companyId;
+}
 
 export function normalizeCompanyId(value, fallback = "") {
   const id = String(value || "").trim().toLowerCase();

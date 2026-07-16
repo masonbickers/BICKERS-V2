@@ -30,6 +30,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { useAuth } from "@/app/context/authContext";
 import { useAppearance } from "@/app/components/GlobalThemeProvider";
+import { DEFAULT_GLOBAL_THEME } from "@/app/utils/globalTheme";
 import { useContentLabels } from "@/app/components/ContentLabelsProvider";
 import { Button, Modal, Select } from "@/app/components/ui";
 import { Moon, Sun } from "lucide-react";
@@ -989,7 +990,7 @@ export default function HeaderSidebarLayout({
 
         {/* Footer */}
         <footer className={layoutStyles.footer}>
-          <span>Copyright {new Date().getFullYear()} {appearance.theme.appName} v{APP_VERSION_LABEL}</span>
+          <span>Copyright {new Date().getFullYear()} {appearance.theme.appName === DEFAULT_GLOBAL_THEME.appName ? "Bickers Booking System" : appearance.theme.appName} v{APP_VERSION_LABEL}</span>
           <div
             className={layoutStyles.extracted41}
           >

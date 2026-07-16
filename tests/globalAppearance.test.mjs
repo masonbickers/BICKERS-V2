@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyGlobalTheme,
   DEFAULT_GLOBAL_THEME,
   contrastRatio,
   deriveDarkTheme,
@@ -16,10 +17,12 @@ import {
   validateContentLabels,
 } from "../src/app/utils/contentLabels.js";
 import {
+  appearanceDocumentId,
   createAppearanceState,
   legacyBrandingToLabels,
   legacyBrandingToTheme,
   PLATFORM_APPEARANCE_ID,
+  PLATFORM_APPEARANCE_DOCUMENT_ID,
   resolvePublishedAppearance,
 } from "../src/app/utils/appearanceModel.js";
 import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "../src/app/utils/jobStatusColors.js";
@@ -68,6 +71,44 @@ test("company published appearance resolves over platform defaults", () => {
   assert.equal(resolved.theme.brandColor, "#445566");
 });
 
+test("default light theme preserves the current live colour palette", () => {
+  const variables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "light" });
+  assert.equal(variables["--color-brand"], "#1f4b7a");
+  assert.equal(variables["--color-brand-hover"], "#173b62");
+  assert.equal(variables["--color-surface-subtle"], "#f8fafc");
+  assert.equal(variables["--color-success-soft"], "#ecfdf5");
+  assert.equal(variables["--color-danger"], "#991b1b");
+  assert.equal(variables["--color-danger-soft"], "#fef2f2");
+  assert.equal(variables["--shell-active-border"], "rgba(133,211,155,.44)");
+  assert.equal(variables["--shell-gradient"], "radial-gradient(circle at top left,#cfd8e3 0%,#bcc7d4 34%,#aebac7 100%)");
+});
+
+test("applying the default light theme clears runtime colour overrides", () => {
+  const removed = [];
+  const set = [];
+  global.document = {
+    documentElement: {
+      dataset: {},
+      style: {
+        colorScheme: "",
+        removeProperty: (name) => removed.push(name),
+        setProperty: (name, value) => set.push([name, value]),
+      },
+    },
+  };
+  applyGlobalTheme(DEFAULT_GLOBAL_THEME, { mode: "light" });
+  delete global.document;
+  assert.ok(removed.includes("--color-brand"));
+  assert.ok(removed.includes("--shell-sidebar-bg"));
+  assert.equal(set.length, 0);
+});
+
+test("platform appearance uses a Firestore-safe document ID", () => {
+  assert.equal(appearanceDocumentId(PLATFORM_APPEARANCE_ID), PLATFORM_APPEARANCE_DOCUMENT_ID);
+  assert.equal(appearanceDocumentId("acme"), "acme");
+  assert.doesNotMatch(PLATFORM_APPEARANCE_DOCUMENT_ID, /^__.*__$/);
+});
+
 test("content labels are allow-listed, HTML-free and retain fallbacks", () => {
   const labels = normalizeContentLabels({ "actions.save": "Store changes", unexpected: "ignored" });
   assert.equal(labels["actions.save"], "Store changes");
@@ -85,4 +126,5 @@ test("job status colours remain fixed outside editable global appearance", () =>
   assert.equal(Object.keys(darkVariables).some((key) => key.startsWith("--job-status-")), false);
   assert.deepEqual(getFixedJobStatusStyle("confirmed"), FIXED_JOB_STATUS_STYLES.Confirmed);
   assert.deepEqual(getFixedJobStatusStyle("completed"), FIXED_JOB_STATUS_STYLES.Complete);
+  assert.equal(lightVariables["--job-status-confirmed"], undefined);
 });

@@ -1,17 +1,18 @@
 import { adminCreateDocument, adminListDocuments, adminPatchDocument } from "@/app/api/_firebaseAdminRest";
 import { loadCompanyAppearanceState, loadPlatformAppearanceState } from "@/app/api/_appearance";
 import { jsonError, requirePlatformAdminFromRequest } from "@/app/api/admin/_lib";
+import { appearanceDocumentId } from "@/app/utils/appearanceModel";
 
 export async function POST(req) {
   const admin = await requirePlatformAdminFromRequest(req);
   if (admin.error) return admin.error;
   try {
-    const platform = await loadPlatformAppearanceState();
-    await adminPatchDocument("companyAppearances", platform.companyId, platform);
+    const platform = await loadPlatformAppearanceState({ includeLegacy: true });
+    await adminPatchDocument("companyAppearances", appearanceDocumentId(platform.companyId), platform);
     const companies = await adminListDocuments("platformCompanies");
     const migrated = [];
     for (const { id } of companies) {
-      const state = await loadCompanyAppearanceState(id, platform);
+      const state = await loadCompanyAppearanceState(id, platform, { includeLegacy: true });
       await adminPatchDocument("companyAppearances", id, state);
       migrated.push(id);
     }

@@ -7,7 +7,7 @@ import {
   jsonError,
   requireAdminFromRequest,
 } from "@/app/api/admin/_lib";
-import { appearanceVersionId, createAppearanceState, normalizeCompanyId, PLATFORM_APPEARANCE_ID } from "@/app/utils/appearanceModel";
+import { appearanceDocumentId, appearanceVersionId, createAppearanceState, normalizeCompanyId, PLATFORM_APPEARANCE_ID } from "@/app/utils/appearanceModel";
 import { normalizeContentLabels, validateContentLabels } from "@/app/utils/contentLabels";
 import { normalizeGlobalTheme, validateThemeContrast } from "@/app/utils/globalTheme";
 
@@ -27,7 +27,7 @@ async function loadState(companyId) {
 }
 
 async function writeState(state) {
-  await adminPatchDocument("companyAppearances", state.companyId, state);
+  await adminPatchDocument("companyAppearances", appearanceDocumentId(state.companyId), state);
 }
 
 async function audit(req, admin, action, companyId, section, before, after, version = 0) {
@@ -154,8 +154,9 @@ export async function POST(req) {
       return Response.json({ ok: true, companyId, section: next[section] });
     }
 
-    const draft = section === "theme" ? normalizeGlobalTheme(next[section].draft) : normalizeContentLabels(next[section].draft);
-    const validation = section === "theme" ? validateThemeContrast(draft) : validateContentLabels(draft);
+    const submittedDraft = body.draft && typeof body.draft === "object" ? body.draft : next[section].draft;
+    const draft = section === "theme" ? normalizeGlobalTheme(submittedDraft) : normalizeContentLabels(submittedDraft);
+    const validation = section === "theme" ? validateThemeContrast(draft) : validateContentLabels(submittedDraft);
     if (!validation.valid) return Response.json({ error: section === "theme" ? "Critical colour contrast checks must pass before publishing." : "Some labels are invalid.", validation }, { status: 400 });
     const version = Number(next[section].version || 0) + 1;
     await adminPatchDocument("appearanceVersions", appearanceVersionId(companyId, section, version), { companyId, section, version, value: draft, publishedAt: now, publishedBy: actor });

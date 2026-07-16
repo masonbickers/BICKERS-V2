@@ -1519,66 +1519,68 @@ function maintenanceEventPropGetter(event) {
     workflowStatus === "completed" ||
     workflowStatus === "complete";
 
-  let bg = "var(--color-border-strong)";
-  let border = "var(--shell-muted)";
-  let text = "var(--color-text)";
+  // Operational maintenance colours are fixed to the live palette from
+  // 0e5b608; decorative global styling must not change their meaning.
+  let bg = "#c4d6e4";
+  let border = "#95b3ca";
+  let text = "#172a3d";
 
   if (kind === "MOT") {
-    bg = "var(--color-warning-soft)";
-    border = "var(--color-accent)";
-    text = "var(--color-danger-hover)";
+    bg = "#fff7ed";
+    border = "#f59e0b";
+    text = "#713f12";
     if (event?.booked) {
-      bg = "var(--color-accent-soft)";
-      border = "var(--color-warning)";
-      text = "var(--color-danger-hover)";
+      bg = "#fef3c7";
+      border = "#d97706";
+      text = "#713f12";
     }
   } else if (kind === "MOT_BOOKING") {
-    bg = "var(--color-brand-soft)";
-    border = "var(--color-brand)";
-    text = "var(--color-brand-hover)";
+    bg = "#dbeafe";
+    border = "#2563eb";
+    text = "#102a56";
     if (String(event?.bookingStatus || "").includes("After Expiry")) {
-      bg = "var(--color-danger-border)";
-      border = "var(--color-accent)";
-      text = "var(--color-danger-hover)";
+      bg = "#e4c0bd";
+      border = "#bf847f";
+      text = "#631f1a";
     }
   } else if (kind === "SERVICE") {
-    bg = "var(--color-success-soft)";
-    border = "var(--color-success-accent)";
-    text = "var(--color-success)";
+    bg = "#ecfdf5";
+    border = "#10b981";
+    text = "#064e3b";
     if (event?.booked) {
-      bg = "var(--color-border)";
-      border = "var(--color-success)";
-      text = "var(--color-success)";
+      bg = "#d1fae5";
+      border = "#059669";
+      text = "#064e3b";
     }
   } else if (kind === "SERVICE_BOOKING") {
-    bg = "var(--color-brand-soft)";
-    border = "var(--color-brand)";
-    text = "var(--color-brand-hover)";
+    bg = "#dbeafe";
+    border = "#2563eb";
+    text = "#102a56";
   } else if (kind === "INSPECTION") {
-    bg = "var(--color-info-soft)";
-    border = "var(--color-info)";
-    text = "var(--color-brand-hover)";
+    bg = "#f5f3ff";
+    border = "#8b5cf6";
+    text = "#3b0764";
     if (event?.booked) {
-      bg = "var(--color-brand-soft)";
-      border = "var(--color-info)";
-      text = "var(--color-brand-hover)";
+      bg = "#ede9fe";
+      border = "#7c3aed";
+      text = "#3b0764";
     }
   } else if (kind === "INSPECTION_BOOKING") {
-    bg = "var(--color-brand-soft)";
-    border = "var(--color-info)";
-    text = "var(--color-brand-hover)";
+    bg = "#ede9fe";
+    border = "#7c3aed";
+    text = "#321064";
   } else if (kind === "MAINTENANCE_APPOINTMENT") {
-    bg = "var(--color-success-soft)";
-    border = "var(--color-success-accent)";
-    text = "var(--color-brand-hover)";
+    bg = "#f0fdfa";
+    border = "#14b8a6";
+    text = "#134e4a";
   } else if (kind === "MAINTENANCE_BOOKING") {
-    bg = "var(--color-border)";
-    border = "var(--color-brand)";
-    text = "var(--color-brand-hover)";
+    bg = "#ccfbf1";
+    border = "#0d9488";
+    text = "#134e4a";
   } else if (kind === "MAINTENANCE") {
-    bg = "var(--color-border)";
-    border = "var(--color-text-muted)";
-    text = "var(--color-text)";
+    bg = "#e2e8f0";
+    border = "#64748b";
+    text = "#1e293b";
   }
 
   const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
@@ -1586,20 +1588,20 @@ function maintenanceEventPropGetter(event) {
 
   if (!suppressEscalation) {
     if (tone === "overdue") {
-      bg = "var(--color-danger-border)";
-      border = "var(--color-accent)";
-      text = "var(--color-danger-hover)";
+      bg = "#e4c0bd";
+      border = "#bf847f";
+      text = "#631f1a";
     } else if (tone === "soon") {
-      bg = "var(--color-warning-border)";
-      border = "var(--color-accent)";
-      text = "var(--color-danger-hover)";
+      bg = "#e1c79c";
+      border = "#c19458";
+      text = "#5a3918";
     }
   }
 
   if (isCompleted) {
-    bg = "var(--color-border)";
-    border = "var(--color-success-border)";
-    text = "var(--color-success)";
+    bg = "#d1fae5";
+    border = "#86efac";
+    text = "#065f46";
   }
 
   return {

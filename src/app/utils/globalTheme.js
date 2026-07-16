@@ -18,7 +18,7 @@ export const COLOR_MODE_OPTIONS = ["light", "dark", "system"];
 
 export const DEFAULT_GLOBAL_THEME = Object.freeze({
   schemaVersion: APPEARANCE_SCHEMA_VERSION,
-  appName: "Bickers Booking",
+  appName: "Booking System",
   companyLogo: "",
   platformLogo: "/bas-software-logo.png",
   fontFamily: "inter",
@@ -68,6 +68,39 @@ const COLOR_KEYS = [
   "successColor", "warningColor", "dangerColor", "infoColor", "tableHeaderColor",
   "tableAlternateColor",
 ];
+
+// Exact supporting colours used by the live UI before global styling is
+// applied. The editable theme stores the core palette; these preserve the
+// established live appearance when that palette is selected as the default.
+const LIVE_DEFAULT_COLOR_VARIABLES = Object.freeze({
+  "--color-brand-hover": "#173b62",
+  "--color-brand-soft": "#edf3f8",
+  "--color-brand-border": "#c8d6e3",
+  "--color-accent-soft": "#f5ede6",
+  "--color-text-subtle": "#64748b",
+  "--color-surface-subtle": "#f8fafc",
+  "--color-surface-hover": "#f1f5f9",
+  "--color-border-strong": "#c8d6e3",
+  "--color-success-hover": "#14532d",
+  "--color-success-accent": "#6bb37f",
+  "--color-success-soft": "#ecfdf5",
+  "--color-success-border": "#bbf7d0",
+  "--color-warning-soft": "#fff7ed",
+  "--color-warning-border": "#fed7aa",
+  "--color-danger-hover": "#7f1d1d",
+  "--color-danger-soft": "#fef2f2",
+  "--color-danger-border": "#fecaca",
+  "--color-info-soft": "#eff6ff",
+  "--color-info-border": "#bfdbfe",
+  "--shell-muted": "#b4c0cf",
+  "--shell-active-bg": "rgba(255,255,255,.08)",
+  "--shell-active-border": "rgba(133,211,155,.44)",
+  "--shell-gradient": "radial-gradient(circle at top left,#cfd8e3 0%,#bcc7d4 34%,#aebac7 100%)",
+});
+
+function usesLiveDefaultPalette(theme) {
+  return COLOR_KEYS.every((key) => theme[key] === DEFAULT_GLOBAL_THEME[key]);
+}
 
 const clamp = (value, min, max, fallback) => {
   const number = Number(value);
@@ -224,7 +257,7 @@ export function themeToCssVariables(value = {}, options = {}) {
   const info = semantic(theme.infoColor);
   const spacing = (step) => `${Math.round(step * 4 * densityFactor * 100) / 100}px`;
 
-  return {
+  const variables = {
     "--font-sans": font.stack,
     "--font-size-xs": `${Math.max(11, theme.baseFontSize - 2)}px`,
     "--font-size-sm": `${Math.max(12, theme.baseFontSize - 1)}px`,
@@ -274,6 +307,7 @@ export function themeToCssVariables(value = {}, options = {}) {
     "--table-row-height": `${theme.tableRowHeight}px`, "--table-header-bg": theme.tableHeaderColor,
     "--table-alternate-bg": theme.tableZebra ? theme.tableAlternateColor : theme.surfaceColor,
   };
+  return !useDark && usesLiveDefaultPalette(theme) ? { ...variables, ...LIVE_DEFAULT_COLOR_VARIABLES } : variables;
 }
 
 export function resolveColorMode(preference = "system", mediaMatches = false, darkEnabled = true) {
@@ -288,7 +322,11 @@ export function applyGlobalTheme(value = {}, options = {}) {
   if (typeof document === "undefined") return theme;
   const mode = resolveColorMode(options.preference || options.mode || "light", options.systemDark === true, theme.darkModeEnabled);
   const root = document.documentElement;
-  Object.entries(themeToCssVariables(theme, { mode })).forEach(([name, cssValue]) => root.style.setProperty(name, cssValue));
+  const variables = themeToCssVariables(theme, { mode });
+  Object.entries(variables).forEach(([name, cssValue]) => {
+    if (mode === "light" && usesLiveDefaultPalette(theme)) root.style.removeProperty(name);
+    else root.style.setProperty(name, cssValue);
+  });
   root.dataset.globalTheme = "custom";
   root.dataset.colorMode = mode;
   root.style.colorScheme = mode;
