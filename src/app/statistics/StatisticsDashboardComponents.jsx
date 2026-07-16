@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./StatisticsDashboardComponents.styles.module.css";
 import { useRef } from "react";
 import Link from "next/link";
 import { ArrowRight, BrainCircuit, ChevronDown, Download, SlidersHorizontal, X } from "lucide-react";
@@ -226,9 +227,9 @@ export function CompactRankingTable({ title, summary, rows = [], valueLabel = "J
         <p className={styles.panelMeta}>{rows.length} result{rows.length === 1 ? "" : "s"} in this filtered set</p>
         <p className={styles.blockSummary}><strong>Summary:</strong> {summary || autoSummary}</p>
       </div>
-      <TableContainer style={{ border: 0, borderRadius: 0, boxShadow: "none" }}>
+      <TableContainer className={layoutStyles.extracted1}>
         <Table>
-          <thead><tr><th>Rank</th><th>Name</th><th style={{ textAlign: "right" }}>{valueLabel}</th></tr></thead>
+          <thead><tr><th>Rank</th><th>Name</th><th className={layoutStyles.extracted2}>{valueLabel}</th></tr></thead>
           <tbody>
             {displayed.map((row, index) => (
               <tr
@@ -238,7 +239,7 @@ export function CompactRankingTable({ title, summary, rows = [], valueLabel = "J
                 tabIndex={onRowClick ? 0 : undefined}
                 style={{ cursor: onRowClick ? "pointer" : "default" }}
               >
-                <td>{index + 1}</td><td><strong>{row.name || row.label}</strong></td><td style={{ textAlign: "right" }}>{row.count ?? row.value ?? 0}</td>
+                <td>{index + 1}</td><td><strong>{row.name || row.label}</strong></td><td className={layoutStyles.extracted3}>{row.count ?? row.value ?? 0}</td>
               </tr>
             ))}
             {!rows.length ? <tr><td colSpan={3}>No data for this selection.</td></tr> : null}

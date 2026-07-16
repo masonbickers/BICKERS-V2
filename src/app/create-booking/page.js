@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -51,6 +52,7 @@ import {
   Truck,
   Users,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", "availabilityStatus", "fleetStatus"];
@@ -58,31 +60,7 @@ const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles
 ──────────────────────────────────────────────────────────────────────────── */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  radiusXs: 8,
-  shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-ffffff)",
-  bgAlt: "var(--legacy-color-f8fafc)",
-  page: "var(--legacy-color-f3f6f9)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   minHeight: "100vh",
@@ -181,7 +159,7 @@ const field = {
     fontSize: 13,
     borderRadius: UI.radiusXs,
     border: UI.border,
-    background: "var(--legacy-color-fff)",
+    background: "var(--color-surface)",
     color: UI.text,
     boxSizing: "border-box",
   },
@@ -192,7 +170,7 @@ const field = {
     fontSize: 13,
     borderRadius: UI.radiusXs,
     border: UI.border,
-    background: "var(--legacy-color-fff)",
+    background: "var(--color-surface)",
     color: UI.text,
     boxSizing: "border-box",
   },
@@ -214,7 +192,7 @@ const accordionBtn = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: 12.5,
@@ -234,7 +212,7 @@ const pill = {
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "var(--legacy-color-e2e8f0)", margin: "12px 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "12px 0" };
 
 const checkboxGrid = {
   display: "grid",
@@ -269,7 +247,7 @@ const subCard = {
   padding: 10,
   borderRadius: UI.radiusSm,
   background: UI.bgAlt,
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
 };
 
 const DatePicker = dynamic(() => import("react-multi-date-picker"), {
@@ -292,12 +270,12 @@ const btn = {
 const btnPrimary = {
   ...btn,
   background: UI.brand,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
 };
 const btnGhost = {
   ...btn,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
 };
@@ -315,7 +293,7 @@ const summaryRow = {
   gridTemplateColumns: "150px 1fr",
   gap: 10,
   padding: "7px 0",
-  borderBottom: "1px dashed var(--legacy-color-d6e0ea)",
+  borderBottom: "1px dashed var(--color-border)",
 };
 const summaryGrid = {
   display: "grid",
@@ -325,7 +303,7 @@ const summaryGrid = {
 const summarySection = {
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   padding: "8px 10px",
 };
 const summarySectionTitle = {
@@ -359,7 +337,7 @@ const summaryPill = {
   fontSize: 12,
 };
 const SummaryRow = ({ label, children }) => (
-  <div style={summaryCompactRow}>
+  <div className={layoutStyles.extracted1}>
     <div style={summaryLabel}>{label}</div>
     <div style={summaryValue}>{children || "-"}</div>
   </div>
@@ -398,7 +376,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1280px) {
     .create-booking-grid { grid-template-columns: 1fr !important; }
@@ -2236,7 +2214,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       <style>{focusCss}</style>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          <div style={pageHeader}>
+          <div className={layoutStyles.extracted2}>
             <div>
               <h1 style={h1Style}>Create Booking</h1>
               <div style={pageSub}>Build the job, dates, crew, vehicles, equipment, files and notes in one compact workflow.</div>
@@ -2252,13 +2230,13 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
             </div>
           )}
 
-          <div style={headerChecks}>
+          <div className={layoutStyles.extracted3}>
             {!isBickersJob && (
               <div style={headerChecksBox}>
                 <span style={iconBox(hasHS && hasRiskAssessment ? UI.green : UI.amber, hasHS && hasRiskAssessment ? UI.greenSoft : UI.amberSoft, hasHS && hasRiskAssessment ? UI.greenBorder : UI.amberBorder)}>
                   <CheckCircle2 size={17} />
                 </span>
-                <div style={{ display: "grid", gap: 6, flex: 1 }}>
+                <div className={layoutStyles.extracted4}>
                   <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
                     <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
                     Health & Safety Completed
@@ -2275,7 +2253,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
               <span style={iconBox(offRoadTracking ? UI.green : UI.brand, offRoadTracking ? UI.greenSoft : UI.brandSoft, offRoadTracking ? UI.greenBorder : UI.brandBorder)}>
                 <Truck size={17} />
               </span>
-              <div style={{ display: "grid", gap: 4, flex: 1 }}>
+              <div className={layoutStyles.extracted5}>
                 <label style={{ ...field.checkboxRow, marginBottom: 0 }} title={offRoadEligibility.reason || ""}>
                   <input
                     type="checkbox"
@@ -2298,16 +2276,16 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
               handleSubmit();
             }}
           >
-            <div style={formShell}>
-            <div className="create-booking-grid" style={sectionGrid}>
+            <div className={layoutStyles.extracted6}>
+            <div className={`create-booking-grid ${layoutStyles.extracted7}`} >
               {/* Column 1: Job Info */}
               <div style={seamlessSection}>
-                <div style={sectionTitleRow}>
+                <div className={layoutStyles.extracted8}>
                   <span style={iconBox()}><FileText size={17} /></span>
                   <h3 style={cardTitle}>Job Info</h3>
                 </div>
 
-                <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <div className={`create-booking-two ${layoutStyles.extracted9}`} >
                   <div>
                     <label style={field.label}>Job Number</label>
                     <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={field.input} />
@@ -2365,17 +2343,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       background: UI.bgAlt,
                     }}
                   >
-                    <h4 style={{ margin: "0 0 10px" }}>Reason</h4>
+                    <h4 className={layoutStyles.extracted10}>Reason</h4>
                     {["Cost", "Weather", "Competitor", "DNH", "Other"].map((r) => (
                       <label
                         key={r}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                          marginRight: 16,
-                          marginBottom: 8,
-                        }}
+                        className={layoutStyles.extracted11}
                       >
                         <input
                           type="checkbox"
@@ -2388,7 +2360,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       </label>
                     ))}
                     {statusReasons.includes("Other") && (
-                      <div style={{ marginTop: 8 }}>
+                      <div className={layoutStyles.extracted12}>
                         <input
                           type="text"
                           placeholder="Other reason..."
@@ -2401,7 +2373,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   </div>
                 )}
 
-                <div style={divider} />
+                <div className={layoutStyles.extracted13} />
 
                 <label style={field.label}>Shoot Type</label>
                 <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
@@ -2425,8 +2397,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     background: UI.bgAlt,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
+                  <div className={layoutStyles.extracted14}>
+                    <span className={layoutStyles.extracted15}>Contacts</span>
                     <button type="button" onClick={handleAddContactRow} style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
                       + Add contact
                     </button>
@@ -2439,11 +2411,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         marginBottom: 8,
                         padding: 8,
                         borderRadius: UI.radiusXs,
-                        background: "var(--legacy-color-ffffff)",
-                        border: "1px solid var(--legacy-color-e5e7eb)",
+                        background: "var(--color-surface)",
+                        border: "1px solid var(--color-border)",
                       }}
                     >
-                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <div className={`create-booking-two ${layoutStyles.extracted16}`} >
                         <div>
                           <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Department</label>
                           <select value={row.department} onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)} style={field.input}>
@@ -2471,7 +2443,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         </div>
                       </div>
 
-                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div className={`create-booking-two ${layoutStyles.extracted17}`} >
                         <div>
                           <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Email</label>
                           <input type="email" value={row.email} onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)} style={field.input} placeholder="Email" />
@@ -2482,7 +2454,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+                      <div className={layoutStyles.extracted18}>
                         <button
                           type="button"
                           onClick={() => handleRemoveContactRow(idx)}
@@ -2491,9 +2463,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             padding: "4px 8px",
                             fontSize: 11,
                             borderRadius: 999,
-                            borderColor: "var(--legacy-color-dc2626)",
-                            color: "var(--legacy-color-dc2626)",
-                            background: "var(--legacy-color-fff)",
+                            borderColor: "var(--color-danger)",
+                            color: "var(--color-danger)",
+                            background: "var(--color-surface)",
                           }}
                         >
                           Remove
@@ -2502,7 +2474,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     </div>
                   ))}
 
-                  <div style={{ marginTop: 6 }}>
+                  <div className={layoutStyles.extracted19}>
                     <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>
                       Quick add from saved contacts
                     </label>
@@ -2566,24 +2538,24 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     Add invoicing details
                   </label>
                   {showInvoicingDetails && (
-                    <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                    <div className={layoutStyles.extracted20}>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Purchase Order (PO)</label>
-                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="PO reference for invoicing" />
+                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "var(--color-surface)" }} placeholder="PO reference for invoicing" />
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                      <div className={layoutStyles.extracted21}>
                         <div>
                           <label style={{ ...field.label, marginTop: 0 }}>Invoicing contact</label>
-                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="Name" />
+                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "var(--color-surface)" }} placeholder="Name" />
                         </div>
                         <div>
                           <label style={{ ...field.label, marginTop: 0 }}>Email</label>
-                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="accounts@example.com" />
+                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "var(--color-surface)" }} placeholder="accounts@example.com" />
                         </div>
                       </div>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Phone</label>
-                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="Optional phone number" />
+                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "var(--color-surface)" }} placeholder="Optional phone number" />
                       </div>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Invoice details document</label>
@@ -2591,7 +2563,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                           type="file"
                           accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,image/jpeg,image/png"
                           onChange={(e) => setInvoiceDocumentFile(e.target.files?.[0] || null)}
-                          style={{ ...field.input, height: "auto", padding: 10, background: "var(--legacy-color-fff)" }}
+                          style={{ ...field.input, height: "auto", padding: 10, background: "var(--color-surface)" }}
                         />
                         {invoiceDocumentFile && (
                           <div style={{ marginTop: 5, fontSize: 12, color: UI.muted }}>
@@ -2612,7 +2584,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       value={riggingAddress}
                       onChange={(e) => setRiggingAddress(e.target.value)}
                       rows={3}
-                      style={{ ...field.textarea, minHeight: 70, marginTop: 8, background: "var(--legacy-color-fff)" }}
+                      style={{ ...field.textarea, minHeight: 70, marginTop: 8, background: "var(--color-surface)" }}
                       placeholder="Enter rigging address..."
                     />
                   )}
@@ -2621,7 +2593,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
               {/* Column 2: Dates & People */}
               <div style={seamlessSection}>
-                <div style={sectionTitleRow}>
+                <div className={layoutStyles.extracted22}>
                   <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><CalendarDays size={17} /></span>
                   <h3 style={cardTitle}>Dates & People</h3>
                 </div>
@@ -2660,7 +2632,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     )}
 
                     {useCustomDates ? (
-                      <div style={{ marginTop: 10 }}>
+                      <div className={layoutStyles.extracted23}>
                         <DatePicker
                           multiple
                           value={customDates}
@@ -2689,26 +2661,26 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     )}
                   </>
                 ) : (
-                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--legacy-color-f8fafc)", color: UI.muted, fontSize: 13 }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
                     No dates recorded yet.
                   </div>
                 )}
 
                 {selectedDates.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: "8px 0" }}>{selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}</h4>
+                  <div className={layoutStyles.extracted24}>
+                    <h4 className={layoutStyles.extracted25}>{selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}</h4>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+                    <div className={layoutStyles.extracted26}>
                       {selectedDates.map((date) => {
                         const selectedNote = notesByDate[date] || "";
                         const isOther = selectedNote === "Other";
                         const customOtherValue = notesByDate[`${date}-other`] || "";
                         const callTimeForDate = callTimesByDate[date] || "";
                         return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 8, background: "var(--legacy-color-f8fafc)" }}>
-                            <div style={{ fontWeight: 800, marginBottom: 6, fontSize: 13.5, lineHeight: 1.15 }}>{new Date(date).toDateString()}</div>
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 8, background: "var(--color-surface-subtle)" }}>
+                            <div className={layoutStyles.extracted27}>{new Date(date).toDateString()}</div>
 
-                            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <div className={`create-booking-two ${layoutStyles.extracted28}`} >
                               <div>
                                 <label style={{ ...field.label, marginTop: 0, marginBottom: 3, fontSize: 10.5, lineHeight: 1 }}>Day note</label>
                                 <select
@@ -2750,7 +2722,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             </div>
 
                             {isOther && (
-                              <div style={{ marginTop: 8 }}>
+                              <div className={layoutStyles.extracted29}>
                                 <input
                                   type="text"
                                   placeholder="Enter custom note"
@@ -2768,7 +2740,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             )}
 
                             {selectedNote === "Travel Time" && (
-                              <div style={{ marginTop: 8 }}>
+                              <div className={layoutStyles.extracted30}>
                                 <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
                                 <select
                                   value={notesByDate[`${date}-travelMins`] || ""}
@@ -2797,12 +2769,12 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   </div>
                 )}
 
-                <div style={divider} />
+                <div className={layoutStyles.extracted31} />
 
-                <h4 style={{ margin: "8px 0", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
+                <h4 className={layoutStyles.extracted32}>
                   <Users size={15} /> Precision Driver
                 </h4>
-                <div style={driverCheckboxGrid}>
+                <div className={layoutStyles.extracted33}>
                   {driverOptions.map((name) => {
                     const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
                     const isBooked = isEmployeeBooked(name);
@@ -2814,7 +2786,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     const disabled = (isBooked || isHoliday || isUnavailable) && !isSelected;
 
                     return (
-                      <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                      <label key={`pd-${name}`} className={layoutStyles.extracted34}>
                         <input
                           type="checkbox"
                           value={name}
@@ -2832,7 +2804,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             }
                           }}
                         />{" "}
-                        <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
+                        <span style={{ color: disabled ? "var(--color-text-muted)" : UI.text }}>
                           {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
@@ -2841,18 +2813,18 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {/* Required crew guidance + manual crewed checkbox */}
-                <div style={{ marginTop: 8, padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "var(--legacy-color-f8fafc)" }}>
-                  <div className="create-booking-crew-box" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 76px 76px auto", gap: 6, alignItems: "stretch" }}>
-                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, minHeight: 36, padding: "0 8px", borderRadius: UI.radiusXs, background: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
+                <div style={{ marginTop: 8, padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-surface-subtle)" }}>
+                  <div className={`create-booking-crew-box ${layoutStyles.extracted35}`} >
+                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, minHeight: 36, padding: "0 8px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                       <input
                         type="checkbox"
                         checked={isCrewed}
                         onChange={(e) => setIsCrewed(e.target.checked)}
-                        style={{ margin: 0 }}
+                        className={layoutStyles.extracted36}
                       />
                       Crewed — show in employee app
                     </label>
-                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
+                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                       <label style={{ ...field.label, marginTop: 0, marginBottom: 0, fontSize: 9.5, lineHeight: 1 }}>Required</label>
                       <input
                         type="number"
@@ -2866,20 +2838,20 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         style={{ ...field.input, height: 20, width: "100%", textAlign: "right", padding: 0, border: "none", background: "transparent", boxShadow: "none", fontWeight: 800 }}
                       />
                     </div>
-                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
+                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                       <span style={{ fontSize: 9.5, color: UI.muted, fontWeight: 800, textTransform: "uppercase", lineHeight: 1 }}>Allocated</span>
-                      <span style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15 }}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
+                      <span className={layoutStyles.extracted37}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
                     </div>
-                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--legacy-color-166534)" : "var(--legacy-color-92400e)", background: isCrewed ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fff7ed)", border: `1px solid ${isCrewed ? "var(--legacy-color-86efac)" : "var(--legacy-color-fed7aa)"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
+                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--color-success)" : "var(--color-warning)", background: isCrewed ? "var(--color-success-soft)" : "var(--color-warning-soft)", border: `1px solid ${isCrewed ? "var(--color-success-border)" : "var(--color-warning-border)"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
                       {isCrewed ? "Visible in employee app" : "Hidden from employee app"}
                     </span>
                   </div>
                 </div>
 
-                <h4 style={{ margin: "8px 0", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
+                <h4 className={layoutStyles.extracted38}>
                   <Users size={15} /> Freelancers
                 </h4>
-                <div style={checkboxGrid}>
+                <div className={layoutStyles.extracted39}>
                   {freelancerOptions.map((name) => {
                     const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
                     const isBooked = isEmployeeBooked(name);
@@ -2888,7 +2860,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     const disabled = (isBooked || isHoliday || isUnavailable) && !isSelected;
 
                     return (
-                      <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                      <label key={`fl-${name}`} className={layoutStyles.extracted40}>
                         <input
                           type="checkbox"
                           value={name}
@@ -2906,7 +2878,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             }
                           }}
                         />{" "}
-                        <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
+                        <span style={{ color: disabled ? "var(--color-text-muted)" : UI.text }}>
                           {name} {isBooked && "(Booked)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
@@ -2915,25 +2887,25 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {employees.some((e) => e.name === "Other") && (
-                  <div style={{ marginTop: 8 }}>
+                  <div className={layoutStyles.extracted41}>
                     <input type="text" placeholder="Other employee(s), comma-separated" value={customEmployee} onChange={(e) => setCustomEmployee(e.target.value)} style={field.input} />
                   </div>
                 )}
 
                 {selectedDates.length > 0 && employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
                   <>
-                    <div style={divider} />
-                    <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
+                    <div className={layoutStyles.extracted42} />
+                    <h4 className={layoutStyles.extracted43}>Employee schedule by day</h4>
                     <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>Default = everyone works every selected day. Use this grid to fine-tune.</p>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
+                    <div className={layoutStyles.extracted44}>
                       {selectedDates.map((date) => {
                         const assigned = employeesByDate[date] || [];
                         const pretty = new Date(date).toDateString();
 
                         return (
                           <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                            <div style={{ fontWeight: 700, marginBottom: 6 }}>{pretty}</div>
+                            <div className={layoutStyles.extracted45}>{pretty}</div>
 
                             {employees
                               .filter((e) => e.name && e.name !== "Other")
@@ -2941,7 +2913,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                 const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
 
                                 return (
-                                  <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
+                                  <label key={`${emp.role}-${emp.name}-${date}`} className={layoutStyles.extracted46}>
                                     <input
                                       type="checkbox"
                                       checked={isOnDay}
@@ -2975,11 +2947,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
               {/* Column 3: Vehicles + Equipment */}
               <div style={{ ...seamlessSection, borderBottom: "none", paddingBottom: 0 }}>
-                <div style={sectionTitleRow}>
+                <div className={layoutStyles.extracted47}>
                   <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
                   <h3 style={cardTitle}>Vehicles</h3>
                 </div>
-                <div style={{ position: "relative", marginBottom: 12 }}>
+                <div className={layoutStyles.extracted48}>
                   <Search size={16} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
                   <input
                     type="text"
@@ -2990,21 +2962,21 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   />
                 </div>
 
-                <div className="create-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                <div className={`create-booking-assets ${layoutStyles.extracted49}`} >
                   {filteredVehicleGroups.map(([group, items]) => {
                     const isOpen = openGroups[group] || false;
 
                     return (
                       <div key={group}>
                         <button type="button" onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span className={layoutStyles.extracted50}>
                             {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {group}
                           </span>
                           <span style={pill}>{items.length}</span>
                         </button>
 
                         {isOpen && (
-                          <div style={{ padding: "10px 6px" }}>
+                          <div className={layoutStyles.extracted51}>
                             {items.map((vehicle) => {
                               const key = vehicle.id;
                               const isBooked = bookedVehicleIds.includes(key);
@@ -3045,7 +3017,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                   }
                                 >
                                   <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
-                                  <span style={{ flex: 1, color: disabled ? "var(--legacy-color-6e6f70ff)" : UI.text }}>
+                                  <span style={{ flex: 1, color: disabled ? "var(--color-text-muted)" : UI.text }}>
                                     {vehicle.name}
                                     {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                     {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
@@ -3056,7 +3028,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                   </span>
 
                                   {isSelected && (
-                                    <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} style={{ height: 32 }} title="Vehicle status">
+                                    <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} className={layoutStyles.extracted52} title="Vehicle status">
                                       {VEHICLE_STATUSES.map((s) => (
                                         <option key={s} value={s}>
                                           {s}
@@ -3078,28 +3050,28 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
                 )}
 
-                <div style={divider} />
+                <div className={layoutStyles.extracted53} />
 
-                <div style={sectionTitleRow}>
+                <div className={layoutStyles.extracted54}>
                   <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}><Package size={17} /></span>
                   <h3 style={cardTitle}>Equipment</h3>
                 </div>
 
-                <div className="create-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                <div className={`create-booking-assets ${layoutStyles.extracted55}`} >
                   {filteredEquipmentGroups.map(([group, items]) => {
                     const isOpen = openEquipGroups[group] || false;
 
                     return (
                       <div key={group}>
                         <button type="button" onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <span className={layoutStyles.extracted56}>
                             {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {group}
                           </span>
                           <span style={pill}>{items.length}</span>
                         </button>
 
                         {isOpen && (
-                          <div style={{ padding: "10px 6px" }}>
+                          <div className={layoutStyles.extracted57}>
                             {items.map((rawName) => {
                               const name = String(rawName || "").trim();
                               const isBooked = bookedEquipment.includes(name);
@@ -3136,7 +3108,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                       else setEquipment((prev) => prev.filter((x) => x !== name));
                                     }}
                                   />{" "}
-                                  <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
+                                  <span style={{ color: disabled ? "var(--color-text-muted)" : UI.text }}>
                                     {name}
                                     {isMaintBlocked && !isBooked && ` (${maintReason})`}
                                     {isBooked && " (Booked)"}
@@ -3160,8 +3132,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
             </div>
 
             <div style={seamlessSection}>
-              <div style={{ ...sectionTitleRow, justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <div className={layoutStyles.extracted58}>
+                <div className={layoutStyles.extracted59}>
                   <span style={iconBox()}><FileText size={17} /></span>
                   <div>
                     <h3 style={cardTitle}>Quote</h3>
@@ -3189,9 +3161,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
             </div>
 
             {/* Files & Notes */}
-            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
+            <div className={`create-booking-two ${layoutStyles.extracted60}`} >
                 <div style={seamlessSection}>
-                  <div style={sectionTitleRow}>
+                  <div className={layoutStyles.extracted61}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Files</h3>
                   </div>
@@ -3204,7 +3176,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     style={{ ...field.input, height: "auto", padding: 10 }}
                   />
 
-                  {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
+                  {pdfProgress > 0 && <div className={layoutStyles.extracted62}>Uploading: {pdfProgress}%</div>}
                   {newFiles?.length > 0 && (
                     <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
                       {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected - they will upload on Save.
@@ -3213,12 +3185,12 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 <div style={{ ...seamlessSection, display: "grid", gap: 8 }}>
-                  <div style={{ ...sectionTitleRow, marginBottom: 4 }}>
+                  <div className={layoutStyles.extracted63}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Notes</h3>
                   </div>
                   <label style={{ ...field.label, marginTop: 0, marginBottom: 3 }}>Additional Notes</label>
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...field.textarea, minHeight: 92, background: "var(--legacy-color-fff)" }} placeholder="Anything extra to include for this booking..." />
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...field.textarea, minHeight: 92, background: "var(--color-surface)" }} placeholder="Anything extra to include for this booking..." />
 
                   <label style={{ ...field.checkboxRow, marginBottom: 0, marginTop: 2 }}>
                     <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
@@ -3227,13 +3199,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
                   {hasHotel && (
                     <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
-                        gap: 10,
-                        alignItems: "end",
-                      }}
-                      className="create-booking-hotel"
+
+                      className={`create-booking-hotel ${layoutStyles.extracted64}`}
                     >
                       <div>
                         <label style={field.label}>Paid by</label>
@@ -3278,7 +3245,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     </div>
                   )}
 
-                  <div style={{ ...actionsRow, marginTop: 0 }}>
+                  <div className={layoutStyles.extracted65}>
                     <button
                       type="submit"
                       disabled={!coreFilled}
@@ -3313,14 +3280,14 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
             </div>
 
             {/* Summary */}
-            <div style={{ gridColumn: "1 / -1" }}>
+            <div className={layoutStyles.extracted66}>
               <div style={summaryCard}>
-                <div style={sectionTitleRow}>
+                <div className={layoutStyles.extracted67}>
                   <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><ClipboardList size={17} /></span>
                   <h3 style={cardTitle}>Summary</h3>
                 </div>
 
-                <div style={summaryGrid}>
+                <div className={layoutStyles.extracted68}>
                   <div style={summarySection}>
                     <h4 style={summarySectionTitle}>Job</h4>
                     <SummaryRow label={quoteNumbers.length > 1 ? "Quotes" : "Quote"}>{quoteNumberSummary}</SummaryRow>

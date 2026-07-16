@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onSnapshot } from "firebase/firestore";
@@ -16,28 +17,9 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  radius: 8,
-  shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "16px 16px 32px",
@@ -71,8 +53,8 @@ const btn = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radius,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
-  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-surface)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -127,8 +109,8 @@ const quoteOverlayPanel = {
   height: "min(760px, calc(100vh - 8px))",
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr)",
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 10,
   boxShadow: "0 24px 70px rgba(2,6,23,0.38)",
   overflow: "hidden",
@@ -140,8 +122,8 @@ const quoteOverlayHeader = {
   justifyContent: "space-between",
   gap: 12,
   padding: "7px 10px",
-  borderBottom: "1px solid var(--legacy-color-dbe4ef)",
-  background: "var(--legacy-color-f8fafc)",
+  borderBottom: "1px solid var(--color-border)",
+  background: "var(--color-surface-subtle)",
 };
 
 const quoteOverlayEyebrow = {
@@ -174,9 +156,9 @@ const quoteOverlayCloseButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid var(--legacy-color-cbd5e1)",
+  border: "1px solid var(--color-border-strong)",
   borderRadius: 8,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   padding: 0,
   cursor: "pointer",
@@ -186,7 +168,7 @@ const quoteOverlayFrame = {
   width: "100%",
   height: "100%",
   border: 0,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
 const pill = {
@@ -218,7 +200,7 @@ const queueChip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, border: `1px solid ${UI.greenBorder}`, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, border: `1px solid ${UI.amberBorder}`, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.red };
+  if (kind === "red") return { ...base, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.var(--color-danger) };
   return base;
 };
 
@@ -238,10 +220,10 @@ const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, f
 const th = {
   textAlign: "left",
   padding: "6px 8px",
-  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
+  borderBottom: "1px solid var(--color-border)",
   position: "sticky",
   top: 0,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   color: UI.muted,
   fontSize: 10.5,
@@ -251,7 +233,7 @@ const th = {
 };
 const td = {
   padding: "7px 8px",
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -357,10 +339,10 @@ function EnquiryQuoteOverlay({ viewer, onClose }) {
   const src = `/quote-view/${encodeURIComponent(viewer.bookingId)}?${params.toString()}`;
 
   return (
-    <div style={quoteOverlayBackdrop} role="dialog" aria-modal="true" aria-label="Quote view">
-      <div style={quoteOverlayPanel}>
-        <div style={quoteOverlayHeader}>
-          <div style={{ minWidth: 0 }}>
+    <div className={layoutStyles.extracted1} role="dialog" aria-modal="true" aria-label="Quote view">
+      <div className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
+          <div className={layoutStyles.extracted4}>
             <div style={quoteOverlayEyebrow}>Quote View</div>
             <div style={quoteOverlayTitle}>
               #{viewer.jobNumber || "No Job #"} - {viewer.client || "No production"}
@@ -371,7 +353,7 @@ function EnquiryQuoteOverlay({ viewer, onClose }) {
             <X size={18} />
           </button>
         </div>
-        <iframe title="Quote view" src={src} style={quoteOverlayFrame} />
+        <iframe title="Quote view" src={src} className={layoutStyles.extracted5} />
       </div>
     </div>
   );
@@ -479,7 +461,7 @@ export default function EnquiryPage() {
             <h1 style={h1Style}>Enquiries</h1>
             <div style={pageSub}>Saved enquiry jobs that are not shown on the calendar.</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted6}>
             <button type="button" style={btn("primary")} onClick={() => router.push("/create-enquiry")}>
               <Plus size={14} />
               New Enquiry
@@ -507,24 +489,24 @@ export default function EnquiryPage() {
             <div style={{ color: UI.muted, fontSize: 13.5 }}>No enquiries found.</div>
           ) : (
             <>
-              <div style={sectionHeader}>
+              <div className={layoutStyles.extracted7}>
                 <h2 style={titleMd}>Enquiry Queue</h2>
                 <span style={queueChip()}>
                   {enquiries.length} enquir{enquiries.length === 1 ? "y" : "ies"}
                 </span>
               </div>
               <div style={tableWrap}>
-                <table style={tableEl} aria-label="Enquiry queue">
+                <table className={layoutStyles.extracted8} aria-label="Enquiry queue">
                   <colgroup>
-                    <col style={{ width: 110 }} />
-                    <col style={{ width: 260 }} />
+                    <col className={layoutStyles.extracted9} />
+                    <col className={layoutStyles.extracted10} />
                     <col />
-                    <col style={{ width: 240 }} />
-                    <col style={{ width: 170 }} />
-                    <col style={{ width: 178 }} />
-                    <col style={{ width: 92 }} />
-                    <col style={{ width: 118 }} />
-                    <col style={{ width: 174 }} />
+                    <col className={layoutStyles.extracted11} />
+                    <col className={layoutStyles.extracted12} />
+                    <col className={layoutStyles.extracted13} />
+                    <col className={layoutStyles.extracted14} />
+                    <col className={layoutStyles.extracted15} />
+                    <col className={layoutStyles.extracted16} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -543,10 +525,10 @@ export default function EnquiryPage() {
                     {enquiries.map((booking) => {
                       const needsChase = enquiryNeedsChase(booking);
                       return (
-                        <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "var(--legacy-color-fff)" }}>
-                          <td style={{ ...td, ...nowrap, fontWeight: 900 }}>{booking.jobNumber || "No Job #"}</td>
-                          <td style={td} title={booking.client || ""}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "var(--color-surface)" }}>
+                          <td className={layoutStyles.extracted17}>{booking.jobNumber || "No Job #"}</td>
+                          <td className={layoutStyles.extracted18} title={booking.client || ""}>
+                            <div className={layoutStyles.extracted19}>
                               <span
                                 style={{
                                   width: 28,
@@ -563,18 +545,18 @@ export default function EnquiryPage() {
                               >
                                 <FileText size={15} />
                               </span>
-                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 850 }}>
+                              <span className={layoutStyles.extracted20}>
                                 {booking.client || "No production"}
                               </span>
                             </div>
                           </td>
-                          <td style={td} title={booking.location || ""}>{booking.location || "No location"}</td>
-                          <td style={td} title={enquiryVehicleText(booking, vehicleLookup)}>
+                          <td className={layoutStyles.extracted21} title={booking.location || ""}>{booking.location || "No location"}</td>
+                          <td className={layoutStyles.extracted22} title={enquiryVehicleText(booking, vehicleLookup)}>
                             {enquiryVehicleText(booking, vehicleLookup)}
                           </td>
-                          <td style={{ ...td, ...nowrap }}>{enquiryDateText(booking)}</td>
-                          <td style={{ ...td, ...nowrap }}>{formatAddedTimestamp(booking).replace(/^Added /, "")}</td>
-                          <td style={{ ...td, ...nowrap }}>
+                          <td className={layoutStyles.extracted23}>{enquiryDateText(booking)}</td>
+                          <td className={layoutStyles.extracted24}>{formatAddedTimestamp(booking).replace(/^Added /, "")}</td>
+                          <td className={layoutStyles.extracted25}>
                             {hasQuote(booking) ? (
                               <button
                                 type="button"
@@ -589,7 +571,7 @@ export default function EnquiryPage() {
                               <span style={{ color: UI.muted }}>-</span>
                             )}
                           </td>
-                          <td style={{ ...td, ...nowrap }}>
+                          <td className={layoutStyles.extracted26}>
                             {needsChase ? (
                               <span style={queueChip("amber")}>
                                 <AlertTriangle size={13} />
@@ -599,8 +581,8 @@ export default function EnquiryPage() {
                               <span style={queueChip()}>OK</span>
                             )}
                           </td>
-                          <td style={{ ...td, ...nowrap }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap" }}>
+                          <td className={layoutStyles.extracted27}>
+                            <div className={layoutStyles.extracted28}>
                               <button
                                 type="button"
                                 style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}

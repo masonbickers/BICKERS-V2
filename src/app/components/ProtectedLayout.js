@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./ProtectedLayout.styles.module.css";
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
@@ -43,7 +44,7 @@ export default function ProtectedLayout({ children }) {
   ]);
 
   if (loading) {
-    return <div style={{ padding: "20px" }}>Loading...</div>;
+    return <div className={layoutStyles.extracted1}>Loading...</div>;
   }
 
   return <>{children}</>;

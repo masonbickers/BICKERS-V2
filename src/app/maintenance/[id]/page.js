@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -9,7 +10,7 @@ import EditMaintenanceBookingForm from "@/app/components/EditMaintenanceBookingF
 const pageWrap = {
   minHeight: "100%",
   padding: "24px 18px 40px",
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
 };
 
 const shell = {
@@ -18,16 +19,16 @@ const shell = {
 };
 
 const heroCard = {
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   borderRadius: 18,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
   padding: "18px 20px",
 };
 
 const eyebrow = {
   margin: 0,
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: ".08em",
   fontSize: 11,
@@ -36,7 +37,7 @@ const eyebrow = {
 
 const heading = {
   margin: "8px 0 6px",
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontSize: 28,
   fontWeight: 900,
   letterSpacing: "-0.02em",
@@ -44,7 +45,7 @@ const heading = {
 
 const subtext = {
   margin: 0,
-  color: "var(--legacy-color-475569)",
+  color: "var(--color-text-muted)",
   fontSize: 14,
   lineHeight: 1.5,
 };
@@ -57,9 +58,9 @@ const backBtn = {
   gap: 8,
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-0f172a)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   fontWeight: 800,
   cursor: "pointer",
 };
@@ -130,13 +131,13 @@ export default function MaintenanceRoutePage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <div style={shell}>
-          <div style={heroCard}>
-            <p style={eyebrow}>Maintenance</p>
-            <h1 style={heading}>{title}</h1>
-            <p style={subtext}>{helperText}</p>
-            <button type="button" style={backBtn} onClick={handleClose}>
+      <div className={layoutStyles.extracted1}>
+        <div className={layoutStyles.extracted2}>
+          <div className={layoutStyles.extracted3}>
+            <p className={layoutStyles.extracted4}>Maintenance</p>
+            <h1 className={layoutStyles.extracted5}>{title}</h1>
+            <p className={layoutStyles.extracted6}>{helperText}</p>
+            <button type="button" className={layoutStyles.extracted7} onClick={handleClose}>
               Back
             </button>
           </div>

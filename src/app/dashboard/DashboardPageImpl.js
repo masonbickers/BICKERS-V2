@@ -105,6 +105,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
 import { Button, Input } from "@/app/components/ui";
+import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -114,24 +115,11 @@ const OFF_ROAD_ALLOWED_GROUPS = new Set([
 const isOffRoadAllowedGroup = (group) =>
   OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
 
-const NIGHT_SHOOT_STYLE = { bg: "var(--legacy-color-f796dfff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-de24e4ff)" };
+const NIGHT_SHOOT_STYLE = { bg: "var(--job-status-night)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" };
 
 // ---- status colour map used for per-vehicle pills ----
 const STATUS_COLORS = {
-  Confirmed: { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  Bickers: { bg: "var(--legacy-color-ffffff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  Stunt: { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  "First Pencil": { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  "Second Pencil": { bg: "var(--legacy-color-f73939)", text: "var(--legacy-color-fff)", border: "var(--legacy-color-0b0b0b)" },
-  Holiday: { bg: "var(--legacy-color-d3d3d3)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  Maintenance: { bg: "var(--legacy-color-da8e58ff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  Complete: { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  "Action Required": { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  DNH: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
-  Postponed: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
-  Deleted: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
-  "Bank Holiday": { bg: "var(--legacy-color-dbeafe)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
-  Note: { bg: "var(--legacy-color-ccfbf1)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0f766e)" },
+  ...FIXED_JOB_STATUS_STYLES,
 };
 
 const normalizeStatusLabel = (raw = "") => {
@@ -154,23 +142,10 @@ const normalizeStatusLabel = (raw = "") => {
 };
 
 const getStatusStyle = (s = "") =>
-  STATUS_COLORS[normalizeStatusLabel(s)] || { bg: "var(--legacy-color-ccc)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+  STATUS_COLORS[normalizeStatusLabel(s)] || getFixedJobStatusStyle(s);
 
 const WORK_DIARY_BORDERS = {
-  Confirmed: "var(--legacy-color-000000)",
-  Bickers: "var(--legacy-color-94a3b8)",
-  Stunt: "var(--legacy-color-d6a900)",
-  "First Pencil": "var(--legacy-color-2f8fc8)",
-  "Second Pencil": "var(--legacy-color-b91c1c)",
-  Holiday: "var(--legacy-color-94a3b8)",
-  Maintenance: "var(--legacy-color-a95622)",
-  Complete: "var(--legacy-color-3d8b37)",
-  "Action Required": "var(--legacy-color-b45309)",
-  DNH: "var(--legacy-color-8f8f8f)",
-  Postponed: "var(--legacy-color-8f8f8f)",
-  Deleted: "var(--legacy-color-8f8f8f)",
-  "Bank Holiday": "var(--legacy-color-7ca0d6)",
-  Note: "var(--legacy-color-0f766e)",
+  ...Object.fromEntries(Object.entries(FIXED_JOB_STATUS_STYLES).map(([status, style]) => [status, style.border])),
 };
 
 const getWorkDiaryBorder = (status, fallback) =>
@@ -183,7 +158,7 @@ const getVehicleStatusPillStyle = (status) => {
   if (normalizedStatus === "Bickers") {
     return {
       ...tone,
-      bg: "var(--legacy-color-e9eef5)",
+      bg: "var(--color-brand-soft)",
       border: getWorkDiaryBorder(normalizedStatus, tone.border),
     };
   }
@@ -1544,66 +1519,66 @@ function maintenanceEventPropGetter(event) {
     workflowStatus === "completed" ||
     workflowStatus === "complete";
 
-  let bg = "var(--legacy-color-c4d6e4)";
-  let border = "var(--legacy-color-95b3ca)";
-  let text = "var(--legacy-color-172a3d)";
+  let bg = "var(--color-border-strong)";
+  let border = "var(--shell-muted)";
+  let text = "var(--color-text)";
 
   if (kind === "MOT") {
-    bg = "var(--legacy-color-fff7ed)";
-    border = "var(--legacy-color-f59e0b)";
-    text = "var(--legacy-color-713f12)";
+    bg = "var(--color-warning-soft)";
+    border = "var(--color-accent)";
+    text = "var(--color-danger-hover)";
     if (event?.booked) {
-      bg = "var(--legacy-color-fef3c7)";
-      border = "var(--legacy-color-d97706)";
-      text = "var(--legacy-color-713f12)";
+      bg = "var(--color-accent-soft)";
+      border = "var(--color-warning)";
+      text = "var(--color-danger-hover)";
     }
   } else if (kind === "MOT_BOOKING") {
-    bg = "var(--legacy-color-dbeafe)";
-    border = "var(--legacy-color-2563eb)";
-    text = "var(--legacy-color-102a56)";
+    bg = "var(--color-brand-soft)";
+    border = "var(--color-brand)";
+    text = "var(--color-brand-hover)";
     if (String(event?.bookingStatus || "").includes("After Expiry")) {
-      bg = "var(--legacy-color-e4c0bd)";
-      border = "var(--legacy-color-bf847f)";
-      text = "var(--legacy-color-631f1a)";
+      bg = "var(--color-danger-border)";
+      border = "var(--color-accent)";
+      text = "var(--color-danger-hover)";
     }
   } else if (kind === "SERVICE") {
-    bg = "var(--legacy-color-ecfdf5)";
-    border = "var(--legacy-color-10b981)";
-    text = "var(--legacy-color-064e3b)";
+    bg = "var(--color-success-soft)";
+    border = "var(--color-success-accent)";
+    text = "var(--color-success)";
     if (event?.booked) {
-      bg = "var(--legacy-color-d1fae5)";
-      border = "var(--legacy-color-059669)";
-      text = "var(--legacy-color-064e3b)";
+      bg = "var(--color-border)";
+      border = "var(--color-success)";
+      text = "var(--color-success)";
     }
   } else if (kind === "SERVICE_BOOKING") {
-    bg = "var(--legacy-color-dbeafe)";
-    border = "var(--legacy-color-2563eb)";
-    text = "var(--legacy-color-102a56)";
+    bg = "var(--color-brand-soft)";
+    border = "var(--color-brand)";
+    text = "var(--color-brand-hover)";
   } else if (kind === "INSPECTION") {
-    bg = "var(--legacy-color-f5f3ff)";
-    border = "var(--legacy-color-8b5cf6)";
-    text = "var(--legacy-color-3b0764)";
+    bg = "var(--color-info-soft)";
+    border = "var(--color-info)";
+    text = "var(--color-brand-hover)";
     if (event?.booked) {
-      bg = "var(--legacy-color-ede9fe)";
-      border = "var(--legacy-color-7c3aed)";
-      text = "var(--legacy-color-3b0764)";
+      bg = "var(--color-brand-soft)";
+      border = "var(--color-info)";
+      text = "var(--color-brand-hover)";
     }
   } else if (kind === "INSPECTION_BOOKING") {
-    bg = "var(--legacy-color-ede9fe)";
-    border = "var(--legacy-color-7c3aed)";
-    text = "var(--legacy-color-321064)";
+    bg = "var(--color-brand-soft)";
+    border = "var(--color-info)";
+    text = "var(--color-brand-hover)";
   } else if (kind === "MAINTENANCE_APPOINTMENT") {
-    bg = "var(--legacy-color-f0fdfa)";
-    border = "var(--legacy-color-14b8a6)";
-    text = "var(--legacy-color-134e4a)";
+    bg = "var(--color-success-soft)";
+    border = "var(--color-success-accent)";
+    text = "var(--color-brand-hover)";
   } else if (kind === "MAINTENANCE_BOOKING") {
-    bg = "var(--legacy-color-ccfbf1)";
-    border = "var(--legacy-color-0d9488)";
-    text = "var(--legacy-color-134e4a)";
+    bg = "var(--color-border)";
+    border = "var(--color-brand)";
+    text = "var(--color-brand-hover)";
   } else if (kind === "MAINTENANCE") {
-    bg = "var(--legacy-color-e2e8f0)";
-    border = "var(--legacy-color-64748b)";
-    text = "var(--legacy-color-1e293b)";
+    bg = "var(--color-border)";
+    border = "var(--color-text-muted)";
+    text = "var(--color-text)";
   }
 
   const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
@@ -1611,20 +1586,20 @@ function maintenanceEventPropGetter(event) {
 
   if (!suppressEscalation) {
     if (tone === "overdue") {
-      bg = "var(--legacy-color-e4c0bd)";
-      border = "var(--legacy-color-bf847f)";
-      text = "var(--legacy-color-631f1a)";
+      bg = "var(--color-danger-border)";
+      border = "var(--color-accent)";
+      text = "var(--color-danger-hover)";
     } else if (tone === "soon") {
-      bg = "var(--legacy-color-e1c79c)";
-      border = "var(--legacy-color-c19458)";
-      text = "var(--legacy-color-5a3918)";
+      bg = "var(--color-warning-border)";
+      border = "var(--color-accent)";
+      text = "var(--color-danger-hover)";
     }
   }
 
   if (isCompleted) {
-    bg = "var(--legacy-color-d1fae5)";
-    border = "var(--legacy-color-86efac)";
-    text = "var(--legacy-color-065f46)";
+    bg = "var(--color-border)";
+    border = "var(--color-success-border)";
+    text = "var(--color-success)";
   }
 
   return {
@@ -1747,25 +1722,25 @@ function MaintenanceCalendarEvent({ event }) {
       .replace(/\s+-\s+PMI inspection due$/i, "");
   })();
   const dueLabelColor =
-    tone === "overdue" ? "var(--legacy-color-991b1b)" : tone === "soon" ? "var(--legacy-color-92400e)" : null;
+    tone === "overdue" ? "var(--color-danger)" : tone === "soon" ? "var(--color-warning)" : null;
   const labelColor =
     isDueBlock && dueLabelColor
       ? dueLabelColor
       : kind === "MOT"
-      ? "var(--legacy-color-b45309)"
+      ? "var(--color-warning)"
       : kind === "SERVICE"
-      ? "var(--legacy-color-047857)"
+      ? "var(--color-success)"
       : kind === "INSPECTION"
-      ? "var(--legacy-color-7c3aed)"
+      ? "var(--color-info)"
       : kind === "BRAKE_TEST"
-      ? "var(--legacy-color-4f46e5)"
+      ? "var(--color-info)"
       : kind === "PMI"
-      ? "var(--legacy-color-0f766e)"
+      ? "var(--color-brand)"
       : isBookingBlock
-      ? "var(--legacy-color-1d4ed8)"
+      ? "var(--color-brand)"
       : kind === "MAINTENANCE"
-      ? "var(--legacy-color-475569)"
-      : "var(--legacy-color-1d4ed8)";
+      ? "var(--color-text-muted)"
+      : "var(--color-brand)";
   const nextDueLabel =
     isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
       ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
@@ -1828,7 +1803,7 @@ function HolidayNotesCalendarEvent({ event }) {
     : event.blocksEmployeeBooking && event.employee
     ? `${event.employee} unavailable`
     : event.employee || "Shared note";
-  const labelColor = isHoliday ? "var(--legacy-color-475569)" : "var(--legacy-color-0d9488)";
+  const labelColor = isHoliday ? "var(--color-text-muted)" : "var(--color-brand)";
 
   return (
     <div
@@ -1862,9 +1837,9 @@ function HolidayNotesCalendarEvent({ event }) {
 
 function holidayNotesEventPropGetter(event) {
   const isHoliday = event.status === "Holiday";
-  const bg = isHoliday ? "var(--legacy-color-e2e8f0)" : "var(--legacy-color-ccfbf1)";
-  const border = isHoliday ? "var(--legacy-color-64748b)" : "var(--legacy-color-0d9488)";
-  const text = isHoliday ? "var(--legacy-color-1e293b)" : "var(--legacy-color-134e4a)";
+  const bg = isHoliday ? "var(--color-border)" : "var(--color-border)";
+  const border = isHoliday ? "var(--color-text-muted)" : "var(--color-brand)";
+  const text = isHoliday ? "var(--color-text)" : "var(--color-brand-hover)";
 
   return {
     style: {
@@ -3716,11 +3691,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               eventPropGetter={(event) => {
               //  bank holiday styling
               if (event.status === "Bank Holiday") {
-                const bankHolidayBorder = getWorkDiaryBorder("Bank Holiday", "var(--legacy-color-9eb0c6)");
+                const bankHolidayBorder = getWorkDiaryBorder("Bank Holiday", "var(--shell-muted)");
                 return {
                   style: {
-                    backgroundColor: "var(--legacy-color-e9eef5)",
-                    color: "var(--legacy-color-314257)",
+                    backgroundColor: "var(--color-brand-soft)",
+                    color: "var(--color-brand-hover)",
                     fontWeight: 800,
                     padding: 0,
                     borderRadius: 8,
@@ -4032,8 +4007,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             eventPropGetter={holidayNotesEventPropGetter}
             dayPropGetter={() => ({
               style: {
-                borderRight: "1px solid var(--legacy-color-e5e7eb)",
-                borderTop: "1px solid var(--legacy-color-e5e7eb)",
+                borderRight: "1px solid var(--color-border)",
+                borderTop: "1px solid var(--color-border)",
               },
             })}
           />

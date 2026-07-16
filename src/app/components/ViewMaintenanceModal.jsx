@@ -1,9 +1,11 @@
 "use client";
 
+import layoutStyles from "./ViewMaintenanceModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../../../firebaseConfig";
 import { doc, getDoc, getDocs, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -230,13 +232,13 @@ export default function ViewMaintenanceModal({
     : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div style={modal}>
+    <div className={layoutStyles.extracted1} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
+      <div className={layoutStyles.extracted2}>
         {/* Header */}
-        <div style={header}>
+        <div className={layoutStyles.extracted3}>
           <div>
-            <div style={eyebrow}>Maintenance #{booking.jobNumber || booking.maintenanceJobNumber || "—"}</div>
-            <h2 style={title}>{maintenanceTitle}</h2>
+            <div className={layoutStyles.extracted4}>Maintenance #{booking.jobNumber || booking.maintenanceJobNumber || "—"}</div>
+            <h2 className={layoutStyles.extracted5}>{maintenanceTitle}</h2>
           </div>
           <span
             style={{
@@ -249,9 +251,9 @@ export default function ViewMaintenanceModal({
           </span>
         </div>
 
-  
 
-        <div style={grid}>
+
+        <div className={layoutStyles.extracted6}>
           <Section title="Overview">
             <Field label="Type" value={maintenanceTitle || "—"} />
             <Field label="Location" value={booking.location || "—"} />
@@ -277,15 +279,15 @@ export default function ViewMaintenanceModal({
               label="Vehicles"
               value={
                 normalizedVehicles.length ? (
-                  <div style={tagWrap}>
+                  <div className={layoutStyles.extracted7}>
                     {normalizedVehicles.map((v, i) => {
                       const name =
                         v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(v || "");
                       const plate = v?.registration ? ` ${String(v.registration).toUpperCase()}` : "";
                       return (
-                        <span key={`${name}-${i}`} style={tag}>
+                        <span key={`${name}-${i}`} className={layoutStyles.extracted8}>
                           {name}
-                          {plate && <span style={tagSub}>{plate}</span>}
+                          {plate && <span className={layoutStyles.extracted9}>{plate}</span>}
                         </span>
                       );
                     })}
@@ -300,9 +302,9 @@ export default function ViewMaintenanceModal({
               label="Equipment"
               value={
                 Array.isArray(booking.equipment) && booking.equipment.length ? (
-                  <div style={tagWrap}>
+                  <div className={layoutStyles.extracted10}>
                     {booking.equipment.map((e, i) => (
-                      <span key={`${e}-${i}`} style={tag}>{e}</span>
+                      <span key={`${e}-${i}`} className={layoutStyles.extracted11}>{e}</span>
                     ))}
                   </div>
                 ) : (
@@ -314,47 +316,47 @@ export default function ViewMaintenanceModal({
 
           {booking.notes && (
             <Section title="Notes" full>
-              <div style={noteBox}>{booking.notes}</div>
+              <div className={layoutStyles.extracted12}>{booking.notes}</div>
             </Section>
           )}
 
           <Section title="Modification Trail" full>
-            <details style={historyDetails} open={historyTrail.length <= 3}>
-              <summary style={historySummary}>
+            <details className={layoutStyles.extracted13} open={historyTrail.length <= 3}>
+              <summary className={layoutStyles.extracted14}>
                 <span>Change history</span>
-                <span style={historyCount}>{historyTrail.length}</span>
+                <span className={layoutStyles.extracted15}>{historyTrail.length}</span>
               </summary>
-              <div style={historyBody}>
+              <div className={layoutStyles.extracted16}>
                 {visibleHistoryTrail.length ? (
                   visibleHistoryTrail.map((entry) => (
-                    <div key={entry.id} style={historyItem}>
-                      <div style={historyTopRow}>
-                        <span style={historyAction}>{entry.action}</span>
-                        <span style={historyMeta}>
+                    <div key={entry.id} className={layoutStyles.extracted17}>
+                      <div className={layoutStyles.extracted18}>
+                        <span className={layoutStyles.extracted19}>{entry.action}</span>
+                        <span className={layoutStyles.extracted20}>
                           {entry.user}
                           {entry.at ? ` • ${entry.at.toLocaleString("en-GB")}` : ""}
                         </span>
                       </div>
                       {entry.changes.length ? (
-                        <div style={historyChanges}>
+                        <div className={layoutStyles.extracted21}>
                           {entry.changes.map((change, idx) => (
-                            <div key={`${entry.id}-change-${idx}`} style={historyChangeLine}>
+                            <div key={`${entry.id}-change-${idx}`} className={layoutStyles.extracted22}>
                               {change}
                             </div>
                           ))}
                         </div>
                       ) : null}
-                      {entry.note ? <div style={historyNote}>{entry.note}</div> : null}
+                      {entry.note ? <div className={layoutStyles.extracted23}>{entry.note}</div> : null}
                     </div>
                   ))
                 ) : (
-                  <div style={historyEmpty}>No modification history recorded for this booking yet.</div>
+                  <div className={layoutStyles.extracted24}>No modification history recorded for this booking yet.</div>
                 )}
                 {historyTrail.length > 3 ? (
                   <button
                     type="button"
                     onClick={() => setShowFullHistory((prev) => !prev)}
-                    style={historyToggleBtn}
+                    className={layoutStyles.extracted25}
                   >
                     {showFullHistory ? "Show less" : `See more (${historyTrail.length - 3} older)`}
                   </button>
@@ -368,14 +370,14 @@ export default function ViewMaintenanceModal({
             if (!files.length) return null;
             return (
               <Section title="Attachments" full>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted26}>
                   {files.map((f, i) => (
                     <a
                       key={f.url || i}
                       href={f.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={fileBtn}
+                      className={layoutStyles.extracted27}
                       title={f.label}
                     >
                       {f.label}
@@ -387,7 +389,7 @@ export default function ViewMaintenanceModal({
           })()}
         </div>
 
-        <div style={footerMeta}>
+        <div className={layoutStyles.extracted28}>
           {booking?.createdBy && (
             <div>
               Created by <b>{booking.createdBy}</b>
@@ -406,27 +408,27 @@ export default function ViewMaintenanceModal({
           )}
         </div>
 
-        <div style={actions}>
+        <div className={layoutStyles.extracted29}>
 <button
   onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-  style={{ ...btn, background: "var(--legacy-color-0d6efd)" }}
+  className={layoutStyles.extracted30}
 >
   Edit Maintenance
 </button>
 
 
-          <button onClick={handleDelete} style={{ ...btn, background: "var(--legacy-color-dc3545)" }}>
+          <button onClick={handleDelete} className={layoutStyles.extracted31}>
             Delete
           </button>
 
           <button
             onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-            style={{ ...btn, background: "var(--legacy-color-111)" }}
+            className={layoutStyles.extracted32}
           >
             Open full page
           </button>
 
-          <button onClick={onClose} style={{ ...btn, background: "var(--legacy-color-6c757d)" }}>
+          <button onClick={onClose} className={layoutStyles.extracted33}>
             Close
           </button>
         </div>
@@ -439,23 +441,23 @@ export default function ViewMaintenanceModal({
 function Section({ title, children, full = false }) {
   return (
     <section style={{ gridColumn: full ? "1 / -1" : "auto" }}>
-      <h3 style={sectionTitle}>{title}</h3>
-      <div style={sectionCard}>{children}</div>
+      <h3 className={layoutStyles.extracted34}>{title}</h3>
+      <div className={layoutStyles.extracted35}>{children}</div>
     </section>
   );
 }
 
 function Field({ label, value }) {
   return (
-    <div style={fieldRow}>
-      <div style={fieldLabel}>{label}</div>
-      <div style={fieldValue}>{value || "—"}</div>
+    <div className={layoutStyles.extracted36}>
+      <div className={layoutStyles.extracted37}>{label}</div>
+      <div className={layoutStyles.extracted38}>{value || "—"}</div>
     </div>
   );
 }
 
 const Chip = ({ good, label, title }) => (
-  <span title={title} style={{ ...chip, background: good ? "var(--legacy-color-22c55e)" : "var(--legacy-color-ef4444)", color: "var(--legacy-color-fff)" }}>
+  <span title={title} style={{ ...chip, background: good ? "var(--color-success-accent)" : "var(--color-danger)", color: "var(--color-surface)" }}>
     {label} {good ? "Yes" : "No"}
   </span>
 );
@@ -464,9 +466,9 @@ const Tag = ({ children, dark, success }) => (
   <span
     style={{
       ...tag,
-      background: success ? "var(--legacy-color-22c55e)" : dark ? "var(--legacy-color-111)" : "var(--legacy-color-f3f4f6)",
-      color: success || dark ? "var(--legacy-color-fff)" : "var(--legacy-color-111)",
-      border: success || dark ? "1px solid var(--legacy-color-111)" : "1px solid var(--legacy-color-e5e7eb)",
+      background: success ? "var(--color-success-accent)" : dark ? "var(--shell-sidebar-bg)" : "var(--color-canvas)",
+      color: success || dark ? "var(--color-white)" : "var(--color-text)",
+      border: success || dark ? "1px solid var(--color-text)" : "1px solid var(--color-border)",
     }}
   >
     {children}
@@ -486,8 +488,8 @@ const overlay = {
 };
 
 const modal = {
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-111)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   width: "min(900px, 96vw)",
   maxHeight: "90vh",
   overflow: "auto",
@@ -504,7 +506,7 @@ const header = {
   marginBottom: 10,
 };
 
-const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "var(--legacy-color-6b7280)" };
+const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "var(--color-text-muted)" };
 const title = { margin: 0, fontSize: 22, lineHeight: 1.2 };
 
 const badge = {
@@ -512,7 +514,7 @@ const badge = {
   borderRadius: 999,
   fontSize: 12,
   fontWeight: 700,
-  border: "1px solid var(--legacy-color-111)",
+  border: "1px solid var(--color-text)",
 };
 
 const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0 16px" };
@@ -526,14 +528,14 @@ const grid = {
 const sectionTitle = {
   margin: "0 0 8px 0",
   fontSize: 14,
-  color: "var(--legacy-color-374151)",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: 0.6,
 };
 
 const sectionCard = {
-  background: "var(--legacy-color-fafafa)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--color-border)",
   borderRadius: 10,
   padding: 14,
 };
@@ -543,14 +545,14 @@ const fieldRow = {
   gridTemplateColumns: "160px 1fr",
   gap: 10,
   padding: "8px 0",
-  borderBottom: "1px dashed var(--legacy-color-e5e7eb)",
+  borderBottom: "1px dashed var(--color-border)",
 };
-const fieldLabel = { color: "var(--legacy-color-6b7280)", fontSize: 13 };
-const fieldValue = { color: "var(--legacy-color-111)", fontSize: 14 };
+const fieldLabel = { color: "var(--color-text-muted)", fontSize: 13 };
+const fieldValue = { color: "var(--color-text)", fontSize: 14 };
 
 const noteBox = {
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
   padding: 12,
   lineHeight: 1.4,
@@ -562,29 +564,29 @@ const tag = {
   alignItems: "center",
   gap: 6,
   padding: "4px 8px",
-  background: "var(--legacy-color-f3f4f6)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--color-canvas)",
+  border: "1px solid var(--color-border)",
   borderRadius: 999,
   fontSize: 12,
   whiteSpace: "nowrap",
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
 
-const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid var(--legacy-color-111)" };
+const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid var(--color-text)" };
 
 const fileBtn = {
   display: "inline-block",
   padding: "8px 12px",
-  background: "var(--legacy-color-111)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--shell-sidebar-bg)",
+  color: "var(--color-white)",
   borderRadius: 8,
   textDecoration: "none",
-  border: "1px solid var(--legacy-color-111)",
+  border: "1px solid var(--color-text)",
 };
 const historyDetails = {
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   borderRadius: 12,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   overflow: "hidden",
 };
 const historySummary = {
@@ -596,7 +598,7 @@ const historySummary = {
   gap: 12,
   padding: "14px 16px",
   fontWeight: 700,
-  color: "var(--legacy-color-111)",
+  color: "var(--color-text)",
 };
 const historyCount = {
   minWidth: 28,
@@ -606,8 +608,8 @@ const historyCount = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "var(--legacy-color-e5e7eb)",
-  color: "var(--legacy-color-111)",
+  background: "var(--color-border)",
+  color: "var(--color-text)",
   fontSize: 12,
   fontWeight: 700,
 };
@@ -617,9 +619,9 @@ const historyBody = {
   padding: "0 16px 16px",
 };
 const historyItem = {
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   borderRadius: 10,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   padding: 12,
 };
 const historyTopRow = {
@@ -631,15 +633,15 @@ const historyTopRow = {
 };
 const historyAction = {
   fontWeight: 700,
-  color: "var(--legacy-color-111)",
+  color: "var(--color-text)",
 };
 const historyMeta = {
-  color: "var(--legacy-color-6b7280)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
 };
 const historyNote = {
   marginTop: 8,
-  color: "var(--legacy-color-374151)",
+  color: "var(--color-text-muted)",
   whiteSpace: "pre-wrap",
   lineHeight: 1.45,
 };
@@ -649,19 +651,19 @@ const historyChanges = {
   gap: 6,
 };
 const historyChangeLine = {
-  color: "var(--legacy-color-374151)",
+  color: "var(--color-text-muted)",
   fontSize: 13,
   lineHeight: 1.4,
 };
 const historyEmpty = {
-  color: "var(--legacy-color-6b7280)",
+  color: "var(--color-text-muted)",
   fontSize: 13,
 };
 const historyToggleBtn = {
   justifySelf: "flex-start",
-  border: "1px solid var(--legacy-color-d1d5db)",
-  background: "var(--legacy-color-fff)",
-  color: "var(--legacy-color-111)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   borderRadius: 999,
   padding: "8px 12px",
   fontWeight: 700,
@@ -671,8 +673,8 @@ const historyToggleBtn = {
 const footerMeta = {
   marginTop: 12,
   paddingTop: 12,
-  borderTop: "1px solid var(--legacy-color-e5e7eb)",
-  color: "var(--legacy-color-6b7280)",
+  borderTop: "1px solid var(--color-border)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
   display: "flex",
   gap: 16,
@@ -685,12 +687,12 @@ const actions = {
   justifyContent: "flex-end",
   marginTop: 14,
   paddingTop: 12,
-  borderTop: "1px solid var(--legacy-color-e5e7eb)",
+  borderTop: "1px solid var(--color-border)",
 };
 
 const btn = {
   padding: "10px 14px",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: 8,
   cursor: "pointer",
@@ -698,24 +700,8 @@ const btn = {
 };
 
 function statusColor(status = "") {
-  const map = {
-    Confirmed: "var(--legacy-color-fde047)",
-    "First Pencil": "var(--legacy-color-93c5fd)",
-    "Second Pencil": "var(--legacy-color-ef4444)",
-    DNH: "var(--legacy-color-c2c2c2)",
-    Complete: "var(--legacy-color-22c55e)",
-    Completed: "var(--legacy-color-22c55e)",
-    "Action Required": "var(--legacy-color-ff7b00)",
-    Holiday: "var(--legacy-color-d1d5db)",
-    Maintenance: "var(--legacy-color-fb923c)",
-    Lost: "var(--legacy-color-ef4444)",
-    Postponed: "var(--legacy-color-f59e0b)",
-    Cancelled: "var(--legacy-color-ef4444)",
-  };
-  return map[status] || "var(--legacy-color-e5e7eb)";
+  return getFixedJobStatusStyle(status).bg;
 }
 function onStatusColor(status = "") {
-  return ["Confirmed", "DNH", "Holiday", "Maintenance", "Booked", "Requested"].includes(status)
-    ? "var(--legacy-color-111)"
-    : "var(--legacy-color-fff)";
+  return getFixedJobStatusStyle(status).text;
 }

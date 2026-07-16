@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -31,32 +32,10 @@ import {
   Search,
   Table2,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* Mini design system */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" };
@@ -75,11 +54,11 @@ const toolbar = {
   top: 12,
   zIndex: 2,
   backdropFilter: "saturate(180%) blur(6px)",
-  background: "rgba(255,255,255,0.96)",
+  background: "color-mix(in srgb, var(--color-surface) 96%, transparent)",
 };
 
 const searchWrap = { position: "relative", display: "flex", alignItems: "center" };
-const searchInput = { width: "100%", minHeight: 36, padding: "7px 42px 7px 34px", borderRadius: UI.radiusSm, border: UI.border, fontSize: 13, outline: "none", background: "var(--legacy-color-fff)", color: UI.text };
+const searchInput = { width: "100%", minHeight: 36, padding: "7px 42px 7px 34px", borderRadius: UI.radiusSm, border: UI.border, fontSize: 13, outline: "none", background: "var(--color-surface)", color: UI.text };
 const searchIcon = { position: "absolute", left: 10, width: 17, height: 17, color: UI.muted };
 
 const pillBtn = (active = false) => ({
@@ -90,7 +69,7 @@ const pillBtn = (active = false) => ({
   padding: "6px 9px",
   borderRadius: UI.radiusSm,
   border: active ? `1px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: active ? UI.brandSoft : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: active ? UI.brand : UI.text,
   fontSize: 12.5,
   fontWeight: 800,
@@ -100,7 +79,7 @@ const pillBtn = (active = false) => ({
 });
 
 const tabsWrap = { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" };
-const select = { minHeight: 36, padding: "7px 9px", borderRadius: UI.radiusSm, border: UI.border, background: "var(--legacy-color-fff)", color: UI.text, fontSize: 12.5, minWidth: 140 };
+const select = { minHeight: 36, padding: "7px 9px", borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-surface)", color: UI.text, fontSize: 12.5, minWidth: 140 };
 const chip = {
   display: "inline-flex",
   alignItems: "center",
@@ -141,7 +120,7 @@ const focusCss = `
   input:focus, select:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .job-sheet-toolbar,
@@ -297,13 +276,13 @@ const statusColors = (label) => {
     case "Confirmed":
       return { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber };
     case "First Pencil":
-      return { bg: "var(--legacy-color-eff6ff)", border: "var(--legacy-color-bfdbfe)", text: "var(--legacy-color-1d4ed8)" };
+      return { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
     case "Second Pencil":
       return { bg: UI.redSoft, border: UI.redBorder, text: UI.red };
     case "TBC":
-      return { bg: "var(--legacy-color-f8fafc)", border: "var(--legacy-color-e2e8f0)", text: UI.muted };
+      return { bg: "var(--color-surface-subtle)", border: "var(--color-border)", text: UI.muted };
     default:
-      return { bg: "var(--legacy-color-f8fafc)", border: "var(--legacy-color-dbe5ef)", text: UI.text };
+      return { bg: "var(--color-surface-subtle)", border: "var(--color-border)", text: UI.text };
   }
 };
 
@@ -321,9 +300,9 @@ const CheckBadge = ({ label, ok }) => (
       gap: 6,
       padding: "4px 8px",
       borderRadius: 999,
-      border: `1px solid ${ok ? "var(--legacy-color-86efac)" : "var(--legacy-color-fecaca)"}`,
-      background: ok ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
-      color: ok ? "var(--legacy-color-166534)" : "var(--legacy-color-991b1b)",
+      border: `1px solid ${ok ? "var(--color-success-border)" : "var(--color-danger-border)"}`,
+      background: ok ? "var(--color-success-soft)" : "var(--color-accent-soft)",
+      color: ok ? "var(--color-success)" : "var(--color-danger)",
       fontSize: 10.5,
       fontWeight: 800,
       whiteSpace: "nowrap",
@@ -334,7 +313,7 @@ const CheckBadge = ({ label, ok }) => (
         width: 7,
         height: 7,
         borderRadius: 999,
-        background: ok ? "var(--legacy-color-16a34a)" : "var(--legacy-color-dc2626)",
+        background: ok ? "var(--color-success)" : "var(--color-danger)",
       }}
     />
     {label}
@@ -363,10 +342,10 @@ const StatusBadge = ({ job, section }) => {
 };
 
 /* Table styles */
-const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)", boxShadow: UI.shadowSm };
+const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--color-surface)", boxShadow: UI.shadowSm };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-dde5ee)", position: "sticky", top: 0, background: "var(--legacy-color-f7f9fc)", zIndex: 1, fontSize: 12, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
-const td = { padding: "9px 12px", borderBottom: "1px solid var(--legacy-color-edf2f7)", verticalAlign: "top" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--color-border)", position: "sticky", top: 0, background: "var(--color-surface-subtle)", zIndex: 1, fontSize: 12, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
+const td = { padding: "9px 12px", borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "top" };
 
 /* Page */
 export default function JobSheetPage() {
@@ -776,7 +755,7 @@ export default function JobSheetPage() {
       padding: "5px 8px",
       borderRadius: UI.radiusSm,
       border: UI.border,
-      background: "var(--legacy-color-ffffff)",
+      background: "var(--color-surface)",
       color: UI.text,
       fontSize: 11.5,
       fontWeight: 800,
@@ -803,20 +782,20 @@ export default function JobSheetPage() {
             transition: "transform .12s ease, box-shadow .12s ease, border-color .12s ease",
           }}
         >
-          <div style={{ display: "flex", minWidth: 0, gap: 8, alignItems: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 13.5 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 20, minWidth: 26, padding: "0 6px", borderRadius: 6, background: "var(--legacy-color-eef2ff)", border: "1px solid var(--legacy-color-e5e7eb)", fontWeight: 800, fontSize: 11, color: "var(--legacy-color-3730a3)" }}>
+          <div className={layoutStyles.extracted1}>
+            <span className={layoutStyles.extracted2}>
               {prefix}
             </span>
-            <span style={{ fontWeight: 900, fontSize: 13.5 }}>#{job.jobNumber || job.id}</span>
-            <span style={{ opacity: 0.45 }}>-</span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{job.client || "-"}</span>
-            <span style={{ opacity: 0.45 }}>-</span>
-            <span style={{ opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis" }}>{job.location || "-"}</span>
-            <span style={{ opacity: 0.45 }}>-</span>
-            <span style={{ opacity: 0.7 }}>{range}</span>
+            <span className={layoutStyles.extracted3}>#{job.jobNumber || job.id}</span>
+            <span className={layoutStyles.extracted4}>-</span>
+            <span className={layoutStyles.extracted5}>{job.client || "-"}</span>
+            <span className={layoutStyles.extracted6}>-</span>
+            <span className={layoutStyles.extracted7}>{job.location || "-"}</span>
+            <span className={layoutStyles.extracted8}>-</span>
+            <span className={layoutStyles.extracted9}>{range}</span>
           </div>
 
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div className={layoutStyles.extracted10}>
             {statusBadge}
             <button
               type="button"
@@ -831,13 +810,13 @@ export default function JobSheetPage() {
             </button>
           </div>
 
-          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+          <div className={layoutStyles.extracted11}>
             <CheckBadge label="Notes" ok={checks.notes} />
             <CheckBadge label="PO" ok={checks.po} />
             <CheckBadge label="Quote" ok={checks.quote} />
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", fontSize: 11.5, fontWeight: 700 }}> {team}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", fontSize: 11.5, fontWeight: 700 }}> {vehicles}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", fontSize: 11.5, fontWeight: 700 }}> {equipment}</span>
+            <span className={layoutStyles.extracted12}> {team}</span>
+            <span className={layoutStyles.extracted13}> {vehicles}</span>
+            <span className={layoutStyles.extracted14}> {equipment}</span>
           </div>
         </Link>
       );
@@ -867,70 +846,57 @@ export default function JobSheetPage() {
         onMouseLeave={(e) => Object.assign(e.currentTarget.style, baseCard)}
       >
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+        <div className={layoutStyles.extracted15}>
+          <div className={layoutStyles.extracted16}>
             <span
               title="Job prefix"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minWidth: 28,
-                height: 22,
-                padding: "0 6px",
-                borderRadius: 8,
-                background: "var(--legacy-color-eef2ff)",
-                border: "1px solid var(--legacy-color-e5e7eb)",
-                fontWeight: 900,
-                fontSize: 11.5,
-                color: "var(--legacy-color-3730a3)",
-              }}
+              className={layoutStyles.extracted17}
             >
               {getJobPrefix(job)}
             </span>
-            <span style={{ fontWeight: 900, fontSize: 15, letterSpacing: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <span className={layoutStyles.extracted18}>
               Job #{job.jobNumber || job.id}
             </span>
           </div>
           {statusBadge}
         </div>
 
-        <div style={{ height: 1, background: "var(--legacy-color-f1f5f9)", margin: "4px 0 8px" }} />
+        <div className={layoutStyles.extracted19} />
 
         {/* Info grid */}
         <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", rowGap: denseNow ? 4 : 6, columnGap: denseNow ? 8 : 10, fontSize: 13.5, lineHeight: 1.32 }}>
-          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Client</span>
+          <span className={layoutStyles.extracted20}>Client</span>
           <span>{job.client || "-"}</span>
 
-          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Location</span>
+          <span className={layoutStyles.extracted21}>Location</span>
           <span>{job.location || "-"}</span>
 
-          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Dates</span>
+          <span className={layoutStyles.extracted22}>Dates</span>
           <span>{range}</span>
 
-          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Employees</span>
+          <span className={layoutStyles.extracted23}>Employees</span>
           <span>
             {Array.isArray(job.employees) && job.employees.length
               ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
               : "-"}
           </span>
 
-          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Vehicles</span>
+          <span className={layoutStyles.extracted24}>Vehicles</span>
           <span>{resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "-"}</span>
 
-          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Equipment</span>
+          <span className={layoutStyles.extracted25}>Equipment</span>
           <span>{equipment}</span>
         </div>
 
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+        <div className={layoutStyles.extracted26}>
           <CheckBadge label="Notes" ok={checks.notes} />
           <CheckBadge label="PO" ok={checks.po} />
           <CheckBadge label="Quote" ok={checks.quote} />
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div className={layoutStyles.extracted27}>
+          <div className={layoutStyles.extracted28}>
             <button
               type="button"
               onClick={(e) => {
@@ -973,7 +939,7 @@ export default function JobSheetPage() {
   /* ---------- Table ---------- */
   const Table = ({ jobs, section }) => (
     <div style={tableWrap}>
-      <table style={tableEl} aria-label={`${section} jobs`}>
+      <table className={layoutStyles.extracted29} aria-label={`${section} jobs`}>
         <thead>
           <tr>
             <th style={th}>Job #</th>
@@ -999,46 +965,46 @@ export default function JobSheetPage() {
 
             return (
               <tr key={job.id}>
-                <td style={td}>
+                <td className={layoutStyles.extracted30}>
                   <Link href={`/job-numbers/${job.id}`} style={{ fontWeight: 800, textDecoration: "none", color: UI.text }}>
                     #{job.jobNumber || job.id}
                   </Link>
                 </td>
-                <td style={td}>{job.client || "-"}</td>
-                <td style={td}>{job.location || "-"}</td>
-                <td style={td}>{dateRangeLabel(job)}</td>
-                <td style={td}>{team}</td>
-                <td style={td}>{vehicles}</td>
-                <td style={td}>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <td className={layoutStyles.extracted31}>{job.client || "-"}</td>
+                <td className={layoutStyles.extracted32}>{job.location || "-"}</td>
+                <td className={layoutStyles.extracted33}>{dateRangeLabel(job)}</td>
+                <td className={layoutStyles.extracted34}>{team}</td>
+                <td className={layoutStyles.extracted35}>{vehicles}</td>
+                <td className={layoutStyles.extracted36}>
+                  <div className={layoutStyles.extracted37}>
                     <CheckBadge label="Notes" ok={checks.notes} />
                     <CheckBadge label="PO" ok={checks.po} />
                     <CheckBadge label="Quote" ok={checks.quote} />
                   </div>
                 </td>
-                <td style={td}>
+                <td className={layoutStyles.extracted38}>
                   <StatusBadge job={job} section={section} />
                 </td>
-                <td style={td}>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <td className={layoutStyles.extracted39}>
+                  <div className={layoutStyles.extracted40}>
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "Ready to Invoice")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      className={layoutStyles.extracted41}
                     >
                       Ready
                     </button>
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "Action Required")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      className={layoutStyles.extracted42}
                     >
                       Action
                     </button>
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "complete")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      className={layoutStyles.extracted43}
                     >
                       Complete
                     </button>
@@ -1075,7 +1041,7 @@ export default function JobSheetPage() {
       <style>{focusCss}</style>
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted44}>
           <div>
             <h1 style={h1}>Jobs Overview</h1>
             <div style={sub}>4-digit job view with week dividers, filters, density modes and live status checks.</div>
@@ -1089,7 +1055,7 @@ export default function JobSheetPage() {
         {/* Toolbar */}
         <div className="job-sheet-toolbar" style={toolbar}>
           {/* Search */}
-          <div style={searchWrap} title="Press / to focus">
+          <div className={layoutStyles.extracted45} title="Press / to focus">
             <Search size={17} style={searchIcon} aria-hidden />
             <input
               ref={searchRef}
@@ -1103,7 +1069,7 @@ export default function JobSheetPage() {
           </div>
 
           {/* View toggle (3-way) */}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className={layoutStyles.extracted46}>
             <button onClick={() => setViewMode("grid")} style={pillBtn(viewMode === "grid")} aria-pressed={viewMode === "grid"}>
               <LayoutGrid size={13} /> Grid
             </button>
@@ -1116,7 +1082,7 @@ export default function JobSheetPage() {
           </div>
 
           {/* Density + Sort */}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className={layoutStyles.extracted47}>
             <select value={density} onChange={(e) => setDensity(e.target.value)} style={select} aria-label="Density">
               <option value="cozy">Cozy</option>
               <option value="compact">Compact</option>
@@ -1174,9 +1140,9 @@ export default function JobSheetPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ ...surface, marginTop: 12, padding: 10, background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfdff) 100%)" }}>
-          <div style={{ ...tabsWrap, justifyContent: "space-between", rowGap: 8 }}>
-            <div style={tabsWrap}>
+        <div style={{ ...surface, marginTop: 12, padding: 10, background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)" }}>
+          <div className={layoutStyles.extracted48}>
+            <div className={layoutStyles.extracted49}>
               {[
                 "Upcoming",
                 "Passed - Not Confirmed",
@@ -1189,7 +1155,7 @@ export default function JobSheetPage() {
                 const active = activeSection === s;
                 return (
                   <button key={s} onClick={() => setActiveSection(s)} style={pillBtn(active)} aria-pressed={active} aria-label={`Show ${s}`}>
-                    {s} <span style={{ marginLeft: 8, fontWeight: 900 }}>{counts[s]}</span>
+                    {s} <span className={layoutStyles.extracted50}>{counts[s]}</span>
                   </button>
                 );
               })}
@@ -1200,7 +1166,7 @@ export default function JobSheetPage() {
 
         <div className="job-sheet-stat-grid" style={statGrid}>
           <div style={statCard}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <div className={layoutStyles.extracted51}>
               <div>
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   Active Section
@@ -1212,19 +1178,19 @@ export default function JobSheetPage() {
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>{totalVisible} jobs match the current view</div>
           </div>
           <div style={statCard}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <div className={layoutStyles.extracted52}>
               <div>
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   Notes Filled
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.notes}</div>
               </div>
-              <span style={iconBox(UI.brand, "var(--legacy-color-f8fafc)", "var(--legacy-color-dbe5ef)")}><Filter size={17} /></span>
+              <span style={iconBox(UI.brand, "var(--color-surface-subtle)", "var(--color-border)")}><Filter size={17} /></span>
             </div>
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with notes entered</div>
           </div>
           <div style={statCard}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <div className={layoutStyles.extracted53}>
               <div>
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   PO Filled
@@ -1236,7 +1202,7 @@ export default function JobSheetPage() {
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with PO added</div>
           </div>
           <div style={statCard}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <div className={layoutStyles.extracted54}>
               <div>
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   Quote Attached
@@ -1250,7 +1216,7 @@ export default function JobSheetPage() {
         </div>
 
         {/* Content */}
-        <div style={{ marginTop: 14 }}>
+        <div className={layoutStyles.extracted55}>
           {loading ? (
             <div style={emptyWrap}>Loading jobs...</div>
           ) : !weekKeys.length ? (
@@ -1260,8 +1226,8 @@ export default function JobSheetPage() {
               const monday = new Date(Number(mondayTS));
               const weekJobs = weekGroups[mondayTS];
               return (
-                <section key={mondayTS} style={{ marginBottom: 28 }}>
-                  <div style={sectionHeader}>
+                <section key={mondayTS} className={layoutStyles.extracted56}>
+                  <div className={layoutStyles.extracted57}>
                     <h2 style={weekTitle}>{formatWeekRange(monday)} ({weekJobs.length})</h2>
                     <span style={tinyHint}>
                       {new Date(Number(mondayTS)).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
@@ -1279,7 +1245,7 @@ export default function JobSheetPage() {
                       ))}
                     </div>
                   ) : (
-                    <div style={listWrap}>
+                    <div className={layoutStyles.extracted58}>
                       {weekJobs.map((job) => (
                         <Card key={job.id} job={job} section={activeSection} />
                       ))}

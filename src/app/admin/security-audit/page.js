@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
@@ -18,26 +19,9 @@ import {
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { auth } from "../../../../firebaseConfig";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  ok: "var(--legacy-color-15803d)",
-  okSoft: "var(--legacy-color-edf7f2)",
-  warn: "var(--legacy-color-b45309)",
-  warnSoft: "var(--legacy-color-fffbeb)",
-  danger: "var(--legacy-color-b91c1c)",
-  dangerSoft: "var(--legacy-color-fff1f2)",
-  neutral: "var(--legacy-color-64748b)",
-  neutralSoft: "var(--legacy-color-f1f5f9)",
-};
+const UI = UI_TOKENS;
 
 const STATUS_META = {
   fail: { label: "Fail", color: UI.danger, bg: UI.dangerSoft, Icon: XCircle },
@@ -260,7 +244,7 @@ export default function SecurityAuditPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={pageHeader}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1Style}>Security Audit</h1>
             <div style={pageSub}>
@@ -268,7 +252,7 @@ export default function SecurityAuditPage() {
             </div>
           </div>
 
-          <div style={headerActions}>
+          <div className={layoutStyles.extracted2}>
             <button type="button" onClick={() => router.push("/admin")} style={btnStyle}>
               <ArrowLeft size={14} />
               Admin
@@ -283,7 +267,7 @@ export default function SecurityAuditPage() {
         {error ? <div style={errorBox}>{error}</div> : null}
         {notice ? <div style={noticeBox}>{notice}</div> : null}
 
-        <div style={statGrid}>
+        <div className={layoutStyles.extracted3}>
           <Stat label="Total" value={audit.summary?.total || 0} tone="neutral" />
           <Stat label="Fail" value={audit.summary?.fail || 0} tone="fail" />
           <Stat label="Warn" value={audit.summary?.warn || 0} tone="warn" />
@@ -295,7 +279,7 @@ export default function SecurityAuditPage() {
           <Stat label="Legacy MFA" value={audit.summary?.legacyMfaSecrets || 0} tone="warn" />
         </div>
 
-        <div style={toolbar}>
+        <div className={layoutStyles.extracted4}>
           <div style={searchWrap}>
             <Search size={15} color={UI.muted} />
             <input
@@ -306,7 +290,7 @@ export default function SecurityAuditPage() {
             />
           </div>
 
-          <div style={filterWrap}>
+          <div className={layoutStyles.extracted5}>
             {FILTERS.map((filter) => {
               const active = statusFilter === filter;
               return (
@@ -374,7 +358,7 @@ export default function SecurityAuditPage() {
         <div style={cardStyle}>
           <div style={tableHeader}>
             <div>
-              <div style={cardTitle}>Access Accounts</div>
+              <div className={layoutStyles.extracted6}>Access Accounts</div>
               <div style={cardSub}>
                 {filteredRows.length} shown
                 {audit.generatedAt ? `, generated ${formatDateTime(audit.generatedAt)}` : ""}
@@ -382,8 +366,8 @@ export default function SecurityAuditPage() {
             </div>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={tableStyle}>
+          <div className={layoutStyles.extracted7}>
+            <table className={layoutStyles.extracted8}>
               <thead>
                 <tr>
                   <Th>Clean</Th>
@@ -444,7 +428,7 @@ function AuditRow({ row, deleting, onDelete, selected, onToggleSelected }) {
               ? "Select disabled/device record for cleanup"
               : "Only disabled/device rows can be bulk selected"
           }
-          style={checkboxStyle}
+          className={layoutStyles.extracted9}
         />
       </Td>
       <Td>
@@ -457,14 +441,14 @@ function AuditRow({ row, deleting, onDelete, selected, onToggleSelected }) {
       </Td>
       <Td>
         <div style={strongText}>{row.role || "-"}</div>
-        <div style={pillLine}>
+        <div className={layoutStyles.extracted10}>
           <SmallPill good={row.appAccess?.user}>User</SmallPill>
           <SmallPill good={row.appAccess?.service}>Service</SmallPill>
         </div>
         <div style={mutedText}>Default: {row.defaultWorkspace || "-"}</div>
       </Td>
       <Td>
-        <div style={pillLine}>
+        <div className={layoutStyles.extracted11}>
           <SmallPill good={row.phoneVerified}>Phone</SmallPill>
           <SmallPill good={row.mfaEnabled}>MFA</SmallPill>
           {row.mfaResetRequired ? <SmallPill good={false}>Reset</SmallPill> : null}
@@ -473,7 +457,7 @@ function AuditRow({ row, deleting, onDelete, selected, onToggleSelected }) {
         <div style={mutedText}>{row.mfaEnrolledAt ? formatDateTime(row.mfaEnrolledAt) : "No MFA date"}</div>
       </Td>
       <Td>
-        <div style={pillLine}>
+        <div className={layoutStyles.extracted12}>
           <SmallPill good={row.privateMfaSecretPresent}>Private</SmallPill>
           <SmallPill good={!row.legacyMfaSecretPresent}>Legacy</SmallPill>
         </div>
@@ -486,7 +470,7 @@ function AuditRow({ row, deleting, onDelete, selected, onToggleSelected }) {
       </Td>
       <Td>
         {row.issues?.length ? (
-          <div style={issueList}>
+          <div className={layoutStyles.extracted13}>
             {row.issues.map((issue) => (
               <span key={issue} style={issuePill}>{issue}</span>
             ))}
@@ -548,7 +532,7 @@ function SmallPill({ good, children }) {
         ...smallPill,
         background: good ? UI.okSoft : UI.warnSoft,
         color: good ? UI.ok : UI.warn,
-        borderColor: good ? "var(--legacy-color-bbf7d0)" : "var(--legacy-color-fed7aa)",
+        borderColor: good ? "var(--color-success-border)" : "var(--color-warning-border)",
       }}
     >
       {children}
@@ -805,7 +789,7 @@ const thStyle = {
   textAlign: "left",
   padding: "9px 10px",
   borderBottom: UI.border,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   color: UI.muted,
   fontSize: 12,
   fontWeight: 900,
@@ -894,7 +878,7 @@ const issueList = {
 const issuePill = {
   padding: "4px 7px",
   borderRadius: 999,
-  border: "1px solid var(--legacy-color-fed7aa)",
+  border: "1px solid var(--color-warning-border)",
   background: UI.warnSoft,
   color: UI.warn,
   fontSize: 12,
@@ -920,7 +904,7 @@ const deleteButton = {
   gap: 5,
   padding: "6px 8px",
   borderRadius: UI.radius,
-  border: "1px solid var(--legacy-color-fecaca)",
+  border: "1px solid var(--color-danger-border)",
   background: UI.dangerSoft,
   color: UI.danger,
   fontSize: 12,
@@ -930,7 +914,7 @@ const deleteButton = {
 };
 
 const deleteButtonDisabled = {
-  borderColor: UI.border,
+  borderColor: "var(--color-border)",
   background: UI.neutralSoft,
   color: UI.muted,
   cursor: "not-allowed",
@@ -939,7 +923,7 @@ const deleteButtonDisabled = {
 const errorBox = {
   marginTop: 12,
   padding: 12,
-  border: "1px solid var(--legacy-color-fecaca)",
+  border: "1px solid var(--color-danger-border)",
   borderRadius: UI.radius,
   background: UI.dangerSoft,
   color: UI.danger,
@@ -949,7 +933,7 @@ const errorBox = {
 const noticeBox = {
   marginTop: 12,
   padding: 12,
-  border: "1px solid var(--legacy-color-bbf7d0)",
+  border: "1px solid var(--color-success-border)",
   borderRadius: UI.radius,
   background: UI.okSoft,
   color: UI.ok,

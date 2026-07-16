@@ -1,0 +1,88 @@
+.headerActions { display: grid; gap: var(--space-2); justify-items: end; }
+.headerControls { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+.windowControl { display: inline-flex; align-items: center; gap: var(--space-1); padding: 3px; background: var(--color-surface-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-pill); }
+.windowLabel { display: inline-flex; align-items: center; gap: var(--space-1); padding-inline: var(--space-2); color: var(--color-text-muted); font-size: var(--font-size-xs); font-weight: 800; }
+.windowButton { min-width: 38px; min-height: 30px; padding: 0 var(--space-2); color: var(--color-text-muted); background: transparent; border: 0; border-radius: var(--radius-pill); font-size: var(--font-size-xs); font-weight: 800; }
+.windowButton:hover { color: var(--color-brand); background: var(--color-brand-soft); }
+.windowButtonActive, .windowButtonActive:hover { color: var(--color-white); background: var(--color-brand); }
+.updated { color: var(--color-text-muted); font-size: var(--font-size-xs); }
+.statusAlert { margin-bottom: var(--space-4); }
+.retryRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.kpiGrid, .skeletonGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.kpi, .skeletonCard { min-width: 0; padding: var(--space-3); }
+.kpiValue { display: block; color: var(--color-text); font-size: 1.65rem; font-weight: 900; line-height: 1; }
+.kpiLabel { display: block; margin-top: var(--space-2); overflow: hidden; color: var(--color-text-muted); font-size: var(--font-size-xs); font-weight: 800; letter-spacing: .04em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.primaryGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, .82fr); gap: var(--space-4); align-items: start; }
+.secondaryGrid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, .75fr); gap: var(--space-4); margin-top: var(--space-4); align-items: start; }
+.sideRail { display: grid; gap: var(--space-4); }
+.panel { min-width: 0; padding: var(--space-3); }
+.panelHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.panelHeading { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.iconBox { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; flex: 0 0 auto; color: var(--color-brand); background: var(--color-brand-soft); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); }
+.panelTitle { margin: 0; color: var(--color-text); font-size: var(--font-size-lg); font-weight: 900; line-height: var(--line-height-tight); }
+.panelDescription { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--font-size-xs); line-height: 1.4; }
+.panelActions { display: flex; align-items: center; gap: var(--space-2); flex: 0 0 auto; }
+.textLink { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-brand); font-size: var(--font-size-xs); font-weight: 800; }
+.textLink:hover { text-decoration: underline; }
+.calendarWrap { min-width: 0; overflow: hidden; }
+.calendarWrap :global(.fc) { font-size: var(--font-size-xs); }
+.calendarWrap :global(.fc .fc-toolbar) { gap: var(--space-2); margin-bottom: var(--space-2); }
+.calendarWrap :global(.fc .fc-toolbar-title) { font-size: var(--font-size-lg); font-weight: 900; }
+.calendarWrap :global(.fc .fc-button) { padding: 5px 8px; font-size: var(--font-size-xs); font-weight: 800; }
+.calendarWrap :global(.fc .fc-daygrid-day-frame) { min-height: 68px; }
+.calendarWrap :global(.fc .fc-event) { border-radius: var(--radius-sm); padding: 1px 3px; font-size: 11px; }
+.legend { display: flex; gap: var(--space-3); margin-top: var(--space-3); flex-wrap: wrap; }
+.legendItem { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-text-muted); font-size: var(--font-size-xs); font-weight: 700; }
+.legendSwatch { width: 12px; height: 12px; border: 1px solid var(--color-border-strong); border-radius: 3px; }
+.queueList { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.queueButton { width: 100%; padding: var(--space-3); text-align: left; color: var(--color-text); background: var(--color-surface-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.queueButton:hover { background: var(--color-brand-soft); border-color: var(--color-brand-border); }
+.queueTopline { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.queueMeta { color: var(--color-text-muted); font-size: var(--font-size-xs); font-weight: 800; }
+.queueClient { display: block; margin-top: var(--space-1); font-size: var(--font-size-sm); }
+.queueBadge { margin-top: var(--space-2); }
+.emptyCompact { min-height: 116px; padding: var(--space-4); }
+.conflictDetail { display: block; margin-top: var(--space-1); color: var(--color-text-muted); font-size: var(--font-size-xs); line-height: 1.4; }
+.attentionSummary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.attentionLink { display: grid; gap: var(--space-1); padding: var(--space-3); background: var(--color-danger-soft); border: 1px solid var(--color-danger-border); border-radius: var(--radius-md); }
+.attentionValue { color: var(--color-danger); font-size: 1.25rem; font-weight: 900; line-height: 1; }
+.attentionLabel { color: var(--color-danger); font-size: var(--font-size-xs); font-weight: 800; }
+.tableButton { width: 100%; padding: 0; text-align: left; color: var(--color-brand); background: transparent; border: 0; font-weight: 900; }
+.tableButton:hover { text-decoration: underline; }
+.nowrap { white-space: nowrap; }
+.fleetGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.fleetBucket { padding: var(--space-3); background: var(--color-surface-subtle); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.fleetHeader { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); }
+.fleetTitle { margin: 0; font-size: var(--font-size-sm); font-weight: 900; }
+.fleetList { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.fleetButton { width: 100%; padding: var(--space-2); text-align: left; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.fleetButton:hover { border-color: var(--color-brand-border); box-shadow: var(--shadow-sm); }
+.fleetName { display: block; color: var(--color-text); font-size: var(--font-size-sm); font-weight: 800; }
+.fleetDate { display: block; margin-top: 2px; color: var(--color-text-muted); font-size: var(--font-size-xs); }
+.emptyText { margin: 0; color: var(--color-text-muted); font-size: var(--font-size-xs); }
+.quickLinks { display: flex; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+  .primaryGrid, .secondaryGrid { grid-template-columns: 1fr; }
+  .sideRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sideRail > :last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .headerActions { width: 100%; justify-items: stretch; }
+  .headerControls { justify-content: flex-start; }
+  .windowControl { width: 100%; justify-content: space-between; }
+  .kpiGrid, .skeletonGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:first-child, .skeletonCard:first-child { grid-column: 1 / -1; }
+  .sideRail, .fleetGrid { grid-template-columns: 1fr; }
+  .sideRail > :last-child { grid-column: auto; }
+  .calendarWrap { overflow-x: auto; }
+  .calendarWrap :global(.fc) { min-width: 620px; }
+  .calendarWrap :global(.fc .fc-toolbar) { align-items: flex-start; flex-direction: column; }
+  .panelHeader { align-items: stretch; flex-direction: column; }
+  .panelActions { justify-content: space-between; }
+}
+@media (max-width: 520px) {
+  .headerControls > :last-child { width: 100%; }
+  .attentionSummary { grid-template-columns: 1fr; }
+  .quickLinks { display: grid; grid-template-columns: 1fr 1fr; }
+}

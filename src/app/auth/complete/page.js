@@ -46,6 +46,6 @@ export default function CompleteClerkLoginPage() {
 }
 
 const styles = {
-  page: { minHeight: "100vh", display: "grid", placeItems: "center", alignContent: "center", gap: 14, background: "var(--legacy-color-0d0d0d)", color: "var(--color-white)", fontFamily: "Arial, sans-serif" },
-  spinner: { width: 34, height: 34, border: "3px solid var(--legacy-color-374151)", borderTopColor: "var(--legacy-color-ef4444)", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
+  page: { minHeight: "100vh", display: "grid", placeItems: "center", alignContent: "center", gap: 14, background: "var(--shell-sidebar-bg)", color: "var(--color-surface)", fontFamily: "Arial, sans-serif" },
+  spinner: { width: 34, height: 34, border: "3px solid var(--color-text-muted)", borderTopColor: "var(--color-danger)", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
 };

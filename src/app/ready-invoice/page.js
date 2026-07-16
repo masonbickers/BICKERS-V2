@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { onSnapshot } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
@@ -106,12 +107,12 @@ export default function ReadyToInvoicePage() {
   /* ---------- styles ---------- */
   const cardStyle = {
     display: "block",
-    backgroundColor: "var(--legacy-color-f3f4f6)",
-    border: "1px solid var(--legacy-color-d1d5db)",
+    backgroundColor: "var(--color-canvas)",
+    border: "1px solid var(--color-border)",
     borderRadius: "12px",
     padding: "16px",
     textDecoration: "none",
-    color: "var(--legacy-color-000)",
+    color: "var(--color-text)",
   };
 
   const badge = {
@@ -121,18 +122,18 @@ export default function ReadyToInvoicePage() {
     borderRadius: 999,
     fontWeight: 700,
     marginLeft: 8,
-    border: "1px solid var(--legacy-color-bfdbfe)",
-    background: "var(--legacy-color-dbeafe)",
-    color: "var(--legacy-color-2563eb)",
+    border: "1px solid var(--color-info-border)",
+    background: "var(--color-brand-soft)",
+    color: "var(--color-brand)",
   };
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ padding: "40px 24px" }}>
-        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 10 }}>
+      <div className={layoutStyles.extracted1}>
+        <h1 className={layoutStyles.extracted2}>
           Ready to Invoice
         </h1>
-        <div style={{ color: "var(--legacy-color-6b7280)", marginBottom: 24 }}>
+        <div className={layoutStyles.extracted3}>
           Showing jobs with status <strong>“Ready to Invoice”</strong>. Invoiced/Paid are hidden.
         </div>
 
@@ -140,42 +141,38 @@ export default function ReadyToInvoicePage() {
           <p>No jobs ready for invoicing.</p>
         ) : (
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-              gap: "20px",
-            }}
+            className={layoutStyles.extracted4}
           >
             {readyJobs.map((job) => (
               <Link key={job.id} href={`/invoice/${job.id}`} style={cardStyle}>
-                <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 10 }}>
+                <div className={layoutStyles.extracted5}>
                   Job #{job.jobNumber || job.id}
                   <span style={badge}>Ready to Invoice</span>
                 </div>
-                <div style={{ fontSize: 13 }}>
+                <div className={layoutStyles.extracted6}>
                   <div><strong>Client:</strong> {job.client || "—"}</div>
                   <div><strong>Location:</strong> {job.location || "—"}</div>
                   <div><strong>Dates:</strong> {renderDates(job)}</div>
 
                   {Array.isArray(job.vehicles) && job.vehicles.length > 0 && (
-                    <div style={{ marginTop: 6 }}>
+                    <div className={layoutStyles.extracted7}>
                       <strong>Vehicles:</strong> {job.vehicles.join(", ")}
                     </div>
                   )}
                   {Array.isArray(job.employees) && job.employees.length > 0 && (
-                    <div style={{ marginTop: 6 }}>
+                    <div className={layoutStyles.extracted8}>
                       <strong>Team:</strong> {job.employees.join(", ")}
                     </div>
                   )}
                   {Array.isArray(job.equipment) && job.equipment.length > 0 && (
-                    <div style={{ marginTop: 6 }}>
+                    <div className={layoutStyles.extracted9}>
                       <strong>Equipment:</strong> {job.equipment.join(", ")}
                     </div>
                   )}
-                  <div style={{ marginTop: 6 }}>
+                  <div className={layoutStyles.extracted10}>
                     <strong>Notes:</strong>{" "}
                     {job.notes ? (
-                      <div style={{ whiteSpace: "pre-line" }}>{job.notes}</div>
+                      <div className={layoutStyles.extracted11}>{job.notes}</div>
                     ) : (
                       "—"
                     )}

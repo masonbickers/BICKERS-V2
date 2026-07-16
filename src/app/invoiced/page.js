@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { onSnapshot } from "firebase/firestore";
@@ -12,30 +13,18 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────────────────────────────────
    Mini design system (matching your page)
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  bg: "var(--legacy-color-f8fafc)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-64748b)",
-  brand: "var(--legacy-color-1d4ed8)",
-  brandSoft: "var(--legacy-color-eff6ff)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 12 };
-const h1 = { color: "var(--legacy-color-0f172a)", fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
+const h1 = { color: "var(--color-text)", fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
 const sub = { color: UI.muted, fontSize: 13 };
-const surface = { background: "var(--legacy-color-ffffff)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const surface = { background: "var(--color-surface)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const toolbar = {
   ...surface,
@@ -55,22 +44,22 @@ const searchInput = {
   width: "100%",
   padding: "10px 44px 10px 36px",
   borderRadius: UI.radiusSm,
-  border: "1px solid var(--legacy-color-d1d5db)",
+  border: "1px solid var(--color-border)",
   fontSize: 14,
   outline: "none",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 const searchIcon = { position: "absolute", left: 10, width: 18, height: 18, opacity: 0.6 };
 
-const select = { padding: "8px 10px", borderRadius: UI.radiusSm, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", fontSize: 13, minWidth: 140 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: "var(--legacy-color-0f172a)", fontSize: 12, fontWeight: 700 };
+const select = { padding: "8px 10px", borderRadius: UI.radiusSm, border: "1px solid var(--color-border)", background: "var(--color-surface)", fontSize: 13, minWidth: 140 };
+const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--color-surface-hover)", color: "var(--shell-sidebar-bg)", fontSize: 12, fontWeight: 700 };
 
 const sectionHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", margin: "22px 2px 12px" };
-const weekTitle = { fontSize: 15, fontWeight: 900, color: "var(--legacy-color-0f172a)", letterSpacing: "-0.01em" };
+const weekTitle = { fontSize: 15, fontWeight: 900, color: "var(--color-text)", letterSpacing: "-0.01em" };
 const tinyHint = { color: UI.muted, fontSize: 12 };
 
 /* Table styles (match) */
-const tableWrap = { overflow: "auto", border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 12, background: "var(--legacy-color-fff)" };
+const tableWrap = { overflow: "auto", border: "1px solid var(--color-border)", borderRadius: 12, background: "var(--color-surface)" };
 const tableEl = {
   width: "100%",
   tableLayout: "fixed", //  lock column widths so everything lines up
@@ -78,10 +67,10 @@ const tableEl = {
   borderSpacing: 0,
   fontSize: 13.5,
 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-e5e7eb)", position: "sticky", top: 0, background: "var(--legacy-color-f8fafc)", zIndex: 1 };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--color-border)", position: "sticky", top: 0, background: "var(--color-surface-subtle)", zIndex: 1 };
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "top",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -177,25 +166,25 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
+      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
     case "Invoiced":
-      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
+      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
     case "Paid":
-      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
+      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
     case "Action Required":
-      return { bg: "var(--legacy-color-fee2e2)", border: "var(--legacy-color-fecaca)", text: "var(--legacy-color-991b1b)" };
+      return { bg: "var(--color-accent-soft)", border: "var(--color-danger-border)", text: "var(--color-danger)" };
     case "Complete":
-      return { bg: "var(--legacy-color-97f59bff)", border: "var(--legacy-color-419e50ff)", text: "var(--legacy-color-10301aff)" };
+      return { bg: "var(--color-success-border)", border: "var(--color-success-accent)", text: "var(--color-text)" };
     case "Confirmed":
-      return { bg: "var(--legacy-color-fffd98ff)", border: "var(--legacy-color-c7d134ff)", text: "var(--legacy-color-504c1aff)" };
+      return { bg: "var(--color-warning-border)", border: "var(--color-success-accent)", text: "var(--color-danger-hover)" };
     case "First Pencil":
-      return { bg: "var(--legacy-color-78b8ecff)", border: "var(--legacy-color-2c28ffff)", text: "var(--legacy-color-001affff)" };
+      return { bg: "var(--shell-muted)", border: "var(--color-info)", text: "var(--color-info)" };
     case "Second Pencil":
-      return { bg: "var(--legacy-color-fd9a9aff)", border: "var(--legacy-color-f33131ff)", text: "var(--legacy-color-8b1212ff)" };
+      return { bg: "var(--color-warning-border)", border: "var(--color-warning)", text: "var(--color-danger)" };
     case "TBC":
-      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
+      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
     default:
-      return { bg: "var(--legacy-color-acacacff)", border: "var(--legacy-color-3f3f3fff)", text: "var(--legacy-color-000000ff)" };
+      return { bg: "var(--shell-muted)", border: "var(--color-brand-hover)", text: "var(--color-text)" };
   }
 };
 
@@ -358,8 +347,8 @@ export default function InvoicedTablePage() {
 const COLS = ["90px", "180px", "160px", "140px", "120px", "220px", "140px", "90px"];
 
 const Table = ({ jobs }) => (
-  <div style={tableWrap}>
-    <table style={tableEl} aria-label="Paid jobs">
+  <div className={layoutStyles.extracted1}>
+    <table className={layoutStyles.extracted2} aria-label="Paid jobs">
       <colgroup>
         {COLS.map((w, i) => (
           <col key={i} style={{ width: w }} />
@@ -368,21 +357,21 @@ const Table = ({ jobs }) => (
 
       <thead>
         <tr>
-          <th style={th}>Job #</th>
-          <th style={th}>Client</th>
-          <th style={th}>Location</th>
-          <th style={th}>Dates</th>
-          <th style={th}>Employees</th>
-          <th style={th}>Vehicles</th>
-          <th style={th}>Status</th>
-          <th style={th}>Action</th>
+          <th className={layoutStyles.extracted3}>Job #</th>
+          <th className={layoutStyles.extracted4}>Client</th>
+          <th className={layoutStyles.extracted5}>Location</th>
+          <th className={layoutStyles.extracted6}>Dates</th>
+          <th className={layoutStyles.extracted7}>Employees</th>
+          <th className={layoutStyles.extracted8}>Vehicles</th>
+          <th className={layoutStyles.extracted9}>Status</th>
+          <th className={layoutStyles.extracted10}>Action</th>
         </tr>
       </thead>
 
       <tbody>
         {jobs.map((job) => (
           <tr key={job.id}>
-            <td style={{ ...td, whiteSpace: "nowrap" }}>
+            <td className={layoutStyles.extracted11}>
               <Link
                 href={`/job-numbers/${job.id}`}
                 style={{ fontWeight: 800, textDecoration: "none", color: UI.text }}
@@ -391,25 +380,25 @@ const Table = ({ jobs }) => (
               </Link>
             </td>
 
-            <td style={td} title={job.client || ""}>{job.client || "—"}</td>
-            <td style={td} title={job.location || ""}>{job.location || "—"}</td>
-            <td style={td}>{dateRangeLabel(job)}</td>
+            <td className={layoutStyles.extracted12} title={job.client || ""}>{job.client || "—"}</td>
+            <td className={layoutStyles.extracted13} title={job.location || ""}>{job.location || "—"}</td>
+            <td className={layoutStyles.extracted14}>{dateRangeLabel(job)}</td>
 
-            <td style={td} title={crewInitials(job.employees) === "—" ? "" : crewInitials(job.employees)}>
+            <td className={layoutStyles.extracted15} title={crewInitials(job.employees) === "—" ? "" : crewInitials(job.employees)}>
               {crewInitials(job.employees)}
             </td>
 
-            <td style={td} title={vehiclesList(job.vehicles) === "—" ? "" : vehiclesList(job.vehicles)}>
+            <td className={layoutStyles.extracted16} title={vehiclesList(job.vehicles) === "—" ? "" : vehiclesList(job.vehicles)}>
               {vehiclesList(job.vehicles)}
             </td>
 
-            <td style={{ ...td, whiteSpace: "nowrap" }}>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <td className={layoutStyles.extracted17}>
+              <div className={layoutStyles.extracted18}>
                 <StatusCell raw={job.status || "Paid"} />
               </div>
             </td>
 
-            <td style={{ ...td, whiteSpace: "nowrap" }}>
+            <td className={layoutStyles.extracted19}>
               <Link
                 href={`/job-numbers/${job.id}`}
                 style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}
@@ -429,20 +418,20 @@ const Table = ({ jobs }) => (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted20}>
           <div>
-            <h1 style={h1}>Invoiced</h1>
+            <h1 className={layoutStyles.extracted21}>Invoiced</h1>
             <div style={sub}>
               Jobs marked <strong>Invoiced</strong> and not yet paid. Grouped by the week they were invoiced (fallback: first booking date).
             </div>
           </div>
-          <div style={{ ...chip }}>{loading ? "Loading…" : `${filtered.length} shown`}</div>
+          <div className={layoutStyles.extracted22}>{loading ? "Loading…" : `${filtered.length} shown`}</div>
         </div>
 
         {/* Toolbar (search + client filter) */}
         <div style={toolbar}>
-          <div style={searchWrap} title="Press / to focus">
-            <svg viewBox="0 0 24 24" fill="none" style={searchIcon} aria-hidden>
+          <div className={layoutStyles.extracted23} title="Press / to focus">
+            <svg viewBox="0 0 24 24" fill="none" className={layoutStyles.extracted24} aria-hidden>
               <path
                 d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
                 stroke="currentColor"
@@ -476,7 +465,7 @@ const Table = ({ jobs }) => (
         </div>
 
         {/* Content grouped by week */}
-        <div style={{ marginTop: 14 }}>
+        <div className={layoutStyles.extracted25}>
           {loading ? (
             <div style={{ ...surface, padding: 24, textAlign: "center", color: UI.muted }}>Loading jobs…</div>
           ) : weekKeys.length === 0 && (noDate?.length ?? 0) === 0 ? (
@@ -487,9 +476,9 @@ const Table = ({ jobs }) => (
                 const monday = new Date(Number(mondayTS));
                 const jobs = weekGroups[mondayTS] || [];
                 return (
-                  <section key={mondayTS} style={{ marginBottom: 28 }}>
-                    <div style={sectionHeader}>
-                      <h2 style={weekTitle}>
+                  <section key={mondayTS} className={layoutStyles.extracted26}>
+                    <div className={layoutStyles.extracted27}>
+                      <h2 className={layoutStyles.extracted28}>
                         {formatWeekRange(monday)} ({jobs.length})
                       </h2>
                       <span style={tinyHint}>
@@ -504,9 +493,9 @@ const Table = ({ jobs }) => (
               })}
 
               {(noDate?.length ?? 0) > 0 && (
-                <section style={{ marginTop: 8 }}>
-                  <div style={sectionHeader}>
-                    <h2 style={weekTitle}>No Dates ({noDate.length})</h2>
+                <section className={layoutStyles.extracted29}>
+                  <div className={layoutStyles.extracted30}>
+                    <h2 className={layoutStyles.extracted31}>No Dates ({noDate.length})</h2>
                     <span style={tinyHint}>Jobs missing invoicedAt and booking dates</span>
                   </div>
                   <Table jobs={noDate} />

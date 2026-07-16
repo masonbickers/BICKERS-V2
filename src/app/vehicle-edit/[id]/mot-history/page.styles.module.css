@@ -1,0 +1,39 @@
+
+
+.extracted1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.extracted2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.extracted3 {
+  display: grid;
+  gap: 10px;
+}
+
+.extracted4 {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.extracted5 {
+  font-weight: 950;
+  margin-bottom: 5px;
+}
+
+.extracted6 {
+  font-weight: 950;
+  margin-bottom: 5px;
+}

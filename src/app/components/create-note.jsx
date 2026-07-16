@@ -1,6 +1,7 @@
 // src/app/components/create-note.jsx
 "use client";
 
+import layoutStyles from "./create-note.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
@@ -14,6 +15,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
@@ -149,10 +151,10 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   };
 
   return (
-    <div style={overlay}>
+    <div className={layoutStyles.extracted1}>
       <div style={modal}>
-        <div style={headerRow}>
-          <div style={titleRow}>
+        <div className={layoutStyles.extracted2}>
+          <div className={layoutStyles.extracted3}>
             <span style={iconBox}>
               <StickyNote size={18} />
             </span>
@@ -166,10 +168,10 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={form}>
-          <div style={formGrid}>
-            <div style={fieldGroup}>
-              <label style={label}>Employee</label>
+        <form onSubmit={handleSubmit} className={layoutStyles.extracted4}>
+          <div className={layoutStyles.extracted5}>
+            <div className={layoutStyles.extracted6}>
+              <label className={layoutStyles.extracted7}>Employee</label>
               <select
                 value={employee}
                 onChange={(e) => {
@@ -187,8 +189,8 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
               </select>
             </div>
 
-            <div style={fieldGroup}>
-              <label style={label}>Note Type</label>
+            <div className={layoutStyles.extracted8}>
+              <label className={layoutStyles.extracted9}>Note Type</label>
               <select
                 value={isMultiDay ? "multi" : "single"}
                 onChange={(e) => setIsMultiDay(e.target.value === "multi")}
@@ -211,12 +213,12 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
           </label>
 
           {blocksEmployeeBooking && !employee ? (
-            <div style={helpText}>Select an employee to block bookings for this note.</div>
+            <div className={layoutStyles.extracted10}>Select an employee to block bookings for this note.</div>
           ) : null}
 
           {!isMultiDay ? (
-            <div style={fieldGroup}>
-              <label style={label}>Date</label>
+            <div className={layoutStyles.extracted11}>
+              <label className={layoutStyles.extracted12}>Date</label>
               <input
                 type="date"
                 value={noteDate}
@@ -226,9 +228,9 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
               />
             </div>
           ) : (
-            <div style={formGrid}>
-              <div style={fieldGroup}>
-                <label style={label}>Start Date</label>
+            <div className={layoutStyles.extracted13}>
+              <div className={layoutStyles.extracted14}>
+                <label className={layoutStyles.extracted15}>Start Date</label>
                 <input
                   type="date"
                   value={startDate}
@@ -238,8 +240,8 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
                 />
               </div>
 
-              <div style={fieldGroup}>
-                <label style={label}>End Date</label>
+              <div className={layoutStyles.extracted16}>
+                <label className={layoutStyles.extracted17}>End Date</label>
                 <input
                   type="date"
                   value={endDate}
@@ -251,8 +253,8 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
             </div>
           )}
 
-          <div style={fieldGroup}>
-            <label style={label}>Note</label>
+          <div className={layoutStyles.extracted18}>
+            <label className={layoutStyles.extracted19}>Note</label>
             <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
@@ -263,7 +265,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
             />
           </div>
 
-          <div style={actions}>
+          <div className={layoutStyles.extracted20}>
             <button type="button" onClick={handleBack} style={secondaryBtn}>
               Cancel
             </button>
@@ -286,14 +288,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   );
 }
 
-const UI = {
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  border: "var(--legacy-color-d7dee8)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-};
+const UI = UI_TOKENS;
 
 const overlay = {
   position: "fixed",
@@ -311,7 +306,7 @@ const modal = {
   borderRadius: 8,
   padding: 14,
   color: UI.text,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   border: `1px solid ${UI.border}`,
   boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
 };
@@ -323,7 +318,7 @@ const headerRow = {
   gap: 12,
   marginBottom: 14,
   paddingBottom: 12,
-  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
+  borderBottom: "1px solid var(--color-border)",
 };
 
 const titleRow = {
@@ -368,7 +363,7 @@ const closeBtn = {
   height: 34,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-f8fbfe)",
+  background: "var(--color-surface-subtle)",
   color: UI.muted,
   cursor: "pointer",
   display: "inline-flex",
@@ -397,7 +392,7 @@ const label = {
   display: "block",
   fontSize: 12,
   fontWeight: 900,
-  color: "var(--legacy-color-475569)",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };
@@ -410,14 +405,14 @@ const checkRow = {
   fontSize: 13,
   fontWeight: 800,
   border: `1px solid ${UI.border}`,
-  background: "var(--legacy-color-f8fbfe)",
+  background: "var(--color-surface-subtle)",
   borderRadius: 8,
   padding: "9px 10px",
 };
 
 const helpText = {
   marginTop: -4,
-  color: "var(--legacy-color-991b1b)",
+  color: "var(--color-danger)",
   fontSize: 12,
   fontWeight: 700,
 };
@@ -426,8 +421,8 @@ const input = {
   width: "100%",
   padding: "10px 11px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  backgroundColor: "var(--legacy-color-ffffff)",
+  border: "1px solid var(--color-border-strong)",
+  backgroundColor: "var(--color-surface)",
   color: UI.text,
   outline: "none",
   fontSize: 14,
@@ -444,8 +439,8 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-  color: "var(--legacy-color-fff)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 13,
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
@@ -459,7 +454,7 @@ const secondaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   fontWeight: 800,
   fontSize: 13,

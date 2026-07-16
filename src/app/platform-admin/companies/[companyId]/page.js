@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -139,19 +140,19 @@ export default function PlatformCompanyDetailPage() {
       {!company && !loading ? (
         <div style={ui.card}>Company not found.</div>
       ) : (
-        <div style={pageGrid}>
+        <div className={layoutStyles.extracted1}>
           <div style={summaryBar}>
             <div>
-              <div style={smallCaps}>Company ID</div>
+              <div className={layoutStyles.extracted2}>Company ID</div>
               <strong>{companyId}</strong>
             </div>
             <Pill tone={statusTone(draft.status)}>{draft.status}</Pill>
             <div>
-              <div style={smallCaps}>Users</div>
+              <div className={layoutStyles.extracted3}>Users</div>
               <strong>{companyUsers.length} / {draft.maxUsers || "-"}</strong>
             </div>
             <div>
-              <div style={smallCaps}>Updated</div>
+              <div className={layoutStyles.extracted4}>Updated</div>
               <strong>{formatDate(draft.updatedAt)}</strong>
             </div>
             <Link href="/platform-admin/companies" style={{ ...ui.button, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
@@ -159,7 +160,7 @@ export default function PlatformCompanyDetailPage() {
             </Link>
           </div>
 
-          <div style={tabRow}>
+          <div className={layoutStyles.extracted5}>
             {tabs.map((item) => (
               <button key={item} type="button" onClick={() => setTab(item)} style={{ ...ui.button, ...(tab === item ? activeTab : null) }}>
                 {item[0].toUpperCase() + item.slice(1)}
@@ -176,7 +177,7 @@ export default function PlatformCompanyDetailPage() {
 
           <div style={saveBar}>
             <button type="button" onClick={load} disabled={loading || saving} style={ui.button}>Reset</button>
-            <button type="button" onClick={saveCompany} disabled={saving || loading || !company} style={primaryButton}>
+            <button type="button" onClick={saveCompany} disabled={saving || loading || !company} className={layoutStyles.extracted6}>
               {saving ? "Saving..." : "Save changes"}
             </button>
           </div>
@@ -188,7 +189,7 @@ export default function PlatformCompanyDetailPage() {
 
 function GeneralTab({ draft, users, onPatch }) {
   return (
-    <div style={formGrid}>
+    <div className={layoutStyles.extracted7}>
       <Field label="Company ID">
         <input value={draft.id || ""} disabled style={ui.input} />
       </Field>
@@ -224,7 +225,7 @@ function GeneralTab({ draft, users, onPatch }) {
 
 function ModulesTab({ draft, onPatch }) {
   return (
-    <div style={toggleGrid}>
+    <div className={layoutStyles.extracted8}>
       {moduleLabels.map(([key, label]) => (
         <ToggleRow key={key} label={label} checked={draft.modules?.[key] === true} onChange={(checked) => onPatch(["modules", key], checked)} />
       ))}
@@ -234,7 +235,7 @@ function ModulesTab({ draft, onPatch }) {
 
 function SecurityTab({ draft, onPatch }) {
   return (
-    <div style={securityGrid}>
+    <div className={layoutStyles.extracted9}>
       {securityLabels.map(([key, label]) => (
         <ToggleRow key={key} label={label} checked={draft.security?.[key] === true} onChange={(checked) => onPatch(["security", key], checked)} />
       ))}
@@ -247,7 +248,7 @@ function SecurityTab({ draft, onPatch }) {
 
 function LimitsTab({ draft, users, onPatch }) {
   return (
-    <div style={formGrid}>
+    <div className={layoutStyles.extracted10}>
       <Field label="User limit">
         <input type="number" min="1" max="5000" value={draft.maxUsers || 25} onChange={(event) => onPatch(["maxUsers"], event.target.value)} style={ui.input} />
       </Field>
@@ -264,7 +265,7 @@ function LimitsTab({ draft, users, onPatch }) {
 
 function Field({ label, children }) {
   return (
-    <label style={fieldStyle}>
+    <label className={layoutStyles.extracted11}>
       <span>{label}</span>
       {children}
     </label>
@@ -273,17 +274,17 @@ function Field({ label, children }) {
 
 function ToggleRow({ label, checked, onChange }) {
   return (
-    <label style={toggleRow}>
+    <label className={layoutStyles.extracted12}>
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "var(--legacy-color-0369a1)" }} />
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className={layoutStyles.extracted13} />
     </label>
   );
 }
 
 function InfoCard({ label, value }) {
   return (
-    <div style={infoCard}>
-      <div style={smallCaps}>{label}</div>
+    <div className={layoutStyles.extracted14}>
+      <div className={layoutStyles.extracted15}>{label}</div>
       <strong>{value || "-"}</strong>
     </div>
   );
@@ -298,13 +299,13 @@ const summaryBar = {
   flexWrap: "wrap",
 };
 const smallCaps = {
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
   fontWeight: 900,
   textTransform: "uppercase",
 };
 const tabRow = { display: "flex", gap: 8, flexWrap: "wrap" };
-const activeTab = { borderColor: "var(--legacy-color-0369a1)", background: "var(--legacy-color-f0f9ff)", color: "var(--legacy-color-0369a1)" };
+const activeTab = { borderColor: "var(--color-info)", background: "var(--color-info-soft)", color: "var(--color-info)" };
 const formGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -323,7 +324,7 @@ const toggleGrid = {
 const fieldStyle = {
   display: "grid",
   gap: 6,
-  color: "var(--legacy-color-64748b)",
+  color: "var(--color-text-muted)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -336,21 +337,21 @@ const textareaStyle = {
   fontFamily: "Arial, sans-serif",
 };
 const toggleRow = {
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   padding: "10px 12px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   gap: 8,
-  color: "var(--legacy-color-0f172a)",
+  color: "var(--color-text)",
   fontWeight: 850,
 };
 const infoCard = {
-  border: "1px solid var(--legacy-color-e2e8f0)",
+  border: "1px solid var(--color-border)",
   borderRadius: 8,
-  background: "var(--legacy-color-f8fafc)",
+  background: "var(--color-surface-subtle)",
   padding: "10px 12px",
   display: "grid",
   gap: 6,
@@ -364,27 +365,27 @@ const saveBar = {
 };
 const primaryButton = {
   height: 36,
-  border: "1px solid var(--legacy-color-0369a1)",
+  border: "1px solid var(--color-info)",
   borderRadius: 8,
   padding: "0 12px",
-  background: "var(--legacy-color-0369a1)",
-  color: "var(--legacy-color-fff)",
+  background: "var(--color-info)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
 };
 const noticeWarn = {
   ...ui.card,
-  borderColor: "var(--legacy-color-fed7aa)",
-  background: "var(--legacy-color-fffbeb)",
-  color: "var(--legacy-color-b45309)",
+  borderColor: "var(--color-warning-border)",
+  background: "var(--color-warning-soft)",
+  color: "var(--color-warning)",
   marginBottom: 12,
   fontWeight: 900,
 };
 const noticeOk = {
   ...ui.card,
-  borderColor: "var(--legacy-color-bbf7d0)",
-  background: "var(--legacy-color-f0fdf4)",
-  color: "var(--legacy-color-15803d)",
+  borderColor: "var(--color-success-border)",
+  background: "var(--color-success-soft)",
+  color: "var(--color-success)",
   marginBottom: 12,
   fontWeight: 900,
 };

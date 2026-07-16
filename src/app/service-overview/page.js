@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDocs } from "firebase/firestore";
@@ -27,37 +28,9 @@ import {
   resolveDataAccess,
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  okBg: "var(--legacy-color-ecfdf5)",
-  okFg: "var(--legacy-color-065f46)",
-  okBorder: "var(--legacy-color-bbf7d0)",
-  soonBg: "var(--legacy-color-fff7ed)",
-  soonFg: "var(--legacy-color-9a3412)",
-  soonBorder: "var(--legacy-color-fed7aa)",
-  overdueBg: "var(--legacy-color-fef2f2)",
-  overdueFg: "var(--legacy-color-991b1b)",
-  overdueBorder: "var(--legacy-color-fecdd3)",
-  bookedBg: "var(--legacy-color-eef2ff)",
-  bookedFg: "var(--legacy-color-3730a3)",
-  bookedBorder: "var(--legacy-color-c7d2fe)",
-  tealBg: "var(--legacy-color-f0fdfa)",
-  tealFg: "var(--legacy-color-115e59)",
-  tealBorder: "var(--legacy-color-99f6e4)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -85,9 +58,9 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
-      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
-    color: primary ? "var(--legacy-color-fff)" : UI.text,
+      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -106,7 +79,7 @@ const input = {
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   width: "100%",
   outline: "none",
@@ -114,7 +87,7 @@ const input = {
 
 const select = { ...input, width: "100%", minWidth: 190 };
 
-const pill = (bg, fg, border = "var(--legacy-color-d7dee8)") => ({
+const pill = (bg, fg, border = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -135,15 +108,15 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid var(--legacy-color-eef2f7)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   textAlign: "left",
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontWeight: 900,
 };
 const td = {
   padding: "11px 12px",
   fontSize: 13,
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
+  borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
 };
 
@@ -155,7 +128,7 @@ const actionBtn = {
   padding: "5px 8px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
@@ -198,7 +171,7 @@ function statusFromDays(diffDays) {
 function statusPillStyle(status) {
   if (status === "overdue") return pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder);
   if (status === "soon") return pill(UI.soonBg, UI.soonFg, UI.soonBorder);
-  if (status === "unknown") return pill("var(--legacy-color-f1f5f9)", UI.text);
+  if (status === "unknown") return pill("var(--color-surface-hover)", UI.text);
   return pill(UI.okBg, UI.okFg, UI.okBorder);
 }
 
@@ -521,10 +494,10 @@ export default function ServiceOverviewPage() {
   }, [serviceRecords, serviceRows]);
 
   const rowBg = (status, bookedNow) => {
-    if (bookedNow) return { background: "var(--legacy-color-f3f5ff)" };
-    if (status === "overdue") return { background: "var(--legacy-color-fff1f2)" };
-    if (status === "soon") return { background: "var(--legacy-color-fffbeb)" };
-    if (status === "ok") return { background: "var(--legacy-color-f0fdf4)" };
+    if (bookedNow) return { background: "var(--color-info-soft)" };
+    if (status === "overdue") return { background: "var(--color-danger-soft)" };
+    if (status === "soon") return { background: "var(--color-warning-soft)" };
+    if (status === "ok") return { background: "var(--color-success-soft)" };
     return {};
   };
 
@@ -533,12 +506,12 @@ export default function ServiceOverviewPage() {
       return (
         <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)} title={bookingDateLabel(v.nextBooking)}>
           {v.nextBooking.status || "Booked"}
-          <span style={{ fontWeight: 800, opacity: 0.85 }}> - {bookingDateLabel(v.nextBooking)}</span>
+          <span className={layoutStyles.extracted1}> - {bookingDateLabel(v.nextBooking)}</span>
         </span>
       );
     }
 
-    if (!v.bookedStatus) return <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Not booked</span>;
+    if (!v.bookedStatus) return <span style={pill("var(--color-surface-hover)", UI.text)}>Not booked</span>;
 
     const w = v.bookedWindow;
     const label = w?.start && w?.end
@@ -551,7 +524,7 @@ export default function ServiceOverviewPage() {
       <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)} title={label}>
         {v.bookedStatus}
         {v.bookedNow ? " now" : ""}
-        <span style={{ fontWeight: 800, opacity: 0.85 }}> - {label}</span>
+        <span className={layoutStyles.extracted2}> - {label}</span>
       </span>
     );
   };
@@ -561,7 +534,7 @@ export default function ServiceOverviewPage() {
       <style jsx global>{`
         .service-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
+        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
         .service-overview-kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -607,7 +580,7 @@ export default function ServiceOverviewPage() {
       `}</style>
 
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted3}>
           <div>
             <h1 style={title}>Service Overview</h1>
             <div style={subtitle}>
@@ -615,7 +588,7 @@ export default function ServiceOverviewPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted4}>
             <button type="button" className="service-overview-action" onClick={() => router.push("/vehicle-home")} style={btn("primary")}>
               <Truck size={15} />
               Vehicle Home
@@ -637,7 +610,7 @@ export default function ServiceOverviewPage() {
 
         <div style={{ ...card, padding: 12, marginBottom: 12 }}>
           <div className="service-overview-filter-grid">
-            <label style={{ position: "relative", display: "block" }}>
+            <label className={layoutStyles.extracted5}>
               <Search
                 size={16}
                 style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
@@ -683,18 +656,18 @@ export default function ServiceOverviewPage() {
             </button>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div className={layoutStyles.extracted6}>
             <span style={pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder)}>Overdue</span>
             <span style={pill(UI.soonBg, UI.soonFg, UI.soonBorder)}>Due Soon</span>
             <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked</span>
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
           </div>
         </div>
 
         <div className="service-overview-dashboard-grid">
           <section style={panel}>
             <SectionHeader title="Priority Service Queue" meta={priorityRows.length ? "Highest risk vehicles first" : "No urgent service work"} />
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div className={layoutStyles.extracted7}>
               {loading ? (
                 <EmptyLine>Loading service queue...</EmptyLine>
               ) : priorityRows.length ? (
@@ -718,7 +691,7 @@ export default function ServiceOverviewPage() {
 
           <section style={panel}>
             <SectionHeader title="Booked Pipeline" meta={bookedQueue.length ? "Upcoming active service bookings" : "No active service bookings"} />
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div className={layoutStyles.extracted8}>
               {loading ? (
                 <EmptyLine>Loading bookings...</EmptyLine>
               ) : bookedQueue.length ? (
@@ -742,7 +715,7 @@ export default function ServiceOverviewPage() {
 
           <section style={panel}>
             <SectionHeader title="Recent Service Activity" meta={recentActivity.length ? "Latest completed service records" : "No recent records found"} />
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div className={layoutStyles.extracted9}>
               {loading ? (
                 <EmptyLine>Loading service history...</EmptyLine>
               ) : recentActivity.length ? (
@@ -767,19 +740,19 @@ export default function ServiceOverviewPage() {
 
         <section style={{ ...card, padding: 12, marginBottom: 12 }}>
           <SectionHeader title="Fleet By Category" meta="Where service pressure is concentrated" />
-          <div className="service-overview-category-grid" style={{ marginTop: 10 }}>
+          <div className={`service-overview-category-grid ${layoutStyles.extracted10}`} >
             {categoryRows.length ? (
               categoryRows.slice(0, 8).map((row) => (
-                <div key={row.category} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--legacy-color-fff)" }}>
+                <div key={row.category} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--color-surface)" }}>
                   <div style={{ color: UI.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.category}
                   </div>
-                  <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{row.total} total</span>
+                  <div className={layoutStyles.extracted11}>
+                    <span style={pill("var(--color-surface-hover)", UI.text)}>{row.total} total</span>
                     {row.overdue ? <span style={pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder)}>{row.overdue} overdue</span> : null}
                     {row.soon ? <span style={pill(UI.soonBg, UI.soonFg, UI.soonBorder)}>{row.soon} soon</span> : null}
                     {row.booked ? <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>{row.booked} booked</span> : null}
-                    {row.missing ? <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{row.missing} missing</span> : null}
+                    {row.missing ? <span style={pill("var(--color-surface-hover)", UI.text)}>{row.missing} missing</span> : null}
                   </div>
                 </div>
               ))
@@ -790,13 +763,13 @@ export default function ServiceOverviewPage() {
         </section>
 
         <div style={tableWrap}>
-          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted12}>
             <SectionHeader title="Service Register" meta="Full vehicle service position with booking and history context" />
-            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{loading ? "Loading..." : `${filtered.length} rows`}</span>
+            <span style={pill("var(--color-surface-hover)", UI.text)}>{loading ? "Loading..." : `${filtered.length} rows`}</span>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table className="service-overview-table" style={{ width: "100%", minWidth: 1240, borderCollapse: "collapse" }}>
+          <div className={layoutStyles.extracted13}>
+            <table className={`service-overview-table ${layoutStyles.extracted14}`} >
               <thead>
                 <tr>
                   <th style={th}>Vehicle</th>
@@ -833,7 +806,7 @@ export default function ServiceOverviewPage() {
 
                     return (
                       <tr key={v.id} style={rowBg(status, v.hasServiceBooking)}>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted15}>
                           <button
                             type="button"
                             onClick={() => router.push(`/vehicle-edit/${v.id}`)}
@@ -854,22 +827,22 @@ export default function ServiceOverviewPage() {
                           <div style={{ marginTop: 2, color: UI.muted, fontSize: 12, fontWeight: 800 }}>{v.reg}</div>
                         </td>
 
-                        <td style={td}>{v.category}</td>
-                        <td style={td}>{v.nextServiceDate}</td>
-                        <td style={td}>{diff === null || diff === undefined ? "-" : diff}</td>
-                        <td style={td}>
+                        <td className={layoutStyles.extracted16}>{v.category}</td>
+                        <td className={layoutStyles.extracted17}>{v.nextServiceDate}</td>
+                        <td className={layoutStyles.extracted18}>{diff === null || diff === undefined ? "-" : diff}</td>
+                        <td className={layoutStyles.extracted19}>
                           <span style={statusPillStyle(status)}>{statusText(status)}</span>
                         </td>
-                        <td style={td}>{bookedPill(v)}</td>
-                        <td style={td}>{v.lastServiceDate}</td>
-                        <td style={td}>{v.odometer ? v.odometer.toLocaleString("en-GB") : "-"}</td>
-                        <td style={td}>
-                          <span style={pill(historyCount ? UI.tealBg : "var(--legacy-color-f1f5f9)", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "var(--legacy-color-d7dee8)")}>
+                        <td className={layoutStyles.extracted20}>{bookedPill(v)}</td>
+                        <td className={layoutStyles.extracted21}>{v.lastServiceDate}</td>
+                        <td className={layoutStyles.extracted22}>{v.odometer ? v.odometer.toLocaleString("en-GB") : "-"}</td>
+                        <td className={layoutStyles.extracted23}>
+                          <span style={pill(historyCount ? UI.tealBg : "var(--color-surface-hover)", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "var(--color-border)")}>
                             {historyCount} records
                           </span>
                         </td>
 
-                        <td style={td}>
+                        <td className={layoutStyles.extracted24}>
                           <button
                             type="button"
                             className="service-overview-action"
@@ -930,15 +903,15 @@ function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction
   const tones = {
     overdue: { bg: UI.overdueBg, fg: UI.overdueFg, border: UI.overdueBorder },
     soon: { bg: UI.soonBg, fg: UI.soonFg, border: UI.soonBorder },
-    unknown: { bg: "var(--legacy-color-f1f5f9)", fg: UI.text, border: "var(--legacy-color-d7dee8)" },
+    unknown: { bg: "var(--color-surface-hover)", fg: UI.text, border: "var(--color-border)" },
     booked: { bg: UI.bookedBg, fg: UI.bookedFg, border: UI.bookedBorder },
     ok: { bg: UI.okBg, fg: UI.okFg, border: UI.okBorder },
   };
   const style = tones[tone] || tones.unknown;
 
   return (
-    <div style={{ border: UI.border, borderRadius: UI.radiusSm, background: "var(--legacy-color-fff)", padding: 9 }}>
-      <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "flex-start" }}>
+    <div style={{ border: UI.border, borderRadius: UI.radiusSm, background: "var(--color-surface)", padding: 9 }}>
+      <div className={layoutStyles.extracted25}>
         <button
           type="button"
           onClick={onOpen}
@@ -963,7 +936,7 @@ function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction
       </div>
       <div style={{ marginTop: 5, color: UI.muted, fontSize: 12.5, lineHeight: 1.35 }}>{meta}</div>
       {onAction ? (
-        <div style={{ marginTop: 8 }}>
+        <div className={layoutStyles.extracted26}>
           <button type="button" className="service-overview-action" style={actionBtn} onClick={onAction}>
             <Wrench size={13} />
             {actionLabel}

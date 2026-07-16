@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../../firebaseConfig";
@@ -7,6 +8,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAppearance } from "@/app/components/GlobalThemeProvider";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -15,31 +17,16 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  Monitor,
+  Moon,
   PencilLine,
   ShieldCheck,
+  Sun,
   UserCog,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  successSoft: "var(--legacy-color-ecfdf5)",
-  successText: "var(--legacy-color-166534)",
-  warnSoft: "var(--legacy-color-fff7ed)",
-  warnText: "var(--legacy-color-9a3412)",
-  dangerSoft: "var(--legacy-color-fcefee)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -109,7 +96,7 @@ const btnBase = {
   fontWeight: 800,
   cursor: "pointer",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   textDecoration: "none",
   display: "inline-flex",
@@ -120,12 +107,12 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
   borderColor: UI.brand,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
 };
 const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
-const btnDanger = { ...btnBase, background: UI.dangerSoft, borderColor: "var(--legacy-color-e9c6c4)", color: "var(--legacy-color-991b1b)" };
+const btnDanger = { ...btnBase, background: UI.dangerSoft, borderColor: "var(--color-danger-border)", color: "var(--color-danger)" };
 
 const avatarWrap = {
   width: 50,
@@ -144,7 +131,7 @@ const detailCard = {
   padding: 10,
   border: UI.border,
   borderRadius: UI.radius,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   minWidth: 0,
 };
 
@@ -183,7 +170,7 @@ function statusPill(label, ok) {
     style: {
       ...chip,
       background: ok ? UI.successSoft : UI.warnSoft,
-      borderColor: ok ? "var(--legacy-color-bbf7d0)" : "var(--legacy-color-fed7aa)",
+      borderColor: ok ? "var(--color-success-border)" : "var(--color-warning-border)",
       color: ok ? UI.successText : UI.warnText,
     },
   };
@@ -191,6 +178,7 @@ function statusPill(label, ok) {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const appearance = useAppearance();
   const [userData, setUserData] = useState(null);
   const [userDocData, setUserDocData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -259,7 +247,7 @@ export default function SettingsPage() {
         <img
           src={userData.photoURL}
           alt="Profile"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          className={layoutStyles.extracted1}
         />
       );
     }
@@ -313,12 +301,12 @@ export default function SettingsPage() {
       onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+      <div className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
           <span style={iconBox}>
             <Icon size={16} />
           </span>
-          <div style={{ fontWeight: 850, fontSize: 14.5 }}>{title}</div>
+          <div className={layoutStyles.extracted4}>{title}</div>
         </div>
         <span style={chip}>{pill}</span>
       </div>
@@ -343,18 +331,18 @@ export default function SettingsPage() {
     <HeaderSidebarLayout>
       <style>{settingsCss}</style>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted5}>
           <div>
             <h1 style={h1}>Settings</h1>
             <div style={sub}>A clean view of your account, access, and security settings.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+          <div className={layoutStyles.extracted6}>
             <div style={chip}>{loading ? "Loading..." : "Account"}</div>
             {userData?.role ? (
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
+              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--color-brand-soft)", color: UI.brand }}>
                 <UserCog size={14} />
-                Role: <b style={{ marginLeft: 6 }}>{userData.role}</b>
+                Role: <b className={layoutStyles.extracted7}>{userData.role}</b>
               </div>
             ) : null}
           </div>
@@ -370,18 +358,18 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div className="settings-layout" style={grid(12)}>
-            <div className="settings-main" style={{ gridColumn: "span 7" }}>
+            <div className={`settings-main ${layoutStyles.extracted8}`} >
               <div style={card}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div className={layoutStyles.extracted9}>
+                  <div className={layoutStyles.extracted10}>
                     <div style={avatarWrap}>{avatarNode}</div>
                     <div>
-                      <div style={{ fontWeight: 900, fontSize: 16 }}>{userData.name}</div>
+                      <div className={layoutStyles.extracted11}>{userData.name}</div>
                       <div style={{ color: UI.muted, fontSize: 13 }}>{userData.email}</div>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <div className={layoutStyles.extracted12}>
                     <span style={chip}>{userData.role}</span>
                     <span
                       style={{
@@ -395,9 +383,9 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div style={{ height: 1, background: "var(--legacy-color-eef2f7)", margin: "12px 0" }} />
+                <div className={layoutStyles.extracted13} />
 
-                <div className="settings-triple" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div className={`settings-triple ${layoutStyles.extracted14}`} >
                   <div>
                     <div style={fieldLabel}>Name</div>
                     <div style={fieldValue}>{userData.name || "-"}</div>
@@ -412,7 +400,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="settings-actions" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <div className={`settings-actions ${layoutStyles.extracted15}`} >
                   <button type="button" style={btnSoft} onClick={() => router.push("/edit-profile")}>
                     <PencilLine size={14} />
                     Edit profile
@@ -432,7 +420,7 @@ export default function SettingsPage() {
                 <div style={sectionTitle}>Account Summary</div>
                 <div style={sectionSub}>A professional overview of your account, access, and protection.</div>
 
-                <div className="settings-four" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+                <div className={`settings-four ${layoutStyles.extracted16}`} >
                   {summaryStats.map((item) => {
                     const Icon = item.Icon;
                     return (
@@ -443,7 +431,7 @@ export default function SettingsPage() {
                         <span style={iconBox}>
                           <Icon size={16} />
                         </span>
-                        <div style={{ minWidth: 0 }}>
+                        <div className={layoutStyles.extracted17}>
                           <div style={fieldLabel}>{item.label}</div>
                           <div style={{ ...fieldValue, marginTop: 6 }}>{item.value}</div>
                         </div>
@@ -457,7 +445,7 @@ export default function SettingsPage() {
                 <div style={sectionTitle}>Profile Details</div>
                 <div style={sectionSub}>The information used to identify and contact you across the platform.</div>
 
-                <div className="settings-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className={`settings-two ${layoutStyles.extracted18}`} >
                   <div style={detailCard}>
                     <div style={fieldLabel}>Full name</div>
                     <div style={{ ...fieldValue, marginTop: 6 }}>{userData.displayName || userData.name || "-"}</div>
@@ -497,7 +485,7 @@ export default function SettingsPage() {
                 <div style={sectionTitle}>Access Overview</div>
                 <div style={sectionSub}>A concise view of how this account is configured inside the system.</div>
 
-                <div className="settings-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className={`settings-two ${layoutStyles.extracted19}`} >
                   <div style={detailCard}>
                     <div style={fieldLabel}>Workspace access</div>
                     <div style={{ ...fieldValue, marginTop: 6 }}>{workspaceSummary}</div>
@@ -526,9 +514,9 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="settings-side" style={{ gridColumn: "span 5" }}>
+            <div className={`settings-side ${layoutStyles.extracted20}`} >
               <div style={{ ...surface, padding: 12 }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                <div className={layoutStyles.extracted21}>
                   <div style={sectionTitle}>Quick actions</div>
                   <span style={chip}>Account</span>
                 </div>
@@ -536,7 +524,7 @@ export default function SettingsPage() {
                   Common account tasks and shortcuts to the parts of the platform you use most.
                 </div>
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div className={layoutStyles.extracted22}>
                   {actionCard("/edit-profile", "Edit profile", "Update your name, profile photo, and contact details", "Open", PencilLine)}
                   {actionCard("/change-password", "Change password", "Refresh your sign-in credentials and keep your account secure", "Open", KeyRound)}
                   {actionCard("/job-home", "Jobs Home", "Return to the main operational dashboard", "Open", LayoutDashboard)}
@@ -545,11 +533,39 @@ export default function SettingsPage() {
               </div>
 
               <div style={{ ...card, marginTop: UI.gap }}>
+                <div style={sectionTitle}>Appearance</div>
+                <div style={sectionSub}>Choose how the published company theme appears on this device.</div>
+                <div className={`settings-triple ${layoutStyles.extracted23}`} >
+                  {[
+                    ["light", "Light", Sun],
+                    ["dark", "Dark", Moon],
+                    ["system", "System", Monitor],
+                  ].map(([value, label, Icon]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => appearance.setModePreference(value)}
+                      disabled={value === "dark" && appearance.theme?.darkModeEnabled === false}
+                      style={{
+                        ...btnSoft,
+                        justifyContent: "center",
+                        background: appearance.modePreference === value ? "var(--color-brand-soft)" : "var(--color-surface)",
+                        borderColor: appearance.modePreference === value ? "var(--color-brand)" : "var(--color-border)",
+                        color: appearance.modePreference === value ? "var(--color-brand)" : "var(--color-text)",
+                      }}
+                    >
+                      <Icon size={14} /> {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ ...card, marginTop: UI.gap }}>
                 <div style={sectionTitle}>Security</div>
                 <div style={sectionSub}>Your current account protection and available security actions.</div>
 
-                <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className={layoutStyles.extracted24}>
+                  <div className={layoutStyles.extracted25}>
                     <span style={statusPill("Email verified", securitySummary.emailVerified).style}>
                       Email {securitySummary.emailVerified ? "verified" : "pending"}
                     </span>

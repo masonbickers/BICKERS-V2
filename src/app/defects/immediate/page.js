@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -26,26 +27,10 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* UI tokens */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -88,7 +73,7 @@ const chip = {
   padding: "5px 9px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
-  background: "var(--legacy-color-f1f5f9)",
+  background: "var(--color-surface-hover)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -102,7 +87,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -122,7 +107,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -141,9 +126,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-bbf7d0)",
-      background: "linear-gradient(180deg, var(--legacy-color-f0fdf4) 0%, var(--legacy-color-ecfdf5) 100%)",
-      color: "var(--legacy-color-065f46)",
+      border: "1px solid var(--color-success-border)",
+      background: "linear-gradient(180deg, var(--color-success-soft) 0%, var(--color-success-soft) 100%)",
+      color: "var(--color-success)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -161,9 +146,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-fecaca)",
-      background: "linear-gradient(180deg, var(--legacy-color-fff7f7) 0%, var(--legacy-color-fef2f2) 100%)",
-      color: "var(--legacy-color-991b1b)",
+      border: "1px solid var(--color-danger-border)",
+      background: "linear-gradient(180deg, var(--color-danger-soft) 0%, var(--color-danger-soft) 100%)",
+      color: "var(--color-danger)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -181,8 +166,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -205,19 +190,19 @@ const inputBase = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
-const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "12px 0 0" };
 
 /* table */
 const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden" };
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontSize: 11.5,
   letterSpacing: 0,
   textTransform: "uppercase",
@@ -236,7 +221,7 @@ const modalOverlay = {
 };
 const modalCard = {
   width: "min(92vw, 560px)",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowHover,
@@ -244,7 +229,7 @@ const modalCard = {
 };
 
 /* immediate status badges */
-const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
+const pill = (bg, fg, borderColor = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -257,11 +242,11 @@ const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
   border: `1px solid ${borderColor}`,
 });
 const maintenanceBadge = (m) => {
-  if (!m) return pill("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)", "var(--legacy-color-fecaca)"); // urgent / pending
-  if (m === "in_progress") return pill("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)", "var(--legacy-color-fed7aa)");
-  if (m === "resolved") return pill("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)", "var(--legacy-color-bbf7d0)");
-  if (m === "scheduled") return pill("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)", "var(--legacy-color-c7d2fe)");
-  return pill("var(--legacy-color-f8fafc)", "var(--legacy-color-111827)", "var(--legacy-color-e5e7eb)");
+  if (!m) return pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)"); // urgent / pending
+  if (m === "in_progress") return pill("var(--color-warning-soft)", "var(--color-warning)", "var(--color-warning-border)");
+  if (m === "resolved") return pill("var(--color-success-soft)", "var(--color-success)", "var(--color-success-border)");
+  if (m === "scheduled") return pill("var(--color-info-soft)", "var(--color-brand)", "var(--color-info-border)");
+  return pill("var(--color-surface-subtle)", "var(--color-text)", "var(--color-border)");
 };
 
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -589,7 +574,7 @@ export default function ImmediateDefectsPage() {
     <HeaderSidebarLayout>
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
+        input:focus, button:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         .defects-immediate-kpi-grid {
           display: grid;
@@ -612,7 +597,7 @@ export default function ImmediateDefectsPage() {
 
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Immediate Defects</h1>
             <div style={sub}>
@@ -620,7 +605,7 @@ export default function ImmediateDefectsPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <button type="button" className="defects-immediate-action" style={btn("ghost")} onClick={() => router.push(GENERAL_DEFECTS_PATH)}>
               <Wrench size={15} />
               General Maintenance
@@ -637,14 +622,14 @@ export default function ImmediateDefectsPage() {
 
         {/* Filters + table */}
         <section style={cardBase}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted3}>
             <div>
               <h2 style={titleMd}>Queue</h2>
               <div style={hint}>Track urgent issues, add notes, and move items into General if needed.</div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <span style={chipSoft}>Showing <b style={{ marginLeft: 6 }}>{filtered.length}</b> / {rows.length}</span>
+            <div className={layoutStyles.extracted4}>
+              <span style={chipSoft}>Showing <b className={layoutStyles.extracted5}>{filtered.length}</b> / {rows.length}</span>
               <button
                 type="button"
                 style={btn("ghost")}
@@ -659,9 +644,9 @@ export default function ImmediateDefectsPage() {
             </div>
           </div>
 
-          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--legacy-color-fff)" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--color-surface)" }}>
             <div className="defects-immediate-filter-grid">
-              <label style={{ position: "relative", display: "block" }}>
+              <label className={layoutStyles.extracted6}>
                 <Search
                   size={16}
                   style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
@@ -683,7 +668,7 @@ export default function ImmediateDefectsPage() {
               </select>
             </div>
 
-            <div style={divider} />
+            <div className={layoutStyles.extracted7} />
 
             <div
               style={{
@@ -700,12 +685,12 @@ export default function ImmediateDefectsPage() {
               <span style={maintenanceBadge("in_progress")}>In progress</span>
               <span style={maintenanceBadge("resolved")}>Resolved</span>
               <span style={maintenanceBadge("scheduled")}>Scheduled</span>
-              <span style={{ marginLeft: 6 }}>Use Start work or Resolve with a note for the audit trail.</span>
+              <span className={layoutStyles.extracted8}>Use Start work or Resolve with a note for the audit trail.</span>
             </div>
           </div>
 
           <div style={{ ...tableWrap, marginTop: 12 }}>
-            <table style={{ width: "100%", minWidth: 1120, borderCollapse: "collapse" }}>
+            <table className={layoutStyles.extracted9}>
               <thead>
                 <tr>
                   <th style={{ ...theadTh, textAlign: "left" }}>Date</th>
@@ -738,43 +723,36 @@ export default function ImmediateDefectsPage() {
                     const m = r.maintenance?.status;
 
                     return (
-                      <tr key={key} style={{ background: idx % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)" }}>
-                        <td style={thtd}>{fmtDate(r.dateISO)}</td>
+                      <tr key={key} style={{ background: idx % 2 ? "var(--color-surface)" : "var(--color-surface)" }}>
+                        <td className={layoutStyles.extracted10}>{fmtDate(r.dateISO)}</td>
 
-                        <td style={thtd}>
+                        <td className={layoutStyles.extracted11}>
                           <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicle || "-"}</div>
                           <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.jobLabel}</div>
                         </td>
 
-                        <td style={thtd} title={r.itemLabel}>
+                        <td className={layoutStyles.extracted12} title={r.itemLabel}>
                           <strong>#{r.defectIndex + 1}</strong> - {r.itemLabel}
                         </td>
 
-                        <td style={{ ...thtd, maxWidth: 420 }}>
+                        <td className={layoutStyles.extracted13}>
                           <div
-                            style={{
-                              whiteSpace: "pre-wrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              display: "-webkit-box",
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: "vertical",
-                            }}
+                            className={layoutStyles.extracted14}
                           >
                             {r.note || "-"}
                           </div>
                         </td>
 
-                        <td style={thtd}>{r.driverName || "-"}</td>
+                        <td className={layoutStyles.extracted15}>{r.driverName || "-"}</td>
 
-                        <td style={{ ...thtd, textAlign: "center" }}>
+                        <td className={layoutStyles.extracted16}>
                           <span style={{ ...chip, gap: 6, display: "inline-flex", alignItems: "center" }}>
                             <Camera size={13} />
                             {r.photos?.length ? r.photos.length : 0}
                           </span>
                         </td>
 
-                        <td style={thtd}>
+                        <td className={layoutStyles.extracted17}>
                           <span style={maintenanceBadge(m)}>{m ? m.replace(/_/g, " ").toUpperCase() : "URGENT"}</span>
                           {r.maintenance?.note ? (
                             <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
@@ -783,7 +761,7 @@ export default function ImmediateDefectsPage() {
                           ) : null}
                         </td>
 
-                        <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
+                        <td className={layoutStyles.extracted18}>
                           {r.sourceType === "vehicleCheck" ? (
                             <a
                               href={CHECK_DETAIL_PATH(r.checkId)}
@@ -840,9 +818,9 @@ export default function ImmediateDefectsPage() {
 
         {/* Notes Modal */}
         {notesModal && (
-          <div style={modalOverlay} onMouseDown={() => setNotesModal(null)}>
+          <div className={layoutStyles.extracted19} onMouseDown={() => setNotesModal(null)}>
             <div style={modalCard} onMouseDown={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+              <div className={layoutStyles.extracted20}>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>
                     {notesModal.newStatus === "in_progress" ? "Mark as In progress" : "Mark as Resolved"}
@@ -857,7 +835,7 @@ export default function ImmediateDefectsPage() {
                 </button>
               </div>
 
-              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--legacy-color-fff)" }}>
+              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--color-surface)" }}>
                 <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
                   Note (optional)
                 </div>
@@ -874,7 +852,7 @@ export default function ImmediateDefectsPage() {
                   style={{ ...inputBase, marginTop: 8, resize: "vertical" }}
                 />
 
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
+                <div className={layoutStyles.extracted21}>
                   <button type="button" style={btn("ghost")} onClick={() => setNotesModal(null)} disabled={!!savingId}>
                     Cancel
                   </button>
@@ -895,8 +873,8 @@ export default function ImmediateDefectsPage() {
       </div>
 
       <style jsx global>{`
-        table thead th { border-bottom: 1px solid var(--legacy-color-e5e7eb) !important; }
-        .defects-immediate-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
+        table thead th { border-bottom: 1px solid var(--color-border) !important; }
+        .defects-immediate-action:hover { background: var(--color-surface-subtle) !important; border-color: var(--shell-muted) !important; }
       `}</style>
     </HeaderSidebarLayout>
   );
@@ -905,14 +883,14 @@ export default function ImmediateDefectsPage() {
 function SummaryCard({ label, value, sub, tone = "default", icon: Icon = ShieldAlert }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "var(--legacy-color-991b1b)", bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)" }
+      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
       : tone === "amber"
-      ? { fg: "var(--legacy-color-9a3412)", bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)" }
+      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
       : tone === "ok"
-      ? { fg: "var(--legacy-color-065f46)", bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)" }
+      ? { fg: "var(--color-success)", bg: "var(--color-success-soft)", border: "var(--color-success-border)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--legacy-color-d7dee8)" };
+      : { fg: UI.text, bg: "var(--color-surface-subtle)", border: "var(--color-border)" };
 
   return (
     <div
@@ -925,7 +903,7 @@ function SummaryCard({ label, value, sub, tone = "default", icon: Icon = ShieldA
         ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted22}>
         <div>
           <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
             {label}

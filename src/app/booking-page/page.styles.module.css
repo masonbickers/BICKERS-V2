@@ -1,0 +1,40 @@
+
+
+.extracted1 {
+  background-color: var(--color-canvas);
+  color: var(--color-text);
+  font-family: Arial, sans-serif;
+  padding: 24px 20px 32px;
+}
+
+.extracted2 {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.extracted3 {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.extracted4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+.extracted5 {
+  background-color: var(--color-surface);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  height: 100%;
+}
+
+.extracted6 {
+  margin-bottom: 10px;
+}

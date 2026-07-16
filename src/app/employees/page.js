@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
@@ -25,25 +26,10 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* Mini design system */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-16a34a)",
-  greenSoft: "var(--legacy-color-dcfce7)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -87,7 +73,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -105,9 +91,9 @@ const btn = (kind = "primary") => {
       gap: 7,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-86efac)",
+      border: "1px solid var(--color-success-border)",
       background: UI.greenSoft,
-      color: "var(--legacy-color-065f46)",
+      color: "var(--color-success)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -123,8 +109,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -139,7 +125,7 @@ const input = {
   padding: "7px 9px",
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   fontSize: 13,
   outline: "none",
   color: UI.text,
@@ -148,7 +134,7 @@ const input = {
 const cardBase = {
   ...surface,
   padding: 12,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
@@ -191,15 +177,15 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
   flex: "0 0 auto",
 });
 
-const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)" };
+const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--color-surface)" };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
 const th = {
   textAlign: "left",
   padding: "9px 11px",
-  borderBottom: "1px solid var(--legacy-color-eef2f7)",
+  borderBottom: "1px solid var(--color-brand-soft)",
   position: "sticky",
   top: 0,
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 900,
@@ -207,7 +193,7 @@ const th = {
   fontSize: 11.5,
   textTransform: "uppercase",
 };
-const td = { padding: "9px 11px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "middle", color: UI.text };
+const td = { padding: "9px 11px", borderBottom: "1px solid var(--color-surface-hover)", verticalAlign: "middle", color: UI.text };
 
 const badge = {
   background: UI.brandSoft,
@@ -222,12 +208,12 @@ const badge = {
 
 const rowHover = `
   tr[data-row="true"]:hover td {
-    background: var(--legacy-color-fbfdff);
+    background: var(--color-surface-subtle);
   }
   input:focus, select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .employees-tools-grid,
@@ -382,13 +368,13 @@ export default function EmployeeListPage() {
 
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Employee Personnel Files</h1>
             <div style={sub}>Open each employee file to manage contact details, right-to-work, licence, emergency contacts and HR documents.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+          <div className={layoutStyles.extracted2}>
             <span style={chip}>{employees.length} employees</span>
             <button style={btn()} onClick={() => router.push("/add-employee")} type="button">
               <UserPlus size={14} /> Add employee
@@ -406,8 +392,8 @@ export default function EmployeeListPage() {
         {/* Tools row */}
         <div className="employees-tools-grid" style={toolsGrid}>
           <div style={cardBase}>
-            <div style={sectionHeader}>
-              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+            <div className={layoutStyles.extracted3}>
+              <div className={layoutStyles.extracted4}>
                 <span style={iconBox(UI.brand, UI.brandSoft)}>
                   <FileUp size={17} />
                 </span>
@@ -423,7 +409,7 @@ export default function EmployeeListPage() {
           </div>
 
           <div style={cardBase}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
+            <div className={layoutStyles.extracted5}>
               <span style={iconBox(UI.brand, UI.brandSoft)}>
                 <SlidersHorizontal size={17} />
               </span>
@@ -443,7 +429,7 @@ export default function EmployeeListPage() {
 
         {/* Employee Table */}
         <section style={{ ...cardBase, marginTop: UI.gap }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted6}>
             <div>
               <h2 style={titleMd}>Personnel File Register</h2>
               <div style={hint}>Click open file to update employment, passport, licence, emergency and document records.</div>
@@ -452,7 +438,7 @@ export default function EmployeeListPage() {
           </div>
 
           <div style={tableWrap}>
-            <table style={tableEl}>
+            <table className={layoutStyles.extracted7}>
               <thead>
                 <tr>
                   <th style={th}>Name</th>
@@ -471,14 +457,14 @@ export default function EmployeeListPage() {
                   return (
                   <tr key={employee.id} data-row="true">
                     <td style={td}>
-                      <div style={{ fontWeight: 850 }}>{employee.name || "-"}</div>
+                      <div className={layoutStyles.extracted8}>{employee.name || "-"}</div>
                     </td>
                     <td style={td}>{employee.dob || "-"}</td>
                     <td style={td}>{employee.licenceNumber || "-"}</td>
 
                     <td style={td}>
                       {Array.isArray(employee.jobTitle) && employee.jobTitle.length ? (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <div className={layoutStyles.extracted9}>
                           {employee.jobTitle.map((job, i) => (
                             <span key={i} style={badge}>
                               {job}
@@ -491,23 +477,23 @@ export default function EmployeeListPage() {
                     </td>
 
                     <td style={td}>
-                      <div style={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div className={layoutStyles.extracted10}>
                         {employee.email || "-"}
                       </div>
                     </td>
                     <td style={td}>{employee.mobile || "-"}</td>
                     <td style={td}>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ ...badge, background: personnel.hasPassport ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
+                      <div className={layoutStyles.extracted11}>
+                        <span style={{ ...badge, background: personnel.hasPassport ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                           Passport {personnel.hasPassport ? "added" : "missing"}
                         </span>
-                        <span style={{ ...badge, background: personnel.hasLicence ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
+                        <span style={{ ...badge, background: personnel.hasLicence ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                           Licence {personnel.hasLicence ? "added" : "missing"}
                         </span>
-                        <span style={{ ...badge, background: personnel.emergencyCount ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
+                        <span style={{ ...badge, background: personnel.emergencyCount ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                           Emergency {personnel.emergencyCount}
                         </span>
-                        <span style={{ ...badge, background: personnel.documentCount ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)" }}>
+                        <span style={{ ...badge, background: personnel.documentCount ? "var(--color-info-soft)" : "var(--color-surface-subtle)" }}>
                           Docs {personnel.documentCount}
                         </span>
                       </div>
@@ -541,13 +527,13 @@ function MetricCard({ label, value, icon: Icon, tone = "default" }) {
   const colors =
     tone === "soft"
       ? { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand }
-      : { bg: "var(--legacy-color-ffffff)", border: "var(--legacy-color-d7dee8)", fg: UI.brand };
+      : { bg: "var(--color-white)", border: "var(--color-border)", fg: UI.brand };
 
   return (
     <div style={{ ...surface, padding: 11, minHeight: 92, boxShadow: "none", background: colors.bg, border: `1px solid ${colors.border}` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted12}>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-        <span style={iconBox(colors.fg, "var(--legacy-color-fff)", colors.border)}>
+        <span style={iconBox(colors.fg, "var(--color-white)", colors.border)}>
           <Icon size={17} />
         </span>
       </div>
@@ -595,7 +581,7 @@ function EmployeeCSVImport({ onImportComplete, dataAccessState }) {
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+    <div className={layoutStyles.extracted13}>
       <label style={{ ...btn("ghost"), cursor: "default" }}>
         <FileUp size={14} /> Upload CSV
       </label>

@@ -1,5 +1,6 @@
 "use client";
-import { usePathname, useRouter } from "next/navigation";
+
+import layoutStyles from "./sidebar.styles.module.css";import { usePathname, useRouter } from "next/navigation";
 
 export default function Sidebar() {
   const router = useRouter();
@@ -18,28 +19,15 @@ export default function Sidebar() {
 
   return (
     <aside
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "240px",
-        height: "100vh",
-        backgroundColor: "var(--legacy-color-000)",
-        color: "var(--legacy-color-fff)",
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 1000,
-        fontFamily: "Arial, sans-serif",
-      }}
+      className={layoutStyles.extracted1}
     >
       <img
         src="/bickers-action-logo.png"
         alt="Logo"
-        style={{ width: 180, marginBottom: 40 }}
+        className={layoutStyles.extracted2}
       />
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <nav className={layoutStyles.extracted3}>
         {navItems.map(({ label, path }) => (
           <button
             key={label}
@@ -47,13 +35,13 @@ export default function Sidebar() {
             style={{
               background: "none",
               border: "none",
-              color: pathname === path ? "var(--legacy-color-4caf50)" : "var(--legacy-color-fff)",
+              color: pathname === path ? "var(--color-success-accent)" : "var(--color-white)",
               fontWeight: pathname === path ? "bold" : "normal",
               fontSize: "16px",
               textAlign: "left",
               cursor: "pointer",
               padding: "8px 0",
-              borderBottom: "1px solid var(--legacy-color-333)",
+              borderBottom: "1px solid var(--color-text)",
               width: "100%",
             }}
           >

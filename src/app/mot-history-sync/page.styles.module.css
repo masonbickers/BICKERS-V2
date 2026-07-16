@@ -1,0 +1,119 @@
+
+
+.extracted1 {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.extracted2 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.extracted4 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.extracted5 {
+  overflow-x: auto;
+}
+
+.extracted6 {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.extracted7 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted8 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted9 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted10 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted11 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted12 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted13 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted14 {
+  overflow-x: auto;
+}
+
+.extracted15 {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.extracted16 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted17 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.extracted18 {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-brand-soft);
+  font-size: 13px;
+  vertical-align: top;
+}

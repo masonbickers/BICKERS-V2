@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./platformAdminData.styles.module.css";
 import { auth } from "../../../../firebaseConfig";
 
 export const DEFAULT_COMPANY_ID = "bickers-action";
@@ -80,8 +81,8 @@ export function statusTone(status) {
 
 export const ui = {
   card: {
-    background: "var(--legacy-color-fff)",
-    border: "1px solid var(--legacy-color-d7dee8)",
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
     borderRadius: 8,
     padding: 14,
   },
@@ -91,8 +92,8 @@ export const ui = {
     gap: 12,
   },
   tableWrap: {
-    background: "var(--legacy-color-fff)",
-    border: "1px solid var(--legacy-color-d7dee8)",
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
     borderRadius: 8,
     overflow: "auto",
   },
@@ -100,40 +101,40 @@ export const ui = {
   th: {
     textAlign: "left",
     padding: "10px 12px",
-    background: "var(--legacy-color-f8fafc)",
-    color: "var(--legacy-color-64748b)",
-    borderBottom: "1px solid var(--legacy-color-d7dee8)",
+    background: "var(--color-surface-subtle)",
+    color: "var(--color-text-muted)",
+    borderBottom: "1px solid var(--color-border)",
     fontSize: 12,
     textTransform: "uppercase",
     fontWeight: 900,
   },
-  td: { padding: "11px 12px", borderBottom: "1px solid var(--legacy-color-e2e8f0)", verticalAlign: "top", fontSize: 13 },
+  td: { padding: "11px 12px", borderBottom: "1px solid var(--color-border)", verticalAlign: "top", fontSize: 13 },
   input: {
     height: 36,
-    border: "1px solid var(--legacy-color-cbd5e1)",
+    border: "1px solid var(--color-border-strong)",
     borderRadius: 8,
     padding: "0 10px",
     fontWeight: 800,
-    background: "var(--legacy-color-fff)",
-    color: "var(--legacy-color-0f172a)",
+    background: "var(--color-surface)",
+    color: "var(--color-text)",
   },
   button: {
     height: 34,
-    border: "1px solid var(--legacy-color-cbd5e1)",
+    border: "1px solid var(--color-border-strong)",
     borderRadius: 8,
     padding: "0 10px",
-    background: "var(--legacy-color-fff)",
-    color: "var(--legacy-color-0f172a)",
+    background: "var(--color-surface)",
+    color: "var(--color-text)",
     fontWeight: 900,
     cursor: "pointer",
   },
   dangerButton: {
     height: 34,
-    border: "1px solid var(--legacy-color-fecaca)",
+    border: "1px solid var(--color-danger-border)",
     borderRadius: 8,
     padding: "0 10px",
-    background: "var(--legacy-color-fff1f2)",
-    color: "var(--legacy-color-b91c1c)",
+    background: "var(--color-danger-soft)",
+    color: "var(--color-danger)",
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -141,11 +142,11 @@ export const ui = {
 
 export function Pill({ children, tone = "blue" }) {
   const colors = {
-    blue: ["var(--legacy-color-0369a1)", "var(--legacy-color-f0f9ff)", "var(--legacy-color-bae6fd)"],
-    green: ["var(--legacy-color-15803d)", "var(--legacy-color-f0fdf4)", "var(--legacy-color-bbf7d0)"],
-    amber: ["var(--legacy-color-b45309)", "var(--legacy-color-fffbeb)", "var(--legacy-color-fed7aa)"],
-    red: ["var(--legacy-color-b91c1c)", "var(--legacy-color-fff1f2)", "var(--legacy-color-fecaca)"],
-    gray: ["var(--legacy-color-475569)", "var(--legacy-color-f8fafc)", "var(--legacy-color-cbd5e1)"],
+    blue: ["var(--color-info)", "var(--color-info-soft)", "var(--color-info-border)"],
+    green: ["var(--color-success)", "var(--color-success-soft)", "var(--color-success-border)"],
+    amber: ["var(--color-warning)", "var(--color-warning-soft)", "var(--color-warning-border)"],
+    red: ["var(--color-danger)", "var(--color-danger-soft)", "var(--color-danger-border)"],
+    gray: ["var(--color-text-muted)", "var(--color-surface-subtle)", "var(--color-border-strong)"],
   };
   const [color, bg, border] = colors[tone] || colors.blue;
   return (
@@ -158,9 +159,9 @@ export function Pill({ children, tone = "blue" }) {
 export function Metric({ label, value, detail, tone = "blue" }) {
   return (
     <div style={ui.card}>
-      <div style={{ color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 950, color: tone === "red" ? "var(--legacy-color-b91c1c)" : tone === "amber" ? "var(--legacy-color-b45309)" : "var(--legacy-color-0f172a)" }}>{value}</div>
-      {detail ? <div style={{ marginTop: 4, color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 800 }}>{detail}</div> : null}
+      <div className={layoutStyles.extracted1}>{label}</div>
+      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 950, color: tone === "var(--color-danger)" ? "var(--color-danger)" : tone === "amber" ? "var(--color-warning)" : "var(--color-text)" }}>{value}</div>
+      {detail ? <div className={layoutStyles.extracted2}>{detail}</div> : null}
     </div>
   );
 }

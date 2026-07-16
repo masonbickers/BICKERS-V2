@@ -1,0 +1,25 @@
+
+
+.extracted1 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted2 {
+  display: grid;
+  gap: 10px;
+}
+
+.extracted3 {
+  min-width: 240px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.extracted4 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

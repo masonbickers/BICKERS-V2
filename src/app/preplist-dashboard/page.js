@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
@@ -7,6 +8,7 @@ import { getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const PREP_STORAGE_KEY = "preplist:vehicle-checks:v2";
 const PREP_MANUAL_STORAGE_KEY = "preplist:manual-entries:v1";
@@ -19,21 +21,7 @@ const INACTIVE_STATUSES = new Set([
   "deleted",
 ]);
 
-const UI = {
-  bg: "var(--legacy-color-f6f8fb)",
-  card: "var(--legacy-color-ffffff)",
-  line: "var(--legacy-color-e5e7eb)",
-  text: "var(--legacy-color-111827)",
-  muted: "var(--legacy-color-6b7280)",
-  soft: "var(--legacy-color-f8fafc)",
-  green: "var(--legacy-color-166534)",
-  greenBg: "var(--legacy-color-dcfce7)",
-  red: "var(--legacy-color-991b1b)",
-  redBg: "var(--legacy-color-fee2e2)",
-  purple: "var(--legacy-color-6d28d9)",
-  purpleBg: "var(--legacy-color-f3e8ff)",
-  dark: "var(--legacy-color-0f172a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "24px 18px 40px",
@@ -57,7 +45,7 @@ const buttonBase = {
   padding: "10px 12px",
   borderRadius: 12,
   border: `1px solid ${UI.line}`,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
@@ -70,7 +58,7 @@ const inputBase = {
   border: `1px solid ${UI.line}`,
   fontSize: 14,
   color: UI.text,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   outline: "none",
 };
 
@@ -633,17 +621,11 @@ export default function PrepListDashboardPage() {
             ...panel,
             padding: 18,
             marginBottom: 16,
-            background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfcfe) 100%)",
+            background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
           }}
         >
           <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 16,
-              flexWrap: "wrap",
-              alignItems: "flex-start",
-            }}
+            className={layoutStyles.extracted1}
           >
             <div>
               <div style={{ fontSize: 12, fontWeight: 800, color: UI.muted, letterSpacing: 0.5 }}>
@@ -658,7 +640,7 @@ export default function PrepListDashboardPage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted2}>
               <button type="button" onClick={() => router.push("/dashboard")} style={buttonBase}>
                 Back to Dashboard
               </button>
@@ -669,7 +651,7 @@ export default function PrepListDashboardPage() {
                   ...buttonBase,
                   background: UI.dark,
                   borderColor: UI.dark,
-                  color: "var(--legacy-color-fff)",
+                  color: "var(--color-white)",
                 }}
               >
                 Open Tomorrow&apos;s Print List
@@ -679,12 +661,7 @@ export default function PrepListDashboardPage() {
         </div>
 
         <div
-          style={{
-            display: "grid",
-            gap: 12,
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            marginBottom: 16,
-          }}
+          className={layoutStyles.extracted3}
         >
           <section style={statCard}>
             <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Active Queue</div>
@@ -692,7 +669,7 @@ export default function PrepListDashboardPage() {
           </section>
           <section style={statCard}>
             <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Needs Prep</div>
-            <div style={{ fontSize: 30, fontWeight: 900, color: UI.red }}>{queueItems.length}</div>
+            <div style={{ fontSize: 30, fontWeight: 900, color: UI.var(--color-danger) }}>{queueItems.length}</div>
           </section>
           <section style={statCard}>
             <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Prepped</div>
@@ -710,11 +687,7 @@ export default function PrepListDashboardPage() {
 
         <div style={{ ...panel, padding: 14, marginBottom: 16 }}>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr",
-              gap: 12,
-            }}
+            className={layoutStyles.extracted4}
           >
             <input
               value={search}
@@ -733,8 +706,8 @@ export default function PrepListDashboardPage() {
               onClick={() => setShowArchived((v) => !v)}
               style={{
                 ...buttonBase,
-                background: showArchived ? UI.dark : "var(--legacy-color-fff)",
-                color: showArchived ? "var(--legacy-color-fff)" : UI.text,
+                background: showArchived ? UI.dark : "var(--color-surface)",
+                color: showArchived ? "var(--color-white)" : UI.text,
                 borderColor: showArchived ? UI.dark : UI.line,
               }}
             >
@@ -744,23 +717,11 @@ export default function PrepListDashboardPage() {
         </div>
 
         <div
-          style={{
-            display: "grid",
-            gap: 16,
-            gridTemplateColumns: "minmax(0, 1.8fr) minmax(300px, 0.9fr)",
-            alignItems: "start",
-          }}
+          className={layoutStyles.extracted5}
         >
           <section style={{ ...panel, padding: 16 }}>
             <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                flexWrap: "wrap",
-                marginBottom: 14,
-                alignItems: "center",
-              }}
+              className={layoutStyles.extracted6}
             >
               <div>
                 <h2 style={{ margin: 0, color: UI.text, fontSize: 20 }}>Prep Board</h2>
@@ -769,7 +730,7 @@ export default function PrepListDashboardPage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted7}>
                 <span style={pill(UI.redBg, UI.red)}>Needs Prep: {queueItems.length}</span>
                 <span style={pill(UI.greenBg, UI.green)}>Prepped: {preppedItems.length}</span>
               </div>
@@ -780,7 +741,7 @@ export default function PrepListDashboardPage() {
             ) : groupedActive.length === 0 ? (
               <div style={{ color: UI.muted }}>No upcoming prep items found.</div>
             ) : (
-              <div style={{ display: "grid", gap: 18 }}>
+              <div className={layoutStyles.extracted8}>
                 {groupedActive.map((dateGroup) => (
                   <div key={dateGroup.prepYmd}>
                     <div
@@ -802,7 +763,7 @@ export default function PrepListDashboardPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gap: 12 }}>
+                    <div className={layoutStyles.extracted9}>
                       {dateGroup.jobs.map((job) => {
                         const doneCount = job.vehicles.filter((v) => v.prepRecord?.completed).length;
                         const pendingCount = job.vehicles.length - doneCount;
@@ -814,7 +775,7 @@ export default function PrepListDashboardPage() {
                               border: `1px solid ${UI.line}`,
                               borderRadius: 16,
                               overflow: "hidden",
-                              background: "var(--legacy-color-fff)",
+                              background: "var(--color-surface)",
                             }}
                           >
                             <div
@@ -825,13 +786,7 @@ export default function PrepListDashboardPage() {
                               }}
                             >
                               <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  gap: 12,
-                                  flexWrap: "wrap",
-                                  alignItems: "flex-start",
-                                }}
+                                className={layoutStyles.extracted10}
                               >
                                 <div>
                                   <div style={{ fontSize: 18, fontWeight: 900, color: UI.text }}>
@@ -845,9 +800,9 @@ export default function PrepListDashboardPage() {
                                   </div>
                                 </div>
 
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <div className={layoutStyles.extracted11}>
                                   {job.isManual && <span style={pill(UI.purpleBg, UI.purple)}>Manual</span>}
-                                  <span style={pill("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>Vehicles: {job.vehicles.length}</span>
+                                  <span style={pill("var(--color-info-soft)", "var(--color-brand)")}>Vehicles: {job.vehicles.length}</span>
                                   <span style={pill(UI.redBg, UI.red)}>Pending: {pendingCount}</span>
                                   <span style={pill(UI.greenBg, UI.green)}>Done: {doneCount}</span>
                                 </div>
@@ -858,7 +813,7 @@ export default function PrepListDashboardPage() {
                                   style={{
                                     marginTop: 10,
                                     padding: "9px 10px",
-                                    background: "var(--legacy-color-fff)",
+                                    background: "var(--color-surface)",
                                     border: `1px solid ${UI.line}`,
                                     borderRadius: 10,
                                     fontSize: 13,
@@ -870,7 +825,7 @@ export default function PrepListDashboardPage() {
                               ) : null}
 
                               {!job.isManual && job.bookingId ? (
-                                <div style={{ marginTop: 10 }}>
+                                <div className={layoutStyles.extracted12}>
                                   <button
                                     type="button"
                                     onClick={() => router.push(`/view-booking/${job.bookingId}`)}
@@ -895,25 +850,15 @@ export default function PrepListDashboardPage() {
                                     style={{
                                       padding: 14,
                                       borderTop: idx === 0 ? "none" : `1px solid ${UI.line}`,
-                                      background: record.completed ? "var(--legacy-color-fcfffd)" : "var(--legacy-color-fff)",
+                                      background: record.completed ? "var(--color-surface)" : "var(--color-surface)",
                                     }}
                                   >
                                     <div
-                                      style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "minmax(0,1fr) auto",
-                                        gap: 12,
-                                        alignItems: "start",
-                                      }}
+                                      className={layoutStyles.extracted13}
                                     >
                                       <div>
                                         <div
-                                          style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 8,
-                                            flexWrap: "wrap",
-                                          }}
+                                          className={layoutStyles.extracted14}
                                         >
                                           <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>
                                             {item.vehicleLabel}
@@ -949,15 +894,15 @@ export default function PrepListDashboardPage() {
                                         ) : null}
                                       </div>
 
-                                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                      <div className={layoutStyles.extracted15}>
                                         {!record.completed ? (
                                           <button
                                             type="button"
                                             onClick={() => toggleExpanded(item.sectionKey)}
                                             style={{
                                               ...buttonBase,
-                                              borderColor: "var(--legacy-color-2563eb)",
-                                              color: "var(--legacy-color-2563eb)",
+                                              borderColor: "var(--color-brand)",
+                                              color: "var(--color-brand)",
                                             }}
                                           >
                                             {expanded ? "Close" : "Prep"}
@@ -969,8 +914,8 @@ export default function PrepListDashboardPage() {
                                               onClick={() => handleUndoPrep(item)}
                                               style={{
                                                 ...buttonBase,
-                                                borderColor: "var(--legacy-color-dc2626)",
-                                                color: "var(--legacy-color-dc2626)",
+                                                borderColor: "var(--color-danger)",
+                                                color: "var(--color-danger)",
                                               }}
                                             >
                                               Undo
@@ -1002,11 +947,7 @@ export default function PrepListDashboardPage() {
                                         }}
                                       >
                                         <div
-                                          style={{
-                                            display: "grid",
-                                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                                            gap: 10,
-                                          }}
+                                          className={layoutStyles.extracted16}
                                         >
                                           <select
                                             value={preparedByValue}
@@ -1042,7 +983,7 @@ export default function PrepListDashboardPage() {
                                               ...buttonBase,
                                               background: UI.green,
                                               borderColor: UI.green,
-                                              color: "var(--legacy-color-fff)",
+                                              color: "var(--color-white)",
                                             }}
                                           >
                                             Mark as Prepped
@@ -1064,7 +1005,7 @@ export default function PrepListDashboardPage() {
             )}
           </section>
 
-          <aside style={{ display: "grid", gap: 16 }}>
+          <aside className={layoutStyles.extracted17}>
             <section style={{ ...panel, padding: 16 }}>
               <h3 style={{ margin: "0 0 10px", fontSize: 18, color: UI.text }}>
                 Tomorrow&apos;s Prep
@@ -1076,7 +1017,7 @@ export default function PrepListDashboardPage() {
               {tomorrowJobs.length === 0 ? (
                 <div style={{ color: UI.muted }}>No jobs need prepping tomorrow.</div>
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className={layoutStyles.extracted18}>
                   {tomorrowJobs.map((job) => (
                     <div
                       key={job.jobKey}
@@ -1084,7 +1025,7 @@ export default function PrepListDashboardPage() {
                         padding: 12,
                         border: `1px solid ${UI.line}`,
                         borderRadius: 12,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                       }}
                     >
                       <div style={{ fontWeight: 900, color: UI.text }}>
@@ -1114,7 +1055,7 @@ export default function PrepListDashboardPage() {
               {groupedArchive.length === 0 ? (
                 <div style={{ color: UI.muted }}>No archived prep history yet.</div>
               ) : (
-                <div style={{ display: "grid", gap: 12, maxHeight: 760, overflowY: "auto" }}>
+                <div className={layoutStyles.extracted19}>
                   {groupedArchive.map((dateGroup) => (
                     <div key={dateGroup.prepYmd}>
                       <div
@@ -1128,7 +1069,7 @@ export default function PrepListDashboardPage() {
                         {fmtLong(dateGroup.prepDate)}
                       </div>
 
-                      <div style={{ display: "grid", gap: 8 }}>
+                      <div className={layoutStyles.extracted20}>
                         {dateGroup.jobs.map((job) => (
                           <div
                             key={job.jobKey}
@@ -1136,7 +1077,7 @@ export default function PrepListDashboardPage() {
                               padding: 10,
                               border: `1px solid ${UI.line}`,
                               borderRadius: 12,
-                              background: "var(--legacy-color-fff)",
+                              background: "var(--color-surface)",
                             }}
                           >
                             <div style={{ fontWeight: 900, color: UI.text }}>
@@ -1146,7 +1087,7 @@ export default function PrepListDashboardPage() {
                               Outing: {fmtLong(job.outingDate)}
                             </div>
 
-                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                            <div className={layoutStyles.extracted21}>
                               {job.vehicles.map((item) => (
                                 <div
                                   key={item.sectionKey}
@@ -1170,7 +1111,7 @@ export default function PrepListDashboardPage() {
                                     </div>
                                   ) : null}
                                   {item.outingYmd >= todayYmd ? (
-                                    <div style={{ marginTop: 8 }}>
+                                    <div className={layoutStyles.extracted22}>
                                       <button
                                         type="button"
                                         onClick={() => handleUnarchive(item)}

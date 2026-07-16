@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, updateProfile } from "firebase/auth";
 import { auth, db, storage } from "../../../firebaseConfig";
@@ -8,25 +9,10 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, ImageUp, Mail, Save, UserRound } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ------------------------------- Styling tokens ------------------------------- */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  dangerSoft: "var(--legacy-color-fcefee)",
-  dangerText: "var(--legacy-color-991b1b)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -67,7 +53,7 @@ const input = {
   padding: "7px 9px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   fontSize: 13.5,
   outline: "none",
   color: UI.text,
@@ -83,7 +69,7 @@ const btnBase = {
   fontWeight: 800,
   cursor: "pointer",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   display: "inline-flex",
   alignItems: "center",
@@ -93,12 +79,12 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
   borderColor: UI.brand,
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
 };
 const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
-const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)" };
+const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "var(--color-surface)" };
 const sectionTitle = { margin: 0, fontSize: 16, fontWeight: 800, color: UI.text, lineHeight: 1.2 };
 const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginTop: 5 };
 
@@ -189,7 +175,7 @@ export default function EditProfilePage() {
     if (photoURL) {
       return (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={photoURL} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <img src={photoURL} alt="Profile" className={layoutStyles.extracted1} />
       );
     }
     return <span>{initials(name)}</span>;
@@ -279,12 +265,12 @@ export default function EditProfilePage() {
     <HeaderSidebarLayout>
       <style>{editProfileCss}</style>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted2}>
           <div>
             <h1 style={h1}>Edit profile</h1>
             <div style={sub}>Update your account details and profile photo.</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted3}>
             <div style={chip}>
               <UserRound size={14} />
               {loading ? "Loading..." : "Profile"}
@@ -306,7 +292,7 @@ export default function EditProfilePage() {
             style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)", gap: UI.gap }}
           >
             <div style={card}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div className={layoutStyles.extracted4}>
                 <div style={avatarWrap}>{avatarNode}</div>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{name || "-"}</div>
@@ -314,9 +300,9 @@ export default function EditProfilePage() {
                 </div>
               </div>
 
-              <div style={{ height: 1, background: "var(--legacy-color-e7edf4)", margin: "12px 0" }} />
+              <div className={layoutStyles.extracted5} />
 
-              <div className="edit-profile-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className={`edit-profile-fields ${layoutStyles.extracted6}`} >
                 <div>
                   <div style={fieldLabel}>Name</div>
                   <input value={name} onChange={(e) => setName(e.target.value)} style={input} placeholder="Your name" />
@@ -325,13 +311,13 @@ export default function EditProfilePage() {
 
                 <div>
                   <div style={fieldLabel}>Email</div>
-                  <input value={email} disabled style={{ ...input, background: "var(--legacy-color-f8fbfd)" }} />
+                  <input value={email} disabled style={{ ...input, background: "var(--color-surface-subtle)" }} />
                   <div style={helper}>Email is managed by your login account.</div>
                 </div>
 
                 <div>
                   <div style={fieldLabel}>Role</div>
-                  <input value={role || "-"} disabled style={{ ...input, background: "var(--legacy-color-f8fbfd)" }} />
+                  <input value={role || "-"} disabled style={{ ...input, background: "var(--color-surface-subtle)" }} />
                   <div style={helper}>Role is controlled by admins.</div>
                 </div>
 
@@ -350,7 +336,7 @@ export default function EditProfilePage() {
                     marginTop: 12,
                     padding: "8px 10px",
                     borderRadius: UI.radius,
-                    border: "1px solid var(--legacy-color-f1b8b8)",
+                    border: "1px solid var(--color-danger-border)",
                     background: UI.dangerSoft,
                     color: UI.dangerText,
                     fontWeight: 800,
@@ -366,8 +352,8 @@ export default function EditProfilePage() {
               ) : null}
 
               <div
-                className="edit-profile-actions"
-                style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+                className={`edit-profile-actions ${layoutStyles.extracted7}`}
+
               >
                 <button type="button" style={btnSoft} onClick={() => router.push("/settings")} disabled={saving}>
                   <ArrowLeft size={14} />
@@ -388,7 +374,7 @@ export default function EditProfilePage() {
 
               <div style={{ ...detailCard, marginTop: 12 }}>
                 <div style={fieldLabel}>Preview</div>
-                <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 10 }}>
+                <div className={layoutStyles.extracted8}>
                   <div style={{ ...avatarWrap, width: 44, height: 44 }}>{avatarNode}</div>
                   <div>
                     <div style={{ fontWeight: 800, color: UI.text }}>{name || "-"}</div>

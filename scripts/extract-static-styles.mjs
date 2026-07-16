@@ -4,7 +4,20 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const parser = require("next/dist/compiled/babel/parser");
-const targets = process.argv.filter((value) => !value.startsWith("--")).slice(2);
+function collectCodeFiles(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (["api", "generated", "node_modules", ".next"].includes(entry.name)) return [];
+      return collectCodeFiles(absolute);
+    }
+    return /\.(?:js|jsx)$/.test(entry.name) ? [path.relative(process.cwd(), absolute)] : [];
+  });
+}
+
+const targets = process.argv.includes("--all")
+  ? collectCodeFiles(path.resolve("src/app"))
+  : process.argv.filter((value) => !value.startsWith("--")).slice(2);
 const dryRun = process.argv.includes("--dry-run");
 const unitless = new Set(["animationIterationCount","borderImageOutset","borderImageSlice","borderImageWidth","boxFlex","boxFlexGroup","boxOrdinalGroup","columnCount","columns","flex","flexGrow","flexPositive","flexShrink","flexNegative","flexOrder","gridArea","gridColumn","gridColumnEnd","gridColumnSpan","gridColumnStart","gridRow","gridRowEnd","gridRowSpan","gridRowStart","fontWeight","lineClamp","lineHeight","opacity","order","orphans","scale","tabSize","widows","zIndex","zoom"]);
 
@@ -92,6 +105,18 @@ for (const relative of targets) {
     const directiveEnd = directiveNode ? output.indexOf("\n", directiveNode.end) + 1 : 0;
     output = `${output.slice(0, directiveEnd)}\nimport layoutStyles from "./${moduleName}";${output.slice(directiveEnd)}`;
   }
-  fs.writeFileSync(file, output);
-  fs.writeFileSync(modulePath, `${existingCss.trim()}\n\n${rules.join("\n\n")}\n`);
+  function writeWithRetry(target, contents) {
+    let lastError;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      try { fs.writeFileSync(target, contents); return; }
+      catch (error) {
+        lastError = error;
+        if (!["EBUSY", "EPERM"].includes(error.code)) throw error;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * (attempt + 1));
+      }
+    }
+    throw lastError;
+  }
+  writeWithRetry(file, output);
+  writeWithRetry(modulePath, `${existingCss.trim()}\n\n${rules.join("\n\n")}\n`);
 }

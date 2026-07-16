@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState } from "react";
 import { auth } from "../../../firebaseConfig";
 import { updateProfile } from "firebase/auth";
@@ -35,19 +36,7 @@ export default function ProfilePage() {
     const initial = user?.displayName?.charAt(0)?.toUpperCase() || "U";
     return (
       <div
-        style={{
-          width: 60,
-          height: 60,
-          borderRadius: "50%",
-          backgroundColor: "var(--legacy-color-4caf50)",
-          color: "var(--legacy-color-fff)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "24px",
-          fontWeight: "bold",
-          textTransform: "uppercase",
-        }}
+        className={layoutStyles.extracted1}
       >
         {initial}
       </div>
@@ -56,117 +45,71 @@ export default function ProfilePage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ backgroundColor: "var(--legacy-color-f4f4f5)", padding: "28px 20px 36px" }}>
-        <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "32px", color: "var(--legacy-color-111)" }}>
+      <div className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
+          <h1 className={layoutStyles.extracted4}>
             Account Settings
           </h1>
 
           {user ? (
             <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "24px",
-                backgroundColor: "var(--legacy-color-fff)",
-                padding: "32px",
-                borderRadius: "12px",
-                boxShadow: "0 0 0 1px var(--legacy-color-ddd)",
-              }}
+              className={layoutStyles.extracted5}
             >
-              <div style={{ marginBottom: "16px", alignSelf: "center" }}>{renderAvatar()}</div>
+              <div className={layoutStyles.extracted6}>{renderAvatar()}</div>
 
               <div>
-                <label style={{ fontSize: "14px", color: "var(--legacy-color-333)" }}>Name</label>
+                <label className={layoutStyles.extracted7}>Name</label>
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Name"
-                  style={{
-                    width: "100%",
-                    marginTop: "6px",
-                    padding: "10px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--legacy-color-ccc)",
-                    backgroundColor: "var(--legacy-color-fafafa)",
-                    color: "var(--legacy-color-333)",
-                    fontSize: "14px",
-                  }}
+                  className={layoutStyles.extracted8}
                 />
-                <small style={{ color: "var(--legacy-color-666)", fontSize: "12px" }}>
+                <small className={layoutStyles.extracted9}>
                   The name associated with this account
                 </small>
               </div>
 
               <div>
-                <label style={{ fontSize: "14px", color: "var(--legacy-color-333)" }}>Email address</label>
+                <label className={layoutStyles.extracted10}>Email address</label>
                 <input
                   type="text"
                   value={user.email}
                   disabled
-                  style={{
-                    width: "100%",
-                    marginTop: "6px",
-                    padding: "10px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--legacy-color-ccc)",
-                    backgroundColor: "var(--legacy-color-fafafa)",
-                    color: "var(--legacy-color-888)",
-                    fontSize: "14px",
-                  }}
+                  className={layoutStyles.extracted11}
                 />
-                <small style={{ color: "var(--legacy-color-666)", fontSize: "12px" }}>
+                <small className={layoutStyles.extracted12}>
                   The email address associated with this account
                 </small>
               </div>
 
               <div>
-                <label style={{ fontSize: "14px", color: "var(--legacy-color-333)" }}>Phone number</label>
+                <label className={layoutStyles.extracted13}>Phone number</label>
                 <input
                   type="text"
                   value={user.phoneNumber || "+44"}
                   disabled
-                  style={{
-                    width: "100%",
-                    marginTop: "6px",
-                    padding: "10px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--legacy-color-ccc)",
-                    backgroundColor: "var(--legacy-color-fafafa)",
-                    color: "var(--legacy-color-888)",
-                    fontSize: "14px",
-                  }}
+                  className={layoutStyles.extracted14}
                 />
-                <small style={{ color: "var(--legacy-color-666)", fontSize: "12px" }}>
+                <small className={layoutStyles.extracted15}>
                   The phone number associated with this account
                 </small>
               </div>
 
               <button
                 onClick={handleSave}
-                style={{
-                  marginTop: "10px",
-                  padding: "10px 20px",
-                  backgroundColor: "var(--legacy-color-bfbfbf)",
-                  border: "none",
-                  borderRadius: "6px",
-                  color: "var(--legacy-color-fff)",
-                  fontWeight: "bold",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  alignSelf: "flex-start",
-                }}
+                className={layoutStyles.extracted16}
               >
                 Save
               </button>
 
               {status && (
-                <p style={{ color: "var(--legacy-color-4caf50)", fontSize: "13px", marginTop: "-12px" }}>{status}</p>
+                <p className={layoutStyles.extracted17}>{status}</p>
               )}
             </div>
           ) : (
-            <p style={{ fontSize: "14px", color: "var(--legacy-color-555)" }}>Loading user data...</p>
+            <p className={layoutStyles.extracted18}>Loading user data...</p>
           )}
         </div>
       </div>

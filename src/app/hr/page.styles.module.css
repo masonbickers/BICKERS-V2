@@ -1,0 +1,142 @@
+
+
+.extracted1 {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.extracted2 {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.extracted3 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.extracted4 {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.extracted5 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted6 {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.extracted7 {
+  width: 100%;
+  height: 300px;
+}
+
+.extracted8 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted9 {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.extracted10 {
+  display: grid;
+  gap: 10px;
+}
+
+.extracted11 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.extracted12 {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted13 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.extracted14 {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.extracted15 {
+  display: grid;
+  gap: 10px;
+}
+
+.extracted16 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.extracted17 {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted18 {
+  margin-top: 12px;
+}
+
+.extracted19 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.extracted20 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.extracted21 {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
@@ -17,6 +18,7 @@ import {
   Save,
   UserPlus,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -34,20 +36,7 @@ const clearBookingReferenceCache = () => {
 };
 
 /* Mini design system */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -75,7 +64,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -85,7 +74,7 @@ const grid2 = {
   gap: 10,
 };
 
-const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "4px 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: "4px 0" };
 
 const chip = {
   padding: "5px 9px",
@@ -108,7 +97,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -126,8 +115,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -172,7 +161,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -245,7 +234,7 @@ export default function AddEmployeePage() {
       <style>{focusCss}</style>
 
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Add employee</h1>
             <div style={sub}>Employee details, contact and licence information.</div>
@@ -257,8 +246,8 @@ export default function AddEmployeePage() {
 
         <form onSubmit={handleSubmit} className="add-employee-form-shell" style={formShell}>
           <section style={card}>
-            <div style={sectionHeader}>
-              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+            <div className={layoutStyles.extracted2}>
+              <div className={layoutStyles.extracted3}>
                 <span style={iconBox(UI.brand, UI.brandSoft)}>
                   <UserPlus size={17} />
                 </span>
@@ -270,7 +259,7 @@ export default function AddEmployeePage() {
               <span style={chip}>New record</span>
             </div>
 
-            <div className="add-employee-grid" style={grid2}>
+            <div className={`add-employee-grid ${layoutStyles.extracted4}`} >
               <Field icon={Contact} labelText="Full name" full>
                 <input
                   type="text"
@@ -346,9 +335,9 @@ export default function AddEmployeePage() {
 
           <aside style={{ display: "grid", gap: UI.gap }}>
             <section style={card}>
-              <div style={sectionHeader}>
-                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
-                  <span style={iconBox("var(--legacy-color-15803d)", "var(--legacy-color-ecfdf3)", "var(--legacy-color-bbf7d0)")}>
+              <div className={layoutStyles.extracted5}>
+                <div className={layoutStyles.extracted6}>
+                  <span style={iconBox("var(--color-success)", "var(--color-success-soft)", "var(--color-success-border)")}>
                     <Save size={17} />
                   </span>
                   <div>
@@ -357,9 +346,9 @@ export default function AddEmployeePage() {
                 </div>
               </div>
 
-              <div style={divider} />
+              <div className={layoutStyles.extracted7} />
 
-              <div style={{ display: "grid", gap: 8 }}>
+              <div className={layoutStyles.extracted8}>
                 <button style={btn()} type="submit" disabled={saving}>
                   <Save size={14} /> {saving ? "Saving..." : "Save employee"}
                 </button>
@@ -370,9 +359,9 @@ export default function AddEmployeePage() {
             </section>
 
             <section style={card}>
-              <div style={sectionHeader}>
-                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
-                  <span style={iconBox("var(--legacy-color-7c3aed)", "var(--legacy-color-f5f3ff)", "var(--legacy-color-ddd6fe)")}>
+              <div className={layoutStyles.extracted9}>
+                <div className={layoutStyles.extracted10}>
+                  <span style={iconBox("var(--color-info)", "var(--color-info-soft)", "var(--color-border)")}>
                     <IdCard size={17} />
                   </span>
                   <div>
@@ -381,7 +370,7 @@ export default function AddEmployeePage() {
                   </div>
                 </div>
               </div>
-              <div style={divider} />
+              <div className={layoutStyles.extracted11} />
               <div style={{ display: "grid", gap: 8, color: UI.muted, fontSize: 12.5, lineHeight: 1.45 }}>
                 <div>Full name</div>
                 <div>Mobile number and email</div>
@@ -399,7 +388,7 @@ function Field({ icon: Icon, labelText, full = false, children }) {
   return (
     <div style={full ? { gridColumn: "1 / -1" } : undefined}>
       <label style={label}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span className={layoutStyles.extracted12}>
           <Icon size={13} />
           {labelText}
         </span>

@@ -16,9 +16,9 @@
     "audit:styles": "node scripts/style-audit.mjs",
     "audit:styles:check": "node scripts/style-audit.mjs --check",
     "test:access": "node --test tests/accessControl.test.mjs",
+    "test:appearance": "node --test tests/globalAppearance.test.mjs",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
     "test:dates": "node --test tests/dateNormalization.test.mjs",
-    "test:theme": "node --test tests/themeSettings.test.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },
   "dependencies": {

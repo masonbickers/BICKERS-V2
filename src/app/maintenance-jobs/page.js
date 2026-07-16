@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -52,25 +53,9 @@ import {
   normalizeMaintenanceStage,
   validateMaintenanceStageRequirements,
 } from "../utils/maintenanceWorkflowSpec";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
@@ -101,7 +86,7 @@ const input = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
   fontSize: 13,
   outline: "none",
@@ -113,9 +98,9 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
-      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
-    color: primary ? "var(--legacy-color-fff)" : UI.text,
+      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -132,12 +117,12 @@ const btn = (kind = "ghost") => {
   };
 };
 
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontSize: 11.5,
   textTransform: "uppercase",
   letterSpacing: 0,
@@ -187,15 +172,15 @@ const classifyServiceRecord = (record) => {
 };
 
 const activityTypeConfig = {
-  service: { label: "Service", bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)" },
-  minor_service: { label: "Minor service", bg: "var(--legacy-color-eff6ff)", fg: "var(--legacy-color-1d4ed8)" },
-  repair: { label: "Repair", bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-9a3412)" },
-  defect: { label: "Defect", bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)" },
-  mot_precheck: { label: "MOT pre-check", bg: "var(--legacy-color-f5f3ff)", fg: "var(--legacy-color-6d28d9)" },
-  vehicle_prep: { label: "Vehicle prep", bg: "var(--legacy-color-eef2ff)", fg: "var(--legacy-color-3730a3)" },
-  vehicle_check: { label: "Vehicle check", bg: "var(--legacy-color-edf3f8)", fg: UI.brand },
-  vehicle_issue: { label: "Vehicle issue", bg: "var(--legacy-color-f5ede6)", fg: "var(--legacy-color-8b5e3c)" },
-  booking: { label: "Booking", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
+  service: { label: "Service", bg: "var(--color-success-soft)", fg: "var(--color-success)" },
+  minor_service: { label: "Minor service", bg: "var(--color-info-soft)", fg: "var(--color-brand)" },
+  repair: { label: "Repair", bg: "var(--color-warning-soft)", fg: "var(--color-warning)" },
+  defect: { label: "Defect", bg: "var(--color-danger-soft)", fg: "var(--color-danger)" },
+  mot_precheck: { label: "MOT pre-check", bg: "var(--color-info-soft)", fg: "var(--color-info)" },
+  vehicle_prep: { label: "Vehicle prep", bg: "var(--color-info-soft)", fg: "var(--color-brand)" },
+  vehicle_check: { label: "Vehicle check", bg: "var(--color-brand-soft)", fg: UI.brand },
+  vehicle_issue: { label: "Vehicle issue", bg: "var(--color-accent-soft)", fg: "var(--color-accent)" },
+  booking: { label: "Booking", bg: "var(--color-surface-subtle)", fg: UI.text },
   job: { label: "Job card", bg: UI.brandSoft, fg: UI.brand },
 };
 
@@ -953,10 +938,10 @@ export default function MaintenanceJobsPage() {
         input:focus, button:focus, select:focus, textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: var(--legacy-color-9fb7cf) !important;
+          border-color: var(--shell-muted) !important;
         }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        .maintenance-jobs-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
+        .maintenance-jobs-action:hover { background: var(--color-surface-subtle) !important; border-color: var(--shell-muted) !important; }
         .maintenance-jobs-kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -992,14 +977,14 @@ export default function MaintenanceJobsPage() {
         }
       `}</style>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
             <div>
               <h1 style={h1}>Maintenance Jobs</h1>
               <div style={sub}>
                 Plan, track, complete, and close workshop jobs from one place.
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className={layoutStyles.extracted2}>
               <button type="button" className="maintenance-jobs-action" style={btn()} onClick={() => router.push("/vehicle-home")}>
                 <ArrowLeft size={15} />
                 Back to Vehicle Home
@@ -1015,8 +1000,8 @@ export default function MaintenanceJobsPage() {
           <SummaryCard label="Closed" value={jobStats.closed} sub="Finished workflow" icon={CheckCircle2} tone="default" />
         </div>
 
-        <section style={{ marginBottom: 14 }}>
-          <div style={sectionHeader}>
+        <section className={layoutStyles.extracted3}>
+          <div className={layoutStyles.extracted4}>
             <div>
               <h2 style={titleMd}>Transport Manager Overview</h2>
               <div style={hint}>Maintenance activity grouped into queue cards for a quick transport-manager scan.</div>
@@ -1036,7 +1021,7 @@ export default function MaintenanceJobsPage() {
         </section>
 
         <div style={{ ...card, marginBottom: 14 }}>
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted5}>
             <div>
               <h2 style={titleMd}>Create Job Card</h2>
               <div style={hint}>Start a maintenance job, then complete workflow details in the queue below.</div>
@@ -1073,27 +1058,18 @@ export default function MaintenanceJobsPage() {
             onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
             style={{ ...input, marginTop: 8, minHeight: 64, resize: "vertical" }}
           />
-          <div style={{ marginTop: 8 }}>
+          <div className={layoutStyles.extracted6}>
             <button type="button" style={btn("primary")} onClick={createJob} disabled={saving}>
               <Plus size={14} />
               {saving ? "Saving..." : "Create Job"}
             </button>
           </div>
           {createError ? (
-            <div style={{ marginTop: 8, fontSize: 12, color: "var(--legacy-color-b91c1c)", fontWeight: 700 }}>{createError}</div>
+            <div className={layoutStyles.extracted7}>{createError}</div>
           ) : null}
           {createMessage ? (
             <div
-              style={{
-                marginTop: 8,
-                fontSize: 12.5,
-                color: "var(--legacy-color-166534)",
-                fontWeight: 700,
-                border: "1px solid var(--legacy-color-bbf7d0)",
-                background: "var(--legacy-color-f0fdf4)",
-                borderRadius: 10,
-                padding: "10px 12px",
-              }}
+              className={layoutStyles.extracted8}
             >
               {createMessage}
             </div>
@@ -1118,12 +1094,12 @@ export default function MaintenanceJobsPage() {
               Opened from dashboard. The selected job row is highlighted below.
             </div>
           ) : null}
-          <div style={sectionHeader}>
+          <div className={layoutStyles.extracted9}>
             <div>
               <h2 style={titleMd}>Job Queue</h2>
               <div style={hint}>Update booking, completion, cost, invoice and workflow stage from each row.</div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className={layoutStyles.extracted10}>
               <span
                 style={{
                   padding: "5px 9px",
@@ -1141,7 +1117,7 @@ export default function MaintenanceJobsPage() {
             </div>
           </div>
           <div className="maintenance-jobs-filter-grid" style={{ ...surface, boxShadow: "none", padding: 12, marginBottom: 12 }}>
-            <label style={{ position: "relative", display: "block" }}>
+            <label className={layoutStyles.extracted11}>
               <Search
                 size={16}
                 style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
@@ -1164,8 +1140,8 @@ export default function MaintenanceJobsPage() {
             </select>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", minWidth: 1280, borderCollapse: "collapse", fontSize: 13 }}>
+          <div className={layoutStyles.extracted12}>
+            <table className={layoutStyles.extracted13}>
               <thead>
                 <tr>
                   {["Title", "Asset", "Type", "Priority", "Due", "Planned", "Workflow Details", "Status", "Updated"].map((h) => (
@@ -1193,16 +1169,16 @@ export default function MaintenanceJobsPage() {
                         if (node) rowRefs.current[j.id] = node;
                         else delete rowRefs.current[j.id];
                       }}
-                      style={isFocused ? { background: UI.brandSoft } : { background: "var(--legacy-color-fff)" }}
+                      style={isFocused ? { background: UI.brandSoft } : { background: "var(--color-surface)" }}
                     >
                       <td style={{ ...thtd, fontWeight: 800, color: UI.text }}>{j.title || "-"}</td>
-                      <td style={thtd}>{j.assetLabel || j.assetId || "-"}</td>
-                      <td style={thtd}>{j.type || "-"}</td>
-                      <td style={thtd}>{j.priority || "-"}</td>
-                      <td style={thtd}>{fmtDate(j.dueDate)}</td>
-                      <td style={thtd}>{fmtDate(j.plannedDate)}</td>
-                      <td style={{ ...thtd, minWidth: 320 }}>
-                        <div style={{ display: "grid", gap: 6 }}>
+                      <td className={layoutStyles.extracted14}>{j.assetLabel || j.assetId || "-"}</td>
+                      <td className={layoutStyles.extracted15}>{j.type || "-"}</td>
+                      <td className={layoutStyles.extracted16}>{j.priority || "-"}</td>
+                      <td className={layoutStyles.extracted17}>{fmtDate(j.dueDate)}</td>
+                      <td className={layoutStyles.extracted18}>{fmtDate(j.plannedDate)}</td>
+                      <td className={layoutStyles.extracted19}>
+                        <div className={layoutStyles.extracted20}>
                           <input
                             type="text"
                             placeholder="Provider"
@@ -1229,7 +1205,7 @@ export default function MaintenanceJobsPage() {
                             onChange={(e) => updateJobDraft(j.id, "completionNotes", e.target.value)}
                             style={{ ...input, minHeight: 62, resize: "vertical" }}
                           />
-                          <div style={{ display: "grid", gap: 6, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+                          <div className={layoutStyles.extracted21}>
                             <input
                               type="text"
                               placeholder="Total cost"
@@ -1263,7 +1239,7 @@ export default function MaintenanceJobsPage() {
                           </button>
                         </div>
                       </td>
-                      <td style={thtd}>
+                      <td className={layoutStyles.extracted22}>
                         <select
                           value={stage}
                           onChange={(e) => setJobStatus(j, e.target.value)}
@@ -1277,7 +1253,7 @@ export default function MaintenanceJobsPage() {
                           ))}
                         </select>
                         {jobErrors[j.id] ? (
-                          <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--legacy-color-b91c1c)", fontWeight: 700 }}>
+                          <div className={layoutStyles.extracted23}>
                             {jobErrors[j.id]}
                           </div>
                         ) : null}
@@ -1300,9 +1276,9 @@ export default function MaintenanceJobsPage() {
 function OverviewChip({ label, value, tone = "default" }) {
   const colors =
     tone === "danger"
-      ? { bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)", border: "var(--legacy-color-fecaca)" }
+      ? { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "var(--color-danger-border)" }
       : tone === "ok"
-      ? { bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)", border: "var(--legacy-color-bbf7d0)" }
+      ? { bg: "var(--color-success-soft)", fg: "var(--color-success)", border: "var(--color-success-border)" }
       : { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder };
 
   return (
@@ -1323,7 +1299,7 @@ function OverviewChip({ label, value, tone = "default" }) {
       }}
     >
       {label}
-      <strong style={{ fontSize: 13 }}>{value}</strong>
+      <strong className={layoutStyles.extracted24}>{value}</strong>
     </span>
   );
 }
@@ -1344,15 +1320,15 @@ function ActivityGroup({ group, router }) {
       style={{
         border: UI.border,
         borderRadius: UI.radius,
-        background: "var(--legacy-color-fff)",
+        background: "var(--color-surface)",
         overflow: "hidden",
         minWidth: 0,
         minHeight: 236,
         boxShadow: UI.shadowSm,
       }}
     >
-      <div style={{ padding: "12px 12px 10px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+      <div className={layoutStyles.extracted25}>
+        <div className={layoutStyles.extracted26}>
           <span
             style={{
               width: 34,
@@ -1369,7 +1345,7 @@ function ActivityGroup({ group, router }) {
           >
             <Icon size={16} />
           </span>
-          <div style={{ minWidth: 0 }}>
+          <div className={layoutStyles.extracted27}>
             <div style={{ color: UI.text, fontSize: 18, lineHeight: 1.1, fontWeight: 950 }}>{group.label}</div>
             <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.35, marginTop: 4 }}>{group.note}</div>
           </div>
@@ -1385,12 +1361,12 @@ function ActivityGroup({ group, router }) {
           <div
             style={{
               margin: "0 12px 12px",
-              border: "1px solid var(--legacy-color-d7dee8)",
+              border: "1px solid var(--color-border)",
               borderRadius: UI.radius,
               padding: "11px 12px",
               color: UI.muted,
               fontSize: 13,
-              background: "var(--legacy-color-fff)",
+              background: "var(--color-surface)",
             }}
           >
             Nothing in this queue.
@@ -1413,32 +1389,26 @@ function ActivityRow({ item }) {
   const statusLower = status.toLowerCase();
   const statusStyle =
     statusLower.includes("open") || statusLower.includes("defect")
-      ? { bg: "var(--legacy-color-fff36b)", fg: "var(--legacy-color-0f172a)" }
+      ? { bg: "var(--color-warning-border)", fg: "var(--color-text)" }
       : statusLower.includes("complete") || statusLower.includes("closed") || statusLower.includes("logged") || statusLower.includes("history")
-      ? { bg: "var(--legacy-color-8fca88)", fg: "var(--legacy-color-07130a)" }
-      : { bg: "var(--legacy-color-d7e9f7)", fg: UI.text };
+      ? { bg: "var(--color-success-accent)", fg: "var(--color-text)" }
+      : { bg: "var(--color-border)", fg: UI.text };
   return (
     <div
-      className="maintenance-activity-row"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(220px, 1.6fr) minmax(160px, 1fr) minmax(120px, .7fr) minmax(110px, 110px)",
-        alignItems: "stretch",
-        borderTop: "1px solid var(--legacy-color-e6edf5)",
-        minHeight: 35,
-      }}
+      className={`maintenance-activity-row ${layoutStyles.extracted28}`}
+
     >
-      <div style={{ padding: "8px 10px", minWidth: 0 }}>
+      <div className={layoutStyles.extracted29}>
         <div style={{ color: UI.text, fontSize: 16, lineHeight: 1.22, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.title || activityTypeLabel(item.type)}
         </div>
       </div>
       <div style={{ padding: "8px 10px", color: UI.muted, fontSize: 12.5, lineHeight: 1.35, minWidth: 0 }}>
-        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div className={layoutStyles.extracted30}>
           {item.vehicleName || "Unknown vehicle"}
         </div>
         {item.registration ? (
-          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(item.registration).toUpperCase()}</div>
+          <div className={layoutStyles.extracted31}>{String(item.registration).toUpperCase()}</div>
         ) : null}
       </div>
       <div style={{ padding: "8px 10px", color: UI.text, fontSize: 12.5, lineHeight: 1.35, whiteSpace: "nowrap" }}>
@@ -1457,7 +1427,7 @@ function ActivityRow({ item }) {
           lineHeight: 1.2,
           fontWeight: 950,
           textAlign: "center",
-          borderLeft: "1px solid var(--legacy-color-1f2937)",
+          borderLeft: "1px solid var(--color-text)",
         }}
       >
         {status}
@@ -1469,14 +1439,14 @@ function ActivityRow({ item }) {
 function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Wrench }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "var(--legacy-color-991b1b)", bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)" }
+      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
       : tone === "amber"
-      ? { fg: "var(--legacy-color-9a3412)", bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)" }
+      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
       : tone === "ok"
-      ? { fg: "var(--legacy-color-065f46)", bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)" }
+      ? { fg: "var(--color-success)", bg: "var(--color-success-soft)", border: "var(--color-success-border)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--legacy-color-d7dee8)" };
+      : { fg: UI.text, bg: "var(--color-surface-subtle)", border: "var(--color-border)" };
 
   return (
     <div
@@ -1489,7 +1459,7 @@ function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Wrench 
         ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted32}>
         <div>
           <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
             {label}

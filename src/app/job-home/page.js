@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { onSnapshot } from "firebase/firestore";
@@ -23,35 +24,11 @@ import {
   Receipt,
   Search,
 } from "lucide-react";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
 
 /* Mini design system */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fff1f2)",
-  redBorder: "var(--legacy-color-fecdd3)",
-  purple: "var(--legacy-color-7c3aed)",
-  purpleSoft: "var(--legacy-color-f5f3ff)",
-  purpleBorder: "var(--legacy-color-ddd6fe)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -106,8 +83,8 @@ const chip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
-  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: UI.purple };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.var(--color-danger) };
+  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: UI.var(--color-accent) };
   return base;
 };
 
@@ -158,8 +135,8 @@ const actionButton = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
-  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-surface)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 850,
   fontSize: 13,
   textDecoration: "none",
@@ -175,7 +152,7 @@ const inputStyle = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -187,7 +164,7 @@ const rowShell = {
   alignItems: "center",
   minHeight: 34,
   padding: "0 0 0 9px",
-  borderTop: "1px solid var(--legacy-color-edf2f7)",
+  borderTop: "1px solid var(--color-brand-soft)",
   textDecoration: "none",
   color: UI.text,
 };
@@ -202,13 +179,13 @@ const quoteRowShell = {
   gridTemplateColumns: "minmax(220px, 1fr) minmax(170px, 260px) 120px 120px",
 };
 
-const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "var(--legacy-color-fff)" };
+const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "var(--color-surface)" };
 
 const focusCss = `
   input:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--legacy-color-bfdbfe) !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .job-home-main-grid,
@@ -287,40 +264,41 @@ const prettifyStatus = (raw) => {
 };
 
 const statusColors = (label) => {
+  if (FIXED_JOB_STATUS_STYLES[label]) return FIXED_JOB_STATUS_STYLES[label];
   switch (label) {
     case "Confirmed":
-      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Bickers":
-      return { bg: "var(--legacy-color-ffffff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-white)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Stunt":
-      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "First Pencil":
-      return { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-info-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Second Pencil":
-      return { bg: "var(--legacy-color-f73939)", text: "var(--legacy-color-fff)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning)", text: "var(--color-white)", border: "var(--color-border-strong)" };
     case "Maintenance":
-      return { bg: "var(--legacy-color-da8e58ff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Complete":
-      return { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-success-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "Action Required":
-      return { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
+      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
     case "DNH":
-      return { bg: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-111827)", border: "var(--legacy-color-d1d5db)" };
+      return { bg: "var(--color-border)", text: "var(--color-text)", border: "var(--color-border)" };
     case "Postponed":
     case "Deleted":
-      return { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" };
+      return { bg: "var(--shell-muted)", text: "var(--color-text)", border: "var(--shell-muted)" };
     case "Ready to Invoice":
-      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
+      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
     case "Invoiced":
-      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
+      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
     case "Paid":
-      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
+      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
     case "Missing":
-      return { bg: "var(--legacy-color-fff1f2)", border: "var(--legacy-color-fecdd3)", text: "var(--legacy-color-b91c1c)" };
+      return { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", text: "var(--color-danger)" };
     case "TBC":
-      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
+      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
     default:
-      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
+      return { bg: "var(--color-border)", border: "var(--color-border)", text: "var(--color-text)" };
   }
 };
 
@@ -340,7 +318,7 @@ const StatusBadge = ({ value, rowIndex = 0, rowCount = 1 }) => {
         padding: "0 8px",
         fontSize: 11.5,
         borderRadius: `0 ${isFirst ? UI.radius : 0}px ${isLast ? UI.radius : 0}px 0`,
-        border: "1px solid var(--legacy-color-0b0b0b)",
+        border: "1px solid var(--color-border-strong)",
         borderTopWidth: isFirst ? 1 : 0,
         marginTop: 0,
         background: c.bg,
@@ -381,7 +359,7 @@ const groupButtonStyle = (active = false) => ({
   padding: "4px 7px",
   borderRadius: UI.radiusSm,
   border: active ? `2px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "var(--legacy-color-fff)",
+  background: active ? UI.brandSoft : "var(--color-surface)",
   color: UI.text,
   cursor: "pointer",
   fontWeight: 900,
@@ -778,7 +756,7 @@ export default function JobHomePage() {
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
     >
       <div style={{ ...sectionHeader, marginBottom: compact ? 4 : sectionHeader.marginBottom }}>
-        <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
+        <div className={layoutStyles.extracted1}>
           <span style={{ ...iconBox(color, bg, border), width: compact ? 28 : 34, height: compact ? 28 : 34 }}>
             <Icon size={17} />
           </span>
@@ -810,7 +788,7 @@ export default function JobHomePage() {
             color: UI.text,
           }}
         >
-          <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+          <div className={layoutStyles.extracted2}>
             <span
               style={{
                 display: "inline-flex",
@@ -825,7 +803,7 @@ export default function JobHomePage() {
             </span>
             <span aria-hidden="true" />
           </div>
-          <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+          <div className={layoutStyles.extracted3}>
             <Link
               href={`/create-enquiry?jobNumber=${encodeURIComponent(j.jobNumber)}`}
               style={{
@@ -836,7 +814,7 @@ export default function JobHomePage() {
                 padding: "0 8px",
                 borderRadius: 6,
                 border: UI.border,
-                background: "var(--legacy-color-fff)",
+                background: "var(--color-surface)",
                 color: UI.brand,
                 fontSize: 12,
                 fontWeight: 900,
@@ -851,14 +829,8 @@ export default function JobHomePage() {
           </div>
           <div aria-hidden="true" />
           <div
-            className="job-home-row-status"
-            style={{
-              justifySelf: "stretch",
-              alignSelf: "stretch",
-              display: "flex",
-              alignItems: "stretch",
-              width: "100%",
-            }}
+            className={`job-home-row-status ${layoutStyles.extracted4}`}
+
           >
             <StatusBadge value="Missing" rowIndex={rowIndex} rowCount={rowCount} />
           </div>
@@ -873,7 +845,7 @@ export default function JobHomePage() {
     const pretty = prettifyStatus(j.status || "");
     return (
       <Link key={j.id} href={j.href || `/job-numbers/${j.id}`} className="job-home-row" style={jobNumberRowShell}>
-        <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+        <div className={layoutStyles.extracted5}>
           <span
             style={{
               display: "inline-flex",
@@ -886,7 +858,7 @@ export default function JobHomePage() {
           >
             #{j.jobNumber || j.id}
           </span>
-          <span style={{ fontWeight: 800, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span className={layoutStyles.extracted6}>
             {j.client || "-"}
             {j.count > 1 ? <span style={{ color: UI.muted, fontWeight: 900 }}> ({j.count})</span> : null}
           </span>
@@ -905,16 +877,10 @@ export default function JobHomePage() {
           FP {j.bookingCounts?.firstPencil || 0} · Confirmed {j.bookingCounts?.confirmed || 0} · Complete{" "}
           {j.bookingCounts?.complete || 0} · D/C/P {j.bookingCounts?.notHappening || 0}
         </div>
-        <div style={{ fontSize: 13, whiteSpace: "nowrap" }}>{label}</div>
+        <div className={layoutStyles.extracted7}>{label}</div>
         <div
-          className="job-home-row-status"
-          style={{
-            justifySelf: "stretch",
-            alignSelf: "stretch",
-            display: "flex",
-            alignItems: "stretch",
-            width: "100%",
-          }}
+          className={`job-home-row-status ${layoutStyles.extracted8}`}
+
         >
           <StatusBadge value={pretty} rowIndex={rowIndex} rowCount={rowCount} />
         </div>
@@ -931,7 +897,7 @@ export default function JobHomePage() {
     const pretty = prettifyStatus(j.status || "");
     return (
       <Link key={j.id} href={`/job-numbers/${j.id}`} className="job-home-row" style={rowShell}>
-        <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+        <div className={layoutStyles.extracted9}>
           <span
             style={{
               display: "inline-flex",
@@ -944,23 +910,17 @@ export default function JobHomePage() {
           >
             #{j.jobNumber || j.id}
           </span>
-          <span style={{ fontWeight: 800, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span className={layoutStyles.extracted10}>
             {j.client || "-"}
           </span>
         </div>
         <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
           {j.location || "-"}
         </div>
-        <div style={{ fontSize: 13, whiteSpace: "nowrap" }}>{label}</div>
+        <div className={layoutStyles.extracted11}>{label}</div>
         <div
-          className="job-home-row-status"
-          style={{
-            justifySelf: "stretch",
-            alignSelf: "stretch",
-            display: "flex",
-            alignItems: "stretch",
-            width: "100%",
-          }}
+          className={`job-home-row-status ${layoutStyles.extracted12}`}
+
         >
           <StatusBadge value={pretty} rowIndex={rowIndex} rowCount={rowCount} />
         </div>
@@ -978,7 +938,7 @@ export default function JobHomePage() {
         className="job-home-row"
         style={quoteRowShell}
       >
-        <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+        <div className={layoutStyles.extracted13}>
           <span style={{ fontWeight: 900, minWidth: 0, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {quote.label || "-"}
           </span>
@@ -986,18 +946,10 @@ export default function JobHomePage() {
         <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
           {quote.templateName || quote.location || "-"}
         </div>
-        <div style={{ fontSize: 13, fontWeight: 850, whiteSpace: "nowrap" }}>£{money(quote.subtotal)}</div>
+        <div className={layoutStyles.extracted14}>£{money(quote.subtotal)}</div>
         <div
-          className="job-home-row-status"
-          style={{
-            justifySelf: "stretch",
-            alignSelf: "stretch",
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr)",
-            alignItems: "center",
-            width: "100%",
-            paddingRight: 4,
-          }}
+          className={`job-home-row-status ${layoutStyles.extracted15}`}
+
         >
           <span
             style={{
@@ -1020,11 +972,11 @@ export default function JobHomePage() {
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted16}>
           <div>
             <h1 style={h1}>Jobs Home</h1>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted17}>
             <Link href="/create-booking" style={actionButton("primary")}>
               <Plus size={14} />
               New Booking
@@ -1040,7 +992,7 @@ export default function JobHomePage() {
         </div>
 
         <div className="job-home-top-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(300px, 1fr)", gap: 10, marginBottom: UI.gap, alignItems: "stretch" }}>
-          <div style={{ display: "grid", gap: 10 }}>
+          <div className={layoutStyles.extracted18}>
             <div className="job-home-stat-grid" style={grid(4)}>
               <MetricCard
                 label="Upcoming"
@@ -1078,13 +1030,13 @@ export default function JobHomePage() {
 
             <div className="job-home-shortcut-grid" style={grid(2)}>
               <section style={{ ...card, padding: 10 }}>
-                <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", marginBottom: 8 }}>
+                <div className={layoutStyles.extracted19}>
                   <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 28, height: 28 }}>
                     <Search size={15} />
                   </span>
                   <h2 style={{ ...cardTitle, margin: 0 }}>Quick Search</h2>
                 </div>
-                <div style={{ position: "relative" }}>
+                <div className={layoutStyles.extracted20}>
                   <Search size={15} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} aria-hidden />
                   <input
                     ref={searchRef}
@@ -1113,8 +1065,8 @@ export default function JobHomePage() {
           </div>
 
           <section style={{ ...card, alignSelf: "stretch", padding: 10 }}>
-            <div style={{ ...sectionHeader, marginBottom: 8 }}>
-              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+            <div className={layoutStyles.extracted21}>
+              <div className={layoutStyles.extracted22}>
                 <span style={{ ...iconBox(UI.green, UI.greenSoft, UI.greenBorder), width: 28, height: 28 }}>
                   <ChevronRight size={17} />
                 </span>
@@ -1124,7 +1076,7 @@ export default function JobHomePage() {
               </div>
               <span style={chip("purple")}>Shortcuts</span>
             </div>
-            <div className="job-home-workflow-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+            <div className={`job-home-workflow-grid ${layoutStyles.extracted23}`} >
               <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
               <WorkflowLink href="/finance-queue" label="Ready to Invoice" count={financeReadyCount} tone="green" />
               <WorkflowLink href="/completed-quotes" label="Completed Quotes" count={completedQuoteRows.length} tone="green" />
@@ -1136,8 +1088,8 @@ export default function JobHomePage() {
 
         <div className="job-home-groups-grid" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 300px) minmax(0, 1fr)", gap: UI.gap, marginBottom: UI.gap }}>
           <section style={{ ...card, padding: 9 }}>
-            <div style={{ ...sectionHeader, marginBottom: 6 }}>
-              <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center" }}>
+            <div className={layoutStyles.extracted24}>
+              <div className={layoutStyles.extracted25}>
                 <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 28, height: 28 }}>
                   <FolderKanban size={15} />
                 </span>
@@ -1147,13 +1099,13 @@ export default function JobHomePage() {
               </div>
               <span style={chip()}>{jobNumberGroups.length}</span>
             </div>
-            <div style={{ display: "grid", gap: 5 }}>
+            <div className={layoutStyles.extracted26}>
               <button
                 type="button"
                 onClick={() => setSelectedJobGroup("All")}
                 style={groupButtonStyle(selectedJobGroup === "All")}
               >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span className={layoutStyles.extracted27}>
                   <span>All</span>
                 </span>
                 <span style={chip(selectedJobGroup === "All" ? "green" : "neutral")}>{jobs.length}</span>
@@ -1163,7 +1115,7 @@ export default function JobHomePage() {
                 const isExpanded = !!expandedJobGroups[group] || (searchTerm && hasSearchMatch);
                 const hasSubgroups = subgroups.length > 0;
                 return (
-                  <div key={group} style={{ display: "grid", gap: 4 }}>
+                  <div key={group} className={layoutStyles.extracted28}>
                     <button
                       type="button"
                       onClick={() => {
@@ -1172,7 +1124,7 @@ export default function JobHomePage() {
                       }}
                       style={groupButtonStyle(selectedJobGroup === group || (searchTerm && hasSearchMatch))}
                     >
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span className={layoutStyles.extracted29}>
                         {hasSubgroups ? isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} /> : null}
                         <span>{group === "Other" ? group : `${group}00`}</span>
                       </span>
@@ -1180,7 +1132,7 @@ export default function JobHomePage() {
                     </button>
 
                     {isExpanded && (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 4, paddingLeft: 12 }}>
+                      <div className={layoutStyles.extracted30}>
                         {subgroups.map(({ subgroup, items: subgroupItems }) => (
                           <button
                             key={subgroup}
@@ -1195,7 +1147,7 @@ export default function JobHomePage() {
                               justifyContent: "center",
                             }}
                           >
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span className={layoutStyles.extracted31}>
                               <span>{subgroup === "Other" ? subgroup : `${subgroup}0`}</span>
                             </span>
                           </button>
@@ -1306,14 +1258,14 @@ function WorkflowLink({ href, label, count, tone = "neutral" }) {
         padding: "5px 8px",
         borderRadius: UI.radiusSm,
         border: UI.border,
-        background: "var(--legacy-color-fff)",
+        background: "var(--color-surface)",
         color: UI.text,
         textDecoration: "none",
         fontSize: 12.5,
         fontWeight: 800,
       }}
     >
-      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <span className={layoutStyles.extracted32}>{label}</span>
       <span style={chip(tone)}>{count}</span>
       <ChevronRight size={14} color={UI.brand} />
     </Link>

@@ -67,10 +67,10 @@ const DEFAULT_BRANDING = {
   appName: "BAS Software",
   companyLogo: "",
   platformLogo: "/bas-software-logo.png",
-  primaryColor: "var(--legacy-color-0f172a)",
-  secondaryColor: "var(--legacy-color-0369a1)",
-  accentColor: "var(--legacy-color-f59e0b)",
-  sidebarColor: "var(--legacy-color-0f172a)",
+  primaryColor: "#0f172a",
+  secondaryColor: "#0369a1",
+  accentColor: "#f59e0b",
+  sidebarColor: "#0f172a",
   loginTitle: "BAS Software",
   loginSubtitle: "Secure company access",
   mobileAppName: "BAS Mobile",
@@ -493,10 +493,6 @@ function sanitizeCompanyPatch(raw = {}) {
     };
   }
 
-  if (raw.branding && typeof raw.branding === "object") {
-    patch.branding = normalizeBranding(raw.branding);
-  }
-
   return patch;
 }
 
@@ -753,25 +749,7 @@ export async function POST(req) {
     }
 
     if (action === "saveGlobalBranding") {
-      const before = (await adminReadDocument("settings", "platformBranding")) || {};
-      const branding = normalizeBranding(body.branding || {});
-      const after = {
-        ...before,
-        ...branding,
-        branding,
-        updatedAt: nowIso,
-        updatedBy: admin.verifiedUser.email || "platform-admin",
-        updatedByUid: admin.verifiedUser.uid,
-      };
-
-      await adminPatchDocument("settings", "platformBranding", after);
-      await writeAudit("Updated global branding", admin.verifiedUser, {
-        targetType: "settings",
-        targetId: "settings/platformBranding",
-        before,
-        after,
-      }, req);
-      return Response.json({ ok: true, branding });
+      return jsonError("Branding is now managed through Admin > Global styling.", 410);
     }
 
     if (action === "saveCompanyFeatureFlags") {
@@ -813,28 +791,7 @@ export async function POST(req) {
     }
 
     if (action === "saveCompanyBranding") {
-      const companyId = slugify(body.companyId);
-      if (!companyId) return jsonError("Company id is required.", 400);
-
-      const existing = await adminReadDocument("platformCompanies", companyId);
-      const before = existing ? serializeCompany(companyId, existing) : serializeCompany(companyId, {});
-      const branding = normalizeBranding(body.branding || {});
-      const after = serializeCompany(companyId, {
-        ...before,
-        branding,
-        updatedAt: nowIso,
-        updatedBy: admin.verifiedUser.email || "platform-admin",
-      });
-
-      await adminPatchDocument("platformCompanies", companyId, after);
-      await writeAudit("Updated company branding", admin.verifiedUser, {
-        targetType: "company",
-        targetId: companyId,
-        companyId,
-        before,
-        after,
-      }, req);
-      return Response.json({ ok: true, companyId, branding });
+      return jsonError("Company branding is now managed through Admin > Global styling.", 410);
     }
 
     if (action === "deleteCompany") {

@@ -1,0 +1,48 @@
+
+
+.extracted1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.extracted2 {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.extracted3 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted4 {
+  padding: 14px 18px 18px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.extracted5 {
+  flex: 1;
+  min-height: 0;
+}
+
+.extracted6 {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.extracted7 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

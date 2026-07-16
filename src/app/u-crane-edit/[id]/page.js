@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -22,6 +23,7 @@ import {
   addDoc, // keep (Save as copy)
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────────────────────────────────
    U-Crane roles (MUST match Create page + Crew Manager)
@@ -46,18 +48,7 @@ const getDisplayName = (row) =>
 /* ───────────────────────────────────────────
    Styles (MATCH Create booking page vibe)
 ─────────────────────────────────────────── */
-const UI = {
-  radius: 8,
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-516174)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  borderSoft: "1px solid var(--legacy-color-dde5ef)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  shadowSm: "0 1px 2px rgba(15, 23, 42, 0.05)",
-};
+const UI = UI_TOKENS;
 
 const pageCss = `
   .ucrane-edit-page h3,
@@ -115,10 +106,10 @@ const inputStyle = {
   marginBottom: "10px",
   padding: "6px 9px",
   fontSize: "14px",
-  border: "1px solid var(--legacy-color-d2dce8)",
+  border: "1px solid var(--color-border)",
   borderRadius: UI.radius,
   boxSizing: "border-box",
-  backgroundColor: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -126,10 +117,10 @@ const textArea = {
   width: "100%",
   padding: "9px 10px",
   fontSize: "14px",
-  border: "1px solid var(--legacy-color-d2dce8)",
+  border: "1px solid var(--color-border)",
   borderRadius: UI.radius,
   boxSizing: "border-box",
-  backgroundColor: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-surface)",
   color: UI.text,
 };
 
@@ -137,8 +128,8 @@ const buttonStyle = {
   marginRight: "10px",
   marginTop: "10px",
   padding: "8px 13px",
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-  color: "var(--legacy-color-fff)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,
   cursor: "pointer",
@@ -147,16 +138,16 @@ const buttonStyle = {
 };
 const cancelBtn = {
   ...buttonStyle,
-  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
   boxShadow: "none",
 };
 const dangerBtn = {
   ...buttonStyle,
-  background: "var(--legacy-color-fff1f2)",
-  color: "var(--legacy-color-991b1b)",
-  border: "1px solid var(--legacy-color-e9c6c4)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
+  border: "1px solid var(--color-danger-border)",
   boxShadow: "none",
 };
 const summaryCard = {
@@ -640,7 +631,7 @@ export default function EditBookingPage() {
       <style>{pageCss}</style>
       <div className="ucrane-edit-page" style={pageBg}>
         <div style={main}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+          <div className={layoutStyles.extracted1}>
             <div>
               <h1 style={{ color: UI.text, margin: 0, fontSize: 22, fontWeight: 850 }}>
                 Edit U-Crane Booking
@@ -660,7 +651,7 @@ export default function EditBookingPage() {
                 border: UI.border,
                 borderRadius: UI.radius,
                 padding: "7px 10px",
-                background: "var(--legacy-color-fff)",
+                background: "var(--color-surface)",
                 boxShadow: UI.shadowSm,
               }}
             >
@@ -677,7 +668,7 @@ export default function EditBookingPage() {
             <div style={panel}>
               {/* Column 1: Job Info */}
               <div style={col}>
-                <h3 style={{ marginBottom: "6px" }}>Job Number</h3>
+                <h3 className={layoutStyles.extracted2}>Job Number</h3>
                 <input
                   value={jobNumber}
                   onChange={(e) => setJobNumber(e.target.value)}
@@ -685,7 +676,7 @@ export default function EditBookingPage() {
                   style={inputStyle}
                 />
 
-                <h3 style={{ marginBottom: "6px" }}>Status</h3>
+                <h3 className={layoutStyles.extracted3}>Status</h3>
                 <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle}>
                   <option value="Confirmed">Confirmed</option>
                   <option value="First Pencil">First Pencil</option>
@@ -697,7 +688,7 @@ export default function EditBookingPage() {
                   <option value="Action Required">Action Required</option>
                 </select>
 
-                <h3 style={{ marginBottom: "6px" }}>Shoot Type</h3>
+                <h3 className={layoutStyles.extracted4}>Shoot Type</h3>
                 <select
                   value={shootType}
                   onChange={(e) => setShootType(e.target.value)}
@@ -707,10 +698,10 @@ export default function EditBookingPage() {
                   <option value="Night">Night</option>
                 </select>
 
-                <h3 style={{ marginBottom: "6px" }}>Production Company</h3>
+                <h3 className={layoutStyles.extracted5}>Production Company</h3>
                 <input value={client} onChange={(e) => setClient(e.target.value)} required style={inputStyle} />
 
-                <h3 style={{ marginBottom: "6px" }}>Contact Email</h3>
+                <h3 className={layoutStyles.extracted6}>Contact Email</h3>
                 <input
                   type="email"
                   value={contactEmail}
@@ -719,7 +710,7 @@ export default function EditBookingPage() {
                   style={inputStyle}
                 />
 
-                <h3 style={{ marginBottom: "6px" }}>Contact Number</h3>
+                <h3 className={layoutStyles.extracted7}>Contact Number</h3>
                 <input
                   type="text"
                   value={contactNumber}
@@ -728,7 +719,7 @@ export default function EditBookingPage() {
                   style={inputStyle}
                 />
 
-                <h3 style={{ marginBottom: "6px" }}>Location</h3>
+                <h3 className={layoutStyles.extracted8}>Location</h3>
                 <textarea
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -741,7 +732,7 @@ export default function EditBookingPage() {
               {/* Column 2: Dates + Crew */}
               <div style={col}>
                 <h3>Dates</h3>
-                <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <label className={layoutStyles.extracted9}>
                   <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
                   Multi-day
                 </label>
@@ -764,11 +755,11 @@ export default function EditBookingPage() {
                   />
                 )}
 
-                <h3 style={{ marginTop: "10px" }}>Crew</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                <h3 className={layoutStyles.extracted10}>Crew</h3>
+                <div className={layoutStyles.extracted11}>
                   {UCRANE_ROLES.map(({ role }) => (
-                    <div key={role} style={{ marginBottom: "1px" }}>
-                      <h4 style={{ marginBottom: "6px" }}>{role}</h4>
+                    <div key={role} className={layoutStyles.extracted12}>
+                      <h4 className={layoutStyles.extracted13}>{role}</h4>
 
                       {(crewOptionsForRole[role] || []).map((person) => {
                         const personName = getDisplayName(person);
@@ -780,13 +771,7 @@ export default function EditBookingPage() {
                         return (
                           <label
                             key={`${person.__collection}:${person.id}:${role}`}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              marginBottom: "6px",
-                              fontSize: "16px",
-                            }}
+                            className={layoutStyles.extracted14}
                           >
                             <input
                               type="checkbox"
@@ -803,7 +788,7 @@ export default function EditBookingPage() {
                                 }
                               }}
                             />
-                            <span style={{ color: disabled ? "grey" : "var(--legacy-color-333)" }}>
+                            <span style={{ color: disabled ? "grey" : "var(--color-text)" }}>
                               {personName}{" "}
                               {person.__collection === "uCraneFreelancers" ? "(Freelancer)" : ""}
                               {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"} {isUnavailable && " (Unavailable)"}
@@ -813,7 +798,7 @@ export default function EditBookingPage() {
                       })}
 
                       {(crewOptionsForRole[role] || []).length === 0 && (
-                        <div style={{ fontSize: 12, color: "var(--legacy-color-666)", marginBottom: 10 }}>
+                        <div className={layoutStyles.extracted15}>
                           No crew set as visible for this role.
                         </div>
                       )}
@@ -821,8 +806,8 @@ export default function EditBookingPage() {
                   ))}
                 </div>
 
-                <div style={{ marginTop: 12 }}>
-                  <h4 style={{ marginBottom: 6 }}>Add custom crew (comma separated)</h4>
+                <div className={layoutStyles.extracted16}>
+                  <h4 className={layoutStyles.extracted17}>Add custom crew (comma separated)</h4>
                   <input
                     value={customEmployee}
                     onChange={(e) => setCustomEmployee(e.target.value)}
@@ -836,8 +821,8 @@ export default function EditBookingPage() {
               <div style={col}>
                 <h3>Vehicles</h3>
                 {["U-Crane", "Transport Lorry"].map((group) => (
-                  <div key={group} style={{ marginBottom: "15px" }}>
-                    <h4 style={{ marginBottom: "6px" }}>{group}</h4>
+                  <div key={group} className={layoutStyles.extracted18}>
+                    <h4 className={layoutStyles.extracted19}>{group}</h4>
 
                     {vehicleGroups[group]?.length > 0 ? (
                       vehicleGroups[group].map((vehicle, index) => {
@@ -848,12 +833,7 @@ export default function EditBookingPage() {
                         return (
                           <label
                             key={`${group}-${vehicle.id || vehicle.name || "vehicle"}-${vehicle.registration || ""}-${index}`}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              marginBottom: "6px",
-                            }}
+                            className={layoutStyles.extracted20}
                           >
                             <input
                               type="checkbox"
@@ -868,7 +848,7 @@ export default function EditBookingPage() {
                                 )
                               }
                             />
-                            <span style={{ color: disabled ? "grey" : "var(--legacy-color-333)" }}>
+                            <span style={{ color: disabled ? "grey" : "var(--color-text)" }}>
                               {vehicle.name}{" "}
                               {vehicle.registration && `– ${vehicle.registration}`}{" "}
                               {maintenanceBlocked && "(Maintenance)"} {dateBlocked && "(Booked)"}
@@ -877,21 +857,21 @@ export default function EditBookingPage() {
                         );
                       })
                     ) : (
-                      <p style={{ fontSize: "12px", color: "var(--legacy-color-666)" }}>No vehicles in this category</p>
+                      <p className={layoutStyles.extracted21}>No vehicles in this category</p>
                     )}
                   </div>
                 ))}
 
-                <h3 style={{ marginTop: 10 }}>Quote (Excel/CSV)</h3>
+                <h3 className={layoutStyles.extracted22}>Quote (Excel/CSV)</h3>
                 {quoteURL ? (
-                  <p style={{ margin: "6px 0 10px" }}>
+                  <p className={layoutStyles.extracted23}>
                     Current:{" "}
                     <a href={quoteURL} target="_blank" rel="noopener noreferrer">
                       Download existing
                     </a>
                   </p>
                 ) : (
-                  <p style={{ margin: "6px 0 10px", color: "var(--legacy-color-6b7280)" }}>No quote attached</p>
+                  <p className={layoutStyles.extracted24}>No quote attached</p>
                 )}
 
                 <input
@@ -900,7 +880,7 @@ export default function EditBookingPage() {
                   onChange={(e) => setQuoteFile(e.target.files?.[0] || null)}
                 />
 
-                <div style={{ marginTop: 16 }}>
+                <div className={layoutStyles.extracted25}>
                   <label>
                     <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />{" "}
                     Health & Safety Completed
@@ -933,7 +913,7 @@ export default function EditBookingPage() {
             </div>
 
             {/* Notes */}
-            <div style={{ marginTop: 20 }}>
+            <div className={layoutStyles.extracted26}>
               <h3>Notes</h3>
               <textarea
                 value={notes}
@@ -945,7 +925,7 @@ export default function EditBookingPage() {
             </div>
 
             {/* Actions */}
-            <div style={{ marginTop: 30, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted27}>
               <button type="submit" style={buttonStyle} disabled={saving}>
                 {saving ? "Saving…" : "Save U-Crane Booking"}
               </button>

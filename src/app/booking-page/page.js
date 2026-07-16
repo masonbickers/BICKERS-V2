@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -29,27 +30,17 @@ export default function CreateBookingPage() {
   return (
     <HeaderSidebarLayout>
       <div
-        style={{
-          backgroundColor: "var(--legacy-color-f4f4f5)",
-          color: "var(--legacy-color-333)",
-          fontFamily: "Arial, sans-serif",
-          padding: "24px 20px 32px",
-        }}
+        className={layoutStyles.extracted1}
       >
-        <main style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>Booking Options</h1>
+        <main className={layoutStyles.extracted2}>
+          <h1 className={layoutStyles.extracted3}>Booking Options</h1>
 
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: 20,
-              alignItems: "stretch",
-            }}
+            className={layoutStyles.extracted4}
           >
           {bookingOptions.map((item, idx) => (
-            <div key={idx} style={cardStyle} onClick={() => router.push(item.link)}>
-              <h2 style={{ marginBottom: 10 }}>{item.title}</h2>
+            <div key={idx} className={layoutStyles.extracted5} onClick={() => router.push(item.link)}>
+              <h2 className={layoutStyles.extracted6}>{item.title}</h2>
               <p>{item.description}</p>
             </div>
           ))}
@@ -62,17 +53,17 @@ export default function CreateBookingPage() {
 
 const navButton = {
   background: "transparent",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   border: "none",
   fontSize: 16,
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid var(--legacy-color-333)"
+  borderBottom: "1px solid var(--color-text)"
 };
 
 const cardStyle = {
-  backgroundColor: "var(--legacy-color-fff)",
+  backgroundColor: "var(--color-surface)",
   padding: "20px",
   borderRadius: 8,
   boxShadow: "0 2px 8px rgba(0,0,0,0.1)",

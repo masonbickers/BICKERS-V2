@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -18,19 +19,10 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* ───────────────── Visual tokens ──────────────── */
-const UI = {
-  page: "var(--legacy-color-f3f4f6)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  subtext: "var(--legacy-color-64748b)",
-  border: "1px solid var(--legacy-color-e5e7eb)",
-  radius: 12,
-  radiusSm: 8,
-  shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
-  shadowMd: "0 8px 24px rgba(2, 6, 23, 0.08)",
-};
+const UI = UI_TOKENS;
 
 const shell = {
   minHeight: "100vh",
@@ -54,17 +46,17 @@ const panel = {
 
 const filtersRow = { display: "flex", gap: 10, flexWrap: "wrap" };
 const input = {
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   borderRadius: 10,
   padding: "8px 10px",
   fontSize: 13,
   minWidth: 220,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 const select = { ...input, minWidth: 160 };
 const table = { width: "100%", borderCollapse: "collapse", marginTop: 12 };
-const th = { padding: "10px 12px", fontSize: 12, color: UI.subtext, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid var(--legacy-color-eef2f7)", textAlign: "left" };
-const td = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top" };
+const th = { padding: "10px 12px", fontSize: 12, color: UI.subtext, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid var(--color-brand-soft)", textAlign: "left" };
+const td = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid var(--color-surface-hover)", verticalAlign: "top" };
 
 const badge = (bg, fg) => ({
   display: "inline-block",
@@ -76,13 +68,13 @@ const badge = (bg, fg) => ({
   color: fg,
 });
 
-const btn = (bg = "var(--legacy-color-fff)", fg = "var(--legacy-color-111827)") => ({
+const btn = (bg = "var(--color-white)", fg = "var(--color-text)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "6px 10px",
   borderRadius: 8,
-  border: "1px solid var(--legacy-color-e5e7eb)",
+  border: "1px solid var(--color-border)",
   background: bg,
   color: fg,
   fontWeight: 800,
@@ -280,10 +272,10 @@ export default function GeneralDefectsPage() {
   return (
     <HeaderSidebarLayout>
       <div style={{ display: "flex", ...shell }}>
-        <main style={main}>
-          <div style={subbar}>
+        <main className={layoutStyles.extracted1}>
+          <div className={layoutStyles.extracted2}>
             <div>
-              <h1 style={h1}>General Maintenance</h1>
+              <h1 className={layoutStyles.extracted3}>General Maintenance</h1>
               <div style={{ fontSize: 12, color: UI.subtext }}>
                 Approved defects routed to <strong>General</strong> for planning & scheduling.
               </div>
@@ -291,18 +283,18 @@ export default function GeneralDefectsPage() {
           </div>
 
           <div style={panel}>
-            <div style={filtersRow}>
+            <div className={layoutStyles.extracted4}>
               <input
                 type="search"
                 placeholder="Search vehicle, defect, note, driver, job…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                style={input}
+                className={layoutStyles.extracted5}
               />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={select}
+                className={layoutStyles.extracted6}
               >
                 <option value="all">All statuses</option>
                 <option value="pending">Pending status</option>
@@ -316,7 +308,7 @@ export default function GeneralDefectsPage() {
               </div>
             </div>
 
-            <table style={table}>
+            <table className={layoutStyles.extracted7}>
               <thead>
                 <tr>
                   <th style={th}>Date</th>
@@ -348,40 +340,33 @@ export default function GeneralDefectsPage() {
                     const m = r.maintenance?.status;
                     return (
                       <tr key={key}>
-                        <td style={td}>{fmtDate(r.dateISO)}</td>
-                        <td style={td}>{r.vehicle || "—"}</td>
-                        <td style={td} title={r.itemLabel}>
+                        <td className={layoutStyles.extracted8}>{fmtDate(r.dateISO)}</td>
+                        <td className={layoutStyles.extracted9}>{r.vehicle || "—"}</td>
+                        <td className={layoutStyles.extracted10} title={r.itemLabel}>
                           <strong>#{r.defectIndex + 1}</strong> — {r.itemLabel}
                         </td>
-                        <td style={{ ...td, maxWidth: 380 }}>
+                        <td className={layoutStyles.extracted11}>
                           <div
-                            style={{
-                              whiteSpace: "pre-wrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              display: "-webkit-box",
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: "vertical",
-                            }}
+                            className={layoutStyles.extracted12}
                           >
                             {r.note || "—"}
                           </div>
                         </td>
-                        <td style={td}>{r.driverName || "—"}</td>
-                        <td style={{ ...td, textAlign: "center" }}>
+                        <td className={layoutStyles.extracted13}>{r.driverName || "—"}</td>
+                        <td className={layoutStyles.extracted14}>
                           {r.photos?.length ? r.photos.length : 0}
                         </td>
-                        <td style={td}>
-                          {!m && <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>Pending</span>}
-                          {m === "scheduled" && <span style={badge("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)")}>Scheduled</span>}
-                          {m === "resolved" && <span style={badge("var(--legacy-color-f0f9ff)", "var(--legacy-color-075985)")}>Resolved</span>}
+                        <td className={layoutStyles.extracted15}>
+                          {!m && <span style={badge("var(--color-info-soft)", "var(--color-brand)")}>Pending</span>}
+                          {m === "scheduled" && <span style={badge("var(--color-success-soft)", "var(--color-success)")}>Scheduled</span>}
+                          {m === "resolved" && <span style={badge("var(--color-info-soft)", "var(--color-brand)")}>Resolved</span>}
                           {r.maintenance?.note ? (
                             <div style={{ marginTop: 6, fontSize: 12, color: UI.subtext }}>
                               {r.maintenance.note}
                             </div>
                           ) : null}
                         </td>
-                        <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                        <td className={layoutStyles.extracted16}>
                           <a
                             href={CHECK_DETAIL_PATH(r.checkId)}
                             style={{ ...linkBtn, marginRight: 6 }}
@@ -392,7 +377,7 @@ export default function GeneralDefectsPage() {
 
                           {/* Mark Scheduled */}
                           <button
-                            style={{ ...btn("var(--legacy-color-ffffff)"), marginRight: 6 }}
+                            style={{ ...btn("var(--color-white)"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "scheduled")}
                             disabled={savingId === key}
                             title="Mark as Scheduled"
@@ -402,7 +387,7 @@ export default function GeneralDefectsPage() {
 
                           {/* Mark Resolved */}
                           <button
-                            style={{ ...btn("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)"), marginRight: 6 }}
+                            style={{ ...btn("var(--color-success-soft)", "var(--color-success)"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "resolved")}
                             disabled={savingId === key}
                             title="Mark as Resolved"
@@ -412,7 +397,7 @@ export default function GeneralDefectsPage() {
 
                           {/* Re-route to Immediate */}
                           <button
-                            style={btn("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")}
+                            style={btn("var(--color-danger-soft)", "var(--color-danger)")}
                             onClick={() => rerouteToImmediate(r)}
                             disabled={savingId === key}
                             title="Move to Immediate Defects"
@@ -447,29 +432,21 @@ export default function GeneralDefectsPage() {
 function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15, 23, 42, 0.32)",
-        zIndex: 1000,
-        display: "grid",
-        placeItems: "center",
-        padding: 16,
-      }}
+      className={layoutStyles.extracted17}
       role="dialog"
       aria-modal="true"
     >
       <div
         style={{
           width: "min(92vw, 560px)",
-          background: "var(--legacy-color-fff)",
-          border: "1px solid var(--legacy-color-e5e7eb)",
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
           borderRadius: 12,
           boxShadow: UI.shadowMd,
           padding: 18,
         }}
       >
-        <h3 style={{ margin: "2px 0 10px", fontWeight: 800 }}>
+        <h3 className={layoutStyles.extracted18}>
           {notesModal.newStatus === "scheduled" ? "Mark as Scheduled" : "Mark as Resolved"}
         </h3>
         <div style={{ fontSize: 13, color: UI.subtext, marginBottom: 10 }}>
@@ -494,21 +471,14 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
               ? "e.g., Booked in bodyshop for next Tuesday."
               : "e.g., Replaced tyre and cleared warning light."
           }
-          style={{
-            width: "100%",
-            border: "1px solid var(--legacy-color-e5e7eb)",
-            borderRadius: 8,
-            padding: 10,
-            fontSize: 13,
-            marginBottom: 12,
-          }}
+          className={layoutStyles.extracted19}
         />
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onClose} style={btn("var(--legacy-color-fff)", "var(--legacy-color-111827)")}>
+        <div className={layoutStyles.extracted20}>
+          <button onClick={onClose} style={btn("var(--color-white)", "var(--color-text)")}>
             Cancel
           </button>
-          <button onClick={onSave} style={btn("var(--legacy-color-111827)", "var(--legacy-color-fff)")}>
+          <button onClick={onSave} style={btn("var(--color-text)", "var(--color-white)")}>
             Save
           </button>
         </div>

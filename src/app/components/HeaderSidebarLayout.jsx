@@ -29,7 +29,10 @@ import {
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
 import { useAuth } from "@/app/context/authContext";
+import { useAppearance } from "@/app/components/GlobalThemeProvider";
+import { useContentLabels } from "@/app/components/ContentLabelsProvider";
 import { Button, Modal, Select } from "@/app/components/ui";
+import { Moon, Sun } from "lucide-react";
 import {
   UNSAVED_CHANGES_EVENT,
   bypassUnsavedChangesOnce,
@@ -161,6 +164,8 @@ export default function HeaderSidebarLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const appearance = useAppearance();
+  const { label: contentLabel } = useContentLabels();
   const {
     user,
     realUser,
@@ -364,14 +369,14 @@ export default function HeaderSidebarLayout({
   const featureVisible = (path) => (path === "/settings" ? canSeeAdmin : true);
 
   const userHeaderLinks = [
-    ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
+    ...(canSeeAdmin ? [{ label: contentLabel("navigation.admin"), path: "/admin" }] : []),
   ];
 
   const userSidebarGroups = [
     {
       heading: "Operations",
       items: [
-        { label: "Home", path: "/screens/homescreen" },
+        { label: contentLabel("navigation.home"), path: "/screens/homescreen" },
         { label: "Diary", path: "/dashboard" },
         { label: "U-Crane", path: "/u-crane" },
         { label: "Jobs Sheets", path: "/job-home" },
@@ -381,8 +386,8 @@ export default function HeaderSidebarLayout({
       heading: "People & Fleet",
       items: [
         { label: "HR / Timesheets", path: "/hr" },
-        { label: "Employees", path: "/employee-home" },
-        { label: "Vehicles & Equip", path: "/vehicle-home" },
+        { label: contentLabel("navigation.employees"), path: "/employee-home" },
+        { label: `${contentLabel("navigation.vehicles")} & ${contentLabel("navigation.equipment")}`, path: "/vehicle-home" },
       ],
     },
     {
@@ -521,22 +526,22 @@ export default function HeaderSidebarLayout({
       background: "rgba(107,179,127,0.14)",
       border: "1px solid rgba(107,179,127,0.38)",
       dot: "var(--color-success-accent)",
-      text: "var(--legacy-color-d7f6e0)",
-      sub: "var(--legacy-color-a8e2b9)",
+      text: "var(--color-border)",
+      sub: "var(--color-success-border)",
     },
     denied: {
       background: "rgba(248,113,113,0.12)",
       border: "1px solid rgba(248,113,113,0.28)",
-      dot: "var(--legacy-color-f87171)",
-      text: "var(--legacy-color-ffd6d6)",
-      sub: "var(--legacy-color-f8b4b4)",
+      dot: "var(--color-warning-border)",
+      text: "var(--color-danger-border)",
+      sub: "var(--color-danger-border)",
     },
     checking: {
       background: "rgba(251,191,36,0.12)",
       border: "1px solid rgba(251,191,36,0.28)",
-      dot: "var(--legacy-color-fbbf24)",
-      text: "var(--legacy-color-fdecc8)",
-      sub: "var(--legacy-color-f8d98a)",
+      dot: "var(--color-warning-border)",
+      text: "var(--color-accent-soft)",
+      sub: "var(--color-warning-border)",
     },
   }[pageAccess.status];
 
@@ -545,13 +550,13 @@ export default function HeaderSidebarLayout({
       background: "rgba(107,179,127,0.1)",
       border: "1px solid rgba(107,179,127,0.26)",
       dot: "var(--color-success-accent)",
-      text: "var(--legacy-color-d7f6e0)",
+      text: "var(--color-border)",
     },
     denied: {
       background: "rgba(248,113,113,0.12)",
       border: "1px solid rgba(248,113,113,0.28)",
-      dot: "var(--legacy-color-f87171)",
-      text: "var(--legacy-color-ffd6d6)",
+      dot: "var(--color-warning-border)",
+      text: "var(--color-danger-border)",
     },
   }[dataAccess.status];
 
@@ -695,12 +700,12 @@ export default function HeaderSidebarLayout({
             className={layoutStyles.extracted1}
           >
             <img
-              src="/bickers-action-logo.png"
-              alt="Logo"
+              src={appearance.theme.companyLogo || "/bickers-action-logo.png"}
+              alt={`${appearance.theme.appName} logo`}
               className={layoutStyles.extracted2}
             />
             <div className={layoutStyles.extracted3}>
-              Booking System
+              {appearance.theme.appName}
             </div>
             <div className={layoutStyles.extracted4}>
               Operations platform
@@ -820,7 +825,7 @@ export default function HeaderSidebarLayout({
               <div
                 className={layoutStyles.extracted20}
               >
-                {currentNavItem?.label || "Bickers Booking System"}
+                {currentNavItem?.label || appearance.theme.appName}
               </div>
             </div>
           </div>
@@ -955,6 +960,19 @@ export default function HeaderSidebarLayout({
                 {label}
               </Link>
             ))}
+
+            <Button bare
+              type="button"
+              className={layoutStyles.themeToggle}
+              data-mode={appearance.resolvedMode}
+              onClick={() => appearance.setModePreference(appearance.resolvedMode === "dark" ? "light" : "dark")}
+              title={`Switch to ${appearance.resolvedMode === "dark" ? "light" : "dark"} mode`}
+              aria-label={`Switch to ${appearance.resolvedMode === "dark" ? "light" : "dark"} mode`}
+              aria-pressed={appearance.resolvedMode === "dark"}
+            >
+              {appearance.resolvedMode === "dark" ? <Moon size={15} aria-hidden="true" /> : <Sun size={15} aria-hidden="true" />}
+              <span>{appearance.resolvedMode === "dark" ? "Dark" : "Light"}</span>
+            </Button>
           </nav>
         </header>
 
@@ -971,7 +989,7 @@ export default function HeaderSidebarLayout({
 
         {/* Footer */}
         <footer className={layoutStyles.footer}>
-          <span>Copyright {new Date().getFullYear()} Bickers Booking System v{APP_VERSION_LABEL}</span>
+          <span>Copyright {new Date().getFullYear()} {appearance.theme.appName} v{APP_VERSION_LABEL}</span>
           <div
             className={layoutStyles.extracted41}
           >

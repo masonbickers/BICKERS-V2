@@ -1,6 +1,7 @@
 // src/app/defects/declined/page.js
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -31,29 +32,13 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* Route */
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
 
 /* UI tokens */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  danger: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
@@ -96,10 +81,10 @@ const inputBase = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
 };
 
-const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
+const pill = (bg, fg, borderColor = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -119,8 +104,8 @@ const btn = (kind = "ghost") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-      color: "var(--legacy-color-fff)",
+      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -138,7 +123,7 @@ const btn = (kind = "ghost") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+    background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
     color: UI.text,
     fontWeight: 800,
     cursor: "pointer",
@@ -156,12 +141,12 @@ const btn = (kind = "ghost") => {
 
 /* table */
 const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden", marginTop: 12 };
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "var(--legacy-color-f6f8fb)",
+  background: "var(--color-surface-subtle)",
   fontSize: 11.5,
   letterSpacing: 0,
   textTransform: "uppercase",
@@ -188,7 +173,7 @@ const modalOverlay = {
 };
 const modalCard = {
   width: "min(92vw, 560px)",
-  background: "var(--legacy-color-fff)",
+  background: "var(--color-surface)",
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowHover,
@@ -334,10 +319,10 @@ export default function DeclinedDefectsPage() {
         input:focus, button:focus, select:focus, textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: var(--legacy-color-9fb7cf) !important;
+          border-color: var(--shell-muted) !important;
         }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        .declined-defects-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
+        .declined-defects-action:hover { background: var(--color-surface-subtle) !important; border-color: var(--shell-muted) !important; }
         .declined-defects-kpi-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -361,7 +346,7 @@ export default function DeclinedDefectsPage() {
 
       <div style={pageWrap}>
         {/* Header */}
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Declined Defects</h1>
             <div style={sub}>
@@ -369,7 +354,7 @@ export default function DeclinedDefectsPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted2}>
             <Link href="/vehicles" className="declined-defects-action" style={btn("ghost")}>
               <ArrowLeft size={15} />
               Back to Vehicles
@@ -388,7 +373,7 @@ export default function DeclinedDefectsPage() {
         <section style={card}>
           {/* Controls */}
           <div className="declined-defects-controls" style={controls}>
-            <label style={{ position: "relative", display: "block" }}>
+            <label className={layoutStyles.extracted3}>
               <Search
                 size={16}
                 style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
@@ -402,10 +387,10 @@ export default function DeclinedDefectsPage() {
               />
             </label>
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <span style={pill("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)", "var(--legacy-color-fecaca)")}>Declined</span>
+            <div className={layoutStyles.extracted4}>
+              <span style={pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)")}>Declined</span>
               <span style={pill(UI.brandSoft, UI.brand, UI.brandBorder)}>
-                Showing <b style={{ marginLeft: 6 }}>{filtered.length}</b> / {total}
+                Showing <b className={layoutStyles.extracted5}>{filtered.length}</b> / {total}
               </span>
             </div>
 
@@ -423,7 +408,7 @@ export default function DeclinedDefectsPage() {
 
           {/* Table */}
           <div style={tableWrap}>
-            <table style={{ width: "100%", minWidth: 1180, borderCollapse: "collapse" }}>
+            <table className={layoutStyles.extracted6}>
               <thead>
                 <tr>
                   <th style={theadTh}>Reviewed</th>
@@ -457,24 +442,24 @@ export default function DeclinedDefectsPage() {
                     const key = `${r.checkId}:${r.defectIndex}`;
                     const isBusy = reopeningId === key;
                     return (
-                      <tr key={key} style={{ background: i % 2 ? "var(--legacy-color-fff)" : "var(--legacy-color-fcfdff)" }}>
-                        <td style={thtd}>{fmtDate(r.reviewedAt)}</td>
-                        <td style={thtd}>{fmtDate(r.dateISO)}</td>
+                      <tr key={key} style={{ background: i % 2 ? "var(--color-surface)" : "var(--color-surface)" }}>
+                        <td className={layoutStyles.extracted7}>{fmtDate(r.reviewedAt)}</td>
+                        <td className={layoutStyles.extracted8}>{fmtDate(r.dateISO)}</td>
 
-                        <td style={thtd}>
+                        <td className={layoutStyles.extracted9}>
                           <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicle}</div>
                           <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.jobLabel || "-"}</div>
                         </td>
 
-                        <td style={thtd}>{r.driverName}</td>
-                        <td style={thtd}>{r.jobLabel || "-"}</td>
+                        <td className={layoutStyles.extracted10}>{r.driverName}</td>
+                        <td className={layoutStyles.extracted11}>{r.jobLabel || "-"}</td>
 
-                        <td style={thtd} title={r.itemLabel}>
+                        <td className={layoutStyles.extracted12} title={r.itemLabel}>
                           <strong>#{r.defectIndex + 1}</strong> - {r.itemLabel}
                         </td>
 
-                        <td style={{ ...thtd, maxWidth: 420 }}>
-                          <div style={rowNoteClamp}>
+                        <td className={layoutStyles.extracted13}>
+                          <div className={layoutStyles.extracted14}>
                             {r.defectNote || "-"}
                             {r.comment ? (
                               <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
@@ -484,15 +469,15 @@ export default function DeclinedDefectsPage() {
                           </div>
                         </td>
 
-                        <td style={thtd}>{r.reviewedBy}</td>
-                        <td style={{ ...thtd, textAlign: "center" }}>
-                          <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>
+                        <td className={layoutStyles.extracted15}>{r.reviewedBy}</td>
+                        <td className={layoutStyles.extracted16}>
+                          <span style={pill("var(--color-surface-hover)", UI.text)}>
                             <Camera size={13} />
                             {r.photosCount}
                           </span>
                         </td>
 
-                        <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
+                        <td className={layoutStyles.extracted17}>
                           <Link
                             href={CHECK_DETAIL_PATH(r.checkId)}
                             className="declined-defects-action"
@@ -525,9 +510,9 @@ export default function DeclinedDefectsPage() {
 
         {/* Confirm Modal */}
         {confirmModal?.row && (
-          <div style={modalOverlay} onMouseDown={() => setConfirmModal(null)}>
+          <div className={layoutStyles.extracted18} onMouseDown={() => setConfirmModal(null)}>
             <div style={modalCard} onMouseDown={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+              <div className={layoutStyles.extracted19}>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>Reopen to Review</div>
                   <div style={{ fontSize: 12.5, color: UI.muted, marginTop: 4 }}>
@@ -551,7 +536,7 @@ export default function DeclinedDefectsPage() {
                 <div style={{ marginTop: 10, fontSize: 12, color: UI.muted }}>
                   Current note:
                 </div>
-                <div style={{ marginTop: 6, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--legacy-color-fff)", fontSize: 13 }}>
+                <div style={{ marginTop: 6, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--color-surface)", fontSize: 13 }}>
                   {confirmModal.row.defectNote || "-"}
                   {confirmModal.row.comment ? (
                     <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
@@ -560,7 +545,7 @@ export default function DeclinedDefectsPage() {
                   ) : null}
                 </div>
 
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
+                <div className={layoutStyles.extracted20}>
                   <button type="button" style={btn("ghost")} onClick={() => setConfirmModal(null)} disabled={!!reopeningId}>
                     Cancel
                   </button>
@@ -586,14 +571,14 @@ export default function DeclinedDefectsPage() {
 function SummaryCard({ label, value, sub, tone = "default", icon: Icon = ClipboardList }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "var(--legacy-color-991b1b)", bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)" }
+      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
       : tone === "amber"
-      ? { fg: "var(--legacy-color-9a3412)", bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)" }
+      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
       : tone === "ok"
-      ? { fg: "var(--legacy-color-065f46)", bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)" }
+      ? { fg: "var(--color-success)", bg: "var(--color-success-soft)", border: "var(--color-success-border)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--legacy-color-d7dee8)" };
+      : { fg: UI.text, bg: "var(--color-surface-subtle)", border: "var(--color-border)" };
 
   return (
     <div
@@ -606,7 +591,7 @@ function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Clipboa
         ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div className={layoutStyles.extracted21}>
         <div>
           <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
             {label}

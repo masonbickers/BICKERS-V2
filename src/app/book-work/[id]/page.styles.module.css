@@ -1,0 +1,147 @@
+
+
+.extracted1 {
+  padding: 40px;
+  max-width: 700px;
+  color: var(--color-text);
+}
+
+.extracted2 {
+  margin-top: 10px;
+  color: var(--color-text);
+}
+
+.extracted3 {
+  display: block;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.extracted4 {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.extracted5 {
+  display: block;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.extracted6 {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.extracted7 {
+  display: block;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.extracted8 {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.extracted9 {
+  display: block;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.extracted10 {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.extracted11 {
+  display: block;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.extracted12 {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.extracted13 {
+  display: block;
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.extracted14 {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  font-size: 14px;
+  margin-top: 5px;
+  height: 100px;
+}
+
+.extracted15 {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.extracted16 {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: var(--color-info);
+  color: var(--color-white);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.extracted17 {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: var(--color-success-accent);
+  color: var(--color-white);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.extracted18 {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: var(--color-danger);
+  color: var(--color-white);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.extracted19 {
+  margin-top: 30px;
+}
+
+.extracted20 {
+  color: var(--color-danger);
+}

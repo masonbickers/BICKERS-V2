@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { auth, db } from "../../../firebaseConfig";
@@ -11,20 +12,9 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const UI = {
-  bg: "var(--legacy-color-edf3f8)",
-  shell: "var(--legacy-color-ffffff)",
-  shellAlt: "var(--legacy-color-f7fafc)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  accent: "var(--legacy-color-8b5e3c)",
-  border: "1px solid var(--legacy-color-dbe2ea)",
-  shadow: "0 18px 40px rgba(15,23,42,0.08)",
-};
+const UI = UI_TOKENS;
 
 const starterPrompts = [
   "Which vehicles currently have open issues or overdue maintenance?",
@@ -289,18 +279,11 @@ export default function AssistantPage() {
         }}
       >
         <div
-          style={{
-            maxWidth: 1240,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "320px minmax(0, 1fr)",
-            gap: 18,
-            alignItems: "stretch",
-          }}
+          className={layoutStyles.extracted1}
         >
           <aside
             style={{
-              background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfdff) 100%)",
+              background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
               border: UI.border,
               borderRadius: 18,
               boxShadow: UI.shadow,
@@ -356,7 +339,7 @@ export default function AssistantPage() {
               <div style={{ color: UI.text, fontWeight: 800, fontSize: 13, marginBottom: 8 }}>
                 Try asking
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div className={layoutStyles.extracted2}>
                 {starterPrompts.map((prompt) => (
                   <button
                     key={prompt}
@@ -368,7 +351,7 @@ export default function AssistantPage() {
                       padding: "10px 12px",
                       borderRadius: 12,
                       border: `1px solid ${UI.brandBorder}`,
-                      background: "var(--legacy-color-fff)",
+                      background: "var(--color-surface)",
                       color: UI.text,
                       cursor: loading ? "not-allowed" : "pointer",
                       fontSize: 12.5,
@@ -385,7 +368,7 @@ export default function AssistantPage() {
               style={{
                 border: UI.border,
                 borderRadius: 14,
-                background: "var(--legacy-color-fff)",
+                background: "var(--color-surface)",
                 padding: 14,
               }}
             >
@@ -411,7 +394,7 @@ export default function AssistantPage() {
           <section
             style={{
               minHeight: "74vh",
-              background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfdff) 100%)",
+              background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
               border: UI.border,
               borderRadius: 22,
               boxShadow: UI.shadow,
@@ -425,26 +408,19 @@ export default function AssistantPage() {
                 padding: "16px 18px",
                 borderBottom: UI.border,
                 background:
-                  "radial-gradient(circle at top right, rgba(107,179,127,0.14), transparent 30%), linear-gradient(135deg, var(--legacy-color-162434) 0%, var(--legacy-color-22364c) 100%)",
-                color: "var(--legacy-color-eef5fb)",
+                  "radial-gradient(circle at top right, rgba(107,179,127,0.14), transparent 30%), linear-gradient(135deg, var(--shell-sidebar-bg) 0%, var(--color-brand-hover) 100%)",
+                color: "var(--color-surface-hover)",
               }}
             >
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Bickers Assistant</div>
-              <div style={{ fontSize: 12.5, opacity: 0.84, marginTop: 4 }}>
+              <div className={layoutStyles.extracted3}>Bickers Assistant</div>
+              <div className={layoutStyles.extracted4}>
                 Search the system, summarize activity, and answer operational questions from one place.
               </div>
             </div>
 
             <div
               ref={listRef}
-              style={{
-                overflowY: "auto",
-                padding: 18,
-                display: "grid",
-                gap: 14,
-                background:
-                  "radial-gradient(circle at top left, rgba(237,243,248,0.9), transparent 35%), linear-gradient(180deg, var(--legacy-color-f8fbfd) 0%, var(--legacy-color-fdfefe) 100%)",
-              }}
+              className={layoutStyles.extracted5}
             >
               {messages.map((message, index) => {
                 const isUser = message.role === "user";
@@ -462,8 +438,8 @@ export default function AssistantPage() {
                         borderRadius: 18,
                         padding: "12px 14px",
                         border: isUser ? `1px solid ${UI.brand}` : UI.border,
-                        background: isUser ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)" : "var(--legacy-color-ffffff)",
-                        color: isUser ? "var(--legacy-color-fff)" : UI.text,
+                        background: isUser ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)" : "var(--color-surface)",
+                        color: isUser ? "var(--color-white)" : UI.text,
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.6,
                         fontSize: 14,
@@ -479,14 +455,14 @@ export default function AssistantPage() {
               })}
 
               {loading ? (
-                <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                <div className={layoutStyles.extracted6}>
                   <div
                     style={{
                       maxWidth: "82%",
                       borderRadius: 18,
                       padding: "12px 14px",
                       border: UI.border,
-                      background: "var(--legacy-color-ffffff)",
+                      background: "var(--color-surface)",
                       color: UI.muted,
                       fontSize: 14,
                     }}
@@ -497,25 +473,16 @@ export default function AssistantPage() {
               ) : null}
             </div>
 
-            <div style={{ borderTop: UI.border, padding: 16, background: "var(--legacy-color-fff)" }}>
+            <div style={{ borderTop: UI.border, padding: 16, background: "var(--color-surface)" }}>
               {error ? (
                 <div
-                  style={{
-                    marginBottom: 10,
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid var(--legacy-color-fecaca)",
-                    background: "var(--legacy-color-fff1f2)",
-                    color: "var(--legacy-color-991b1b)",
-                    fontSize: 12.5,
-                    fontWeight: 700,
-                  }}
+                  className={layoutStyles.extracted7}
                 >
                   {error}
                 </div>
               ) : null}
 
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12 }}>
+              <div className={layoutStyles.extracted8}>
                 <textarea
                   rows={4}
                   value={input}
@@ -531,7 +498,7 @@ export default function AssistantPage() {
                     outline: "none",
                     fontSize: 14,
                     color: UI.text,
-                    background: "var(--legacy-color-fff)",
+                    background: "var(--color-surface)",
                     boxSizing: "border-box",
                   }}
                 />
@@ -546,9 +513,9 @@ export default function AssistantPage() {
                     borderRadius: 14,
                     border: `1px solid ${UI.brand}`,
                     background: loading || !String(input).trim()
-                      ? "var(--legacy-color-d7e1ea)"
-                      : "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-                    color: loading || !String(input).trim() ? "var(--legacy-color-6b7280)" : "var(--legacy-color-fff)",
+                      ? "var(--color-border)"
+                      : "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+                    color: loading || !String(input).trim() ? "var(--color-text-muted)" : "var(--color-white)",
                     fontWeight: 800,
                     cursor: loading || !String(input).trim() ? "not-allowed" : "pointer",
                     minWidth: 118,

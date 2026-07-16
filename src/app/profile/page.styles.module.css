@@ -1,0 +1,134 @@
+
+
+.extracted1 {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: var(--color-success-accent);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.extracted2 {
+  background-color: var(--color-canvas);
+  padding: 28px 20px 36px;
+}
+
+.extracted3 {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.extracted4 {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 32px;
+  color: var(--color-text);
+}
+
+.extracted5 {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: var(--color-surface);
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.extracted6 {
+  margin-bottom: 16px;
+  align-self: center;
+}
+
+.extracted7 {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.extracted8 {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.extracted9 {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.extracted10 {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.extracted11 {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.extracted12 {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.extracted13 {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.extracted14 {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  background-color: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.extracted15 {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.extracted16 {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: var(--shell-muted);
+  border: none;
+  border-radius: 6px;
+  color: var(--color-white);
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 14px;
+  align-self: flex-start;
+}
+
+.extracted17 {
+  color: var(--color-success-accent);
+  font-size: 13px;
+  margin-top: -12px;
+}
+
+.extracted18 {
+  font-size: 14px;
+  color: var(--color-accent);
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { auth, db } from "../../../firebaseConfig";
@@ -28,31 +29,13 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const ADMIN_EMAILS = new Set([
   "mason@bickers.co.uk",
 ]);
 
-const UI = {
-  radius: 8,
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  green: "var(--legacy-color-15803d)",
-  greenSoft: "var(--legacy-color-ecfdf3)",
-  greenBorder: "var(--legacy-color-bbf7d0)",
-  amber: "var(--legacy-color-b45309)",
-  amberSoft: "var(--legacy-color-fffbeb)",
-  amberBorder: "var(--legacy-color-fde68a)",
-  red: "var(--legacy-color-b91c1c)",
-  redSoft: "var(--legacy-color-fee2e2)",
-  redBorder: "var(--legacy-color-fecaca)",
-};
+const UI = UI_TOKENS;
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const ymdLabel = (value) => {
@@ -243,7 +226,7 @@ export default function ShiftChangePage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <div style={headerBar}>
+        <div className={layoutStyles.extracted1}>
           <div>
             <h1 style={h1}>Quick Shift Change</h1>
             <div style={sub}>
@@ -257,15 +240,15 @@ export default function ShiftChangePage() {
 
         {toast ? <div style={notice}>{toast}</div> : null}
 
-        <div className="shift-change-kpis" style={kpiGrid}>
+        <div className={`shift-change-kpis ${layoutStyles.extracted2}`} >
           <Stat label="Awaiting Approval" value={stats.requested} icon={Clock3} tone="amber" />
           <Stat label="Approved Today" value={stats.approvedToday} icon={ShieldCheck} tone="green" />
           <Stat label="Upcoming Active" value={stats.upcoming} icon={Timer} tone="brand" />
         </div>
 
-        <div className="shift-change-layout" style={layout}>
+        <div className={`shift-change-layout ${layoutStyles.extracted3}`} >
           <section style={panel}>
-            <div style={sectionHeader}>
+            <div className={layoutStyles.extracted4}>
               <div>
                 <h2 style={titleMd}>Add Shift Change</h2>
                 <div style={hint}>Managers can tick “approve now” for changes already agreed.</div>
@@ -273,7 +256,7 @@ export default function ShiftChangePage() {
               <Plus size={18} color={UI.brand} />
             </div>
 
-            <form onSubmit={saveRequest} style={formGrid}>
+            <form onSubmit={saveRequest} className={layoutStyles.extracted5}>
               <Field label="Employee">
                 <select
                   value={form.employeeId}
@@ -337,7 +320,7 @@ export default function ShiftChangePage() {
           </section>
 
           <section style={panel}>
-            <div style={sectionHeader}>
+            <div className={layoutStyles.extracted6}>
               <div>
                 <h2 style={titleMd}>Shift Changes</h2>
                 <div style={hint}>Approved changes are the H&S source of truth for altered hours.</div>
@@ -350,7 +333,7 @@ export default function ShiftChangePage() {
             ) : requests.length === 0 ? (
               <div style={empty}>No shift changes yet.</div>
             ) : (
-              <div style={list}>
+              <div className={layoutStyles.extracted7}>
                 {requests.map((row) => (
                   <ShiftCard
                     key={row.id}
@@ -408,7 +391,7 @@ function ShiftCard({ row, isAdmin, saving, onApprove, onDecline }) {
 
   return (
     <div style={requestCard}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+      <div className={layoutStyles.extracted8}>
         <div>
           <div style={{ fontWeight: 900, color: UI.text }}>{row.employeeName || "Unknown employee"}</div>
           <div style={{ marginTop: 4, color: UI.muted, fontSize: 12.5, fontWeight: 750 }}>
@@ -423,7 +406,7 @@ function ShiftCard({ row, isAdmin, saving, onApprove, onDecline }) {
         {row.approvedByName ? ` · Approved by ${row.approvedByName}` : ""}
       </div>
       {isAdmin && status === "requested" ? (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+        <div className={layoutStyles.extracted9}>
           <button type="button" style={btn("approve")} onClick={onApprove} disabled={saving}>
             <CheckCircle2 size={14} /> Approve
           </button>
@@ -456,14 +439,14 @@ const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr
 const statCard = { ...panel, display: "flex", alignItems: "center", gap: 10 };
 const formGrid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 };
 const labelStyle = { color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".035em" };
-const input = { width: "100%", minHeight: 36, border: "1px solid var(--legacy-color-c8d6e3)", borderRadius: 8, padding: "8px 10px", color: UI.text, background: "var(--legacy-color-fff)", fontSize: 13.5 };
+const input = { width: "100%", minHeight: 36, border: "1px solid var(--color-border-strong)", borderRadius: 8, padding: "8px 10px", color: UI.text, background: "var(--color-surface)", fontSize: 13.5 };
 const checkRow = { gridColumn: "1 / -1", display: "inline-flex", alignItems: "center", gap: 8, color: UI.text, fontSize: 13, fontWeight: 850 };
 const notice = { marginBottom: 12, border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, borderRadius: UI.radius, padding: "9px 11px", fontSize: 13, fontWeight: 800 };
 const chip = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: 999, border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, fontSize: 12, fontWeight: 850 };
 const list = { display: "grid", gap: 8, maxHeight: 650, overflowY: "auto", paddingRight: 2 };
-const requestCard = { border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)", padding: 11, display: "grid", gap: 8 };
-const reasonBox = { border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 8, background: "var(--legacy-color-f8fafc)", padding: "8px 9px", color: UI.text, fontSize: 13, lineHeight: 1.4 };
-const empty = { border: "1px dashed var(--legacy-color-c8d6e3)", borderRadius: UI.radius, padding: 18, color: UI.muted, fontSize: 13, fontWeight: 800, textAlign: "center" };
+const requestCard = { border: UI.border, borderRadius: UI.radius, background: "var(--color-surface)", padding: 11, display: "grid", gap: 8 };
+const reasonBox = { border: "1px solid var(--color-border)", borderRadius: 8, background: "var(--color-surface-subtle)", padding: "8px 9px", color: UI.text, fontSize: 13, lineHeight: 1.4 };
+const empty = { border: "1px dashed var(--color-border-strong)", borderRadius: UI.radius, padding: 18, color: UI.muted, fontSize: 13, fontWeight: 800, textAlign: "center" };
 const iconBox = (color, bg, border) => ({
   width: 34,
   height: 34,
@@ -490,9 +473,9 @@ const pill = (color, bg, border) => ({
 });
 const btn = (kind = "primary") => {
   if (kind === "approve") return { ...buttonBase, border: `1px solid ${UI.greenBorder}`, background: UI.greenSoft, color: UI.green };
-  if (kind === "decline") return { ...buttonBase, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.red };
-  if (kind === "ghost") return { ...buttonBase, border: `1px solid ${UI.brandBorder}`, background: "var(--legacy-color-fff)", color: UI.text };
-  return { ...buttonBase, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", gridColumn: "1 / -1" };
+  if (kind === "decline") return { ...buttonBase, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.var(--color-danger) };
+  if (kind === "ghost") return { ...buttonBase, border: `1px solid ${UI.brandBorder}`, background: "var(--color-surface)", color: UI.text };
+  return { ...buttonBase, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-surface)", gridColumn: "1 / -1" };
 };
 const buttonBase = {
   display: "inline-flex",

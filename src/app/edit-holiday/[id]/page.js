@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
@@ -41,7 +42,7 @@ export default function EditHolidayPage() {
   const holidayId = params.id;
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
-  
+
 
   const [employee, setEmployee] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -124,7 +125,7 @@ export default function EditHolidayPage() {
     if (!holidayId) return;
     const confirmDelete = window.confirm("Are you sure you want to delete this holiday?");
     if (!confirmDelete) return;
-  
+
     try {
       await deleteDoc(doc(db, "holidays", holidayId));
       alert("Holiday deleted.");
@@ -134,26 +135,26 @@ export default function EditHolidayPage() {
       alert("Failed to delete holiday.");
     }
   };
-  
+
 
   return (
-    <div style={mainContainerStyle}>
-      <main style={mainContentStyle}>
-        <div style={headerStyle}>
-<button onClick={() => router.back()} style={backButtonStyle}>
+    <div className={layoutStyles.extracted1}>
+      <main className={layoutStyles.extracted2}>
+        <div className={layoutStyles.extracted3}>
+<button onClick={() => router.back()} className={layoutStyles.extracted4}>
   ← Back
 </button>
 
         </div>
 
-        <h1 style={pageTitleStyle}>Edit Holiday</h1>
+        <h1 className={layoutStyles.extracted5}>Edit Holiday</h1>
 
-        <div style={formContainerStyle}>
-          <h2 style={formTitleStyle}>Update Holiday Info</h2>
+        <div className={layoutStyles.extracted6}>
+          <h2 className={layoutStyles.extracted7}>Update Holiday Info</h2>
           <form onSubmit={handleSubmit}>
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Employee Name</label>
-              <select value={employee} onChange={(e) => setEmployee(e.target.value)} required style={inputStyle}>
+            <div className={layoutStyles.extracted8}>
+              <label className={layoutStyles.extracted9}>Employee Name</label>
+              <select value={employee} onChange={(e) => setEmployee(e.target.value)} required className={layoutStyles.extracted10}>
                 <option value="" disabled>Select Employee</option>
                 {employees.map((emp) => (
                   <option key={emp.id} value={emp.name}>{emp.name}</option>
@@ -161,34 +162,32 @@ export default function EditHolidayPage() {
               </select>
             </div>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Start Date</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required style={inputStyle} />
+            <div className={layoutStyles.extracted11}>
+              <label className={layoutStyles.extracted12}>Start Date</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className={layoutStyles.extracted13} />
             </div>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>End Date</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required style={inputStyle} />
+            <div className={layoutStyles.extracted14}>
+              <label className={layoutStyles.extracted15}>End Date</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required className={layoutStyles.extracted16} />
             </div>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Holiday Reason</label>
-              <textarea value={holidayReason} onChange={(e) => setHolidayReason(e.target.value)} required style={inputStyle} />
+            <div className={layoutStyles.extracted17}>
+              <label className={layoutStyles.extracted18}>Holiday Reason</label>
+              <textarea value={holidayReason} onChange={(e) => setHolidayReason(e.target.value)} required className={layoutStyles.extracted19} />
             </div>
 
-            <div style={inputContainerStyle}>
-              <label style={labelStyle}>Paid or Unpaid</label>
-              <select value={paidStatus} onChange={(e) => setPaidStatus(e.target.value)} required style={inputStyle}>
+            <div className={layoutStyles.extracted20}>
+              <label className={layoutStyles.extracted21}>Paid or Unpaid</label>
+              <select value={paidStatus} onChange={(e) => setPaidStatus(e.target.value)} required className={layoutStyles.extracted22}>
                 <option value="Paid">Paid</option>
                 <option value="Unpaid">Unpaid</option>
               </select>
             </div>
 
-            <button type="submit" style={buttonStyle}>Update Holiday</button>
+            <button type="submit" className={layoutStyles.extracted23}>Update Holiday</button>
 
-            <button type="button" onClick={handleDelete} style={{...cancelButtonStyle, backgroundColor: "var(--legacy-color-888)", // Optional: grey styling for delete
-            marginTop: "10px"
-  }}
+            <button type="button" onClick={handleDelete} className={layoutStyles.extracted24}
 >
   Delete Holiday
 </button>
@@ -201,16 +200,16 @@ export default function EditHolidayPage() {
 }
 
 // Style definitions match original HolidayForm styles
-const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "var(--legacy-color-1e1e1e)", color: "var(--legacy-color-fff)", minHeight: "100vh", padding: "40px" };
-const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "var(--legacy-color-121212)", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
+const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "var(--shell-sidebar-bg)", color: "var(--color-white)", minHeight: "100vh", padding: "40px" };
+const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "var(--shell-sidebar-bg)", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
 const headerStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" };
 const logoStyle = { width: "180px", height: "auto" };
-const backButtonStyle = { backgroundColor: "var(--legacy-color-f44336)", color: "var(--legacy-color-fff)", border: "none", padding: "8px 16px", fontSize: "14px", cursor: "pointer", borderRadius: "6px" };
+const backButtonStyle = { backgroundColor: "var(--color-warning)", color: "var(--color-white)", border: "none", padding: "8px 16px", fontSize: "14px", cursor: "pointer", borderRadius: "6px" };
 const pageTitleStyle = { fontSize: "32px", fontWeight: "bold", textAlign: "center", marginBottom: "20px" };
-const formContainerStyle = { backgroundColor: "var(--legacy-color-222)", padding: "30px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
-const formTitleStyle = { fontSize: "24px", fontWeight: "bold", marginBottom: "20px", color: "var(--legacy-color-fff)" };
+const formContainerStyle = { backgroundColor: "var(--shell-sidebar-bg)", padding: "30px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
+const formTitleStyle = { fontSize: "24px", fontWeight: "bold", marginBottom: "20px", color: "var(--color-white)" };
 const inputContainerStyle = { marginBottom: "15px" };
-const labelStyle = { fontSize: "14px", fontWeight: "600", marginBottom: "5px", display: "block", color: "var(--legacy-color-fff)" };
-const inputStyle = { width: "100%", padding: "12px", marginBottom: "10px", borderRadius: "6px", border: "1px solid var(--legacy-color-444)", fontSize: "14px", backgroundColor: "var(--legacy-color-333)", color: "var(--legacy-color-fff)" };
-const buttonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--legacy-color-1976d2)", color: "var(--legacy-color-fff)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" };
-const cancelButtonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--legacy-color-f44336)", color: "var(--legacy-color-fff)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "10px" };
+const labelStyle = { fontSize: "14px", fontWeight: "600", marginBottom: "5px", display: "block", color: "var(--color-white)" };
+const inputStyle = { width: "100%", padding: "12px", marginBottom: "10px", borderRadius: "6px", border: "1px solid var(--color-brand-hover)", fontSize: "14px", backgroundColor: "var(--shell-sidebar-bg)", color: "var(--color-white)" };
+const buttonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--color-info)", color: "var(--color-white)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" };
+const cancelButtonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--color-warning)", color: "var(--color-white)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "10px" };

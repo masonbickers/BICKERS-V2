@@ -1,0 +1,173 @@
+
+
+.extracted1 {
+  margin-bottom: 12px;
+}
+
+.extracted2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 5px;
+  flex-wrap: wrap;
+}
+
+.extracted3 {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  table-layout: fixed;
+}
+
+.extracted4 {
+  width: 84px;
+}
+
+.extracted5 {
+  width: 170px;
+}
+
+.extracted6 {
+  width: 180px;
+}
+
+.extracted7 {
+  width: 72px;
+}
+
+.extracted8 {
+  width: 64px;
+}
+
+.extracted9 {
+  width: 80px;
+}
+
+.extracted10 {
+  width: 126px;
+}
+
+.extracted11 {
+  width: 118px;
+}
+
+.extracted12 {
+  width: 368px;
+}
+
+.extracted13 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extracted14 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.extracted15 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.extracted16 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.extracted17 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extracted18 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extracted19 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extracted20 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extracted21 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extracted22 {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extracted23 {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.extracted24 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.extracted25 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.extracted26 {
+  position: relative;
+}

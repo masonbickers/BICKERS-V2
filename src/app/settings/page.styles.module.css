@@ -1,0 +1,151 @@
+
+
+.extracted1 {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.extracted2 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.extracted3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.extracted4 {
+  font-weight: 850;
+  font-size: 14.5px;
+}
+
+.extracted5 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.extracted6 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.extracted7 {
+  margin-left: 6px;
+}
+
+.extracted8 {
+  grid-column: span 7;
+}
+
+.extracted9 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.extracted10 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.extracted11 {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.extracted12 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.extracted13 {
+  height: 1px;
+  background: var(--color-brand-soft);
+  margin: 12px 0;
+}
+
+.extracted14 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.extracted15 {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.extracted16 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.extracted17 {
+  min-width: 0;
+}
+
+.extracted18 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.extracted19 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.extracted20 {
+  grid-column: span 5;
+}
+
+.extracted21 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.extracted22 {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.extracted23 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.extracted24 {
+  display: grid;
+  gap: 10px;
+}
+
+.extracted25 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

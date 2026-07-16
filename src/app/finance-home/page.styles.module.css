@@ -1,0 +1,29 @@
+
+
+.extracted1 {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  background: var(--shell-sidebar-bg);
+  color: var(--color-white);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.06);
+  cursor: pointer;
+  z-index: 50;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.98;
+}
+
+.extracted2 {
+  font-size: 28px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.extracted3 {
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+  font-size: 12px;
+}

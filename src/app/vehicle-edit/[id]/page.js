@@ -6,6 +6,7 @@
 
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
@@ -54,29 +55,10 @@ import { getIsoWeekLabel, isMotNotApplicable, isServiceNotApplicable } from "@/a
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* UI tokens */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid var(--legacy-color-d7dee8)",
-  bg: "var(--legacy-color-f3f6f9)",
-  card: "var(--legacy-color-ffffff)",
-  text: "var(--legacy-color-0f172a)",
-  muted: "var(--legacy-color-5f6f82)",
-  brand: "var(--legacy-color-1f4b7a)",
-  brandSoft: "var(--legacy-color-edf3f8)",
-  brandBorder: "var(--legacy-color-c8d6e3)",
-  red: "var(--legacy-color-dc2626)",
-  amber: "var(--legacy-color-d97706)",
-  green: "var(--legacy-color-16a34a)",
-  line: "var(--legacy-color-d7dee8)",
-  softBlue: "var(--legacy-color-edf3f8)",
-  softSlate: "var(--legacy-color-f1f5f9)",
-};
+const UI = UI_TOKENS;
 
 const pageWrap = {
   padding: "16px 16px 32px",
@@ -99,7 +81,7 @@ const panel = { ...card, padding: 12 };
 const heroCard = {
   ...card,
   padding: 12,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   border: UI.border,
 };
 
@@ -113,7 +95,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -134,7 +116,7 @@ const btn = (kind = "primary") => {
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
-      color: "var(--legacy-color-fff)",
+      color: "var(--color-white)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -150,9 +132,9 @@ const btn = (kind = "primary") => {
       gap: 6,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--legacy-color-bbf7d0)",
-      background: "var(--legacy-color-ecfdf5)",
-      color: "var(--legacy-color-065f46)",
+      border: "1px solid var(--color-success-border)",
+      background: "var(--color-success-soft)",
+      color: "var(--color-success)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -168,8 +150,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -195,7 +177,7 @@ const inputField = {
   fontSize: 13,
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   color: UI.text,
   outline: "none",
 };
@@ -1556,7 +1538,7 @@ export default function EditVehiclePage() {
     return (
       <HeaderSidebarLayout>
         <div style={pageWrap}>
-          <div style={{ ...panel, textAlign: "center", color: loadError ? "var(--legacy-color-dc2626)" : UI.muted }}>
+          <div style={{ ...panel, textAlign: "center", color: loadError ? "var(--color-danger)" : UI.muted }}>
             {loadError || "Loading vehicle..."}
           </div>
         </div>
@@ -1574,13 +1556,13 @@ export default function EditVehiclePage() {
           textarea:focus {
             outline: none;
             box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-            border-color: var(--legacy-color-bfdbfe) !important;
+            border-color: var(--color-info-border) !important;
           }
         `}</style>
 
         <div style={pageWrap}>
           <div style={heroCard}>
-            <div style={topBar}>
+            <div className={layoutStyles.extracted1}>
               <div>
                 <h1 style={title}>{vehicle.registration || vehicle.reg || vehicle.name || "Number Plate"}</h1>
                 <div style={subtitle}>
@@ -1590,7 +1572,7 @@ export default function EditVehiclePage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div className={layoutStyles.extracted2}>
                 <button onClick={() => router.push("/vehicles")} style={btn("ghost")}>
                   <ArrowLeft size={15} />
                   Back
@@ -1606,7 +1588,7 @@ export default function EditVehiclePage() {
               </div>
             </div>
 
-            <div style={metricGrid}>
+            <div className={layoutStyles.extracted3}>
               <MetricCard label="Category" value={RETENTION_PLATE_CATEGORY} />
               <MetricCard label="Plate Type" value={isTradePlate ? "Trade plate" : "Retention plate"} />
             <MetricCard label={isTradePlate ? "Trade Plate Expiry" : "Retention Expiry"} value={formatDisplayDate(vehicle.retentionExpiry)} />
@@ -1635,12 +1617,12 @@ export default function EditVehiclePage() {
                 onChange={handleChange}
               />
 
-              <div style={{ gridColumn: "1 / -1" }}>
+              <div className={layoutStyles.extracted4}>
                 <label style={labelStyle}>Category</label>
-                <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...inputField, background: "var(--legacy-color-f8fafc)" }} />
+                <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...inputField, background: "var(--color-surface-subtle)" }} />
               </div>
 
-              <div style={{ gridColumn: "1 / -1" }}>
+              <div className={layoutStyles.extracted5}>
                 <label style={labelStyle}>Notes</label>
                 <textarea
                   name="notes"
@@ -1669,8 +1651,8 @@ export default function EditVehiclePage() {
       borderRadius: 999,
       fontSize: 12,
       fontWeight: 950,
-      border: "1px solid var(--legacy-color-e5e7eb)",
-      background: "var(--legacy-color-fff)",
+      border: "1px solid var(--color-border)",
+      background: "var(--color-surface)",
       color: UI.text,
       whiteSpace: "nowrap",
     };
@@ -1747,11 +1729,11 @@ export default function EditVehiclePage() {
         textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-          border-color: var(--legacy-color-bfdbfe) !important;
+          border-color: var(--color-info-border) !important;
         }
         select option {
-          background: var(--legacy-color-fff);
-          color: var(--legacy-color-0f172a);
+          background: var(--color-surface);
+          color: var(--color-text);
         }
         @media (max-width: 1180px) {
           .vehicle-edit-layout { grid-template-columns: 1fr !important; }
@@ -1768,16 +1750,16 @@ export default function EditVehiclePage() {
 
       <div style={pageWrap}>
         <div style={heroCard}>
-          <div style={topBar}>
+          <div className={layoutStyles.extracted6}>
           <div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div className={layoutStyles.extracted7}>
               <h1 style={title}>{headerLabel}</h1>
               {motStatusPill}
             </div>
             <div style={subtitle}>Edit details, due dates, paperwork, attachments, notes and create/edit MOT / Service bookings.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div className={layoutStyles.extracted8}>
             <button
               onClick={() => setShowMotBooking(true)}
               style={btn(isMotNotApplicable(vehicle) ? "ghost" : "success")}
@@ -1844,7 +1826,7 @@ export default function EditVehiclePage() {
             </button>
           </div>
           </div>
-          <div style={metricGrid}>
+          <div className={layoutStyles.extracted9}>
             <MetricCard label="Registration" value={vehicle.registration || vehicle.reg || "-"} />
             <MetricCard label="Category" value={vehicle.category || "-"} />
             <MetricCard label="Next MOT" value={isMotNotApplicable(vehicle) ? "N/A" : formatDisplayDate(vehicle.nextMOT)} />
@@ -1976,7 +1958,7 @@ export default function EditVehiclePage() {
                 <Field label="Chassis No." name="chassis" value={vehicle.chassis} onChange={handleChange} />
                 <Field label="Odometer" name="odometer" value={vehicle.odometer} onChange={handleChange} meta={dvsaMotMeta} />
 
-                <div style={{ gridColumn: "1 / -1", ...coreDueGrid, marginTop: 0 }}>
+                <div className={layoutStyles.extracted10}>
                   <div>
                     <label style={labelStyle}>Tax Status</label>
                     <select name="taxStatus" value={vehicle.taxStatus || "Taxed"} onChange={handleTaxStatusChange} style={inputField}>
@@ -2011,7 +1993,7 @@ export default function EditVehiclePage() {
             <div style={panel}>
               <h2 style={sectionTitle}>Core Due Dates</h2>
               <div style={sectionMeta}>Edit the last date and frequency; next will auto-calculate.</div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 8, marginBottom: 10 }}>
+              <div className={layoutStyles.extracted11}>
                 <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
                   {dvsaMotSyncLabel || "MOT dates can be pulled from DVSA; frequency remains as a manual fallback."}
                 </div>
@@ -2027,7 +2009,7 @@ export default function EditVehiclePage() {
                 </button>
               </div>
 
-              <div className="vehicle-edit-core-grid" style={coreDueGrid}>
+              <div className={`vehicle-edit-core-grid ${layoutStyles.extracted12}`} >
                 <label
                   style={{
                     gridColumn: "1 / -1",
@@ -2108,7 +2090,7 @@ export default function EditVehiclePage() {
             </div>
 
             <div style={panel}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted13}>
                 <div>
                   <h2 style={sectionTitle}>DVSA MOT Summary</h2>
                   <div style={sectionMeta}>
@@ -2130,8 +2112,8 @@ export default function EditVehiclePage() {
                   No DVSA MOT data saved yet. Press Fetch DVSA MOT above, then Save.
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-                  <div className="vehicle-edit-core-grid" style={coreDueGrid}>
+                <div className={layoutStyles.extracted14}>
+                  <div className={`vehicle-edit-core-grid ${layoutStyles.extracted15}`} >
                     <MiniLine label="Latest Result" value={vehicle.dvsaLatestMotResult || dvsaLatestMot.testResult || "-"} />
                     <MiniLine label="Test Date" value={formatDisplayDate(dvsaLatestMot.completedDate)} />
                     <MiniLine label="Expiry Date" value={formatDisplayDate(dvsaLatestMot.expiryDate || vehicle.nextMOT)} />
@@ -2148,9 +2130,9 @@ export default function EditVehiclePage() {
                         display: "flex",
                         gap: 8,
                         alignItems: "flex-start",
-                        border: "1px solid var(--legacy-color-f59e0b)",
-                        background: "var(--legacy-color-fffbeb)",
-                        color: "var(--legacy-color-92400e)",
+                        border: "1px solid var(--color-accent)",
+                        background: "var(--color-warning-soft)",
+                        color: "var(--color-warning)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
@@ -2165,15 +2147,15 @@ export default function EditVehiclePage() {
                   {dvsaLatestSeriousDefects.length ? (
                     <div
                       style={{
-                        border: "1px solid var(--legacy-color-fecaca)",
-                        background: "var(--legacy-color-fef2f2)",
-                        color: "var(--legacy-color-991b1b)",
+                        border: "1px solid var(--color-danger-border)",
+                        background: "var(--color-danger-soft)",
+                        color: "var(--color-danger)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
                       }}
                     >
-                      <div style={{ fontWeight: 900, marginBottom: 6 }}>
+                      <div className={layoutStyles.extracted16}>
                         Serious defects on latest MOT
                       </div>
                       {dvsaLatestSeriousDefects.slice(0, 3).map((defect, index) => (
@@ -2189,14 +2171,14 @@ export default function EditVehiclePage() {
                     <div
                       style={{
                         border: UI.border,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
                         color: UI.text,
                       }}
                     >
-                      <div style={{ fontWeight: 900, marginBottom: 6 }}>
+                      <div className={layoutStyles.extracted17}>
                         Latest advisories
                       </div>
                       {dvsaLatestAdvisories.slice(0, 4).map((defect, index) => (
@@ -2218,7 +2200,7 @@ export default function EditVehiclePage() {
                   completedInspectionHistory.length === 0 ? (
                     <div style={{ color: UI.muted, fontSize: 13 }}>No completed inspection history yet.</div>
                   ) : (
-                    <div style={{ display: "grid", gap: 10 }}>
+                    <div className={layoutStyles.extracted18}>
                       {(
                         (Array.isArray(vehicle.eightWeekInspectionHistory)
                           ? vehicle.eightWeekInspectionHistory
@@ -2235,12 +2217,7 @@ export default function EditVehiclePage() {
                       ).map((item, index) => (
                         <div
                           key={item.bookingId || `${item.completedDate}-${index}`}
-                          style={{
-                            border: "1px solid var(--legacy-color-e5e7eb)",
-                            borderRadius: 12,
-                            padding: 10,
-                            background: "var(--legacy-color-fff)",
-                          }}
+                          className={layoutStyles.extracted19}
                         >
                           <div style={{ fontWeight: 900, color: UI.text }}>
                             {item.completedDate || "-"}
@@ -2271,13 +2248,7 @@ export default function EditVehiclePage() {
                 Tick only the maintenance lines needed for this vehicle.
               </div>
               <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                  marginTop: 10,
-                  marginBottom: 12,
-                }}
+                className={layoutStyles.extracted20}
               >
                 {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
                   const checked =
@@ -2292,7 +2263,7 @@ export default function EditVehiclePage() {
                         alignItems: "center",
                         gap: 7,
                         border: checked ? `1px solid ${UI.brandBorder}` : UI.border,
-                        background: checked ? UI.brandSoft : "var(--legacy-color-fff)",
+                        background: checked ? UI.brandSoft : "var(--color-surface)",
                         color: UI.text,
                         borderRadius: UI.radius,
                         padding: "7px 9px",
@@ -2306,7 +2277,7 @@ export default function EditVehiclePage() {
                         type="checkbox"
                         checked={checked}
                         onChange={() => handleAdditionalMaintenanceToggle(section.key)}
-                        style={{ margin: 0 }}
+                        className={layoutStyles.extracted21}
                       />
                       {section.label}
                     </label>
@@ -2320,7 +2291,7 @@ export default function EditVehiclePage() {
                 </div>
               ) : null}
 
-              <div className="vehicle-edit-maintenance-grid" style={coreDueGrid}>
+              <div className={`vehicle-edit-maintenance-grid ${layoutStyles.extracted22}`} >
                 {visibleAdditionalMaintenanceSections.flatMap((section) =>
                   section.fields.map((field) =>
                     field.type === "date" ? (
@@ -2373,7 +2344,7 @@ export default function EditVehiclePage() {
                   No maintenance bookings found for this vehicle.
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                <div className={layoutStyles.extracted23}>
                   {activeVehicleBookings.map((b) => (
                     <div
                       key={b.id}
@@ -2381,17 +2352,11 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                       }}
                     >
                       <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
+                        className={layoutStyles.extracted24}
                       >
                         <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
                           {bookingTypeLabel(b)}
@@ -2404,7 +2369,7 @@ export default function EditVehiclePage() {
                             border: UI.border,
                             borderRadius: 999,
                             padding: "4px 8px",
-                            background: "var(--legacy-color-f8fafc)",
+                            background: "var(--color-surface-subtle)",
                           }}
                         >
                           {b.status || "Booked"}
@@ -2422,7 +2387,7 @@ export default function EditVehiclePage() {
                         {b.location ? `Location: ${b.location}` : "Location: -"}
                       </div>
 
-                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div className={layoutStyles.extracted25}>
                         <button
                           type="button"
                           style={btn("ghost")}
@@ -2445,7 +2410,7 @@ export default function EditVehiclePage() {
             </div>
 
             <div style={panel}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted26}>
                 <div>
                   <h2 style={sectionTitle}>MOT Bookings</h2>
                   <div style={sectionMeta}>Completed or past MOT bookings.</div>
@@ -2462,7 +2427,7 @@ export default function EditVehiclePage() {
               {motHistoryItems.length === 0 ? (
                 <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No MOT history yet.</div>
               ) : (
-                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                <div className={layoutStyles.extracted27}>
                   {motHistoryItems.map((item, index) => (
                     <div
                       key={item.bookingId || `${item.completedDate}-${index}`}
@@ -2471,7 +2436,7 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                         cursor: item.bookingId ? "pointer" : "default",
                       }}
                       title={item.bookingId ? "Open booking" : "No linked booking record"}
@@ -2501,7 +2466,7 @@ export default function EditVehiclePage() {
             </div>
 
             <div style={panel}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted28}>
                 <div>
                   <h2 style={sectionTitle}>Service History</h2>
                   <div style={sectionMeta}>Completed service bookings.</div>
@@ -2518,7 +2483,7 @@ export default function EditVehiclePage() {
               {serviceHistoryItems.length === 0 ? (
                 <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No completed service history yet.</div>
               ) : (
-                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                <div className={layoutStyles.extracted29}>
                   {serviceHistoryItems.slice(0, 4).map((item, index) => (
                     <div
                       key={item.bookingId || `${item.completedDate}-${index}`}
@@ -2531,12 +2496,12 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "var(--legacy-color-fff)",
+                        background: "var(--color-surface)",
                         cursor: "pointer",
                       }}
                       title={item.bookingId ? "Open full service details" : "Open service history"}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                      <div className={layoutStyles.extracted30}>
                         <div>
                           <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
                             {formatDisplayDate(item.completedDate)}
@@ -2580,7 +2545,7 @@ export default function EditVehiclePage() {
 
             <div style={panel}>
               <h2 style={sectionTitle}>Quick Links</h2>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted31}>
                 <button style={btn("ghost")} onClick={() => router.push("/vehicles")}>
                   Vehicles List
                 </button>
@@ -2600,7 +2565,7 @@ export default function EditVehiclePage() {
 
             <div style={panel}>
               <h2 style={sectionTitle}>Next Dates</h2>
-              <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
+              <div className={layoutStyles.extracted32}>
                 <MiniLine label="Next MOT (Expiry)" value={formatDisplayDate(vehicle.nextMOT)} />
                 <MiniLine label="MOT Appointment" value={formatDisplayDate(motAppointmentDisplay)} />
                 <MiniLine label="MOT Booked On" value={formatDisplayDate(motBookedOnDisplay)} />
@@ -2618,9 +2583,9 @@ export default function EditVehiclePage() {
         </div>
 
         {taxDatePrompt ? (
-          <div style={overlay} onClick={() => setTaxDatePrompt(null)}>
+          <div className={layoutStyles.extracted33} onClick={() => setTaxDatePrompt(null)}>
             <div style={modal} onClick={(e) => e.stopPropagation()}>
-              <div style={headerRow}>
+              <div className={layoutStyles.extracted34}>
                 <div>
                   <h2 style={modalTitle}>Set road tax date</h2>
                   <div style={sectionMeta}>{vehicle.name || vehicle.registration || "Vehicle"}</div>
@@ -2637,7 +2602,7 @@ export default function EditVehiclePage() {
                 style={modalInput}
                 autoFocus
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div className={layoutStyles.extracted35}>
                 <button type="button" style={btn("ghost")} onClick={() => setTaxDatePrompt(null)}>
                   Cancel
                 </button>
@@ -2650,9 +2615,9 @@ export default function EditVehiclePage() {
         ) : null}
 
         {insuranceDatePrompt ? (
-          <div style={overlay} onClick={() => setInsuranceDatePrompt(null)}>
+          <div className={layoutStyles.extracted36} onClick={() => setInsuranceDatePrompt(null)}>
             <div style={modal} onClick={(e) => e.stopPropagation()}>
-              <div style={headerRow}>
+              <div className={layoutStyles.extracted37}>
                 <div>
                   <h2 style={modalTitle}>Set insured until date</h2>
                   <div style={sectionMeta}>{vehicle.name || vehicle.registration || "Vehicle"}</div>
@@ -2671,7 +2636,7 @@ export default function EditVehiclePage() {
                 style={modalInput}
                 autoFocus
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div className={layoutStyles.extracted38}>
                 <button type="button" style={btn("ghost")} onClick={() => setInsuranceDatePrompt(null)}>
                   Cancel
                 </button>
@@ -2684,7 +2649,7 @@ export default function EditVehiclePage() {
         ) : null}
 
         {/* Bottom actions */}
-        <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div className={layoutStyles.extracted39}>
           <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
             Book Work
           </button>
@@ -2773,13 +2738,13 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
   return (
     <div>
       <label style={labelStyle}>{label}</label>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <div className={layoutStyles.extracted40}>
         <input type="file" multiple onChange={(e) => onUpload(e, field)} />
         {isUploading ? <span style={{ fontSize: 12, color: UI.muted }}>Uploading...</span> : null}
       </div>
 
       {list.length ? (
-        <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+        <div className={layoutStyles.extracted41}>
           {list.map((f, idx) => (
             <a
               key={`${field}-${idx}`}
@@ -2793,8 +2758,8 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
                 textDecoration: "none",
                 padding: "8px 10px",
                 borderRadius: 12,
-                border: "1px solid var(--legacy-color-e5e7eb)",
-                background: "var(--legacy-color-fff)",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
               }}
               title={f.url}
             >
@@ -2811,7 +2776,7 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
 
 function MiniLine({ label, value }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+    <div className={layoutStyles.extracted42}>
       <span style={{ color: UI.muted, fontWeight: 900 }}>{label}</span>
       <span style={{ color: UI.text, fontWeight: 950 }}>{value || "-"}</span>
     </div>
@@ -2843,16 +2808,7 @@ function MetricCard({ label, value }) {
 function MetaPill({ label, value }) {
   return (
     <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "6px 10px",
-        borderRadius: 999,
-        border: "1px solid var(--legacy-color-e5e7eb)",
-        background: "var(--legacy-color-fff)",
-        fontSize: 12,
-      }}
+      className={layoutStyles.extracted43}
     >
       <span style={{ color: UI.muted, fontWeight: 900 }}>{label}</span>
       <span style={{ color: UI.text, fontWeight: 900 }}>{value || "-"}</span>
@@ -2899,7 +2855,7 @@ const modalTitle = {
 const closeBtn = {
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "var(--legacy-color-ffffff)",
+  background: "var(--color-surface)",
   color: UI.muted,
   fontSize: 20,
   cursor: "pointer",
@@ -2920,7 +2876,7 @@ const modalInput = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  backgroundColor: "var(--legacy-color-ffffff)",
+  backgroundColor: "var(--color-surface)",
   color: UI.text,
   outline: "none",
   fontSize: 14,
@@ -2932,8 +2888,8 @@ const primaryBtn = {
   padding: "8px 12px",
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-  color: "var(--legacy-color-fff)",
+  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 14,
 };
@@ -2944,7 +2900,7 @@ const dangerBtn = {
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.red}`,
   background: UI.red,
-  color: "var(--legacy-color-ffffff)",
+  color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 14,
   cursor: "pointer",

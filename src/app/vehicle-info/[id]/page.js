@@ -1,6 +1,6 @@
 "use client";
 
-"use client";
+import layoutStyles from "./page.styles.module.css";
 
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -62,8 +62,8 @@ export default function VehicleInfoPage() {
       alert(" Failed to update vehicle");
     }
   };
-  
-  
+
+
 
   const [vehicle, setVehicle] = useState(null);
 
@@ -75,7 +75,7 @@ export default function VehicleInfoPage() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setVehicle(data);
-          setEditableVehicle(data); 
+          setEditableVehicle(data);
         } else {
           alert("Vehicle not found");
           router.push("/vehicles");
@@ -88,9 +88,9 @@ export default function VehicleInfoPage() {
 
     if (id) fetchVehicle();
   }, [id, router]);
-  
- 
-  
+
+
+
   const handleDelete = async () => {
     const confirmed = window.confirm("Are you sure you want to delete this vehicle?");
     if (!confirmed) return;
@@ -105,34 +105,34 @@ export default function VehicleInfoPage() {
     }
   };
 
-  if (!vehicle) return <div style={{ padding: 40, color: 'var(--legacy-color-000)' }}>Loading vehicle data...</div>;
+  if (!vehicle) return <div className={layoutStyles.extracted1}>Loading vehicle data...</div>;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--legacy-color-f4f4f5)", fontFamily: "Arial, sans-serif", color: "var(--legacy-color-111)" }}>
+    <div className={layoutStyles.extracted2}>
       {/* Sidebar */}
 
 
       {/* Main Content */}
-      <main style={{ flex: 1, padding: 40 }}>
+      <main className={layoutStyles.extracted3}>
         <button
           onClick={() => router.push("/vehicles")}
-          style={{ marginBottom: 16, padding: "8px 16px", border: "none", borderRadius: 4, backgroundColor: "var(--legacy-color-555)", color: "var(--legacy-color-fff)", cursor: "pointer", width: "fit-content" }}
+          className={layoutStyles.extracted4}
         >
           ← Back to Vehicles
         </button>
 
         <VehicleCSVImport />
 
-        <h1 style={{ fontSize: 28, marginBottom: 24 }}>Vehicle Details: {vehicle.name} ({vehicle.category})</h1>
+        <h1 className={layoutStyles.extracted5}>Vehicle Details: {vehicle.name} ({vehicle.category})</h1>
 
-        <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+        <div className={layoutStyles.extracted6}>
           <Field label="Name" value={vehicle.name} />
           <div>
-            <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Category</label>
+            <label className={layoutStyles.extracted7}>Category</label>
             <select
               value={editableVehicle?.category || ""}
               onChange={(e) => setEditableVehicle({ ...editableVehicle, category: e.target.value })}
-              style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
+              className={layoutStyles.extracted8}
             >
               <option value="Bike">Bike</option>
               <option value="Small">Small</option>
@@ -144,69 +144,62 @@ export default function VehicleInfoPage() {
           <Field label="Registration Number" value={vehicle.registration} />
           <Field label="Odometer" value={getVehicleOdometerValue(vehicle).toLocaleString()} suffix="mi" />
           <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Last Service</label>
+  <label className={layoutStyles.extracted9}>Last Service</label>
   <input
     type="date"
     value={editableVehicle?.lastService || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, lastService: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
+    className={layoutStyles.extracted10}
   />
 </div>
 
 <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Next Service</label>
+  <label className={layoutStyles.extracted11}>Next Service</label>
   <input
     type="date"
     value={editableVehicle?.nextService || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, nextService: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
+    className={layoutStyles.extracted12}
   />
 </div>
 
 <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Last MOT</label>
+  <label className={layoutStyles.extracted13}>Last MOT</label>
   <input
     type="date"
     value={editableVehicle?.lastMOT || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, lastMOT: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
+    className={layoutStyles.extracted14}
   />
 </div>
 
 <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Next MOT</label>
+  <label className={layoutStyles.extracted15}>Next MOT</label>
   <input
     type="date"
     value={editableVehicle?.nextMOT || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, nextMOT: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
+    className={layoutStyles.extracted16}
   />
 </div>
 
         </div>
 
-        
 
-        <div style={{ marginTop: 40 }}>
-          <h2 style={{ marginBottom: 12 }}>Notes</h2>
+
+        <div className={layoutStyles.extracted17}>
+          <h2 className={layoutStyles.extracted18}>Notes</h2>
           <textarea
             value={editableVehicle?.notes || ""}
             onChange={(e) => setEditableVehicle({ ...editableVehicle, notes: e.target.value })}
-            style={{ width: "100%", height: 120, padding: 12, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
+            className={layoutStyles.extracted19}
           />
         </div>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 30 }}>
+        <div className={layoutStyles.extracted20}>
         <button
           onClick={handleSave}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "var(--legacy-color-1976d2)",
-            color: "var(--legacy-color-fff)",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer"
-          }}
+          className={layoutStyles.extracted21}
         >
           Save Changes
         </button>
@@ -214,14 +207,7 @@ export default function VehicleInfoPage() {
 
           <button
             onClick={handleDelete}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "var(--legacy-color-d32f2f)",
-              color: "var(--legacy-color-fff)",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
+            className={layoutStyles.extracted22}
           >
             Delete Vehicle
           </button>
@@ -234,13 +220,13 @@ export default function VehicleInfoPage() {
 function Field({ label, value, onChange, suffix }) {
   return (
     <div>
-      <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>{label}</label>
+      <label className={layoutStyles.extracted23}>{label}</label>
       <input
         defaultValue={value}
-        style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
+        className={layoutStyles.extracted24}
         onChange={(e) => onChange(e.target.value)} />
-      
-      {suffix && <span style={{ marginLeft: 8 }}>{suffix}</span>}
+
+      {suffix && <span className={layoutStyles.extracted25}>{suffix}</span>}
     </div>
   );
 }
@@ -297,8 +283,8 @@ function VehicleCSVImport() {
   };
 
   return (
-    <div style={{ marginBottom: 20 }}>
-      <label style={{ fontWeight: "bold", marginRight: 12 }}>Import Vehicle CSV:</label>
+    <div className={layoutStyles.extracted26}>
+      <label className={layoutStyles.extracted27}>Import Vehicle CSV:</label>
       <input type="file" accept=".csv" onChange={handleFileUpload} />
     </div>
   );
@@ -306,11 +292,11 @@ function VehicleCSVImport() {
 
 const navButton = {
   background: "transparent",
-  color: "var(--legacy-color-fff)",
+  color: "var(--color-white)",
   border: "none",
   fontSize: 16,
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid var(--legacy-color-333)"
+  borderBottom: "1px solid var(--color-text)"
 };

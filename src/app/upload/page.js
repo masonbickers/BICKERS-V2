@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+
+import layoutStyles from "./page.styles.module.css";import { useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../../../firebaseConfig"; 
+import { storage } from "../../../firebaseConfig";
 import { v4 } from "uuid";
 
 export default function UploadPage() {
@@ -22,7 +23,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="App" style={{ padding: "2rem", color: "var(--legacy-color-fff)" }}>
+    <div className={`App ${layoutStyles.extracted1}`} >
       <h2>Upload File</h2>
       <input
         type="file"
@@ -32,7 +33,7 @@ export default function UploadPage() {
 
       {imageUrls.map((url, i) => (
         <div key={i}>
-        
+
         </div>
       ))}
     </div>
