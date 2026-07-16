@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildFleetBuckets, buildFollowUpQueue, buildPreparationQueue, buildSchedulingConflicts, buildWindowCounts, normalizeVehicleKey } from "../src/app/home/homeDashboard.js";
+import {
+  buildAttentionQueue,
+  buildFleetBuckets,
+  buildFollowUpQueue,
+  buildOperationalSummary,
+  buildPreparationQueue,
+  buildSchedulingConflicts,
+  buildWindowCounts,
+  filterCalendarEvents,
+  normalizeVehicleKey,
+} from "../src/app/home/homeDashboard.js";
 
 const now = new Date("2026-07-15T09:00:00.000Z");
 
@@ -64,4 +74,56 @@ test("fleet buckets exclude booked items and classify date boundaries", () => {
   assert.deepEqual(buckets.serviceDueSoon.map((item) => item.id), ["service-soon"]);
   assert.equal(buckets.motDueSoon.length, 0);
   assert.equal(buckets.overdueService.length, 0);
+});
+
+test("operational summary exposes periods, actions, and unavailable data", () => {
+  const summary = buildOperationalSummary({
+    events: [{ start: "2026-07-20", status: "confirmed" }],
+    referenceDate: now,
+    windowDays: 14,
+    followUps: [{ id: "pencil" }],
+    preparation: [{ id: "prep" }],
+    conflicts: [{ id: "conflict" }],
+    overdueMOT: [{ id: "mot" }],
+    availability: { fleet: false },
+  });
+  assert.deepEqual(summary.map((item) => item.period), [
+    "Next 14 days",
+    "Starting within 72 hours",
+    "Starting within 2 days",
+    "All future overlaps",
+    "MOT and service today",
+  ]);
+  assert.equal(summary[0].value, 1);
+  assert.equal(summary[1].actionTarget.type, "first-pencil");
+  assert.equal(summary[4].value, null);
+  assert.equal(summary[4].available, false);
+});
+
+test("attention queue ranks severity, deduplicates, and ignores invalid records", () => {
+  const conflict = {
+    vehicle: { id: "v1", registration: "AB12" },
+    second: { id: "second", jobNumber: "J2", start: "2026-07-18" },
+    firm: { id: "firm", jobNumber: "J1" },
+  };
+  const queue = buildAttentionQueue({
+    conflicts: [conflict, conflict, { second: {}, firm: {} }],
+    overdueMOT: [{ id: "v2", vehicleLabel: "Truck 2", dueDate: "invalid" }],
+    followUps: [{ id: "follow", jobNumber: "J3", client: "Client", start: "2026-07-16" }],
+    preparation: [{ id: "prep", jobNumber: "J4", start: "2026-07-15", vehicles: [] }],
+  });
+  assert.deepEqual(queue.map((item) => item.severity), ["critical", "critical", "urgent", "upcoming"]);
+  assert.equal(queue.filter((item) => item.type === "scheduling-conflict").length, 1);
+  assert.equal(queue.find((item) => item.type === "mot-overdue").dueAt, null);
+  assert.deepEqual(queue[0].actionTarget, { kind: "booking", id: "second" });
+});
+
+test("calendar source filtering supports multiple and empty selections", () => {
+  const events = [
+    { id: "booking", sourceType: "booking" },
+    { id: "maintenance", sourceType: "maintenance" },
+    { id: "holiday", sourceType: "holiday" },
+  ];
+  assert.deepEqual(filterCalendarEvents(events, ["booking", "holiday"]).map((event) => event.id), ["booking", "holiday"]);
+  assert.deepEqual(filterCalendarEvents(events, []), []);
 });

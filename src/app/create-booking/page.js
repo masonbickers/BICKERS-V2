@@ -60,13 +60,17 @@ const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles
 ──────────────────────────────────────────────────────────────────────────── */
-const UI = UI_TOKENS;
+// This screen's original `bg` token meant a white card surface, while the
+// shared token set uses `bg` for the page canvas. Preserve the local meaning
+// so form sections remain visually separate from the surrounding page.
+const UI = { ...UI_TOKENS, bg: UI_TOKENS.card };
+const SPACE = Object.freeze({ xs: 4, sm: 8, md: 12, lg: 16, xl: 24 });
 
 const pageWrap = {
   minHeight: "100vh",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
   background: UI.page,
-  padding: "16px 16px 32px",
+  padding: `${SPACE.lg}px ${SPACE.lg}px ${SPACE.xl * 2}px`,
 };
 
 const mainWrap = {
@@ -87,15 +91,15 @@ const pageHeader = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 12,
+  gap: SPACE.md,
+  marginBottom: SPACE.md,
   flexWrap: "wrap",
 };
 
 const headerChecks = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: 10,
+  gap: SPACE.md,
   marginBottom: 12,
 };
 
@@ -103,9 +107,9 @@ const headerChecksBox = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 10,
+  gap: SPACE.md,
   flexWrap: "wrap",
-  padding: "10px 12px",
+  padding: SPACE.md,
   border: UI.border,
   borderRadius: UI.radiusSm,
   background: UI.bg,
@@ -115,8 +119,8 @@ const headerChecksBox = {
 const sectionGrid = {
   display: "grid",
   gridTemplateColumns: "minmax(280px, 0.78fr) minmax(420px, 1.1fr) minmax(420px, 1.12fr)",
-  gap: 12,
-  marginTop: 10,
+  gap: SPACE.md,
+  marginTop: SPACE.md,
 };
 
 const card = {
@@ -124,11 +128,11 @@ const card = {
   borderRadius: UI.radius,
   border: UI.border,
   boxShadow: UI.shadow,
-  padding: 12,
+  padding: SPACE.md,
 };
 const formShell = {
   display: "grid",
-  gap: 12,
+  gap: SPACE.md,
 };
 const seamlessSection = {
   ...card,
@@ -145,8 +149,8 @@ const field = {
   label: {
     display: "block",
     fontWeight: 800,
-    marginTop: 10,
-    marginBottom: 5,
+    marginTop: SPACE.md,
+    marginBottom: SPACE.xs,
     color: UI.muted,
     fontSize: 11.5,
     textTransform: "uppercase",
@@ -155,7 +159,7 @@ const field = {
   input: {
     width: "100%",
     height: 36,
-    padding: "7px 9px",
+    padding: SPACE.sm,
     fontSize: 13,
     borderRadius: UI.radiusXs,
     border: UI.border,
@@ -166,7 +170,7 @@ const field = {
   textarea: {
     width: "100%",
     minHeight: 80,
-    padding: "9px 10px",
+    padding: SPACE.sm,
     fontSize: 13,
     borderRadius: UI.radiusXs,
     border: UI.border,
@@ -177,10 +181,10 @@ const field = {
   checkboxRow: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: SPACE.sm,
     fontWeight: 700,
     fontSize: 13,
-    marginBottom: 8,
+    marginBottom: SPACE.sm,
   },
 };
 
@@ -189,7 +193,7 @@ const accordionBtn = {
   alignItems: "center",
   justifyContent: "space-between",
   width: "100%",
-  padding: "8px 10px",
+  padding: `${SPACE.sm}px ${SPACE.md}px`,
   borderRadius: UI.radiusSm,
   border: UI.border,
   background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
@@ -202,8 +206,8 @@ const accordionBtn = {
 const pill = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
-  padding: "3px 8px",
+  gap: SPACE.sm,
+  padding: `${SPACE.xs}px ${SPACE.sm}px`,
   fontSize: 12,
   borderRadius: 999,
   background: UI.brandSoft,
@@ -212,39 +216,39 @@ const pill = {
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "var(--color-border)", margin: "12px 0" };
+const divider = { height: 1, background: "var(--color-border)", margin: `${SPACE.md}px 0` };
 
 const checkboxGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(160px, 210px))",
-  gap: "7px 28px",
+  gap: `${SPACE.sm}px ${SPACE.lg}px`,
   alignItems: "start",
 };
 
 const driverCheckboxGrid = {
   ...checkboxGrid,
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "7px 16px",
+  gap: `${SPACE.sm}px ${SPACE.lg}px`,
 };
 
 const personCheckboxLabel = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 7,
-  marginBottom: 3,
+  gap: SPACE.sm,
+  marginBottom: SPACE.xs,
   fontSize: 13.5,
   lineHeight: 1.25,
 };
 
 const actionsRow = {
   display: "flex",
-  gap: 8,
+  gap: SPACE.sm,
   justifyContent: "flex-end",
-  marginTop: 16,
+  marginTop: SPACE.lg,
 };
 
 const subCard = {
-  padding: 10,
+  padding: SPACE.md,
   borderRadius: UI.radiusSm,
   background: UI.bgAlt,
   border: "1px solid var(--color-border)",
@@ -259,8 +263,8 @@ const btn = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 6,
-  padding: "8px 11px",
+  gap: SPACE.sm,
+  padding: `${SPACE.sm}px ${SPACE.md}px`,
   borderRadius: UI.radiusXs,
   border: `1px solid ${UI.brand}`,
   cursor: "pointer",
@@ -291,23 +295,23 @@ const summaryCard = {
 const summaryRow = {
   display: "grid",
   gridTemplateColumns: "150px 1fr",
-  gap: 10,
-  padding: "7px 0",
+  gap: SPACE.md,
+  padding: `${SPACE.sm}px 0`,
   borderBottom: "1px dashed var(--color-border)",
 };
 const summaryGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-  gap: 8,
+  gap: SPACE.sm,
 };
 const summarySection = {
   border: UI.border,
   borderRadius: UI.radiusSm,
   background: "var(--color-surface-subtle)",
-  padding: "8px 10px",
+  padding: `${SPACE.sm}px ${SPACE.md}px`,
 };
 const summarySectionTitle = {
-  margin: "0 0 5px",
+  margin: `0 0 ${SPACE.xs}px`,
   fontSize: 11,
   fontWeight: 900,
   color: UI.muted,
@@ -317,8 +321,8 @@ const summarySectionTitle = {
 const summaryCompactRow = {
   ...summaryRow,
   gridTemplateColumns: "82px 1fr",
-  gap: 8,
-  padding: "3px 0",
+  gap: SPACE.sm,
+  padding: `${SPACE.xs}px 0`,
   borderBottom: "none",
   fontSize: 12.5,
 };
@@ -327,13 +331,13 @@ const summaryValue = { color: UI.text, fontWeight: 600, minWidth: 0 };
 const summaryPill = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 5,
+  gap: SPACE.xs,
   border: UI.border,
   background: UI.bgAlt,
   borderRadius: 999,
-  padding: "2px 7px",
-  marginRight: 5,
-  marginBottom: 5,
+  padding: `${SPACE.xs}px ${SPACE.sm}px`,
+  marginRight: SPACE.xs,
+  marginBottom: SPACE.xs,
   fontSize: 12,
 };
 const SummaryRow = ({ label, children }) => (
@@ -370,8 +374,8 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
   flex: "0 0 auto",
 });
 
-const pageSub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-const sectionTitleRow = { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 };
+const pageSub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: SPACE.xs };
+const sectionTitleRow = { display: "flex", alignItems: "center", gap: SPACE.sm, marginBottom: SPACE.md };
 const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
@@ -2219,7 +2223,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
               <h1 style={h1Style}>Create Booking</h1>
               <div style={pageSub}>Build the job, dates, crew, vehicles, equipment, files and notes in one compact workflow.</div>
             </div>
-            <div style={{ ...pill, alignSelf: "flex-start", padding: "6px 10px" }}>
+            <div style={{ ...pill, alignSelf: "flex-start", padding: `${SPACE.sm}px ${SPACE.md}px` }}>
               <ClipboardList size={14} />
               Job {jobNumber || "Draft"}
             </div>
@@ -2391,7 +2395,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 <div
                   style={{
                     marginTop: 12,
-                    padding: 10,
+                    padding: SPACE.md,
                     borderRadius: UI.radiusSm,
                     border: UI.border,
                     background: UI.bgAlt,
@@ -2532,7 +2536,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   style={field.input}
                   required
                 />
-                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
+                <div style={{ marginTop: SPACE.md, padding: SPACE.md, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
                   <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
                     <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
                     Add invoicing details
@@ -2563,7 +2567,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                           type="file"
                           accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,image/jpeg,image/png"
                           onChange={(e) => setInvoiceDocumentFile(e.target.files?.[0] || null)}
-                          style={{ ...field.input, height: "auto", padding: 10, background: "var(--color-surface)" }}
+                          style={{ ...field.input, height: "auto", padding: SPACE.md, background: "var(--color-surface)" }}
                         />
                         {invoiceDocumentFile && (
                           <div style={{ marginTop: 5, fontSize: 12, color: UI.muted }}>
@@ -2574,7 +2578,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     </div>
                   )}
                 </div>
-                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
+                <div style={{ marginTop: SPACE.md, padding: SPACE.md, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
                   <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
                     <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
                     Add Rigging Address
@@ -2661,7 +2665,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     )}
                   </>
                 ) : (
-                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: SPACE.md, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
                     No dates recorded yet.
                   </div>
                 )}
@@ -2686,7 +2690,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                 <select
                                   value={selectedNote}
                                   onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
-                                  style={{ ...field.input, height: 32, padding: "5px 8px" }}
+                                  style={{ ...field.input, height: 32, padding: `${SPACE.xs}px ${SPACE.sm}px` }}
                                 >
                                   <option value="">Select note</option>
                                   <option value="1/2 Day Travel">1/2 Day Travel</option>
@@ -2709,7 +2713,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                 <select
                                   value={callTimeForDate}
                                   onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [date]: e.target.value }))}
-                                  style={{ ...field.input, height: 32, padding: "5px 8px" }}
+                                  style={{ ...field.input, height: 32, padding: `${SPACE.xs}px ${SPACE.sm}px` }}
                                 >
                                   <option value="">Select time</option>
                                   {TIME_OPTIONS.map((t) => (
@@ -2813,9 +2817,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {/* Required crew guidance + manual crewed checkbox */}
-                <div style={{ marginTop: 8, padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-surface-subtle)" }}>
+                <div style={{ marginTop: SPACE.sm, padding: SPACE.sm, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-surface-subtle)" }}>
                   <div className={`create-booking-crew-box ${layoutStyles.extracted35}`} >
-                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, minHeight: 36, padding: "0 8px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: 13, minHeight: 36, padding: `0 ${SPACE.sm}px`, borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                       <input
                         type="checkbox"
                         checked={isCrewed}
@@ -2824,7 +2828,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       />
                       Crewed — show in employee app
                     </label>
-                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                    <div style={{ display: "grid", gap: SPACE.xs, padding: SPACE.xs, borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                       <label style={{ ...field.label, marginTop: 0, marginBottom: 0, fontSize: 9.5, lineHeight: 1 }}>Required</label>
                       <input
                         type="number"
@@ -2838,11 +2842,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         style={{ ...field.input, height: 20, width: "100%", textAlign: "right", padding: 0, border: "none", background: "transparent", boxShadow: "none", fontWeight: 800 }}
                       />
                     </div>
-                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                    <div style={{ display: "grid", gap: SPACE.xs, alignContent: "center", padding: `${SPACE.xs}px ${SPACE.sm}px`, borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
                       <span style={{ fontSize: 9.5, color: UI.muted, fontWeight: 800, textTransform: "uppercase", lineHeight: 1 }}>Allocated</span>
                       <span className={layoutStyles.extracted37}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
                     </div>
-                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--color-success)" : "var(--color-warning)", background: isCrewed ? "var(--color-success-soft)" : "var(--color-warning-soft)", border: `1px solid ${isCrewed ? "var(--color-success-border)" : "var(--color-warning-border)"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
+                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--color-success)" : "var(--color-warning)", background: isCrewed ? "var(--color-success-soft)" : "var(--color-warning-soft)", border: `1px solid ${isCrewed ? "var(--color-success-border)" : "var(--color-warning-border)"}`, borderRadius: 999, padding: `${SPACE.xs}px ${SPACE.sm}px`, fontWeight: 900 }}>
                       {isCrewed ? "Visible in employee app" : "Hidden from employee app"}
                     </span>
                   </div>
@@ -2904,7 +2908,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         const pretty = new Date(date).toDateString();
 
                         return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: SPACE.md, background: UI.bgAlt }}>
                             <div className={layoutStyles.extracted45}>{pretty}</div>
 
                             {employees
@@ -3173,7 +3177,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     multiple
                     accept=".pdf,.xls,.xlsx,.csv,.jpg,.jpeg,image/jpeg"
                     onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
-                    style={{ ...field.input, height: "auto", padding: 10 }}
+                    style={{ ...field.input, height: "auto", padding: SPACE.md }}
                   />
 
                   {pdfProgress > 0 && <div className={layoutStyles.extracted62}>Uploading: {pdfProgress}%</div>}

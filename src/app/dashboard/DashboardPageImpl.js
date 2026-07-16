@@ -64,6 +64,7 @@ import {
 } from "firebase/firestore";
 
 import ViewBookingModal from "../components/ViewBookingModal";
+import ViewUCraneBooking from "../components/ViewUCraneBooking";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import {
@@ -173,6 +174,69 @@ const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "lost"]);
 const DASHBOARD_HIDE_PREFS_KEY = "dashboard:hide-prefs";
 const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
 const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
+
+const normalizeUCraneText = (value) => String(value || "").trim().toLowerCase();
+const containsUCrane = (value) => {
+  const text = normalizeUCraneText(value);
+  return text.includes("u-crane") || text.includes("u crane") || text.includes("ucrane");
+};
+
+const isUCraneVehicle = (vehicle) =>
+  !!vehicle && [
+    vehicle.name,
+    vehicle.label,
+    vehicle.category,
+    vehicle.group,
+    vehicle.type,
+    vehicle.department,
+  ].some(containsUCrane);
+
+const bookingIsUCrane = (booking, vehicles = []) => {
+  if (!booking) return false;
+  if (booking.uCrane === true || booking.isUCrane === true) return true;
+  if ([booking.bookingType, booking.type, booking.category, booking.department, booking.division].some(containsUCrane)) {
+    return true;
+  }
+
+  const vehicleList = Array.isArray(booking.vehicles) ? booking.vehicles : [];
+  return vehicleList.some((entry) => {
+    if (entry && typeof entry === "object" && isUCraneVehicle(entry)) return true;
+    const key = typeof entry === "object"
+      ? entry.id || entry.vehicleId || entry.value || entry.name || entry.registration
+      : entry;
+    if (containsUCrane(key)) return true;
+    const normalizedKey = normalizeUCraneText(key);
+    const resolved = vehicles.find((vehicle) =>
+      [vehicle.id, vehicle.name, vehicle.registration].some(
+        (candidate) => normalizeUCraneText(candidate) === normalizedKey
+      )
+    );
+    return isUCraneVehicle(resolved);
+  });
+};
+
+const maintenanceIsUCrane = (item, vehicleKeys) => {
+  if (!item) return false;
+  if (item.uCrane === true || item.isUCrane === true) return true;
+  const candidates = [
+    item.vehicleId,
+    item.vehicle,
+    item.vehicleName,
+    item.assetId,
+    item.asset,
+    item.assetName,
+    item.title,
+    item.name,
+    item.category,
+    item.group,
+  ];
+  return candidates.some((candidate) => {
+    if (candidate && typeof candidate === "object") {
+      return isUCraneVehicle(candidate) || vehicleKeys.has(normalizeUCraneText(candidate.id));
+    }
+    return containsUCrane(candidate) || vehicleKeys.has(normalizeUCraneText(candidate));
+  });
+};
 
 /* ------------------------------- helpers ------------------------------- */
 const parseLocalDate = (d) => {
@@ -1930,8 +1994,9 @@ function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
 }
 
 /* ------------------------------- Page component ----------------------------- */
-export default function DashboardPage({ bookingSaved, initialDate = "", initialView = "week" }) {
+export default function DashboardPage({ bookingSaved, initialDate = "", initialView = "week", mode = "dashboard" }) {
   const router = useRouter();
+  const isUCraneMode = mode === "u-crane";
   const workDiarySectionRef = useRef(null);
   const authAccess = useAuth() || {};
   const authEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase();
@@ -1951,8 +2016,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [bookings, setBookings] = useState([]);
-  const [deletedBookings, setDeletedBookings] = useState([]);
+  const [allBookings, setBookings] = useState([]);
+  const [allDeletedBookings, setDeletedBookings] = useState([]);
   const [calendarView, setCalendarView] = useState(() => normalizeCalendarView(initialView));
   const [currentDate, setCurrentDate] = useState(() => getDashboardInitialDate(initialDate));
   const [holidays, setHolidays] = useState([]);
@@ -1970,14 +2035,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
   const [quoteViewer, setQuoteViewer] = useState(null);
 
-  const enquiryCount = useMemo(
-    () => bookings.filter((booking) => String(booking.status || "").trim().toLowerCase() === "enquiry").length,
-    [bookings]
-  );
-
-  const [maintenanceBookings, setMaintenanceBookings] = useState([]);
-  const [maintenanceJobs, setMaintenanceJobs] = useState([]);
-  const [vehiclesData, setVehiclesData] = useState([]);
+  const [allMaintenanceBookings, setMaintenanceBookings] = useState([]);
+  const [allMaintenanceJobs, setMaintenanceJobs] = useState([]);
+  const [allVehiclesData, setVehiclesData] = useState([]);
   const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
   const [pendingMaintenanceDrop, setPendingMaintenanceDrop] = useState(null);
@@ -1985,6 +2045,50 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createMaintenanceVehicleId, setCreateMaintenanceVehicleId] = useState("");
   const [createMaintenanceType, setCreateMaintenanceType] = useState("WORK");
   const [createMaintenanceEquipment, setCreateMaintenanceEquipment] = useState("");
+
+  const uCraneVehicleKeys = useMemo(() => {
+    const keys = new Set();
+    allVehiclesData.filter(isUCraneVehicle).forEach((vehicle) => {
+      [vehicle.id, vehicle.name, vehicle.registration].forEach((value) => {
+        const key = normalizeUCraneText(value);
+        if (key) keys.add(key);
+      });
+    });
+    return keys;
+  }, [allVehiclesData]);
+
+  const vehiclesData = useMemo(
+    () => isUCraneMode ? allVehiclesData.filter(isUCraneVehicle) : allVehiclesData,
+    [allVehiclesData, isUCraneMode]
+  );
+  const bookings = useMemo(
+    () => isUCraneMode
+      ? allBookings.filter((booking) => bookingIsUCrane(booking, allVehiclesData))
+      : allBookings,
+    [allBookings, allVehiclesData, isUCraneMode]
+  );
+  const deletedBookings = useMemo(
+    () => isUCraneMode
+      ? allDeletedBookings.filter((booking) => bookingIsUCrane(booking, allVehiclesData))
+      : allDeletedBookings,
+    [allDeletedBookings, allVehiclesData, isUCraneMode]
+  );
+  const maintenanceBookings = useMemo(
+    () => isUCraneMode
+      ? allMaintenanceBookings.filter((item) => maintenanceIsUCrane(item, uCraneVehicleKeys))
+      : allMaintenanceBookings,
+    [allMaintenanceBookings, isUCraneMode, uCraneVehicleKeys]
+  );
+  const maintenanceJobs = useMemo(
+    () => isUCraneMode
+      ? allMaintenanceJobs.filter((item) => maintenanceIsUCrane(item, uCraneVehicleKeys))
+      : allMaintenanceJobs,
+    [allMaintenanceJobs, isUCraneMode, uCraneVehicleKeys]
+  );
+  const enquiryCount = useMemo(
+    () => bookings.filter((booking) => String(booking.status || "").trim().toLowerCase() === "enquiry").length,
+    [bookings]
+  );
 
   //  Holiday modal
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
@@ -2084,7 +2188,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.location.pathname !== "/dashboard") return;
+    const routeBase = isUCraneMode ? "/u-crane" : "/dashboard";
+    if (window.location.pathname !== routeBase) return;
 
     const params = new URLSearchParams(window.location.search);
     const dateKey = ymd(currentDate);
@@ -2092,11 +2197,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     params.set("view", normalizeCalendarView(calendarView));
 
     const query = params.toString();
-    const nextUrl = `/dashboard${query ? `?${query}` : ""}`;
+    const nextUrl = `${routeBase}${query ? `?${query}` : ""}`;
     if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
       window.history.replaceState(window.history.state, "", nextUrl);
     }
-  }, [calendarView, currentDate]);
+  }, [calendarView, currentDate, isUCraneMode]);
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
   const canSeeDeletedOnCalendar = userEmail
@@ -2185,7 +2290,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
     setTimeout(() => {
       try {
-        router.push("/create-booking");
+        router.push(isUCraneMode ? "/u-crane-booking" : "/create-booking");
       } catch (error) {
         console.error("Open create booking failed:", error);
         setCreateBookingOpening(false);
@@ -2193,7 +2298,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         alert("Failed to open create booking. Please try again.");
       }
     }, 80);
-  }, [createBookingOpening, createEnquiryOpening, isRestricted, router]);
+  }, [createBookingOpening, createEnquiryOpening, isRestricted, isUCraneMode, router]);
 
   const goToCreateEnquiry = useCallback(() => {
     if (isRestricted || createBookingOpening || createEnquiryOpening) return;
@@ -2222,9 +2327,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const id = booking?.id || bookingOrId;
       if (!id) return;
       if (booking) cacheBookingForEdit(booking);
-      router.push(buildEditBookingUrl(id, currentDate, calendarView));
+      router.push(
+        isUCraneMode
+          ? `/u-crane-edit/${encodeURIComponent(id)}`
+          : buildEditBookingUrl(id, currentDate, calendarView)
+      );
     },
-    [bookings, calendarView, currentDate, isRestricted, router]
+    [bookings, calendarView, currentDate, isRestricted, isUCraneMode, router]
   );
 
   const goToCreateMaintenance = useCallback(
@@ -3403,7 +3512,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         {/* Header */}
         <div className={layoutStyles.extracted59}>
           <div>
-            <h1 className={layoutStyles.extracted60}>Dashboard</h1>
+            <h1 className={layoutStyles.extracted60}>{isUCraneMode ? "U-Crane" : "Dashboard"}</h1>
           </div>
           <div className={layoutStyles.extracted61}>
             <div className={layoutStyles.extracted62}>
@@ -3454,44 +3563,57 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 </div>
               )}
             </div>
-            <Button bare
-              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
-              type="button"
-              onClick={() => router.push("/booking-drafts")}
-            >
-              <FileText size={14} />
-              Drafts
-            </Button>
-            <Button bare
-              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
-              type="button"
-              onClick={() => {
-                if (isRestricted) return;
-                router.push("/enquiry");
-              }}
-              aria-disabled={isRestricted}
-              title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
-            >
-              <Plus size={14} />
-              Enquiries
-              <span className={layoutStyles.countBadge}>{enquiryCount}</span>
-            </Button>
-            <Button bare
-              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
-              type="button"
-              onClick={() => router.push("/preplist-dashboard")}
-            >
-              <ClipboardList size={14} />
-              Prep Dashboard
-            </Button>
-            <Button bare
-              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
-              type="button"
-              onClick={() => router.push("/stunt-prep")}
-            >
-              <Wrench size={14} />
-              Stunt Prep
-            </Button>
+            {isUCraneMode ? (
+              <Button bare
+                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+                type="button"
+                onClick={() => router.push("/u-crane-crew")}
+              >
+                <ClipboardList size={14} />
+                U-Crane Crew
+              </Button>
+            ) : (
+              <>
+                <Button bare
+                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+                  type="button"
+                  onClick={() => router.push("/booking-drafts")}
+                >
+                  <FileText size={14} />
+                  Drafts
+                </Button>
+                <Button bare
+                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
+                  type="button"
+                  onClick={() => {
+                    if (isRestricted) return;
+                    router.push("/enquiry");
+                  }}
+                  aria-disabled={isRestricted}
+                  title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
+                >
+                  <Plus size={14} />
+                  Enquiries
+                  <span className={layoutStyles.countBadge}>{enquiryCount}</span>
+                </Button>
+                <Button bare
+                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+                  type="button"
+                  onClick={() => router.push("/preplist-dashboard")}
+                >
+                  <ClipboardList size={14} />
+                  Prep Dashboard
+                </Button>
+                <Button bare
+                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+                  type="button"
+                  onClick={() => router.push("/stunt-prep")}
+                >
+                  <Wrench size={14} />
+                  Stunt Prep
+                </Button>
+              </>
+            )}
             {canSeeDeletedOnCalendar && (
               <Button bare
                 className={`${layoutStyles.button} ${showDeletedInView ? layoutStyles.buttonSecondary : layoutStyles.buttonDanger}`}
@@ -3527,8 +3649,12 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 <CalendarDays size={17} />
               </div>
               <div>
-                <h2 className={layoutStyles.extracted74}>Work Diary</h2>
-                <div className={layoutStyles.extracted75}>Bookings, bank holidays and operational visibility.</div>
+                <h2 className={layoutStyles.extracted74}>{isUCraneMode ? "U-Crane Work Diary" : "Work Diary"}</h2>
+                <div className={layoutStyles.extracted75}>
+                  {isUCraneMode
+                    ? "U-Crane bookings, bank holidays and operational visibility."
+                    : "Bookings, bank holidays and operational visibility."}
+                </div>
               </div>
               <Button bare
                 className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
@@ -3577,20 +3703,24 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 type="button"
               >
                 <Plus size={14} />
-                {createBookingOpening ? `Opening ${createBookingProgress}%` : "Add Booking"}
+                {createBookingOpening
+                  ? `Opening ${createBookingProgress}%`
+                  : isUCraneMode ? "Add U-Crane Booking" : "Add Booking"}
               </Button>
 
-              <Button bare
-                className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
-                onClick={goToCreateEnquiry}
-                disabled={isRestricted || createBookingOpening || createEnquiryOpening}
-                aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
-                title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
-                type="button"
-              >
-                <Plus size={14} />
-                {createEnquiryOpening ? `Opening ${createEnquiryProgress}%` : "Add Enquiry"}
-              </Button>
+              {!isUCraneMode && (
+                <Button bare
+                  className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
+                  onClick={goToCreateEnquiry}
+                  disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+                  aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+                  title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
+                  type="button"
+                >
+                  <Plus size={14} />
+                  {createEnquiryOpening ? `Opening ${createEnquiryProgress}%` : "Add Enquiry"}
+                </Button>
+              )}
 
               <Button bare
                 className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
@@ -4200,15 +4330,24 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       )}
 
       {selectedBookingId && (
-        <ViewBookingModal
-          id={selectedBookingId}
-          fromDeleted={!!selectedDeletedId}
-          deletedId={selectedDeletedId}
-          initialBooking={selectedBooking}
-          initialVehicles={vehiclesData}
-          onEdit={goToEditBooking}
-          onClose={handleCloseBookingModal}
-        />
+        isUCraneMode && !selectedDeletedId ? (
+          <ViewUCraneBooking
+            id={selectedBookingId}
+            initialBooking={selectedBooking}
+            initialVehicles={vehiclesData}
+            onClose={handleCloseBookingModal}
+          />
+        ) : (
+          <ViewBookingModal
+            id={selectedBookingId}
+            fromDeleted={!!selectedDeletedId}
+            deletedId={selectedDeletedId}
+            initialBooking={selectedBooking}
+            initialVehicles={vehiclesData}
+            onEdit={goToEditBooking}
+            onClose={handleCloseBookingModal}
+          />
+        )
       )}
       <QuoteDashboardOverlay
         viewer={quoteViewer}
@@ -4218,8 +4357,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       {createBookingOpening && (
         <RouteLoadingOverlay
           progress={createBookingProgress}
-          title="Opening create booking"
-          hint="Preparing booking form..."
+          title={isUCraneMode ? "Opening U-Crane booking" : "Opening create booking"}
+          hint={isUCraneMode ? "Preparing the U-Crane booking form..." : "Preparing booking form..."}
         />
       )}
       {createEnquiryOpening && (

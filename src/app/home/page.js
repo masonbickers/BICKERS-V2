@@ -1,8 +1,6 @@
 // src/app/dashboard/page.js
 "use client";
 
-import "./home.layout.css";
-import layoutStyles from "./page.styles.module.css";
 import styles from "./home.module.css";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -41,22 +39,25 @@ import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
   AlertTriangle,
   ArrowRight,
+  BriefcaseBusiness,
   CalendarDays,
+  CheckCircle2,
+  ChevronRight,
   ClipboardList,
   Clock,
+  Filter,
   Plus,
   RefreshCw,
-  Users,
-  Car,
   Wrench,
-  Package,
 } from "lucide-react";
 import {
+  buildAttentionQueue,
   buildFleetBuckets,
   buildFollowUpQueue,
+  buildOperationalSummary,
   buildPreparationQueue,
   buildSchedulingConflicts,
-  buildWindowCounts,
+  filterCalendarEvents,
 } from "./homeDashboard";
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -162,47 +163,28 @@ const isApptAfterExpiry = (appt, expiry) => {
 /* ────────────────────────────────────────────────────────────────────────────
    Tiny presentational bits
 ──────────────────────────────────────────────────────────────────────────── */
-function StatBlock({ label, value }) {
-  return (
-    <div
-      className={layoutStyles.extracted1}
-    >
-      <div className={layoutStyles.extracted2}>{value}</div>
-      <div className={layoutStyles.extracted3}>
-        {label}
-      </div>
-    </div>
-  );
-}
+const CALENDAR_SOURCES = [
+  { key: "booking", label: "Bookings" },
+  { key: "maintenance", label: "Maintenance" },
+  { key: "holiday", label: "Holidays" },
+  { key: "note", label: "Notes" },
+];
 
-function Bucket({ title, items }) {
+function FleetBucket({ title, items, href }) {
   return (
-    <div className={layoutStyles.extracted4}>
-      <div className={layoutStyles.extracted5}>
-        <div className={layoutStyles.extracted6}>{title}</div>
-        <span className={`${layoutStyles.chip} ${layoutStyles.chipCompact}`}>Top 5</span>
+    <Link className={styles.fleetBucket} href={href}>
+      <div className={styles.fleetBucketHeader}>
+        <span>{title}</span>
+        <strong>{items.length}</strong>
       </div>
       {items && items.length ? (
-        <ul className={layoutStyles.extracted7}>
-          {items.slice(0, 5).map((v) => (
-            <li key={v.id} className={layoutStyles.extracted8}>
-              <div className={layoutStyles.extracted9}>
-                <strong className={layoutStyles.extracted10}>
-                  {v.name || v.registration || "-"}
-                </strong>
-                <span className={layoutStyles.extracted11}>{v.category || "-"}</span>
-              </div>
-              <div className={layoutStyles.extracted12}>
-                MOT: {v.nextMOT ? moment(v.nextMOT).format("MMM D, YYYY") : "-"} | Service:{" "}
-                {v.nextService ? moment(v.nextService).format("MMM D, YYYY") : "-"}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <span className={styles.fleetBucketDetail}>
+          Next: {items[0].vehicleLabel || items[0].name || items[0].registration || "Vehicle"} · {moment(items[0].dueDate).format("D MMM")}
+        </span>
       ) : (
-        <div className={layoutStyles.extracted13}>None.</div>
+        <span className={styles.fleetBucketClear}><CheckCircle2 size={14} /> Nothing due</span>
       )}
-    </div>
+    </Link>
   );
 }
 
@@ -239,6 +221,7 @@ export default function HomePage() {
   const [isCompact, setIsCompact] = useState(false);
   const [createBookingOpening, setCreateBookingOpening] = useState(false);
   const [createBookingProgress, setCreateBookingProgress] = useState(0);
+  const [calendarSources, setCalendarSources] = useState(() => CALENDAR_SOURCES.map((source) => source.key));
 
   // Window filter (days)
   const [windowDays, setWindowDays] = useState(30);
@@ -464,6 +447,10 @@ export default function HomePage() {
     ],
     [events, holidays, maintenanceCalendarEvents, notes]
   );
+  const visibleCalendarEvents = useMemo(
+    () => filterCalendarEvents(homeCalendarEvents, calendarSources),
+    [calendarSources, homeCalendarEvents]
+  );
 
   const now = useMemo(() => new Date(), []);
 
@@ -477,9 +464,6 @@ export default function HomePage() {
     () => buildPreparationQueue(events, bookings, now, vehicleLabel),
     [events, bookings, now, vehicleLabel]
   );
-
-  // Window-scoped JOB COUNTS
-  const jobCounts = useMemo(() => buildWindowCounts(events, now, windowDays), [events, now, windowDays]);
 
   // Follow-ups (Next 72h)
   const firstPencils72h = useMemo(() => buildFollowUpQueue(events, now), [events, now]);
@@ -529,13 +513,86 @@ export default function HomePage() {
     .some((name) => ["error", "denied"].includes(collectionState[name]));
   const initialLoading = dataState.status === "loading" && !lastUpdated;
 
+  const operationalSummary = useMemo(
+    () => buildOperationalSummary({
+      events,
+      referenceDate: now,
+      windowDays,
+      followUps: firstPencils72h,
+      preparation: prepList,
+      conflicts: clashesSecondVsFirm,
+      overdueMOT,
+      overdueService,
+      availability: { bookings: !bookingDataUnavailable, fleet: !fleetDataUnavailable },
+    }),
+    [
+      bookingDataUnavailable,
+      clashesSecondVsFirm,
+      events,
+      firstPencils72h,
+      fleetDataUnavailable,
+      now,
+      overdueMOT,
+      overdueService,
+      prepList,
+      windowDays,
+    ]
+  );
+
+  const attentionQueue = useMemo(
+    () => buildAttentionQueue({
+      conflicts: bookingDataUnavailable ? [] : clashesSecondVsFirm,
+      followUps: bookingDataUnavailable ? [] : firstPencils72h,
+      preparation: bookingDataUnavailable ? [] : prepList,
+      overdueMOT: fleetDataUnavailable ? [] : overdueMOT,
+      overdueService: fleetDataUnavailable ? [] : overdueService,
+      vehicleLabel,
+    }),
+    [
+      bookingDataUnavailable,
+      clashesSecondVsFirm,
+      firstPencils72h,
+      fleetDataUnavailable,
+      overdueMOT,
+      overdueService,
+      prepList,
+      vehicleLabel,
+    ]
+  );
+
+  const toggleCalendarSource = useCallback((source) => {
+    setCalendarSources((current) => (
+      current.includes(source)
+        ? current.filter((item) => item !== source)
+        : [...current, source]
+    ));
+  }, []);
+
+  const openAttentionTarget = useCallback((target) => {
+    if (!target) return;
+    if (target.kind === "booking") {
+      setSelectedBookingId(target.id);
+      return;
+    }
+    if (target.kind === "route" && target.href) router.push(target.href);
+  }, [router]);
+
+  const openSummaryTarget = useCallback((target) => {
+    if (!target) return;
+    if (target.kind === "attention") {
+      document.getElementById("needs-attention")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    openAttentionTarget(target);
+  }, [openAttentionTarget]);
+
   return (
     <ProtectedRoute>
       <HeaderSidebarLayout>
         <Page width="fluid">
           <PageHeader
-            title="Home"
-            subtitle="Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness."
+            title="Operations overview"
+            subtitle="See the programme, spot operational risk and open the work that needs attention."
             actions={<div className={styles.headerActions}>
               <div className={styles.headerControls}>
                 <div className={styles.windowControl} aria-label="Reporting window">
@@ -568,34 +625,76 @@ export default function HomePage() {
             </Alert>
           ) : null}
 
-          <div className="home-puzzle-grid">
-            <section className={`home-tile home-stats-tile ${layoutStyles.extracted79}`} >
-              {initialLoading ? <div className="home-stat-grid">{[0,1,2,3,4].map((item) => <Card key={item}><Skeleton height={54} /></Card>)}</div> : (
-                <div className="home-stat-grid">
-                  <StatBlock label="Total Jobs" value={jobCounts.total} />
-                  <StatBlock label="Enquiry" value={jobCounts.enquiry} />
-                  <StatBlock label="First Pencil" value={jobCounts["first pencil"]} />
-                  <StatBlock label="Second Pencil" value={jobCounts["second pencil"]} />
-                  <StatBlock label="Confirmed" value={jobCounts.confirmed} />
+          <div className={styles.puzzleGrid}>
+            <section className={`${styles.tile} ${styles.statsTile}`} aria-label="Operational health">
+              {initialLoading ? <div className={styles.statGrid}>{[0,1,2,3,4].map((item) => <Card className={styles.healthSkeleton} key={item}><Skeleton height={72} /></Card>)}</div> : (
+                <div className={styles.statGrid}>
+                  {operationalSummary.map((item) => (
+                    <Button
+                      bare
+                      key={item.key}
+                      type="button"
+                      className={styles.healthCard}
+                      data-tone={item.tone}
+                      disabled={!item.available}
+                      onClick={() => openSummaryTarget(item.actionTarget)}
+                      aria-label={`${item.label}: ${item.available ? item.value : "unavailable"}. ${item.period}`}
+                    >
+                      <span className={styles.healthIcon}>
+                        {item.key === "upcoming" ? <BriefcaseBusiness size={18} /> : null}
+                        {item.key === "follow-up" ? <Clock size={18} /> : null}
+                        {item.key === "preparation" ? <ClipboardList size={18} /> : null}
+                        {item.key === "conflicts" ? <AlertTriangle size={18} /> : null}
+                        {item.key === "fleet" ? <Wrench size={18} /> : null}
+                      </span>
+                      <span className={styles.healthValue}>{item.available ? item.value : "—"}</span>
+                      <strong className={styles.healthLabel}>{item.label}</strong>
+                      <span className={styles.healthPeriod}>{item.available ? item.period : "Data unavailable"}</span>
+                      <ChevronRight className={styles.healthArrow} size={17} aria-hidden="true" />
+                    </Button>
+                  ))}
                 </div>
               )}
             </section>
 
-            <section className={`home-tile home-calendar-tile ${layoutStyles.extracted81}`} >
-              <div className={layoutStyles.extracted24}>
-                <div className={layoutStyles.extracted25}>
-                  <span className={layoutStyles.iconBox}>
+            <section className={`${styles.tile} ${styles.calendarTile} ${styles.panelSurface}`}>
+              <div className={styles.panelHeader}>
+                <div className={styles.panelHeading}>
+                  <span className={styles.iconBox}>
                     <CalendarDays size={17} />
                   </span>
                   <div>
-                    <h2 className={layoutStyles.extracted26}>Operations Calendar</h2>
-                    <div className={layoutStyles.extracted27}>Review the current booking programme and open any entry for full detail.</div>
+                    <h2 className={styles.panelTitle}>Operations Calendar</h2>
+                    <div className={styles.panelDescription}>Review the current booking programme and open any entry for full detail.</div>
                   </div>
                 </div>
-                <Badge variant="info">{isCompact ? "Week view" : "Month view"}</Badge>
+                <div className={styles.panelActions}>
+                  <Badge variant="info">{isCompact ? "Week view" : "Month view"}</Badge>
+                  <Button as={Link} href="/dashboard" variant="secondary" size="sm">Open Diary <ArrowRight size={13} /></Button>
+                </div>
               </div>
 
-              <div className={`${layoutStyles.extracted28} ${styles.calendarWrap}`}>
+              <div className={styles.calendarFilters} aria-label="Calendar sources">
+                <span className={styles.filterLabel}><Filter size={14} /> Show</span>
+                {CALENDAR_SOURCES.map((source) => {
+                  const active = calendarSources.includes(source.key);
+                  return (
+                    <Button
+                      bare
+                      type="button"
+                      key={source.key}
+                      className={styles.filterButton}
+                      data-source={source.key}
+                      aria-pressed={active}
+                      onClick={() => toggleCalendarSource(source.key)}
+                    >
+                      <span className={styles.filterDot} /> {source.label}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <div className={styles.calendarWrap}>
                 <FullCalendar
                   plugins={[dayGridPlugin, interactionPlugin]}
                   key={isCompact ? "compact" : "desktop"}
@@ -606,7 +705,7 @@ export default function HomePage() {
                   height="auto"
                   dayMaxEventRows={isCompact ? 2 : 3}
                   moreLinkClick="popover"
-                  events={homeCalendarEvents}
+                  events={visibleCalendarEvents}
                   eventClick={(info) => {
                     const id = info.event.extendedProps?.sourceId || info.event.id;
                     const sourceType = info.event.extendedProps?.sourceType || "";
@@ -647,7 +746,7 @@ export default function HomePage() {
               </div>
 
               {/* Legend */}
-              <div className={layoutStyles.extracted29}>
+              <div className={styles.legend}>
                 {[
                   { label: "Confirmed", color: "var(--job-status-confirmed)" },
                   { label: "First Pencil", color: "var(--job-status-first-pencil)" },
@@ -656,118 +755,66 @@ export default function HomePage() {
                   { label: "Holiday", color: "var(--color-border-strong)" },
                   { label: "Note", color: "var(--color-border)" },
                 ].map((item) => (
-                  <div key={item.label} className={layoutStyles.extracted30}>
+                  <div key={item.label} className={styles.legendItem}>
                     {/* style-audit-allow runtime: calendar legend colour */}
-                    <div className={layoutStyles.legendSwatch} style={{ "--swatch-color": item.color }} />
-                    <span className={layoutStyles.extracted31}>{item.label}</span>
+                    <div className={styles.legendSwatch} style={{ "--swatch-color": item.color }} />
+                    <span>{item.label}</span>
                   </div>
                 ))}
               </div>
             </section>
 
-            <section className="home-right-rail">
-              <div className={`home-tile home-followup-tile ${layoutStyles.extracted82}`} >
-                <div className={layoutStyles.extracted32}>
-                  <div className={styles.panelHeading}>
-                    <span className={styles.iconBox}><Clock size={17} /></span>
-                    <div>
-                    <h2 className={layoutStyles.extracted33}>Follow-Up Queue</h2>
-                    <div className={layoutStyles.extracted34}>First pencil bookings starting in the next 72 hours.</div>
-                    </div>
-                  </div>
-                  <Badge>{firstPencils72h.length} items</Badge>
-                </div>
-
-                {bookingDataUnavailable ? (
-                  <EmptyState className={styles.emptyCompact} title="Follow-ups unavailable" description="Booking data could not be loaded." />
-                ) : firstPencils72h.length ? (
-                  <ul className={layoutStyles.extracted35}>
-                    {firstPencils72h.slice(0, 5).map((e) => (
-                      <li key={e.id}>
-                        <Button bare type="button" className={styles.queueButton} onClick={() => setSelectedBookingId(e.id)} aria-label={`Open booking ${e.jobNumber}`}>
-                        <div className={layoutStyles.extracted37}>
-                          <strong className={layoutStyles.extracted38}>{e.jobNumber}</strong>
-                          <span className={layoutStyles.extracted39}>{moment(e.start).format("MMM D")}</span>
-                        </div>
-                        <div className={layoutStyles.extracted40}>{e.client}</div>
-                        <div>
-                          <span className={layoutStyles.tag} data-tone="first pencil">First Pencil</span>
-                        </div>
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className={layoutStyles.extracted41}>No first pencils in the next 72 hours.</div>
-                )}
-              </div>
-
-              <div className={`home-tile home-conflict-tile ${layoutStyles.extracted83}`} >
-                <div className={layoutStyles.extracted42}>
-                  <div className={styles.panelHeading}>
-                    <span className={styles.iconBox}><AlertTriangle size={17} /></span>
-                    <div>
-                    <h2 className={layoutStyles.extracted43}>Scheduling Conflicts</h2>
-                    <div className={layoutStyles.extracted44}>Second pencil work overlapping confirmed or first pencil vehicle allocations.</div>
-                    </div>
-                  </div>
-                  <Badge variant={clashesSecondVsFirm.length ? "warning" : "success"}>{clashesSecondVsFirm.length} flagged</Badge>
-                </div>
-
-                {bookingDataUnavailable ? (
-                  <EmptyState className={styles.emptyCompact} title="Conflicts unavailable" description="Booking data could not be loaded." />
-                ) : clashesSecondVsFirm.length ? (
-                  <ul className={layoutStyles.extracted45}>
-                    {clashesSecondVsFirm.slice(0, 5).map((c) => (
-                      <li key={`${c.second.id}-${c.firm.id}-${vehicleLabel(c.vehicle)}`}>
-                        <Button bare type="button" className={styles.queueButton} onClick={() => setSelectedBookingId(c.second.id)} aria-label={`Open second pencil booking ${c.second.jobNumber}`}>
-                        <strong className={layoutStyles.extracted47}>
-                          {vehicleLabel(c.vehicle)}
-                        </strong>
-
-                        <div className={layoutStyles.extracted48}>
-                          2nd: {c.second.jobNumber} ({moment(c.second.start).format("MMM D")} - {moment(c.second.end).format("MMM D")})
-                          <span className={layoutStyles.tag} data-tone="second pencil">Second</span>
-                        </div>
-
-                        <div className={layoutStyles.extracted49}>
-                          Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")} - {moment(c.firm.end).format("MMM D")})
-                          <span className={layoutStyles.tag} data-tone={String(c.firm.status || "").toLowerCase()}>{c.firm.status}</span>
-                        </div>
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className={layoutStyles.extracted50}>No second-pencil clashes.</div>
-                )}
-              </div>
-
-              <Card className={styles.panel}>
+            <section className={styles.rightRail} id="needs-attention">
+              <Card className={`${styles.panel} ${styles.attentionPanel}`}>
                 <div className={styles.panelHeader}>
                   <div className={styles.panelHeading}>
-                    <span className={styles.iconBox}><Wrench size={17} /></span>
-                    <div><h2 className={styles.panelTitle}>Fleet attention</h2><p className={styles.panelDescription}>Unbooked compliance items that are already overdue.</p></div>
+                    <span className={`${styles.iconBox} ${styles.attentionIcon}`}><AlertTriangle size={18} /></span>
+                    <div><h2 className={styles.panelTitle}>Needs attention</h2><p className={styles.panelDescription}>Ranked by operational risk, then deadline.</p></div>
                   </div>
+                  <Badge variant={attentionQueue.length ? "warning" : "success"}>{attentionQueue.length} open</Badge>
                 </div>
-                {fleetDataUnavailable ? (
-                  <EmptyState className={styles.emptyCompact} title="Fleet status incomplete" description="Some maintenance data could not be loaded." />
-                ) : <div className={styles.attentionSummary}>
-                  <Link className={styles.attentionLink} href="/mot-overview"><span className={styles.attentionValue}>{overdueMOT.length}</span><span className={styles.attentionLabel}>MOT overdue</span></Link>
-                  <Link className={styles.attentionLink} href="/service-overview"><span className={styles.attentionValue}>{overdueService.length}</span><span className={styles.attentionLabel}>Service overdue</span></Link>
-                </div>}
+
+                {bookingDataUnavailable || fleetDataUnavailable ? (
+                  <Alert className={styles.inlineAlert} variant="warning">
+                    This queue is incomplete because {bookingDataUnavailable && fleetDataUnavailable ? "booking and fleet data are" : bookingDataUnavailable ? "booking data is" : "fleet data is"} unavailable.
+                  </Alert>
+                ) : null}
+
+                {initialLoading ? (
+                  <div className={styles.attentionLoading}>{[0, 1, 2].map((item) => <Skeleton key={item} height={76} />)}</div>
+                ) : attentionQueue.length ? (
+                  <ol className={styles.attentionList}>
+                    {attentionQueue.slice(0, 10).map((item) => (
+                      <li key={item.id}>
+                        <Button bare type="button" className={styles.attentionButton} data-severity={item.severity} onClick={() => openAttentionTarget(item.actionTarget)} aria-label={`${item.title}. ${item.detail}. Open related workflow`}>
+                          <span className={styles.attentionTopline}>
+                            <Badge variant={item.severity === "critical" ? "danger" : item.severity === "urgent" ? "warning" : "info"}>{item.severity}</Badge>
+                            <span className={styles.attentionDate}>{item.dueAt ? moment(item.dueAt).format("D MMM YYYY") : "Date unavailable"}</span>
+                          </span>
+                          <strong className={styles.attentionTitle}>{item.title}</strong>
+                          <span className={styles.attentionDetail}>{item.detail}</span>
+                          <ChevronRight className={styles.attentionArrow} size={16} aria-hidden="true" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ol>
+                ) : bookingDataUnavailable && fleetDataUnavailable ? (
+                  <EmptyState className={styles.emptyCompact} title="Attention queue unavailable" description="Retry once operational data access has been restored." />
+                ) : (
+                  <EmptyState className={styles.emptyCompact} icon={<CheckCircle2 className={styles.clearIcon} size={28} />} title="Operations are clear" description="No clashes, overdue compliance, urgent pencils or preparation deadlines are currently flagged." />
+                )}
               </Card>
             </section>
 
-            <section className={`home-tile home-prep-tile ${layoutStyles.extracted84}`} >
-              <div className={layoutStyles.extracted51}>
-                <div className={layoutStyles.extracted52}>
-                  <span className={`${layoutStyles.iconBox} ${layoutStyles.iconPrep}`}>
+            <section className={`${styles.tile} ${styles.prepTile} ${styles.panelSurface}`}>
+              <div className={styles.panelHeader}>
+                <div className={styles.panelHeading}>
+                  <span className={`${styles.iconBox} ${styles.prepIcon}`}>
                     <ClipboardList size={17} />
                   </span>
                   <div>
-                    <h2 className={layoutStyles.extracted53}>Preparation Queue</h2>
-                    <div className={layoutStyles.extracted54}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
+                    <h2 className={styles.panelTitle}>Preparation Queue</h2>
+                    <div className={styles.panelDescription}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
                   </div>
                 </div>
                 <div className={styles.panelActions}>
@@ -779,46 +826,46 @@ export default function HomePage() {
               {bookingDataUnavailable ? (
                 <EmptyState className={styles.emptyCompact} title="Preparation unavailable" description="Booking data could not be loaded." />
               ) : prepList.length ? (
-                <div className={layoutStyles.extracted55}>
-                  <table className={layoutStyles.extracted56}>
+                <div className={styles.tableWrap}>
+                  <table className={styles.prepTable}>
                     <thead>
                       <tr>
-                        <th className={layoutStyles.extracted57}>Job #</th>
-                        <th className={layoutStyles.extracted58}>Vehicles</th>
-                        <th className={layoutStyles.extracted59}>Equipment</th>
-                        <th className={layoutStyles.extracted60}>Notes</th>
-                        <th className={layoutStyles.extracted61}>Start</th>
+                        <th>Job #</th>
+                        <th>Vehicles</th>
+                        <th>Equipment</th>
+                        <th>Notes</th>
+                        <th>Start</th>
                       </tr>
                     </thead>
                     <tbody>
                       {prepList.map((it) => (
                         <tr key={it.id}>
-                          <td className={layoutStyles.extracted63}>
+                          <td className={styles.jobCell}>
                             <Button bare type="button" className={styles.tableButton} onClick={() => setSelectedBookingId(it.id)} aria-label={`Open booking ${it.jobNumber}`}>{it.jobNumber}</Button>
                           </td>
-                          <td className={layoutStyles.extracted64}>{it.vehicles?.join(", ") || "-"}</td>
-                          <td className={layoutStyles.extracted65}>{it.equipment || "-"}</td>
-                          <td className={layoutStyles.extracted66}>{it.notes || "-"}</td>
-                          <td className={layoutStyles.extracted67}>{it.start ? moment(it.start).format("MMM D, YYYY") : "-"}</td>
+                          <td>{it.vehicles?.join(", ") || "-"}</td>
+                          <td>{it.equipment || "-"}</td>
+                          <td>{it.notes || "-"}</td>
+                          <td className={styles.nowrap}>{it.start ? moment(it.start).format("MMM D, YYYY") : "-"}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <div className={layoutStyles.extracted68}>No jobs starting in the next 2 days.</div>
+                <EmptyState className={styles.emptyCompact} icon={<CheckCircle2 className={styles.clearIcon} size={25} />} title="Preparation is clear" description="No jobs start within the next two days." />
               )}
             </section>
 
-            <section className={`home-tile home-fleet-tile ${layoutStyles.extracted85}`} >
-              <div className={layoutStyles.extracted69}>
-                <div className={layoutStyles.extracted70}>
-                  <span className={`${layoutStyles.iconBox} ${layoutStyles.iconFleet}`}>
+            <section className={`${styles.tile} ${styles.fleetTile} ${styles.panelSurface}`}>
+              <div className={styles.panelHeader}>
+                <div className={styles.panelHeading}>
+                  <span className={`${styles.iconBox} ${styles.fleetIcon}`}>
                     <Wrench size={17} />
                   </span>
                   <div>
-                    <h2 className={layoutStyles.extracted71}>Fleet Compliance</h2>
-                    <div className={layoutStyles.extracted72}>Overdue items and due dates within the next 3 weeks.</div>
+                    <h2 className={styles.panelTitle}>Fleet Planning</h2>
+                    <div className={styles.panelDescription}>Upcoming unbooked compliance work. Overdue items are prioritised above.</div>
                   </div>
                 </div>
                 <Link className={styles.textLink} href="/vehicle-home">View vehicles <ArrowRight size={13} /></Link>
@@ -826,48 +873,12 @@ export default function HomePage() {
 
               {fleetDataUnavailable ? (
                 <EmptyState className={styles.emptyCompact} title="Fleet compliance unavailable" description="Some maintenance data could not be loaded." />
-              ) : <div className="home-fleet-grid">
-                <Bucket title={`MOT Overdue (${overdueMOT.length})`} items={overdueMOT} />
-                <Bucket title={`Service Overdue (${overdueService.length})`} items={overdueService} />
-                <Bucket title={`MOT due in 3 weeks (${motDueSoon.length})`} items={motDueSoon} />
-                <Bucket title={`Service due in 3 weeks (${serviceDueSoon.length})`} items={serviceDueSoon} />
+              ) : <div className={styles.fleetGrid}>
+                <FleetBucket title="MOT due within 3 weeks" items={motDueSoon} href="/mot-overview" />
+                <FleetBucket title="Service due within 3 weeks" items={serviceDueSoon} href="/service-overview" />
               </div>}
             </section>
 
-            <section className={`home-tile home-assistant-tile ${layoutStyles.extracted86}`} >
-              <div className={layoutStyles.extracted73}>
-                <div className={layoutStyles.extracted74}>
-                  <span className={layoutStyles.iconBox}>
-                    <Plus size={17} />
-                  </span>
-                  <div>
-                    <h2 className={layoutStyles.extracted75}>Quick Actions</h2>
-                    <div className={layoutStyles.extracted76}>Open the core operational sections from the home hub.</div>
-                  </div>
-                </div>
-                <span className={layoutStyles.sectionTag}>v1.0 links</span>
-              </div>
-              <nav className={styles.quickLinks} aria-label="Operational shortcuts">
-                {[
-                  { label: "Create Booking", href: "/create-booking", icon: <Plus size={14} /> },
-                  { label: "Employees", href: "/employee-home", icon: <Users size={14} /> },
-                  { label: "Vehicles", href: "/vehicle-home", icon: <Car size={14} /> },
-                  { label: "Workshop", href: "/workshop", icon: <Wrench size={14} /> },
-                  { label: "Equipment", href: "/equipment", icon: <Package size={14} /> },
-                ].map((action) => (
-                  <Button
-                    key={action.href}
-                    as={Link}
-                    href={action.href}
-                    variant="ghost"
-                    size="sm"
-                  >
-                    {action.icon}
-                    {action.label}
-                  </Button>
-                ))}
-              </nav>
-            </section>
           </div>
         </Page>
         {selectedBookingId && (

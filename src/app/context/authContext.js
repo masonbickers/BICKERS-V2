@@ -23,6 +23,40 @@ const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v2";
 const ADMIN_VIEW_MODE_KEY = "bickers-admin-view-mode:v1";
 const ADMIN_VIEW_USER_KEY = "bickers-admin-view-user:v1";
 const ADMIN_VIEW_EMAILS = new Set(["mason@bickers.co.uk"]);
+const SESSION_BRIDGE_RETRY_DELAYS_MS = [0, 400, 1200];
+const SESSION_BRIDGE_BACKGROUND_RETRY_MS = 5000;
+
+const wait = (delayMs) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+
+async function requestFirebaseSessionToken() {
+  let lastError = null;
+
+  for (const delayMs of SESSION_BRIDGE_RETRY_DELAYS_MS) {
+    if (delayMs) await wait(delayMs);
+
+    try {
+      const res = await fetch("/api/auth/firebase-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.customToken) return data.customToken;
+
+      const error = new Error(data?.error || "Could not start the application session.");
+      error.status = res.status;
+      lastError = error;
+      if (res.status === 403) throw error;
+    } catch (error) {
+      lastError = error;
+      if (error?.status === 403) throw error;
+    }
+  }
+
+  throw lastError || new Error("Could not start the application session.");
+}
 
 const debugBookingLoads = (...args) => {
   if (typeof window === "undefined") return;
@@ -204,45 +238,90 @@ export const AuthProvider = ({ children }) => {
   const [adminViewUser, setAdminViewUserState] = useState(null);
   const userDocUnsubRef = useRef(null);
   const resolvingRef = useRef(0);
+  const bridgeRetryTimerRef = useRef(null);
+  const [bridgeRetryNonce, setBridgeRetryNonce] = useState(0);
+  const clerkUserId = String(clerkUser?.id || "");
 
   useEffect(() => {
     if (!clerkLoaded) return undefined;
 
     let cancelled = false;
-    const syncClerkSessionToFirebase = async () => {
-      setBridgeReady(false);
-      setLoading(true);
-      setAuthError("");
+    if (bridgeRetryTimerRef.current) {
+      clearTimeout(bridgeRetryTimerRef.current);
+      bridgeRetryTimerRef.current = null;
+    }
 
-      if (!isSignedIn || !clerkUser) {
+    const syncClerkSessionToFirebase = async () => {
+      if (!isSignedIn || !clerkUserId) {
+        setBridgeReady(false);
+        setLoading(true);
+        setAuthError("");
         clearAccessCache();
         await signOutFirebase(auth).catch(() => {});
         if (!cancelled) setBridgeReady(true);
         return;
       }
 
+      const existingFirebaseUser = auth.currentUser;
+      if (!existingFirebaseUser && bridgeRetryNonce === 0) {
+        setBridgeReady(false);
+        setLoading(true);
+      }
+
       try {
-        const res = await fetch("/api/auth/firebase-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data?.customToken) {
-          throw new Error(data?.error || "Could not start the application session.");
+        if (existingFirebaseUser?.getIdTokenResult) {
+          try {
+            const tokenResult = await existingFirebaseUser.getIdTokenResult();
+            if (String(tokenResult?.claims?.clerkUserId || "") === clerkUserId) {
+              if (!cancelled) {
+                setAuthError("");
+                setBridgeReady(true);
+                if (bridgeRetryNonce !== 0) setBridgeRetryNonce(0);
+              }
+              return;
+            }
+          } catch {
+            // The persisted token may be stale; request a replacement below.
+          }
+
+          // Never expose a Firebase session belonging to a different Clerk
+          // identity while the replacement bridge is being established.
+          setBridgeReady(false);
+          setLoading(true);
+          await signOutFirebase(auth).catch(() => {});
         }
 
-        // Always replace any legacy Firebase password session with a fresh,
-        // Clerk-authorized compatibility session.
-        await signInWithCustomToken(auth, data.customToken);
-        if (!cancelled) setBridgeReady(true);
-      } catch (error) {
-        console.error("[authContext] Clerk session bridge failed:", error);
-        clearAccessCache();
-        await signOutFirebase(auth).catch(() => {});
+        const customToken = await requestFirebaseSessionToken();
+        await signInWithCustomToken(auth, customToken);
         if (!cancelled) {
-          setAuthError(error?.message || "Your account could not be linked.");
+          setAuthError("");
           setBridgeReady(true);
-          await signOutClerk({ redirectUrl: "/login?access=denied" }).catch(() => {});
+          if (bridgeRetryNonce !== 0) setBridgeRetryNonce(0);
+        }
+      } catch (error) {
+        console.warn("[authContext] Clerk session bridge unavailable:", error);
+
+        if (error?.status === 403) {
+          clearAccessCache();
+          await signOutFirebase(auth).catch(() => {});
+          if (!cancelled) {
+            setAuthError(error?.message || "Your account could not be linked.");
+            setBridgeReady(true);
+            await signOutClerk({ redirectUrl: "/login?access=denied" }).catch(() => {});
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          // Keep the Clerk login intact during a temporary outage and retry
+          // quietly instead of throwing the user back to the login page.
+          setAuthError(
+            error?.message || "Your session is temporarily unavailable. Retrying..."
+          );
+          setBridgeReady(true);
+          bridgeRetryTimerRef.current = setTimeout(() => {
+            setBridgeRetryNonce((value) => value + 1);
+          }, SESSION_BRIDGE_BACKGROUND_RETRY_MS);
         }
       }
     };
@@ -250,8 +329,12 @@ export const AuthProvider = ({ children }) => {
     syncClerkSessionToFirebase();
     return () => {
       cancelled = true;
+      if (bridgeRetryTimerRef.current) {
+        clearTimeout(bridgeRetryTimerRef.current);
+        bridgeRetryTimerRef.current = null;
+      }
     };
-  }, [clerkLoaded, clerkUser, isSignedIn, signOutClerk]);
+  }, [bridgeRetryNonce, clerkLoaded, clerkUserId, isSignedIn, signOutClerk]);
 
   useEffect(() => {
     if (!clerkLoaded || !bridgeReady) return undefined;

@@ -6,7 +6,6 @@ import "./globals.css";
 import "./calendar-integration.css";
 import { AuthProvider } from "./context/authContext";
 import ProtectedLayout from "./components/ProtectedLayout";
-import AppCacheRefresh from "./components/AppCacheRefresh";
 import GlobalThemeProvider from "./components/GlobalThemeProvider";
 import ContentLabelsProvider from "./components/ContentLabelsProvider";
 
@@ -33,7 +32,6 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             <GlobalThemeProvider>
               <ContentLabelsProvider>
-                <AppCacheRefresh />
                 <ProtectedLayout>
                   {children}
                 </ProtectedLayout>

@@ -6,6 +6,51 @@ import {
 
 export const runtime = "nodejs";
 
+const DIRECTORY_CACHE_TTL_MS = 30000;
+const ADMIN_READ_RETRY_DELAYS_MS = [0, 250, 750];
+const directoryCache = {
+  expiresAt: 0,
+  value: null,
+  inFlight: null,
+};
+
+const wait = (delayMs) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+
+async function loadIdentityDirectory() {
+  if (directoryCache.value && directoryCache.expiresAt > Date.now()) {
+    return directoryCache.value;
+  }
+  if (directoryCache.inFlight) return directoryCache.inFlight;
+
+  directoryCache.inFlight = (async () => {
+    let lastError = null;
+    for (const delayMs of ADMIN_READ_RETRY_DELAYS_MS) {
+      if (delayMs) await wait(delayMs);
+      try {
+        const value = await Promise.all([
+          adminListDocuments("users"),
+          adminListDocuments("employees"),
+        ]);
+        directoryCache.value = value;
+        directoryCache.expiresAt = Date.now() + DIRECTORY_CACHE_TTL_MS;
+        return value;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("Identity directory is unavailable.");
+  })();
+
+  try {
+    return await directoryCache.inFlight;
+  } finally {
+    directoryCache.inFlight = null;
+  }
+}
+
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
 const safeUid = (value) =>
@@ -64,10 +109,7 @@ export async function POST() {
       return Response.json({ error: "Only @bickers.co.uk accounts can access this app." }, { status: 403 });
     }
 
-    const [users, employees] = await Promise.all([
-      adminListDocuments("users"),
-      adminListDocuments("employees"),
-    ]);
+    const [users, employees] = await loadIdentityDirectory();
     const userMatches = users.filter(({ data }) => recordEmails(data).includes(email));
     const employeeMatches = employees.filter(({ data }) => recordEmails(data).includes(email));
 
@@ -92,6 +134,12 @@ export async function POST() {
     return Response.json({ customToken, uid, email });
   } catch (error) {
     console.error("[clerk-firebase-token] failed:", error);
-    return Response.json({ error: "Could not start the application session." }, { status: 500 });
+    return Response.json(
+      {
+        error: "The application session service is temporarily unavailable. Retrying...",
+        code: "SESSION_BRIDGE_UNAVAILABLE",
+      },
+      { status: 503 }
+    );
   }
 }

@@ -110,3 +110,170 @@ export function buildFleetBuckets(events, referenceDate, dueDays = 21) {
   Object.values(buckets).forEach((items) => items.sort((a, b) => startOfDashboardDay(a.dueDate) - startOfDashboardDay(b.dueDate)));
   return buckets;
 }
+
+const ATTENTION_SEVERITY = { critical: 0, urgent: 1, upcoming: 2 };
+
+function readableVehicle(vehicle) {
+  if (vehicle && typeof vehicle === "object") {
+    return String(vehicle.name || vehicle.registration || vehicle.reg || vehicle.id || "Vehicle").trim();
+  }
+  return String(vehicle || "Vehicle").trim() || "Vehicle";
+}
+
+function attentionDate(value) {
+  const date = toDashboardDate(value);
+  return date ? date.toISOString() : null;
+}
+
+export function buildOperationalSummary({
+  events = [],
+  referenceDate,
+  windowDays = 30,
+  followUps = [],
+  preparation = [],
+  conflicts = [],
+  overdueMOT = [],
+  overdueService = [],
+  availability = {},
+} = {}) {
+  const bookingAvailable = availability.bookings !== false;
+  const fleetAvailable = availability.fleet !== false;
+  const upcoming = buildWindowCounts(events, referenceDate, windowDays).total;
+
+  return [
+    {
+      key: "upcoming",
+      label: "Upcoming jobs",
+      value: bookingAvailable ? upcoming : null,
+      period: `Next ${windowDays} days`,
+      tone: "neutral",
+      available: bookingAvailable,
+      actionTarget: { kind: "route", href: "/dashboard?view=month" },
+    },
+    {
+      key: "follow-up",
+      label: "Pencils to follow up",
+      value: bookingAvailable ? followUps.length : null,
+      period: "Starting within 72 hours",
+      tone: followUps.length ? "urgent" : "positive",
+      available: bookingAvailable,
+      actionTarget: { kind: "attention", type: "first-pencil" },
+    },
+    {
+      key: "preparation",
+      label: "Preparation due",
+      value: bookingAvailable ? preparation.length : null,
+      period: "Starting within 2 days",
+      tone: preparation.length ? "upcoming" : "positive",
+      available: bookingAvailable,
+      actionTarget: { kind: "route", href: "/preplist-dashboard" },
+    },
+    {
+      key: "conflicts",
+      label: "Scheduling conflicts",
+      value: bookingAvailable ? conflicts.length : null,
+      period: "All future overlaps",
+      tone: conflicts.length ? "critical" : "positive",
+      available: bookingAvailable,
+      actionTarget: { kind: "attention", type: "scheduling-conflict" },
+    },
+    {
+      key: "fleet",
+      label: "Fleet overdue",
+      value: fleetAvailable ? overdueMOT.length + overdueService.length : null,
+      period: "MOT and service today",
+      tone: overdueMOT.length || overdueService.length ? "critical" : "positive",
+      available: fleetAvailable,
+      actionTarget: { kind: "route", href: "/vehicle-home" },
+    },
+  ];
+}
+
+export function buildAttentionQueue({
+  conflicts = [],
+  followUps = [],
+  preparation = [],
+  overdueMOT = [],
+  overdueService = [],
+  vehicleLabel = readableVehicle,
+} = {}) {
+  const items = [];
+
+  conflicts.forEach((conflict) => {
+    const vehicle = vehicleLabel(conflict.vehicle);
+    const secondId = String(conflict?.second?.id || "").trim();
+    const firmId = String(conflict?.firm?.id || "").trim();
+    if (!secondId || !firmId) return;
+    items.push({
+      id: `conflict:${normalizeVehicleKey(conflict.vehicle)}:${secondId}:${firmId}`,
+      type: "scheduling-conflict",
+      severity: "critical",
+      title: `${vehicle} has an allocation conflict`,
+      detail: `${conflict.second.jobNumber || "Second pencil"} overlaps ${conflict.firm.jobNumber || "firm booking"}`,
+      dueAt: attentionDate(conflict.second.start),
+      actionTarget: { kind: "booking", id: secondId },
+    });
+  });
+
+  const addFleetItems = (events, kind, href) => {
+    events.forEach((event) => {
+      const sourceId = String(event?.vehicleId || event?.id || event?.sourceId || "").trim();
+      if (!sourceId) return;
+      const label = String(event.vehicleLabel || event.name || event.registration || event.title || "Vehicle").trim();
+      items.push({
+        id: `${kind}:${sourceId}`,
+        type: kind,
+        severity: "critical",
+        title: `${label} ${kind === "mot-overdue" ? "MOT" : "service"} is overdue`,
+        detail: "No compliant appointment is currently booked",
+        dueAt: attentionDate(event.dueDate),
+        actionTarget: { kind: "route", href },
+      });
+    });
+  };
+  addFleetItems(overdueMOT, "mot-overdue", "/mot-overview");
+  addFleetItems(overdueService, "service-overdue", "/service-overview");
+
+  followUps.forEach((event) => {
+    const id = String(event?.id || "").trim();
+    if (!id) return;
+    items.push({
+      id: `follow-up:${id}`,
+      type: "first-pencil",
+      severity: "urgent",
+      title: `Follow up ${event.jobNumber || "first-pencil booking"}`,
+      detail: `${event.client || "Client not recorded"} · decision needed before the start date`,
+      dueAt: attentionDate(event.start),
+      actionTarget: { kind: "booking", id },
+    });
+  });
+
+  preparation.forEach((item) => {
+    const id = String(item?.id || "").trim();
+    if (!id) return;
+    items.push({
+      id: `preparation:${id}`,
+      type: "preparation",
+      severity: "upcoming",
+      title: `Prepare job ${item.jobNumber || "booking"}`,
+      detail: [item.vehicles?.join(", "), item.equipment].filter(Boolean).join(" · ") || "Review vehicles, equipment and notes",
+      dueAt: attentionDate(item.start),
+      actionTarget: { kind: "booking", id },
+    });
+  });
+
+  const deduplicated = Array.from(new Map(items.map((item) => [item.id, item])).values());
+  return deduplicated.sort((a, b) => {
+    const severity = ATTENTION_SEVERITY[a.severity] - ATTENTION_SEVERITY[b.severity];
+    if (severity) return severity;
+    const aDate = toDashboardDate(a.dueAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const bDate = toDashboardDate(b.dueAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    return aDate - bDate || a.title.localeCompare(b.title);
+  });
+}
+
+export function filterCalendarEvents(events = [], enabledSources = []) {
+  const enabled = new Set(enabledSources);
+  if (!enabled.size) return [];
+  return events.filter((event) => enabled.has(event?.sourceType));
+}
