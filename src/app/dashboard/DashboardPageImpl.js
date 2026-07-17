@@ -3238,6 +3238,49 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     [bankHolidays, workDiaryEvents]
   );
 
+  const uCraneUpcomingByStatus = useMemo(() => {
+    const columns = { Confirmed: [], "First Pencil": [], "Second Pencil": [] };
+    if (!isUCraneMode) return columns;
+
+    const statusLabels = {
+      confirmed: "Confirmed",
+      "first pencil": "First Pencil",
+      "second pencil": "Second Pencil",
+    };
+    const earliestEventByBooking = new Map();
+
+    workDiaryEvents.forEach((event) => {
+      const status = statusLabels[String(event?.status || "").trim().toLowerCase()];
+      if (!status || !isCurrentOrFutureJobEvent(event)) return;
+
+      const bookingId = String(event?.__bookingId || event?.id || "").trim();
+      if (!bookingId) return;
+
+      const existing = earliestEventByBooking.get(bookingId);
+      const eventStart = event?.start instanceof Date ? event.start.getTime() : Number.MAX_SAFE_INTEGER;
+      const existingStart = existing?.start instanceof Date ? existing.start.getTime() : Number.MAX_SAFE_INTEGER;
+      if (!existing || eventStart < existingStart) {
+        earliestEventByBooking.set(bookingId, { ...event, __upcomingStatus: status });
+      }
+    });
+
+    [...earliestEventByBooking.values()]
+      .sort((a, b) => {
+        const startDifference = (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0);
+        if (startDifference !== 0) return startDifference;
+        const aJob = jobKey(a.jobNumber);
+        const bJob = jobKey(b.jobNumber);
+        const aHasJobNumber = Number.isFinite(aJob.num);
+        const bHasJobNumber = Number.isFinite(bJob.num);
+        if (aHasJobNumber && bHasJobNumber && bJob.num !== aJob.num) return bJob.num - aJob.num;
+        if (aHasJobNumber !== bHasJobNumber) return aHasJobNumber ? -1 : 1;
+        return String(bJob.raw || "").localeCompare(String(aJob.raw || ""));
+      })
+      .forEach((event) => columns[event.__upcomingStatus].push(event));
+
+    return columns;
+  }, [isUCraneMode, workDiaryEvents]);
+
   const noteHolidayEvents = useMemo(
     () => [
       ...holidays.map((h) => ({
@@ -3722,16 +3765,18 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 </Button>
               )}
 
-              <Button bare
-                className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
-                onClick={goToCreateMaintenance}
-                aria-disabled={isRestricted}
-                title={isRestricted ? "Your account is not allowed to create maintenance" : ""}
-                type="button"
-              >
-                <Plus size={14} />
-                Add Maintenance
-              </Button>
+              {!isUCraneMode && (
+                <Button bare
+                  className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
+                  onClick={goToCreateMaintenance}
+                  aria-disabled={isRestricted}
+                  title={isRestricted ? "Your account is not allowed to create maintenance" : ""}
+                  type="button"
+                >
+                  <Plus size={14} />
+                  Add Maintenance
+                </Button>
+              )}
 
               <div className={`${layoutStyles.chip} ${layoutStyles.brandChip}`}>
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
@@ -3749,12 +3794,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               date={currentDate}
               onNavigate={(d) => setCurrentDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
               onSelectSlot={({ start }) => {
+                if (isUCraneMode) return;
                 setEditingNoteId(null);
                 const d = start instanceof Date ? start : new Date(start);
                 setCreateNoteDate(ymd(d));
                 setNoteModalOpen(true);
               }}
-              selectable
+              selectable={!isUCraneMode}
               startAccessor="start"
               endAccessor="end"
               popup
@@ -3888,8 +3934,92 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             />
         </section>
 
+        {isUCraneMode && (
+          <section className={layoutStyles.uCraneUpcomingSection} aria-labelledby="u-crane-upcoming-title">
+            <div className={layoutStyles.uCraneUpcomingHeader}>
+              <div>
+                <h2 id="u-crane-upcoming-title" className={layoutStyles.uCraneUpcomingTitle}>Upcoming U-Crane Bookings</h2>
+                <p className={layoutStyles.uCraneUpcomingHint}>
+                  Future work grouped by booking status. Select a booking to open its details.
+                </p>
+              </div>
+            </div>
+
+            <div className={layoutStyles.uCraneUpcomingGrid}>
+              {["Confirmed", "First Pencil", "Second Pencil"].map((status) => {
+                const items = uCraneUpcomingByStatus[status] || [];
+                const statusStyle = getStatusStyle(status);
+                return (
+                  <div className={layoutStyles.uCraneUpcomingColumn} key={status}>
+                    <div className={layoutStyles.uCraneColumnHeader}>
+                      <div className={layoutStyles.uCraneColumnLabel}>
+                        <span
+                          className={layoutStyles.uCraneStatusDot}
+                          style={{ background: statusStyle.bg, borderColor: statusStyle.border }}
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <h3>{status}</h3>
+                          <span>{items.length} upcoming</span>
+                        </div>
+                      </div>
+                      <span className={layoutStyles.uCraneColumnCount} aria-label={`${items.length} ${status} bookings`}>
+                        {items.length}
+                      </span>
+                    </div>
+
+                    <div className={layoutStyles.uCraneColumnItems}>
+                      {items.length === 0 ? (
+                        <div className={layoutStyles.uCraneColumnEmpty}>Nothing upcoming.</div>
+                      ) : (
+                        items.slice(0, 12).map((event) => {
+                          const bookingId = event.__bookingId || event.id;
+                          const start = event.start instanceof Date ? event.start : new Date(event.start);
+                          const endExclusive = event.end instanceof Date ? event.end : new Date(event.end);
+                          const end = new Date(endExclusive);
+                          end.setDate(end.getDate() - 1);
+                          const dateOptions = { day: "2-digit", month: "short" };
+                          const dateLabel = start.toLocaleDateString("en-GB", dateOptions) === end.toLocaleDateString("en-GB", dateOptions)
+                            ? start.toLocaleDateString("en-GB", dateOptions)
+                            : `${start.toLocaleDateString("en-GB", dateOptions)} - ${end.toLocaleDateString("en-GB", dateOptions)}`;
+
+                          return (
+                            <button
+                              type="button"
+                              className={layoutStyles.uCraneUpcomingCard}
+                              key={bookingId}
+                              onClick={() => {
+                                setSelectedDeletedId(null);
+                                setSelectedBookingId(bookingId);
+                              }}
+                            >
+                              <span className={layoutStyles.uCraneUpcomingCardTop}>
+                                <strong>{event.jobNumber || "No job number"}</strong>
+                                <span>{dateLabel}</span>
+                              </span>
+                              <span className={layoutStyles.uCraneUpcomingClient}>
+                                {getBookingProductionLabel(event)}
+                              </span>
+                              {event.location && (
+                                <span className={layoutStyles.uCraneUpcomingLocation}>{event.location}</span>
+                              )}
+                              {event.isRisky && (
+                                <span className={layoutStyles.uCraneUpcomingRisk}>Vehicle risk</span>
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Maintenance Calendar */}
-        <section className={layoutStyles.extracted77}>
+        {!isUCraneMode && <section className={layoutStyles.extracted77}>
           <div className={layoutStyles.extracted78}>
             <div className={layoutStyles.extracted79}>
               <div className={`${layoutStyles.iconBox} ${layoutStyles.iconFleet}`}>
@@ -4067,10 +4197,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </div>
             </div>
           )}
-        </section>
+        </section>}
 
         {/* Holiday + Notes Calendar */}
-        <section className={layoutStyles.extracted101}>
+        {!isUCraneMode && <section className={layoutStyles.extracted101}>
           <div className={layoutStyles.extracted102}>
             <div className={layoutStyles.extracted103}>
               <div className={`${layoutStyles.iconBox} ${layoutStyles.iconNote}`}>
@@ -4134,7 +4264,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               },
             })}
           />
-        </section>
+        </section>}
 
         {/* Add booking modal (unchanged logic, restyled a touch) */}
         {showModal && (
