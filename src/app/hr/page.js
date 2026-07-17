@@ -149,7 +149,7 @@ const btn = (kind = "primary") => {
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.redBorder}`,
       background: UI.redSoft,
-      color: UI.var(--color-danger),
+      color: "var(--color-danger)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",

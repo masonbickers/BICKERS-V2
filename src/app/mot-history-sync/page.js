@@ -240,7 +240,7 @@ export default function MotHistorySyncPage() {
                       <td className={layoutStyles.extracted16}>{failure.vrm || "-"}</td>
                       <td className={layoutStyles.extracted17}>{failure.vehicleId || "-"}</td>
                       <td className={layoutStyles.extracted18}>{failure.status || "-"}</td>
-                      <td style={{ ...td, color: UI.var(--color-danger), fontWeight: 800 }}>{failure.message || "-"}</td>
+                      <td style={{ ...td, color: "var(--color-danger)", fontWeight: 800 }}>{failure.message || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

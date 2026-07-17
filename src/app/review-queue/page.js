@@ -109,8 +109,8 @@ const chip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.var(--color-danger) };
-  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: UI.var(--color-accent) };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: "var(--color-danger)" };
+  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: "var(--color-accent)" };
   return base;
 };
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({

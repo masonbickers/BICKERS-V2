@@ -669,7 +669,7 @@ export default function PrepListDashboardPage() {
           </section>
           <section style={statCard}>
             <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Needs Prep</div>
-            <div style={{ fontSize: 30, fontWeight: 900, color: UI.var(--color-danger) }}>{queueItems.length}</div>
+            <div style={{ fontSize: 30, fontWeight: 900, color: "var(--color-danger)" }}>{queueItems.length}</div>
           </section>
           <section style={statCard}>
             <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Prepped</div>

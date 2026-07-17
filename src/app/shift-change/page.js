@@ -473,7 +473,7 @@ const pill = (color, bg, border) => ({
 });
 const btn = (kind = "primary") => {
   if (kind === "approve") return { ...buttonBase, border: `1px solid ${UI.greenBorder}`, background: UI.greenSoft, color: UI.green };
-  if (kind === "decline") return { ...buttonBase, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.var(--color-danger) };
+  if (kind === "decline") return { ...buttonBase, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: "var(--color-danger)" };
   if (kind === "ghost") return { ...buttonBase, border: `1px solid ${UI.brandBorder}`, background: "var(--color-surface)", color: UI.text };
   return { ...buttonBase, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-surface)", gridColumn: "1 / -1" };
 };

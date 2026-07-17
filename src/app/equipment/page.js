@@ -118,7 +118,7 @@ const dateInfo = (raw) => {
   const diff = Math.floor((t1 - t0) / 86400000);
 
   let style = {};
-  if (diff < 0) style = { color: UI.var(--color-danger), fontWeight: 950 };
+  if (diff < 0) style = { color: "var(--color-danger)", fontWeight: 950 };
   else if (diff <= 21) style = { color: UI.amber, fontWeight: 950 };
 
   return { text: d.toLocaleDateString("en-GB"), style, diff };
@@ -464,7 +464,7 @@ export default function EquipmentPage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Inspection dates: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within 21 days,{" "}
-          <span style={{ color: UI.var(--color-danger), fontWeight: 900 }}>red</span> = overdue.
+          <span style={{ color: "var(--color-danger)", fontWeight: 900 }}>red</span> = overdue.
         </div>
       </div>
     </HeaderSidebarLayout>

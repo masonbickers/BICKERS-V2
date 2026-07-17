@@ -200,7 +200,7 @@ const queueChip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, border: `1px solid ${UI.greenBorder}`, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, border: `1px solid ${UI.amberBorder}`, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.var(--color-danger) };
+  if (kind === "red") return { ...base, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: "var(--color-danger)" };
   return base;
 };
 

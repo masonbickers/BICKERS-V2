@@ -180,7 +180,7 @@ const btn = (kind = "primary") => {
       ...base,
       border: `1px solid ${UI.redBorder}`,
       background: UI.redSoft,
-      color: UI.var(--color-danger),
+      color: "var(--color-danger)",
     };
   }
   return {
@@ -1936,7 +1936,7 @@ export default function EditEmployeePage() {
                     <div className={layoutStyles.extracted35}>
                       <div style={{ fontWeight: 850, color: UI.text }}>{formData.name || "—"}</div>
                       {formData.archived ? (
-                        <span style={{ ...chip, background: UI.redSoft, color: UI.var(--color-danger), borderColor: UI.redBorder }}>
+                        <span style={{ ...chip, background: UI.redSoft, color: "var(--color-danger)", borderColor: UI.redBorder }}>
                           Archived
                         </span>
                       ) : null}

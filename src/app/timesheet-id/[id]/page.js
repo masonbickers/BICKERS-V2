@@ -2714,7 +2714,7 @@ export default function TimesheetDetailPage() {
               borderRadius: UI.radiusSm,
               backgroundColor: UI.redSoft,
               border: `1px solid ${UI.redBorder}`,
-              color: UI.var(--color-danger),
+              color: "var(--color-danger)",
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -3598,7 +3598,7 @@ export default function TimesheetDetailPage() {
               </button>
             </div>
             {payAdvicePinError ? (
-              <div style={{ fontSize: 12, color: UI.var(--color-danger), fontWeight: 700 }}>
+              <div style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 700 }}>
                 {payAdvicePinError}
               </div>
             ) : null}
@@ -3989,7 +3989,7 @@ export default function TimesheetDetailPage() {
                 borderRadius: UI.radiusSm,
                 backgroundColor: UI.redSoft,
                 border: `1px solid ${UI.redBorder}`,
-                color: UI.var(--color-danger),
+                color: "var(--color-danger)",
                 fontSize: 12,
               }}
             >

@@ -266,7 +266,7 @@ const button = {
   cursor: "pointer",
 };
 const primaryButton = { ...button, background: UI.brand, borderColor: UI.brand, color: "var(--color-surface)" };
-const dangerButton = { ...button, borderColor: "var(--color-danger-border)", background: "var(--color-danger-soft)", color: UI.var(--color-danger) };
+const dangerButton = { ...button, borderColor: "var(--color-danger-border)", background: "var(--color-danger-soft)", color: "var(--color-danger)" };
 const smallButton = { ...button, minHeight: 30, padding: "0 9px", fontSize: 12 };
 const tabButton = (active) => ({
   ...button,
@@ -1240,7 +1240,7 @@ export default function QuoteTemplatesPage() {
         </div>
 
         {message ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "var(--color-success)", fontWeight: 800 }}>{message}</div> : null}
-        {error ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: UI.var(--color-danger), fontWeight: 800 }}>{error}</div> : null}
+        {error ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "var(--color-danger)", fontWeight: 800 }}>{error}</div> : null}
 
         <div className={layoutStyles.extracted49}>
           <button type="button" onClick={() => setActiveTab("templates")} style={tabButton(activeTab === "templates")}>

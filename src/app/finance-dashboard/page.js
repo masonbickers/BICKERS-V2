@@ -211,7 +211,7 @@ export default function FinancePage() {
             <div className={layoutStyles.extracted6}>
               <span style={{ ...chip, background: UI.greenSoft, borderColor: UI.greenBorder, color: UI.green }}>Ready to Invoice</span>
               <span style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand }}>Invoiced</span>
-              <span style={{ ...chip, background: UI.purpleSoft, borderColor: UI.purpleBorder, color: UI.var(--color-accent) }}>Paid</span>
+              <span style={{ ...chip, background: UI.purpleSoft, borderColor: UI.purpleBorder, color: "var(--color-accent)" }}>Paid</span>
             </div>
           </div>
 

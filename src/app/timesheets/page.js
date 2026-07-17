@@ -545,7 +545,7 @@ const chip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.var(--color-danger) };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: "var(--color-danger)" };
   return base;
 };
 
@@ -1168,7 +1168,7 @@ export default function TimesheetListPage() {
     { label: "Submitted", value: overview.submitted, icon: FileClock, color: UI.green, bg: UI.greenSoft, border: UI.greenBorder },
     { label: "Approved", value: overview.approved, icon: CheckCircle2, color: UI.green, bg: UI.greenSoft, border: UI.greenBorder },
     { label: "Draft", value: overview.draft, icon: PencilLine, color: UI.amber, bg: UI.amberSoft, border: UI.amberBorder },
-    { label: "Missing", value: overview.missing, icon: AlertTriangle, color: UI.var(--color-danger), bg: UI.redSoft, border: UI.redBorder },
+    { label: "Missing", value: overview.missing, icon: AlertTriangle, color: "var(--color-danger)", bg: UI.redSoft, border: UI.redBorder },
   ];
   const compactReviewView = true;
 
@@ -1567,7 +1567,7 @@ export default function TimesheetListPage() {
                 borderRadius: UI.radius,
                 border: `1px solid ${UI.redBorder}`,
                 padding: 18,
-                color: UI.var(--color-danger),
+                color: "var(--color-danger)",
                 fontSize: 14,
                 fontWeight: 600,
               }}

@@ -143,7 +143,7 @@ const formatDateWithStyle = (raw, options = {}) => {
   const diff = daysUntil(d);
   let style = {};
   if (!suppressStatus) {
-    if (diff < 0) style = { color: UI.var(--color-danger), fontWeight: 950 };
+    if (diff < 0) style = { color: "var(--color-danger)", fontWeight: 950 };
     else if (diff <= soonDays) style = { color: UI.amber, fontWeight: 950 };
   } else {
     style = { color: UI.muted, fontWeight: 800 };
@@ -1161,7 +1161,7 @@ export default function VehicleMaintenancePage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
-          <span style={{ color: UI.var(--color-danger), fontWeight: 900 }}>red</span> = overdue.
+          <span style={{ color: "var(--color-danger)", fontWeight: 900 }}>red</span> = overdue.
         </div>
 
         {categorySettingsOpen ? (
