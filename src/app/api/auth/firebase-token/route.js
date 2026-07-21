@@ -1,8 +1,11 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import {
+  adminCreateDocument,
   adminListDocuments,
   createFirebaseCustomToken,
 } from "@/app/api/_firebaseAdminRest";
+import { isAccountDisabled } from "@/app/utils/accountAccess";
+import { preferredVerifiedEmail } from "@/app/utils/clerkFirebaseLink";
 
 export const runtime = "nodejs";
 
@@ -52,76 +55,333 @@ async function loadIdentityDirectory() {
 }
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+const cleanValue = (value) => String(value || "").trim();
+const UID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
-const safeUid = (value) =>
-  String(value || "")
-    .trim()
-    .replace(/[^A-Za-z0-9_-]/g, "_")
-    .slice(0, 128);
-
-const isDisabled = (record = {}) =>
-  record.isEnabled === false ||
-  record.active === false ||
-  record.archived === true ||
-  record.isArchived === true ||
-  record.disabled === true ||
-  record.appDisabled === true ||
-  String(record.role || "").trim().toLowerCase() === "archived";
+const explicitUid = (value) => {
+  const uid = cleanValue(value);
+  return UID_PATTERN.test(uid) ? uid : "";
+};
 
 const recordEmails = (record = {}) =>
   ["email", "workEmail", "personalEmail", "emailAddress", "contactEmail"]
     .map((key) => normalizeEmail(record[key]))
     .filter(Boolean);
 
-function preferredEmail(clerkUser) {
-  const primaryId = clerkUser?.primaryEmailAddressId;
-  const addresses = Array.isArray(clerkUser?.emailAddresses) ? clerkUser.emailAddresses : [];
-  return normalizeEmail(
-    addresses.find((entry) => entry.id === primaryId)?.emailAddress || addresses[0]?.emailAddress
+const recordClerkIds = (record = {}) =>
+  [record?.clerkUserId, record?.auth?.clerkUserId].map(cleanValue).filter(Boolean);
+
+const hasConflictingClerkIds = (record = {}) => new Set(recordClerkIds(record)).size > 1;
+
+function explicitClerkUid(clerkUser) {
+  const rawValues = [clerkUser?.externalId, clerkUser?.privateMetadata?.firebaseUid]
+    .map(cleanValue)
+    .filter(Boolean);
+  const normalizedValues = rawValues.map(explicitUid);
+  const values = [...new Set(normalizedValues.filter(Boolean))];
+  return {
+    invalid: normalizedValues.some((value) => !value) || values.length > 1,
+    uid: values.length === 1 ? values[0] : "",
+  };
+}
+
+function employeeUidLink(data = {}) {
+  const rawValues = [data?.authUid, data?.uid].map(cleanValue).filter(Boolean);
+  const normalizedValues = rawValues.map(explicitUid);
+  const values = [...new Set(normalizedValues.filter(Boolean))];
+  return {
+    conflict: normalizedValues.some((value) => !value) || values.length > 1,
+    uid: values.length === 1 ? values[0] : "",
+  };
+}
+
+function canonicalRole(value) {
+  const role = cleanValue(value).toLowerCase();
+  if (role === "platformadmin") return "platformAdmin";
+  if (role === "admin") return "admin";
+  return "user";
+}
+
+function explicitWorkspaceAccess(record = {}) {
+  const source = record?.appAccess && typeof record.appAccess === "object" ? record.appAccess : {};
+  const configured = typeof source.user === "boolean" || typeof source.service === "boolean";
+  return {
+    configured,
+    appAccess: {
+      user: source.user === true,
+      service: source.service === true,
+    },
+  };
+}
+
+function isEmployeeDisabled(record = {}) {
+  return (
+    isAccountDisabled(record) ||
+    String(record?.status || "").trim().toLowerCase() === "disabled"
   );
 }
 
-function chooseUid(userMatches, employeeMatches) {
-  const activeUsers = userMatches.filter(({ data }) => !isDisabled(data));
-  const stableUser =
-    activeUsers.find(({ id, data }) => safeUid(id) && safeUid(id) === safeUid(data?.uid)) ||
-    activeUsers[0];
-  if (stableUser) return safeUid(stableUser.data?.uid || stableUser.id);
+function headerValue(headers, name) {
+  return String(headers?.get?.(name) || "").trim();
+}
 
-  const activeEmployee = employeeMatches.find(({ data }) => !isDisabled(data));
-  return safeUid(
-    activeEmployee?.data?.authUid ||
-      activeEmployee?.data?.uid ||
-      activeEmployee?.id
+function clientIp(req) {
+  const forwarded = headerValue(req?.headers, "x-forwarded-for");
+  return (
+    headerValue(req?.headers, "cf-connecting-ip") ||
+    headerValue(req?.headers, "x-real-ip") ||
+    String(forwarded.split(",")[0] || "").trim() ||
+    ""
   );
 }
 
-export async function POST() {
+async function denyBridge(req, clerkUserId, email, reason, message, status = 403) {
+  try {
+    await adminCreateDocument("loginSecurityLogs", {
+      uid: "",
+      email,
+      clerkUserId,
+      loginMethod: "clerk-firebase-bridge",
+      status: "blocked",
+      outcome: "blocked",
+      reason,
+      ip: clientIp(req),
+      userAgent: headerValue(req?.headers, "user-agent"),
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[clerk-firebase-token] blocked access log failed:", error);
+  }
+  return Response.json({ error: message }, { status });
+}
+
+export async function POST(req) {
   try {
     const { isAuthenticated, userId: clerkUserId } = await auth();
     if (!isAuthenticated || !clerkUserId) {
-      return Response.json({ error: "Not signed in with Clerk." }, { status: 401 });
+      return denyBridge(req, "", "", "Clerk session missing", "Not signed in with Clerk.", 401);
     }
 
     const clerkUser = await currentUser();
-    const email = preferredEmail(clerkUser);
+    const email = preferredVerifiedEmail(clerkUser);
+    if (!email) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        "",
+        "Verified Clerk email missing",
+        "A verified Clerk email address is required."
+      );
+    }
     if (!email.endsWith("@bickers.co.uk")) {
-      return Response.json({ error: "Only @bickers.co.uk accounts can access this app." }, { status: 403 });
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Clerk email domain denied",
+        "Only @bickers.co.uk accounts can access this app."
+      );
     }
 
     const [users, employees] = await loadIdentityDirectory();
-    const userMatches = users.filter(({ data }) => recordEmails(data).includes(email));
-    const employeeMatches = employees.filter(({ data }) => recordEmails(data).includes(email));
 
-    if (userMatches.some(({ data }) => isDisabled(data))) {
-      return Response.json({ error: "This account has been disabled." }, { status: 403 });
+    const clerkUid = explicitClerkUid(clerkUser);
+    if (clerkUid.invalid) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Conflicting explicit Clerk UID links",
+        "Account identity links require manual review."
+      );
     }
 
-    const uid = chooseUid(userMatches, employeeMatches);
-    if (!uid) {
-      return Response.json(
-        { error: "No linked Bickers employee or user record was found for this Clerk account." },
-        { status: 403 }
+    const clerkLinkedUsers = users.filter(({ data }) => recordClerkIds(data).includes(clerkUserId));
+    if (clerkLinkedUsers.length > 1) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Duplicate canonical Clerk links",
+        "Account identity links require manual review."
+      );
+    }
+
+    const uidCandidates = [];
+    if (clerkUid.uid) uidCandidates.push(clerkUid.uid);
+    const clerkLinkedUser = clerkLinkedUsers[0] || null;
+    if (clerkLinkedUser) {
+      const linkedUid = explicitUid(clerkLinkedUser.data?.uid);
+      if (!linkedUid || clerkLinkedUser.id !== linkedUid) {
+        return denyBridge(
+          req,
+          clerkUserId,
+          email,
+          "Canonical UID conflict",
+          "Canonical account identity requires manual review."
+        );
+      }
+      uidCandidates.push(linkedUid);
+    }
+
+    const uniqueUidCandidates = [...new Set(uidCandidates)];
+    if (uniqueUidCandidates.length !== 1) {
+      const hasEmailHint =
+        users.some(({ data }) => recordEmails(data).includes(email)) ||
+        employees.some(({ data }) => recordEmails(data).includes(email));
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        uniqueUidCandidates.length > 1 ? "Conflicting explicit UID links" : "Explicit UID link missing",
+        hasEmailHint
+          ? "A matching account exists but requires an explicit UID link."
+          : "No explicit account UID link was found."
+      );
+    }
+
+    const uid = uniqueUidCandidates[0];
+    const canonicalRow = users.find(({ id }) => id === uid) || null;
+    const canonicalUser = canonicalRow?.data || null;
+    if (canonicalUser) {
+      if (explicitUid(canonicalUser.uid) !== uid) {
+        return denyBridge(
+          req,
+          clerkUserId,
+          email,
+          "Canonical UID conflict",
+          "Canonical account identity requires manual review."
+        );
+      }
+      const linkedClerkIds = recordClerkIds(canonicalUser);
+      if (hasConflictingClerkIds(canonicalUser) || (linkedClerkIds.length && !linkedClerkIds.includes(clerkUserId))) {
+        return denyBridge(
+          req,
+          clerkUserId,
+          email,
+          "Canonical Clerk link conflict",
+          "Canonical account identity requires manual review."
+        );
+      }
+      if (isEmployeeDisabled(canonicalUser)) {
+        return denyBridge(req, clerkUserId, email, "Canonical account disabled", "This account has been disabled.");
+      }
+      const canonicalEmails = recordEmails(canonicalUser);
+      if (canonicalEmails.length && !canonicalEmails.includes(email)) {
+        return denyBridge(
+          req,
+          clerkUserId,
+          email,
+          "Canonical email conflict",
+          "Canonical account identity requires manual review."
+        );
+      }
+    }
+
+    const employeeLinks = employees.map((row) => ({ ...row, link: employeeUidLink(row.data) }));
+    const relevantConflicts = employeeLinks.filter(({ data, link }) => {
+      if (!link.conflict) return false;
+      const rawLinkedUids = [data?.authUid, data?.uid].map(explicitUid).filter(Boolean);
+      return rawLinkedUids.includes(uid) || recordEmails(data).includes(email);
+    });
+    if (relevantConflicts.length) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Conflicting employee UID fields",
+        "Employee identity links require manual review."
+      );
+    }
+    const linkedEmployees = employeeLinks.filter(({ link }) => !link.conflict && link.uid === uid);
+    if (linkedEmployees.length > 1) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Duplicate employee UID links",
+        "Employee identity links require manual review."
+      );
+    }
+    const employeeLinkedElsewhere = employeeLinks.some(
+      ({ data, link }) =>
+        !link.conflict && link.uid && link.uid !== uid && recordEmails(data).includes(email)
+    );
+    if (employeeLinkedElsewhere) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Employee linked to another UID",
+        "Employee identity links require manual review."
+      );
+    }
+
+    const role = canonicalRole(canonicalUser?.role);
+    const isPlatformAdmin = role === "platformAdmin";
+    const isAdmin = isPlatformAdmin || role === "admin";
+    const employeeRow = isAdmin ? null : linkedEmployees[0] || null;
+    const employee = employeeRow?.data || null;
+
+    if (!isAdmin && !employee) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Explicit employee UID link missing",
+        "No explicitly linked employee access record was found."
+      );
+    }
+    if (employee && isEmployeeDisabled(employee)) {
+      return denyBridge(req, clerkUserId, email, "Employee account disabled", "This account has been disabled.");
+    }
+    if (employee) {
+      const employeeEmails = recordEmails(employee);
+      if (employeeEmails.length && !employeeEmails.includes(email)) {
+        return denyBridge(
+          req,
+          clerkUserId,
+          email,
+          "Employee email conflict",
+          "Employee identity links require manual review."
+        );
+      }
+      if (canonicalUser?.employeeId && cleanValue(canonicalUser.employeeId) !== employeeRow.id) {
+        return denyBridge(
+          req,
+          clerkUserId,
+          email,
+          "Canonical employee link conflict",
+          "Employee identity links require manual review."
+        );
+      }
+    }
+
+    const canonicalCompanyId = cleanValue(canonicalUser?.companyId);
+    const employeeCompanyId = cleanValue(employee?.companyId);
+    if (canonicalCompanyId && employeeCompanyId && canonicalCompanyId !== employeeCompanyId) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Company link conflict",
+        "Company access requires manual review."
+      );
+    }
+    const companyId = canonicalCompanyId || employeeCompanyId;
+    if (!companyId && !isPlatformAdmin) {
+      return denyBridge(req, clerkUserId, email, "Company access missing", "Company access is not configured.");
+    }
+
+    const workspaceSource = isAdmin ? canonicalUser : employee;
+    const workspace = explicitWorkspaceAccess(workspaceSource || {});
+    if (!workspace.configured) {
+      return denyBridge(
+        req,
+        clerkUserId,
+        email,
+        "Workspace access missing",
+        "Workspace access is not configured."
       );
     }
 
@@ -129,6 +389,10 @@ export async function POST() {
       authMethod: "clerk",
       clerkUserId,
       companyEmail: email,
+      verifiedClerkEmail: true,
+      identityLinkVersion: 2,
+      identityEmployeeId: employeeRow?.id || "",
+      identityCompanyId: companyId,
     });
 
     return Response.json({ customToken, uid, email });

@@ -11,7 +11,7 @@ import {
   normalizePlatformRole,
   resolveEmployeeAccess,
 } from "@/app/utils/accessControl";
-import { isAdminEmail } from "@/app/utils/adminAccess";
+import { isAccountDisabled } from "@/app/utils/accountAccess";
 import {
   hasAuthenticatorMfa,
   isMfaVerifiedOnDevice,
@@ -178,7 +178,9 @@ async function resolveUserDoc(currentUser) {
 }
 
 async function refreshServerAccess(currentUser) {
-  if (!currentUser?.getIdToken || typeof fetch !== "function") return null;
+  if (!currentUser?.getIdToken || typeof fetch !== "function") {
+    throw new Error("Firebase access verification is unavailable.");
+  }
 
   try {
     const token = await currentUser.getIdToken();
@@ -187,11 +189,13 @@ async function refreshServerAccess(currentUser) {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return null;
-    return data?.access || null;
+    if (!res.ok || !data?.access) {
+      throw new Error(data?.error || "Your account access could not be verified.");
+    }
+    return data.access;
   } catch (error) {
     console.warn("[authContext] access bootstrap failed:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -200,10 +204,9 @@ async function resolveFeatureFlags(userDoc = {}) {
 }
 
 const resolveAccessState = async (currentUser, userDoc) => {
-  const email = String(currentUser?.email || "").trim().toLowerCase();
-  const isEnabled = userDoc?.isEnabled !== false;
+  const isEnabled = Boolean(userDoc?.uid) && !isAccountDisabled(userDoc);
   const role = normalizePlatformRole(userDoc?.role);
-  const isAdmin = isAdminEmail(email) || role === "admin" || role === "platformAdmin";
+  const isAdmin = role === "admin" || role === "platformAdmin";
   const accessSource = hasMirroredAccessRecord(userDoc || {}) ? userDoc || {} : {};
   const employeeAccess = resolveEmployeeAccess(accessSource, { isAdmin });
   const phoneReady = isPhoneVerified(userDoc || {});
@@ -378,7 +381,7 @@ export const AuthProvider = ({ children }) => {
         }
         if (token !== resolvingRef.current) return;
 
-        if (userDoc?.isEnabled === false) {
+        if (!userDoc?.uid || isAccountDisabled(userDoc)) {
           clearAccessCache();
           setAccessState(emptyAccess);
           await signOutFirebase(auth);
@@ -397,7 +400,7 @@ export const AuthProvider = ({ children }) => {
           resolvedRef,
           async (docSnap) => {
             const liveUserDoc = docSnap.data() || {};
-            if (liveUserDoc?.isEnabled === false) {
+            if (!liveUserDoc?.uid || isAccountDisabled(liveUserDoc)) {
               clearAccessCache();
               setAccessState(emptyAccess);
               await signOutFirebase(auth);
@@ -415,7 +418,11 @@ export const AuthProvider = ({ children }) => {
         );
       } catch (error) {
         console.error("[authContext] access resolution failed:", error);
-        setAccessState((prev) => ({ ...prev, accessReady: Boolean(prev.employeeAccess) }));
+        clearAccessCache();
+        setAuthError(error?.message || "Your account access could not be verified.");
+        setAccessState(emptyAccess);
+        await signOutFirebase(auth).catch(() => {});
+        await signOutClerk({ redirectUrl: "/login?access=denied" }).catch(() => {});
       }
     });
 

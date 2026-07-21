@@ -6,6 +6,7 @@ import {
   inferAccessFromLegacyFields,
   isAdminPath,
   isPathAllowedForAccess,
+  normalizeAppAccess,
   normalizePlatformRole,
   resolveEmployeeAccess,
   selectLandingRoute,
@@ -44,6 +45,13 @@ test("validates that at least one workspace is enabled", () => {
 
   assert.equal(result.isValid, false);
   assert.equal(typeof result.errors.appAccess, "string");
+});
+
+test("preserves an explicit denial of both workspaces", () => {
+  assert.deepEqual(normalizeAppAccess({ appAccess: { user: false, service: false } }), {
+    user: false,
+    service: false,
+  });
 });
 
 test("selects service landing route when preferred workspace is allowed", () => {

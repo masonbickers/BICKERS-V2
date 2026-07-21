@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminListDocuments, adminReadDocument } from "@/app/api/_firebaseAdminRest";
+import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,8 @@ export function fromBase64Url(value) {
 
 export async function requireActiveUser(uid) {
   const userDoc = await adminReadDocument("users", uid);
-  if (!userDoc || userDoc.isEnabled === false) {
+  const isPlatformAdmin = String(userDoc?.role || "").trim() === "platformAdmin";
+  if (!hasCanonicalAccessRecord(userDoc) || isAccountDisabled(userDoc) || (!hasCompanyAccess(userDoc) && !isPlatformAdmin)) {
     throw new Error("This account is disabled or does not have access.");
   }
   return userDoc;

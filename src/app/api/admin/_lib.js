@@ -1,5 +1,5 @@
 import { adminCreateDocument, adminReadDocument } from "../_firebaseAdminRest";
-import { isAdminEmail, isPlatformAdminEmail } from "@/app/utils/adminAccess";
+import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -94,6 +94,13 @@ export async function verifyFirebaseIdToken(idToken) {
   return {
     uid: user.localId,
     email,
+    authMethod: String(tokenPayload.authMethod || "").trim(),
+    clerkUserId: String(tokenPayload.clerkUserId || "").trim(),
+    companyEmail: String(tokenPayload.companyEmail || "").trim().toLowerCase(),
+    verifiedClerkEmail: tokenPayload.verifiedClerkEmail === true,
+    identityLinkVersion: Number(tokenPayload.identityLinkVersion || 0),
+    identityEmployeeId: String(tokenPayload.identityEmployeeId || "").trim(),
+    identityCompanyId: String(tokenPayload.identityCompanyId || "").trim(),
   };
 }
 
@@ -222,7 +229,7 @@ export async function createFirestoreDocument(collection, data, idToken) {
   return res.json();
 }
 
-export async function requireAdminFromRequest(req) {
+export async function requireActiveUserFromRequest(req, options = {}) {
   const idToken = readBearerToken(req);
   const verifiedUser = await verifyFirebaseIdToken(idToken);
   if (!verifiedUser?.uid) {
@@ -231,25 +238,39 @@ export async function requireAdminFromRequest(req) {
   }
 
   const userData = await adminReadDocument("users", verifiedUser.uid);
-  const role = String(userData?.role || "").trim();
-  const emailAdminRole = isPlatformAdminEmail(verifiedUser.email)
-    ? "platformAdmin"
-    : isAdminEmail(verifiedUser.email)
-      ? "admin"
-      : "";
-  const normalizedRole = emailAdminRole || normalizeServerRole(role);
-
-  if (userData?.isEnabled === false) {
+  if (!hasCanonicalAccessRecord(userData)) {
+    await writeBlockedAccessLog(req, verifiedUser, "Canonical user record missing");
+    return { error: jsonError("No canonical access record found.", 403) };
+  }
+  if (isAccountDisabled(userData)) {
     await writeBlockedAccessLog(req, verifiedUser, "Account disabled");
     return { error: jsonError("Account disabled.", 403) };
   }
+  const normalizedRole = normalizeServerRole(userData.role);
+  if (normalizedRole !== "platformAdmin" && !hasCompanyAccess(userData)) {
+    await writeBlockedAccessLog(req, verifiedUser, "Company access missing");
+    return { error: jsonError("Company access is not configured.", 403) };
+  }
+  const moduleKey = String(options.module || "").trim();
+  if (moduleKey && userData?.featureFlags?.[moduleKey] === false) {
+    await writeBlockedAccessLog(req, verifiedUser, `${moduleKey} module disabled`);
+    return { error: jsonError("Required module access is disabled.", 403) };
+  }
+  return { idToken, verifiedUser, userData: { ...userData, role: normalizedRole } };
+}
+
+export async function requireAdminFromRequest(req) {
+  const active = await requireActiveUserFromRequest(req);
+  if (active.error) return active;
+  const { idToken, verifiedUser, userData } = active;
+  const normalizedRole = normalizeServerRole(userData.role);
 
   if (!["platformAdmin", "admin"].includes(normalizedRole)) {
     await writeBlockedAccessLog(req, verifiedUser, "Platform admin access required");
     return { error: jsonError("Platform admin access required.", 403) };
   }
 
-  return { idToken, verifiedUser, userData: { ...(userData || {}), role: normalizedRole || role || userData?.role || "" } };
+  return { idToken, verifiedUser, userData: { ...userData, role: normalizedRole } };
 }
 
 export async function requirePlatformAdminFromRequest(req) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
 import { adminCreateDocument, adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
+import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
 
 export const runtime = "nodejs";
 
@@ -39,8 +40,14 @@ export async function POST(req) {
     }
 
     const userData = await adminReadDocument("users", verifiedUser.uid);
-    if (userData?.isEnabled === false) {
+    if (!hasCanonicalAccessRecord(userData)) {
+      return NextResponse.json({ error: "Canonical account link required." }, { status: 403 });
+    }
+    if (isAccountDisabled(userData)) {
       return NextResponse.json({ error: "Account disabled." }, { status: 403 });
+    }
+    if (!hasCompanyAccess(userData) && String(userData.role || "").trim() !== "platformAdmin") {
+      return NextResponse.json({ error: "Company access is not configured." }, { status: 403 });
     }
 
     const secretDoc = (await adminReadDocument("mfaSecrets", verifiedUser.uid)) || {};

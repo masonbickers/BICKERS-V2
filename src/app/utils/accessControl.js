@@ -235,10 +235,6 @@ export function normalizeAppAccess(raw = {}) {
     service: typeof incoming.service === "boolean" ? incoming.service : fallback.service,
   };
 
-  if (!normalized.user && !normalized.service) {
-    return { ...normalized, user: true };
-  }
-
   return normalized;
 }
 

@@ -1,5 +1,5 @@
-import { verifyFirebaseIdTokenFromRequest } from "../../mfa/_lib";
-import { adminCreateDocument, adminReadDocument } from "../../_firebaseAdminRest";
+import { requireActiveUserFromRequest } from "../../admin/_lib";
+import { adminCreateDocument } from "../../_firebaseAdminRest";
 
 export const runtime = "nodejs";
 
@@ -109,15 +109,9 @@ async function sendLoginEmail({ to, ip, location, userAgent, timestamp, manageUr
 
 export async function POST(req) {
   try {
-    const verifiedUser = await verifyFirebaseIdTokenFromRequest(req);
-    if (!verifiedUser?.uid) {
-      return Response.json({ error: "Unauthorized." }, { status: 401 });
-    }
-
-    const userData = await adminReadDocument("users", verifiedUser.uid);
-    if (userData?.isEnabled === false) {
-      return Response.json({ error: "Account disabled." }, { status: 403 });
-    }
+    const access = await requireActiveUserFromRequest(req);
+    if (access.error) return access.error;
+    const { verifiedUser, userData } = access;
 
     const body = await req.json().catch(() => ({}));
     const timestamp = new Date().toISOString();

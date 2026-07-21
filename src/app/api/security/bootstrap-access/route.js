@@ -1,56 +1,41 @@
 import { adminCreateDocument, adminListDocuments, adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 import { readBearerToken, verifyFirebaseIdToken } from "../../admin/_lib";
-import { isAdminEmail, isPlatformAdminEmail } from "@/app/utils/adminAccess";
+import { isAccountDisabled } from "@/app/utils/accountAccess";
 
-const DEFAULT_COMPANY_ID = "bickers-action";
 const DEFAULT_FEATURE_FLAGS = {
-  diary: true,
-  bookings: true,
-  workshop: true,
-  vehicles: true,
-  equipment: true,
-  uCrane: true,
-  jobSheets: true,
-  employees: true,
-  hr: true,
-  hAndS: true,
-  statistics: true,
-  timesheets: true,
-  holidays: true,
-  finance: true,
-  invoices: true,
-  assistant: true,
-  settings: true,
-  mfa: true,
-  passkeys: true,
+  diary: false,
+  bookings: false,
+  workshop: false,
+  vehicles: false,
+  equipment: false,
+  uCrane: false,
+  jobSheets: false,
+  employees: false,
+  hr: false,
+  hAndS: false,
+  statistics: false,
+  timesheets: false,
+  holidays: false,
+  finance: false,
+  invoices: false,
+  assistant: false,
+  settings: false,
+  mfa: false,
+  passkeys: false,
   userCodeLogin: false,
-  mobileApp: true,
-  pushNotifications: true,
+  mobileApp: false,
+  pushNotifications: false,
 };
 
-function normalizeAppAccess(raw = {}) {
-  if (isDisabledAccess(raw)) {
-    return { user: false, service: false };
-  }
-
-  const role = String(raw?.role || "").trim().toLowerCase();
-  const legacyService = raw?.isService === true || role === "service";
-  const legacyHybrid = role === "hybrid";
-  const fallback = {
-    user: legacyHybrid || !legacyService,
-    service: legacyHybrid || legacyService,
-  };
+function explicitAppAccess(raw = {}) {
   const incoming = raw?.appAccess && typeof raw.appAccess === "object" ? raw.appAccess : {};
-  const normalized = {
-    user: typeof incoming.user === "boolean" ? incoming.user : fallback.user,
-    service: typeof incoming.service === "boolean" ? incoming.service : fallback.service,
+  return {
+    configured: typeof incoming.user === "boolean" || typeof incoming.service === "boolean",
+    appAccess: {
+      user: incoming.user === true,
+      service: incoming.service === true,
+    },
   };
-
-  if (!normalized.user && !normalized.service) {
-    return { ...normalized, user: true };
-  }
-
-  return normalized;
 }
 
 function normalizeFeatureFlags(...sources) {
@@ -67,11 +52,11 @@ function normalizeFeatureFlags(...sources) {
 }
 
 async function resolveFeatureFlags(companyId) {
-  const id = String(companyId || DEFAULT_COMPANY_ID).trim() || DEFAULT_COMPANY_ID;
+  const id = String(companyId || "").trim();
   const [platformFeaturesDoc, platformDoc, companyDoc] = await Promise.all([
     adminReadDocument("settings", "platformFeatures"),
     adminReadDocument("settings", "platform"),
-    adminReadDocument("platformCompanies", id),
+    id ? adminReadDocument("platformCompanies", id) : Promise.resolve(null),
   ]);
   const globalFlags =
     platformFeaturesDoc?.featureFlags ||
@@ -85,11 +70,13 @@ async function resolveFeatureFlags(companyId) {
 
 function isDisabledAccess(raw = {}) {
   return (
+    raw?.isEnabled === false ||
     raw?.active === false ||
     raw?.archived === true ||
     raw?.isArchived === true ||
     raw?.disabled === true ||
     raw?.appDisabled === true ||
+    String(raw?.status || "").trim().toLowerCase() === "disabled" ||
     String(raw?.role || "").trim().toLowerCase() === "archived"
   );
 }
@@ -100,8 +87,8 @@ function deriveRoleFromAccess() {
 
 function normalizeRole(role) {
   const value = String(role || "").trim().toLowerCase();
-  if (["platformadmin", "platform admin", "superadmin", "super admin"].includes(value)) return "platformAdmin";
-  if (["admin", "companyadmin", "company admin"].includes(value)) return "admin";
+  if (value === "platformadmin") return "platformAdmin";
+  if (value === "admin") return "admin";
   return "user";
 }
 
@@ -109,11 +96,9 @@ function resolveDefaultWorkspace(raw = {}, appAccess) {
   const requested = String(raw?.defaultWorkspace || "").trim().toLowerCase();
   if (requested === "service" && appAccess.service) return "service";
   if (requested === "user" && appAccess.user) return "user";
-  return appAccess.user ? "user" : "service";
-}
-
-function sameEmail(left, right) {
-  return String(left || "").trim().toLowerCase() === String(right || "").trim().toLowerCase();
+  if (appAccess.user) return "user";
+  if (appAccess.service) return "service";
+  return "";
 }
 
 function headerValue(headers, name) {
@@ -130,6 +115,30 @@ function clientIp(req) {
   );
 }
 
+const ACCESS_AUDIT_FIELDS = [
+  "uid",
+  "companyId",
+  "employeeId",
+  "role",
+  "isEnabled",
+  "isService",
+  "appAccess",
+  "defaultWorkspace",
+  "featureFlags",
+  "mfaEnabled",
+  "mfaMethod",
+  "mfaResetRequired",
+  "mfaEnrolledAt",
+];
+
+function accessAuditSnapshot(record) {
+  if (!record || typeof record !== "object") return null;
+  return ACCESS_AUDIT_FIELDS.reduce((snapshot, field) => {
+    if (record[field] !== undefined) snapshot[field] = record[field];
+    return snapshot;
+  }, {});
+}
+
 async function writeBootstrapAudit(req, actor, before, after) {
   try {
     await adminCreateDocument("adminAuditLogs", {
@@ -141,8 +150,8 @@ async function writeBootstrapAudit(req, actor, before, after) {
       companyId: after?.companyId || before?.companyId || "",
       action: "Bootstrapped account access",
       area: "Security",
-      before,
-      after,
+      before: accessAuditSnapshot(before),
+      after: accessAuditSnapshot(after),
       ip: clientIp(req),
       userAgent: headerValue(req.headers, "user-agent"),
       createdAt: new Date().toISOString(),
@@ -152,17 +161,72 @@ async function writeBootstrapAudit(req, actor, before, after) {
   }
 }
 
-async function findEmployeeForUser({ uid, email }) {
+async function writeBootstrapBlocked(req, actor, reason) {
+  try {
+    await adminCreateDocument("loginSecurityLogs", {
+      uid: actor?.uid || "",
+      email: actor?.companyEmail || actor?.email || "",
+      clerkUserId: actor?.clerkUserId || "",
+      loginMethod: "access-bootstrap",
+      status: "blocked",
+      outcome: "blocked",
+      reason,
+      ip: clientIp(req),
+      userAgent: headerValue(req.headers, "user-agent"),
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[bootstrap-access] blocked access log failed:", error);
+  }
+}
+
+async function denyBootstrap(req, actor, reason, message, status = 403) {
+  await writeBootstrapBlocked(req, actor, reason);
+  return Response.json({ error: message }, { status });
+}
+
+const cleanValue = (value) => String(value || "").trim();
+const normalizeEmail = (value) => cleanValue(value).toLowerCase();
+const UID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+function explicitUid(value) {
+  const uid = cleanValue(value);
+  return UID_PATTERN.test(uid) ? uid : "";
+}
+
+function employeeUidLink(data = {}) {
+  const rawValues = [data?.authUid, data?.uid].map(cleanValue).filter(Boolean);
+  const normalizedValues = rawValues.map(explicitUid);
+  const values = [...new Set(normalizedValues.filter(Boolean))];
+  return {
+    conflict: normalizedValues.some((value) => !value) || values.length > 1,
+    uid: values.length === 1 ? values[0] : "",
+  };
+}
+
+function recordEmails(record = {}) {
+  return ["email", "workEmail", "personalEmail", "emailAddress", "contactEmail"]
+    .map((key) => normalizeEmail(record?.[key]))
+    .filter(Boolean);
+}
+
+function recordClerkIds(record = {}) {
+  return [record?.clerkUserId, record?.auth?.clerkUserId].map(cleanValue).filter(Boolean);
+}
+
+function hasConflictingClerkIds(record = {}) {
+  return new Set(recordClerkIds(record)).size > 1;
+}
+
+async function findEmployeesForUid(uid) {
   const rows = await adminListDocuments("employees");
-  const match = rows.find(({ id, data }) => {
-    return (
-      id === uid ||
-      data?.uid === uid ||
-      data?.authUid === uid ||
-      sameEmail(data?.email, email)
-    );
-  });
-  return match ? { id: match.id, ...match.data } : null;
+  const inspected = rows.map((row) => ({ ...row, link: employeeUidLink(row.data) }));
+  return {
+    conflicts: inspected.filter(({ data, link }) =>
+      link.conflict && [data?.authUid, data?.uid].map(cleanValue).includes(uid)
+    ),
+    matches: inspected.filter(({ link }) => !link.conflict && link.uid === uid),
+  };
 }
 
 function stableJson(value) {
@@ -192,43 +256,174 @@ export async function POST(req) {
     const idToken = readBearerToken(req);
     const verifiedUser = await verifyFirebaseIdToken(idToken);
     if (!verifiedUser?.uid) {
-      return Response.json({ error: "Not signed in." }, { status: 401 });
+      return denyBootstrap(req, verifiedUser, "Firebase identity missing", "Not signed in.", 401);
     }
 
-    const uid = verifiedUser.uid;
-    const currentUserDoc = (await adminReadDocument("users", uid)) || {};
-    const mfaSecretDoc = (await adminReadDocument("mfaSecrets", uid)) || {};
-    const email = String(verifiedUser.email || currentUserDoc.email || "").trim().toLowerCase();
+    const uid = explicitUid(verifiedUser.uid);
+    const email = normalizeEmail(verifiedUser.companyEmail);
+    if (
+      !uid ||
+      verifiedUser.authMethod !== "clerk" ||
+      verifiedUser.verifiedClerkEmail !== true ||
+      Number(verifiedUser.identityLinkVersion) !== 2 ||
+      !cleanValue(verifiedUser.clerkUserId) ||
+      !email ||
+      !email.endsWith("@bickers.co.uk")
+    ) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Verified Clerk bridge assurance missing",
+        "A verified Clerk application session is required."
+      );
+    }
 
-    if (currentUserDoc?.isEnabled === false) {
-      return Response.json({ error: "Account disabled." }, { status: 403 });
+    const currentUserDoc = await adminReadDocument("users", uid);
+    if (currentUserDoc && explicitUid(currentUserDoc.uid) !== uid) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Canonical UID conflict",
+        "Canonical account identity requires manual review."
+      );
+    }
+    if (currentUserDoc && (isAccountDisabled(currentUserDoc) || isDisabledAccess(currentUserDoc))) {
+      return denyBootstrap(req, verifiedUser, "Canonical account disabled", "Account disabled.");
+    }
+    if (currentUserDoc) {
+      const clerkIds = recordClerkIds(currentUserDoc);
+      if (hasConflictingClerkIds(currentUserDoc) || (clerkIds.length && !clerkIds.includes(verifiedUser.clerkUserId))) {
+        return denyBootstrap(
+          req,
+          verifiedUser,
+          "Canonical Clerk link conflict",
+          "Canonical account identity requires manual review."
+        );
+      }
+      const canonicalEmails = recordEmails(currentUserDoc);
+      if (canonicalEmails.length && !canonicalEmails.includes(email)) {
+        return denyBootstrap(
+          req,
+          verifiedUser,
+          "Canonical email conflict",
+          "Canonical account identity requires manual review."
+        );
+      }
     }
 
     const currentRole = normalizeRole(currentUserDoc?.role);
-    const isPlatformAdmin = currentRole === "platformAdmin" || isPlatformAdminEmail(email);
-    const isAdmin = isPlatformAdmin || currentRole === "admin" || isAdminEmail(email);
-    const employee = isAdmin ? null : await findEmployeeForUser({ uid, email });
-    if (!isAdmin && !employee && !currentUserDoc?.role) {
-      return Response.json({ error: "No server access record found for this account." }, { status: 403 });
+    const isPlatformAdmin = currentRole === "platformAdmin";
+    const isAdmin = isPlatformAdmin || currentRole === "admin";
+    if (isAdmin && !currentUserDoc) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Administrative canonical account missing",
+        "Canonical administrative access requires manual review."
+      );
     }
-    const disabledByEmployee = !isAdmin && employee && isDisabledAccess(employee);
-    const appAccess = isAdmin ? { user: true, service: true } : normalizeAppAccess(employee || currentUserDoc);
-    const role = isPlatformAdmin ? "platformAdmin" : isAdmin ? "admin" : deriveRoleFromAccess(appAccess);
-    const defaultWorkspace = isAdmin ? "user" : resolveDefaultWorkspace(employee || currentUserDoc, appAccess);
+
+    const employeeResolution = await findEmployeesForUid(uid);
+    if (employeeResolution.conflicts.length || employeeResolution.matches.length > 1) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        employeeResolution.conflicts.length ? "Conflicting employee UID fields" : "Duplicate employee UID links",
+        "Employee identity links require manual review."
+      );
+    }
+    const employeeRow = isAdmin ? null : employeeResolution.matches[0] || null;
+    const employee = employeeRow?.data || null;
+    if (!isAdmin && !employee) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Explicit employee UID link missing",
+        "No explicitly linked employee access record was found."
+      );
+    }
+    const expectedEmployeeId = cleanValue(verifiedUser.identityEmployeeId);
+    if ((employeeRow?.id || "") !== expectedEmployeeId) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Employee link changed after bridge",
+        "Employee identity links require manual review."
+      );
+    }
+    if (employee && isDisabledAccess(employee)) {
+      return denyBootstrap(req, verifiedUser, "Employee account disabled", "Account disabled.");
+    }
+    if (employee) {
+      const employeeEmails = recordEmails(employee);
+      if (employeeEmails.length && !employeeEmails.includes(email)) {
+        return denyBootstrap(
+          req,
+          verifiedUser,
+          "Employee email conflict",
+          "Employee identity links require manual review."
+        );
+      }
+      if (currentUserDoc?.employeeId && cleanValue(currentUserDoc.employeeId) !== employeeRow.id) {
+        return denyBootstrap(
+          req,
+          verifiedUser,
+          "Canonical employee link conflict",
+          "Employee identity links require manual review."
+        );
+      }
+    }
+
+    const canonicalCompanyId = cleanValue(currentUserDoc?.companyId);
+    const employeeCompanyId = cleanValue(employee?.companyId);
+    if (canonicalCompanyId && employeeCompanyId && canonicalCompanyId !== employeeCompanyId) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Company link conflict",
+        "Company access requires manual review."
+      );
+    }
+    const companyId = canonicalCompanyId || employeeCompanyId;
+    if (!companyId && !isPlatformAdmin) {
+      return denyBootstrap(req, verifiedUser, "Company access missing", "Company access is not configured.");
+    }
+    if (cleanValue(verifiedUser.identityCompanyId) !== companyId) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Company link changed after bridge",
+        "Company access requires manual review."
+      );
+    }
+
+    const workspaceSource = isAdmin ? currentUserDoc : employee;
+    const workspace = explicitAppAccess(workspaceSource || {});
+    if (!workspace.configured) {
+      return denyBootstrap(
+        req,
+        verifiedUser,
+        "Workspace access missing",
+        "Workspace access is not configured."
+      );
+    }
+    const appAccess = workspace.appAccess;
+    const role = isPlatformAdmin ? "platformAdmin" : isAdmin ? "admin" : deriveRoleFromAccess();
+    const defaultWorkspace = resolveDefaultWorkspace(workspaceSource || {}, appAccess);
 
     const now = new Date().toISOString();
     const patch = {
       uid,
       email,
-      isEnabled: !disabledByEmployee,
+      isEnabled: true,
       role,
       isService: !!appAccess.service,
       appAccess,
       defaultWorkspace,
     };
-    if (isAdmin) patch.companyId = currentUserDoc.companyId || DEFAULT_COMPANY_ID;
-    if (currentUserDoc?.companyId || employee?.companyId) patch.companyId = currentUserDoc.companyId || employee.companyId;
+    if (companyId) patch.companyId = companyId;
 
+    const mfaSecretDoc = (await adminReadDocument("mfaSecrets", uid)) || {};
     const hasPrivateMfaSecret = String(mfaSecretDoc?.secret || "").trim().length > 0;
     if (hasPrivateMfaSecret && currentUserDoc?.mfaResetRequired !== true) {
       patch.mfaEnabled = true;
@@ -241,10 +436,11 @@ export async function POST(req) {
 
     const displayName = employee?.name || employee?.fullName || employee?.employeeName;
     if (displayName && !currentUserDoc?.name) patch.name = displayName;
-    if (employee?.id || employee?.employeeId) patch.employeeId = employee.id || employee.employeeId;
+    if (employeeRow?.id) patch.employeeId = employeeRow.id;
 
-    const featureFlags = await resolveFeatureFlags(patch.companyId);
-    const shouldWrite = !currentUserDoc?.uid || accessPatchChanged(currentUserDoc, patch);
+    const featureFlags = await resolveFeatureFlags(companyId);
+    patch.featureFlags = featureFlags;
+    const shouldWrite = !currentUserDoc || accessPatchChanged(currentUserDoc, patch);
     const writePatch = shouldWrite
       ? {
           ...patch,
@@ -252,7 +448,7 @@ export async function POST(req) {
           accessMirroredAt: now,
         }
       : {};
-    const access = { ...currentUserDoc, ...patch, ...(shouldWrite ? writePatch : {}), featureFlags };
+    const access = { ...(currentUserDoc || {}), ...patch, ...(shouldWrite ? writePatch : {}), featureFlags };
 
     if (shouldWrite) {
       await adminPatchDocument("users", uid, writePatch);
