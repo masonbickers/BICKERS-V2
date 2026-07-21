@@ -1,8 +1,7 @@
 import axios from "axios";
-import { collection, doc, getDocs, limit, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../../../../../../firebaseConfig";
-import { adminReadDocument } from "../../../_firebaseAdminRest";
-import { isAdminEmail } from "@/app/utils/adminAccess";
+import { requireAdminFromRequest } from "@/app/api/admin/_lib";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -13,10 +12,6 @@ const MOT_HISTORY_CLIENT_ID = process.env.DVSA_MOT_HISTORY_CLIENT_ID;
 const MOT_HISTORY_CLIENT_SECRET = process.env.DVSA_MOT_HISTORY_CLIENT_SECRET;
 const MOT_HISTORY_API_KEY = process.env.DVSA_MOT_HISTORY_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
-const FIREBASE_WEB_API_KEY =
-  process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-  process.env.FIREBASE_API_KEY ||
-  "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE";
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "bickers-booking";
 
 let cachedToken = null;
@@ -179,56 +174,6 @@ async function fetchMotHistory(vrm, token) {
       hasOutstandingRecall: vehicle?.hasOutstandingRecall || "",
     },
   };
-}
-
-async function verifyFirebaseIdTokenFromRequest(request) {
-  const authHeader = request.headers.get("authorization") || "";
-  if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
-
-  const idToken = authHeader.slice(7).trim();
-  if (!idToken || !FIREBASE_WEB_API_KEY) return null;
-
-  const res = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_WEB_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
-      cache: "no-store",
-    }
-  );
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  const user = Array.isArray(data?.users) ? data.users[0] : null;
-  if (!user?.localId) return null;
-
-  return {
-    uid: user.localId,
-    email: String(user.email || "").trim().toLowerCase(),
-    idToken,
-  };
-}
-
-async function isAdminUser(user) {
-  if (!user?.email) return false;
-  if (isAdminEmail(user.email)) return true;
-
-  const employeeQueries = [
-    query(collection(db, "employees"), where("uid", "==", user.uid), limit(1)),
-    query(collection(db, "employees"), where("authUid", "==", user.uid), limit(1)),
-    query(collection(db, "employees"), where("email", "==", user.email), limit(1)),
-  ];
-
-  for (const employeeQuery of employeeQueries) {
-    const snap = await getDocs(employeeQuery);
-    if (!snap.empty) {
-      const role = String(snap.docs[0].data()?.role || "").trim().toLowerCase();
-      if (role === "admin") return true;
-    }
-  }
-
-  return false;
 }
 
 function firestoreValueToJs(value) {
@@ -561,10 +506,9 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const user = await verifyFirebaseIdTokenFromRequest(request);
-  if (!user || !(await isAdminUser(user))) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAdminFromRequest(request);
+  if (access.error) return access.error;
+  const user = { ...access.verifiedUser, idToken: access.idToken };
 
   try {
     const results = await runMotHistorySyncWithUserToken(user.idToken);

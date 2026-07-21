@@ -1,4 +1,5 @@
 import axios from "axios";
+import { requireActiveUserFromRequest } from "@/app/api/admin/_lib";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -74,6 +75,8 @@ async function getAccessToken() {
 // GET /api/dvla/mot-history?vrm=AB12CDE
 export async function GET(request) {
   try {
+    const access = await requireActiveUserFromRequest(request);
+    if (access.error) return access.error;
     const { searchParams } = new URL(request.url);
     const vrm = cleanRegistration(searchParams.get("vrm"));
 
