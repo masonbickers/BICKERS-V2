@@ -93,6 +93,17 @@ export function resolveDataAccess(authState = {}, options = {}) {
     };
   }
 
+  if (authState?.accessReady !== true || !String(userDoc?.uid || "").trim()) {
+    return {
+      allowed: false,
+      checking: authState?.accessReady !== true,
+      reason: "Canonical account access is not ready.",
+      role,
+      companyId,
+      isPlatformAdmin,
+    };
+  }
+
   const archivedOrDisabled =
     authState?.isEnabled === false ||
     userDoc?.isEnabled === false ||
@@ -106,6 +117,17 @@ export function resolveDataAccess(authState = {}, options = {}) {
       allowed: false,
       checking: false,
       reason: "Account disabled.",
+      role,
+      companyId,
+      isPlatformAdmin,
+    };
+  }
+
+  if (!isPlatformAdmin && !companyId) {
+    return {
+      allowed: false,
+      checking: false,
+      reason: "Company access is not configured.",
       role,
       companyId,
       isPlatformAdmin,
@@ -146,14 +168,15 @@ export function tenantCollectionQuery(db, collectionName, authState, constraints
   if (!gate.allowed) throw createDataAccessError(gate.reason);
 
   const ref = collection(db, collectionName);
-  const queryConstraints = Array.isArray(constraints) ? constraints : [];
+  const queryConstraints = Array.isArray(constraints) ? [...constraints] : [];
+  const tenantFilterApplied = TENANT_COLLECTIONS.has(collectionName) && !gate.isPlatformAdmin;
+  if (tenantFilterApplied) queryConstraints.unshift(where("companyId", "==", gate.companyId));
 
-  // Single-company quick fix: auth/enabled-user security stays in rules; companyId filtering is disabled.
   reportTenantQueryDebug({
     authState,
     collectionName,
     companyId: currentCompanyId(authState),
-    tenantFilterApplied: false,
+    tenantFilterApplied,
   });
   return queryConstraints.length ? query(ref, ...queryConstraints) : ref;
 }
@@ -163,17 +186,16 @@ export function emergencyBroadCollectionRef(db, collectionName, authState, opera
   if (!gate.allowed) throw createDataAccessError(gate.reason);
 
   if (typeof window !== "undefined") {
-    // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
-    console.warn("[emergency-broad-read-fallback]", {
+    console.warn("[tenant-read-helper]", {
       uid: authState?.user?.uid || "",
       companyId: currentCompanyId(authState),
       collectionName,
       operation,
-      tenantFilterApplied: false,
+      tenantFilterApplied: TENANT_COLLECTIONS.has(collectionName) && !gate.isPlatformAdmin,
     });
   }
 
-  return collection(db, collectionName);
+  return tenantCollectionQuery(db, collectionName, authState);
 }
 
 export function tenantPayload(authState, payload = {}, options = {}) {
@@ -183,8 +205,7 @@ export function tenantPayload(authState, payload = {}, options = {}) {
   });
   if (!gate.allowed) throw createDataAccessError(gate.reason);
 
-  // Single-company quick fix: do not require/stamp companyId on writes.
-  return { ...payload };
+  return gate.isPlatformAdmin ? { ...payload } : { ...payload, companyId: gate.companyId };
 }
 
 export function dataAccessKey(authState = {}) {
