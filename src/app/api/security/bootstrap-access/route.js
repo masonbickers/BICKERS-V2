@@ -20,9 +20,6 @@ const DEFAULT_FEATURE_FLAGS = {
   invoices: false,
   assistant: false,
   settings: false,
-  mfa: false,
-  passkeys: false,
-  userCodeLogin: false,
   mobileApp: false,
   pushNotifications: false,
 };
@@ -125,10 +122,6 @@ const ACCESS_AUDIT_FIELDS = [
   "appAccess",
   "defaultWorkspace",
   "featureFlags",
-  "mfaEnabled",
-  "mfaMethod",
-  "mfaResetRequired",
-  "mfaEnrolledAt",
 ];
 
 function accessAuditSnapshot(record) {
@@ -422,17 +415,6 @@ export async function POST(req) {
       defaultWorkspace,
     };
     if (companyId) patch.companyId = companyId;
-
-    const mfaSecretDoc = (await adminReadDocument("mfaSecrets", uid)) || {};
-    const hasPrivateMfaSecret = String(mfaSecretDoc?.secret || "").trim().length > 0;
-    if (hasPrivateMfaSecret && currentUserDoc?.mfaResetRequired !== true) {
-      patch.mfaEnabled = true;
-      patch.mfaMethod = "totp";
-      patch.mfaResetRequired = false;
-      if (mfaSecretDoc.enrolledAt && !currentUserDoc?.mfaEnrolledAt) {
-        patch.mfaEnrolledAt = mfaSecretDoc.enrolledAt;
-      }
-    }
 
     const displayName = employee?.name || employee?.fullName || employee?.employeeName;
     if (displayName && !currentUserDoc?.name) patch.name = displayName;

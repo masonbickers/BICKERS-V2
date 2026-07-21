@@ -58,13 +58,6 @@ function cleanPatch(raw = {}) {
   }
   if ("employeeId" in raw) patch.employeeId = cleanId(raw.employeeId);
   if ("phoneVerified" in raw) patch.phoneVerified = raw.phoneVerified === true;
-  if ("mfaResetRequired" in raw) patch.mfaResetRequired = raw.mfaResetRequired === true;
-  if ("passwordResetRequired" in raw) patch.passwordResetRequired = raw.passwordResetRequired === true;
-  if ("sessionsRevokedAt" in raw) {
-    const value = cleanId(raw.sessionsRevokedAt);
-    if (!value) throw new Error("Invalid session revocation timestamp.");
-    patch.sessionsRevokedAt = value;
-  }
 
   return patch;
 }

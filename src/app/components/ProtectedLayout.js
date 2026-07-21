@@ -13,7 +13,6 @@ import {
 } from "@/app/utils/accessControl";
 
 const PUBLIC_PATHS = ["/", "/login"];
-const MFA_PATHS = ["/setup-mfa", "/verify-mfa"];
 
 export default function ProtectedLayout({ children }) {
   const router = useRouter();
@@ -26,16 +25,10 @@ export default function ProtectedLayout({ children }) {
     employeeAccess,
     featureFlags,
     userDoc,
-    phoneReady,
-    mfaReady,
-    mfaPassed,
     logout,
   } = useAuth() || {};
 
   const isPublic = PUBLIC_PATHS.some(
-    (path) => pathname === path || String(pathname || "").startsWith(`${path}/`)
-  );
-  const isMfaPath = MFA_PATHS.some(
     (path) => pathname === path || String(pathname || "").startsWith(`${path}/`)
   );
   const role = normalizePlatformRole(userDoc?.role);
@@ -60,15 +53,7 @@ export default function ProtectedLayout({ children }) {
       logout?.();
       return;
     }
-    if (!isMfaPath && (!phoneReady || !mfaReady)) {
-      router.replace("/setup-mfa");
-      return;
-    }
-    if (!isMfaPath && !mfaPassed) {
-      router.replace("/verify-mfa");
-      return;
-    }
-    if (!isMfaPath && !pathAllowed) {
+    if (!pathAllowed) {
       const landing = selectLandingRoute(employeeAccess);
       if (pathname !== landing) router.replace(`${landing}?access=denied`);
     }
@@ -79,10 +64,6 @@ export default function ProtectedLayout({ children }) {
     isEnabled,
     accessReady,
     employeeAccess,
-    phoneReady,
-    mfaReady,
-    mfaPassed,
-    isMfaPath,
     pathAllowed,
     logout,
     pathname,
@@ -93,7 +74,7 @@ export default function ProtectedLayout({ children }) {
     return <div className={layoutStyles.extracted1}>Loading...</div>;
   }
 
-  if (!isPublic && (isEnabled === false || (!isMfaPath && (!phoneReady || !mfaReady || !mfaPassed || !pathAllowed)))) {
+  if (!isPublic && (isEnabled === false || !pathAllowed)) {
     return <div className={layoutStyles.extracted1}>Checking access...</div>;
   }
 

@@ -12,11 +12,8 @@ import { authedFetch, formatDate, moduleLabels, Pill, statusTone, ui } from "../
 const tabs = ["general", "modules", "security", "limits"];
 
 const securityLabels = [
-  ["mfaRequired", "MFA required"],
-  ["passkeysAllowed", "Passkeys enabled"],
   ["loginAlerts", "Login emails enabled"],
   ["locationAlerts", "Location checks"],
-  ["userCodeLogin", "Setup-code login enabled"],
   ["selfSignup", "Self signup enabled"],
 ];
 
@@ -38,12 +35,8 @@ const blankCompany = {
     settings: true,
   },
   security: {
-    mfaRequired: true,
-    passkeysAllowed: true,
     loginAlerts: true,
     locationAlerts: true,
-    userCodeLogin: false,
-    rememberMfaDays: 30,
     selfSignup: false,
   },
   limits: {
@@ -239,9 +232,6 @@ function SecurityTab({ draft, onPatch }) {
       {securityLabels.map(([key, label]) => (
         <ToggleRow key={key} label={label} checked={draft.security?.[key] === true} onChange={(checked) => onPatch(["security", key], checked)} />
       ))}
-      <Field label="Remember MFA days">
-        <input type="number" min="0" max="90" value={draft.security?.rememberMfaDays ?? 30} onChange={(event) => onPatch(["security", "rememberMfaDays"], event.target.value)} style={ui.input} />
-      </Field>
     </div>
   );
 }

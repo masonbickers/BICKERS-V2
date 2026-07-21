@@ -276,22 +276,18 @@ export default function SettingsPage() {
   const securitySummary = useMemo(
     () => ({
       accountStatus: userDocData?.isEnabled === false ? "Disabled" : "Active",
-      emailVerified: userData?.emailVerified === true,
-      phoneVerified: userDocData?.phoneVerified === true,
-      authenticator: userDocData?.mfaEnabled === true,
-      mfaMethod: userDocData?.mfaMethod || "Not configured",
     }),
-    [userData?.emailVerified, userDocData]
+    [userDocData?.isEnabled]
   );
 
   const summaryStats = useMemo(
     () => [
       { label: "Role", value: userData?.role || "User", Icon: UserCog },
       { label: "Workspace", value: userDocData?.defaultWorkspace || "User", Icon: BriefcaseBusiness },
-      { label: "Email", value: securitySummary.emailVerified ? "Verified" : "Pending", Icon: Mail },
-      { label: "Authenticator", value: securitySummary.authenticator ? "Enabled" : "Not enabled", Icon: ShieldCheck },
+      { label: "Authentication", value: "Clerk", Icon: ShieldCheck },
+      { label: "Account", value: securitySummary.accountStatus, Icon: Mail },
     ],
-    [securitySummary.authenticator, securitySummary.emailVerified, userData?.role, userDocData?.defaultWorkspace]
+    [securitySummary.accountStatus, userData?.role, userDocData?.defaultWorkspace]
   );
 
   const actionCard = (href, title, subtitle, pill = "Open", Icon = ArrowRight) => (
@@ -495,16 +491,8 @@ export default function SettingsPage() {
                     <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.accountStatus}</div>
                   </div>
                   <div style={detailCard}>
-                    <div style={fieldLabel}>Phone verification</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.phoneVerified ? "Verified" : "Pending"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Authenticator MFA</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.authenticator ? "Enabled" : "Not enabled"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>MFA method</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.mfaMethod}</div>
+                    <div style={fieldLabel}>Authentication provider</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>Clerk</div>
                   </div>
                   <div style={detailCard}>
                     <div style={fieldLabel}>Directory status</div>
@@ -562,28 +550,19 @@ export default function SettingsPage() {
 
               <div style={{ ...card, marginTop: UI.gap }}>
                 <div style={sectionTitle}>Security</div>
-                <div style={sectionSub}>Your current account protection and available security actions.</div>
+                <div style={sectionSub}>Clerk manages sign-in credentials, passkeys, connected accounts, and active sessions.</div>
 
                 <div className={layoutStyles.extracted24}>
                   <div className={layoutStyles.extracted25}>
-                    <span style={statusPill("Email verified", securitySummary.emailVerified).style}>
-                      Email {securitySummary.emailVerified ? "verified" : "pending"}
-                    </span>
-                    <span style={statusPill("Phone verified", securitySummary.phoneVerified).style}>
-                      Phone {securitySummary.phoneVerified ? "verified" : "pending"}
-                    </span>
-                    <span style={statusPill("Authenticator", securitySummary.authenticator).style}>
-                      Authenticator {securitySummary.authenticator ? "enabled" : "not enabled"}
+                    <span style={statusPill("Clerk", true).style}>Authentication managed by Clerk</span>
+                    <span style={statusPill("Account", securitySummary.accountStatus === "Active").style}>
+                      Account {securitySummary.accountStatus.toLowerCase()}
                     </span>
                   </div>
 
                   <div style={detailCard}>
-                    <div style={fieldLabel}>Current security posture</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>
-                      {securitySummary.authenticator && securitySummary.phoneVerified
-                        ? "Strong account protection enabled"
-                        : "Additional security setup recommended"}
-                    </div>
+                    <div style={fieldLabel}>Account security</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>Manage your sign-in methods in Clerk.</div>
                   </div>
 
                   <button type="button" style={btnPrimary} onClick={() => router.push("/change-password")}>

@@ -68,7 +68,7 @@ export const ROLE_DEFINITIONS = {
     label: "Admin",
     scope: "Application admin",
     defaultWorkspace: "user",
-    description: "Manages application users, access, MFA resets and admin workflows.",
+    description: "Manages application users, access and admin workflows.",
   },
   user: {
     label: "User",
@@ -142,9 +142,6 @@ export const DEFAULT_FEATURE_FLAGS = {
   assistant: true,
   mobileApp: true,
   pushNotifications: true,
-  passkeys: true,
-  mfa: true,
-  userCodeLogin: false,
   settings: true,
 };
 

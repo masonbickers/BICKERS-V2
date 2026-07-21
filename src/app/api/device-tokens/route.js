@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { adminPatchDocument, adminReadDocument } from "@/app/api/_firebaseAdminRest";
+import { adminPatchDocument } from "@/app/api/_firebaseAdminRest";
 import { jsonError, requireActiveUserFromRequest } from "@/app/api/admin/_lib";
 
 export const runtime = "nodejs";
@@ -10,16 +10,6 @@ function cleanString(value, max = 200) {
 
 function tokenId(value) {
   return crypto.createHash("sha256").update(String(value || "")).digest("hex").slice(0, 48);
-}
-
-function hasReadyMfa(user = {}, privateSecret = {}) {
-  return (
-    user.phoneVerified === true &&
-    user.mfaEnabled === true &&
-    user.mfaMethod === "totp" &&
-    user.mfaResetRequired !== true &&
-    !!privateSecret.secret
-  );
 }
 
 export async function POST(req) {
@@ -34,15 +24,6 @@ export async function POST(req) {
     const appVersion = cleanString(body.appVersion, 80);
 
     if (!token) return jsonError("Device token is required.", 400);
-
-    const [user, privateSecret] = await Promise.all([
-      Promise.resolve(access.userData),
-      adminReadDocument("mfaSecrets", verifiedUser.uid),
-    ]);
-
-    if (!hasReadyMfa(user, privateSecret)) {
-      return jsonError("Verified phone and authenticator MFA are required.", 403);
-    }
 
     const now = new Date().toISOString();
     const id = tokenId(token);

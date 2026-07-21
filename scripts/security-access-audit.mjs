@@ -32,10 +32,6 @@ const sensitiveCollections = new Set([
   "platformCompanies",
   "adminAuditLogs",
   "loginSecurityLogs",
-  "mfaSecrets",
-  "passkeyCredentials",
-  "passkeyChallenges",
-  "setupCodeRateLimits",
 ]);
 
 const companyScopedCollections = new Set([

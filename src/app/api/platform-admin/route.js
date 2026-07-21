@@ -56,9 +56,6 @@ const FEATURE_FLAGS = {
   invoices: true,
   assistant: true,
   settings: true,
-  mfa: true,
-  passkeys: true,
-  userCodeLogin: false,
   mobileApp: true,
   pushNotifications: true,
 };
@@ -152,25 +149,17 @@ function defaultCompany() {
       invoices: true,
       mobileApp: true,
       pushNotifications: true,
-      mfa: true,
-      passkeys: true,
-      userCodeLogin: false,
       settings: true,
     },
     security: {
-      mfaRequired: true,
-      passkeysAllowed: true,
       loginAlerts: true,
       locationAlerts: true,
-      rememberMfaDays: 30,
-      userCodeLogin: false,
       selfSignup: false,
     },
     rules: {
       disabledUsersBlocked: true,
       adminActionsServerOnly: true,
       auditLoggingRequired: true,
-      mfaResetByAdminsOnly: true,
     },
     limits: {
       storageLimitGb: 0,
@@ -220,10 +209,6 @@ function publicUser({ id, data = {} }) {
     defaultWorkspace: data.defaultWorkspace || "user",
     companyId: data.companyId || DEFAULT_COMPANY_ID,
     phoneVerified: data.phoneVerified === true,
-    mfaEnabled: data.mfaEnabled === true,
-    mfaMethod: data.mfaMethod || "",
-    mfaResetRequired: data.mfaResetRequired === true,
-    passkeyEnabled: data.passkeyEnabled === true,
     employeeId: data.employeeId || "",
     createdAt: data.createdAt || "",
     updatedAt: data.updatedAt || "",
@@ -241,7 +226,6 @@ function publicEmployee({ id, data = {} }) {
     active: data.active !== false && data.archived !== true && data.disabled !== true,
     isService: data.isService === true,
     companyId: data.companyId || DEFAULT_COMPANY_ID,
-    userCodePresent: !!(data.userCode || data.employeeCode || data.code || data.loginCode),
     updatedAt: data.updatedAt || "",
   };
 }
@@ -262,10 +246,6 @@ function accessUserFromEmployee(employee = {}) {
     defaultWorkspace: isService ? "service" : "user",
     companyId: employee.companyId || DEFAULT_COMPANY_ID,
     phoneVerified: employee.phoneVerified === true,
-    mfaEnabled: false,
-    mfaMethod: "",
-    mfaResetRequired: false,
-    passkeyEnabled: false,
     employeeId: employee.id || employee.employeeId || "",
     source: "employee-link",
     createdAt: employee.createdAt || "",
@@ -392,9 +372,6 @@ async function buildCleanupPreview({ userDocs, employeeDocs }) {
   const employeesWithoutAuthUid = employees
     .filter((employee) => !employee.authUid && !employee.uid)
     .map((employee) => ({ id: employee.id, name: employee.name, email: employee.email, companyId: employee.companyId }));
-  const legacyMfaSecretUsers = userDocs
-    .filter(({ data }) => String(data?.mfaSecret || "").trim())
-    .map(({ id, data }) => ({ id, uid: data.uid || id, email: cleanEmail(data.email), companyId: data.companyId || DEFAULT_COMPANY_ID }));
   const pushTokenUserRows = userDocs
     .filter(({ data }) => isPushTokenUserDoc(data))
     .map(({ id, data }) => ({ id, deviceName: data.deviceName || data.deviceId || id, platform: data.platform || "", updatedAt: data.updatedAt || "" }));
@@ -410,7 +387,6 @@ async function buildCleanupPreview({ userDocs, employeeDocs }) {
     cleanupTask("orphanedUserLinks", "Orphaned user employee links", linkReport.orphanedUserLinks, "Review users whose employeeId no longer points to an employee.", { businessData: false }),
     cleanupTask("orphanedEmployeeLinks", "Orphaned employee auth links", linkReport.orphanedEmployeeLinks, "Review employees whose authUid no longer points to a user.", { businessData: false }),
     cleanupTask("duplicateUsers", "Duplicate users", duplicateRows, "Preview before choosing a primary access row.", { businessData: false }),
-    cleanupTask("legacyMfaSecret", "Legacy users.mfaSecret", legacyMfaSecretUsers, "Clear legacy secret fields from users after mfaSecrets/{uid} is confirmed.", { canRun: true }),
     cleanupTask("disabledDuplicateRows", "Disabled duplicate rows", disabledDuplicateRows, "Can delete only disabled duplicate access rows after confirmation.", { canRun: true, destructive: true }),
     cleanupTask("pushTokenUsers", "Push tokens incorrectly stored in users", pushTokenUserRows, "Can delete push-token-only user documents after confirmation.", { canRun: true, destructive: true }),
     cleanupTask("businessDocsMissingCompanyId", "Business docs missing companyId", businessMissing, "Preview first, then backfill with an explicitly selected company.", { canRun: true, businessData: true }),
@@ -458,21 +434,14 @@ function sanitizeCompanyPatch(raw = {}) {
       assistant: bool(raw.modules.assistant, true),
       mobileApp: bool(raw.modules.mobileApp, true),
       pushNotifications: bool(raw.modules.pushNotifications, true),
-      passkeys: bool(raw.modules.passkeys, true),
-      mfa: bool(raw.modules.mfa, true),
-      userCodeLogin: bool(raw.modules.userCodeLogin, false),
       settings: bool(raw.modules.settings, true),
     };
   }
 
   if (raw.security && typeof raw.security === "object") {
     patch.security = {
-      mfaRequired: bool(raw.security.mfaRequired, true),
-      passkeysAllowed: bool(raw.security.passkeysAllowed, true),
       loginAlerts: bool(raw.security.loginAlerts, true),
       locationAlerts: bool(raw.security.locationAlerts, true),
-      rememberMfaDays: cleanInt(raw.security.rememberMfaDays, 30, 0, 90),
-      userCodeLogin: bool(raw.security.userCodeLogin, false),
       selfSignup: bool(raw.security.selfSignup, false),
     };
   }
@@ -482,7 +451,6 @@ function sanitizeCompanyPatch(raw = {}) {
       disabledUsersBlocked: bool(raw.rules.disabledUsersBlocked, true),
       adminActionsServerOnly: bool(raw.rules.adminActionsServerOnly, true),
       auditLoggingRequired: bool(raw.rules.auditLoggingRequired, true),
-      mfaResetByAdminsOnly: bool(raw.rules.mfaResetByAdminsOnly, true),
     };
   }
 
@@ -555,13 +523,12 @@ export async function GET(req) {
     const admin = await requirePlatformAdmin(req);
     if (admin.error) return admin.error;
 
-    const [companyDocs, userDocs, employeeDocs, auditDocs, loginLogDocs, passkeyDocs, platformSettingsDoc, platformFeaturesDoc, platformBrandingDoc] = await Promise.all([
+    const [companyDocs, userDocs, employeeDocs, auditDocs, loginLogDocs, platformSettingsDoc, platformFeaturesDoc, platformBrandingDoc] = await Promise.all([
       adminListDocuments("platformCompanies"),
       adminListDocuments("users"),
       adminListDocuments("employees"),
       adminListDocuments("adminAuditLogs"),
       adminListDocuments("loginSecurityLogs"),
-      adminListDocuments("passkeyCredentials"),
       adminReadDocument("settings", "platform"),
       adminReadDocument("settings", "platformFeatures"),
       adminReadDocument("settings", "platformBranding"),
@@ -584,12 +551,6 @@ export async function GET(req) {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     const users = mergeAccessUsers(userDocs, employeeDocs);
-
-    const passkeyCountsByUid = passkeyDocs.reduce((acc, { data }) => {
-      const uid = String(data?.uid || "").trim();
-      if (uid) acc[uid] = (acc[uid] || 0) + 1;
-      return acc;
-    }, {});
 
     const audits = auditDocs
       .map(({ id, data }) => ({
@@ -639,16 +600,12 @@ export async function GET(req) {
       ok: true,
       companies,
       employees,
-      users: users.map((user) => ({
-        ...user,
-        passkeyCount: passkeyCountsByUid[user.uid] || passkeyCountsByUid[user.id] || 0,
-      })),
+      users,
       stats: {
         companies: companies.length,
         users: users.length,
         employees: employeeDocs.length,
         disabledUsers: users.filter((user) => !user.isEnabled).length,
-        mfaMissing: users.filter((user) => !user.mfaEnabled).length,
       },
       audits,
       loginLogs,
@@ -764,12 +721,6 @@ export async function POST(req) {
         modules: {
           ...(before.modules || {}),
           ...flags,
-        },
-        security: {
-          ...(before.security || {}),
-          mfaRequired: flags.mfa,
-          passkeysAllowed: flags.passkeys,
-          userCodeLogin: flags.userCodeLogin,
         },
         featureFlags: {
           mobileApp: flags.mobileApp,
@@ -980,32 +931,6 @@ export async function POST(req) {
       if (body.confirm !== true) return jsonError("Cleanup actions require explicit confirmation.", 400);
 
       const userDocs = await adminListDocuments("users");
-
-      if (taskId === "legacyMfaSecret") {
-        const targets = userDocs.filter(({ data }) => String(data?.mfaSecret || "").trim());
-        await Promise.all(
-          targets.map(({ id }) =>
-            adminPatchDocument(
-              "users",
-              id,
-              {
-                legacyMfaSecretClearedAt: nowIso,
-                legacyMfaSecretClearedBy: admin.verifiedUser.email || "platform-admin",
-                legacyMfaSecretClearedByUid: admin.verifiedUser.uid,
-                updatedAt: nowIso,
-              },
-              { deleteFields: ["mfaSecret"] }
-            )
-          )
-        );
-        await writeAudit("Cleanup cleared legacy users.mfaSecret", admin.verifiedUser, {
-          targetType: "cleanup",
-          targetId: taskId,
-          before: { count: targets.length, ids: targets.map(({ id }) => id) },
-          after: { cleared: targets.length },
-        }, req);
-        return Response.json({ ok: true, changed: targets.length });
-      }
 
       if (taskId === "disabledDuplicateRows") {
         const duplicateGroups = duplicateUserGroups(userDocs);

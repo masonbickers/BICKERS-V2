@@ -8,7 +8,7 @@ Overall security rating: **Medium risk, improving**.
 
 Overall system health rating: **Medium risk, not production-final until tenant-scope cleanup is completed**.
 
-The platform now has a stronger server-first access model: `users/{uid}` is the canonical access document, MFA secrets and passkey material are server-only, admin/platform access checks use server bootstrap, and the bootstrap loop that flooded the dev terminal has been fixed. The remaining production risk is mainly tenant isolation in older business collections that still allow broad workspace reads/writes instead of explicit `companyId` checks.
+The platform uses Clerk as its sole authentication provider and exchanges an authorized Clerk session for a Firebase custom token. `users/{uid}` remains the canonical application-access document; employee, company, workspace, module, and role records remain the authorization source of truth. The remaining production risk is mainly tenant isolation in older business collections that still allow broad workspace reads/writes instead of explicit `companyId` checks.
 
 ## Critical Issues
 
@@ -19,7 +19,7 @@ The platform now has a stronger server-first access model: `users/{uid}` is the 
 ## Medium Issues
 
 - **63 client files perform Firestore writes.** Many are normal business workflows, but admin-sensitive writes should be converted to server routes with audit logging.
-- **15 client files touch sensitive collections.** Most are expected access/profile/MFA reads, but they remain high-value regression points.
+- **Client files still touch sensitive collections.** Expected access and profile reads remain subject to Firestore rules and the canonical server bootstrap, but they remain high-value regression points.
 - **Storage paths do not consistently include company IDs.** Without company-aware Storage paths or metadata checks, Storage isolation is enforced only by broad user/service/admin access, not by company ownership.
 - **Company isolation depends on data integrity.** Tenant-scoped Firestore rules require documents to contain `companyId`; documents missing `companyId` may fail to load or require backfill before strict rules can be safely applied.
 
@@ -48,7 +48,8 @@ This report also builds on the existing access fixes in:
 Confirmed secure:
 
 - `users/{uid}` requires signed-in enabled access; normal users can only read their own user doc.
-- `mfaSecrets`, `passkeyCredentials`, `passkeyChallenges`, and `setupCodeRateLimits` are client-denied.
+- Clerk-authenticated users still require an enabled canonical `users/{uid}` record before application data access.
+- Obsolete `mfaSecrets`, `passkeyCredentials`, `passkeyChallenges`, and `setupCodeRateLimits` records remain explicitly client-denied pending a separately reviewed cleanup.
 - `adminAuditLogs` and `loginSecurityLogs` are client-readable only to platform admin/admin and client-write denied.
 - Many core business collections now use company-aware helpers, including `bookings`, `employees`, `vehicles`, `equipment`, `holidays`, `notes`, `contacts`, `invoiceQueue`, `workBookings`, `serviceRecords`, `defectReports`, `vehicleChecks`, `vehiclePrepRecords`, and `timesheets`.
 

@@ -30,7 +30,7 @@ This repo now includes a first-pass [firestore.rules](/abs/path/c:/Users/MasonBi
 For v1.0 the supported application roles are:
 
 - `platformAdmin`: platform-wide control centre, companies, users, security, audit logs
-- `admin`: application admin workflows, user access, MFA resets, admin area
+- `admin`: application admin workflows, user access and admin area
 - `user`: standard application access, with workspace access controlled by `appAccess`
 
 To make that work:
@@ -93,8 +93,8 @@ Section 14 removes weak access paths from the rules:
 - email-domain fallback access is removed
 - platform admin is based on `users/{uid}.role == "platformAdmin"`, not hard-coded email lists
 - users must have an enabled `users/{uid}` record before app access is granted
-- setup-code login is disabled by default and requires an explicit company security setting
-- `mfaSecrets`, `passkeyCredentials`, `passkeyChallenges`, and `setupCodeRateLimits` are server-only
+- Clerk is the sole application sign-in provider
+- verified Clerk email and explicit canonical UID links are required before Firebase tokens are issued
 - unmatched collections are platform-admin read-only in rules; writes must use explicit collection rules or server APIs
 
 ## Server API boundary
@@ -102,16 +102,15 @@ Section 14 removes weak access paths from the rules:
 Section 15 adds dedicated platform server APIs for sensitive admin operations:
 
 - `/api/platform/users/update`
-- `/api/platform/users/force-mfa-reset`
 - `/api/platform/companies/update`
 - `/api/platform/employee-linking/link`
 - `/api/platform/audit-log`
 
-These routes require a verified Firebase ID token and an enabled `users/{uid}` record with `role == "platformAdmin"`. Sensitive writes use the Admin REST helper rather than client Firestore writes, and each mutation writes to `adminAuditLogs`. MFA setup/verify and setup-code login also write server-side audit/security records without exposing private MFA or passkey data to the client.
+These routes require a Firebase token issued through the verified Clerk bridge and an enabled `users/{uid}` record with `role == "platformAdmin"`. Sensitive writes use the Admin REST helper rather than client Firestore writes, and each mutation writes to `adminAuditLogs`.
 
 ## Platform Admin Control Centre
 
-The Platform Admin Control Centre is the master BAS Software control panel. It covers dashboard, companies, company settings, branding, feature control, all users, employee linking, roles, security, MFA, cleanup, audit logs, login logs, and global settings.
+The Platform Admin Control Centre is the master BAS Software control panel. It covers dashboard, companies, company settings, branding, feature control, all users, employee linking, roles, security, cleanup, audit logs, login logs, and global settings.
 
 Storage model:
 
@@ -123,7 +122,7 @@ Storage model:
 Safety model:
 
 - `platformAdmin` is the highest role
-- MFA secrets remain server-only and are never shown in admin UI
+- Legacy custom-auth records are no longer read or written; any cleanup requires a separate reviewed migration
 - sensitive mutations use server APIs and audit logs
 - repair actions are preview-first where they touch business data
 - destructive business-data deletion should be avoided unless explicitly confirmed

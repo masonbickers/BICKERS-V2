@@ -155,7 +155,7 @@ export default function SecurityAuditPage() {
         ? ""
         : "\n\nThis is not a disabled/device row. Make sure this account is genuinely unwanted.";
     const confirmed = window.confirm(
-      `Delete access record for ${label}?\n\nThis deletes only this selected Firestore users record and matching MFA/passkey security records for its UID. It does not delete bookings, employees, timesheets, or the Firebase Authentication login.${activeWarning}`
+      `Delete access record for ${label}?\n\nThis deletes only this selected Firestore users record. It does not delete bookings, employees, timesheets, or the Clerk identity.${activeWarning}`
     );
     if (!confirmed) return;
 
@@ -196,7 +196,7 @@ export default function SecurityAuditPage() {
     if (!rows.length) return;
 
     const confirmed = window.confirm(
-      `Delete ${rows.length} ${label} access record${rows.length === 1 ? "" : "s"}?\n\nThis only deletes disabled/device users records and matching MFA/passkey records. Live fail, warn, and pass accounts are not included.`
+      `Delete ${rows.length} ${label} access record${rows.length === 1 ? "" : "s"}?\n\nThis only deletes disabled/device users records. Live fail, warn, and pass accounts are not included.`
     );
     if (!confirmed) return;
 
@@ -248,7 +248,7 @@ export default function SecurityAuditPage() {
           <div>
             <h1 style={h1Style}>Security Audit</h1>
             <div style={pageSub}>
-              Read-only user, access, MFA, passkey, and employee-link status.
+              Read-only canonical user, access and employee-link status.
             </div>
           </div>
 
@@ -272,11 +272,8 @@ export default function SecurityAuditPage() {
           <Stat label="Fail" value={audit.summary?.fail || 0} tone="fail" />
           <Stat label="Warn" value={audit.summary?.warn || 0} tone="warn" />
           <Stat label="Pass" value={audit.summary?.pass || 0} tone="pass" />
-          <Stat label="App-only" value={audit.summary?.app || 0} tone="app" />
-          <Stat label="No-login" value={audit.summary?.noLogin || 0} tone="noLogin" />
           <Stat label="Disabled" value={audit.summary?.disabled || 0} tone="disabled" />
           <Stat label="Device" value={audit.summary?.device || 0} tone="device" />
-          <Stat label="Legacy MFA" value={audit.summary?.legacyMfaSecrets || 0} tone="warn" />
         </div>
 
         <div className={layoutStyles.extracted4}>
@@ -374,8 +371,6 @@ export default function SecurityAuditPage() {
                   <Th>Status</Th>
                   <Th>User</Th>
                   <Th>Access</Th>
-                  <Th>Phone / MFA</Th>
-                  <Th>Secrets</Th>
                   <Th>Employee</Th>
                   <Th>Issues</Th>
                   <Th>Actions</Th>
@@ -384,11 +379,11 @@ export default function SecurityAuditPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} style={emptyTd}>Loading security audit...</td>
+                    <td colSpan={7} style={emptyTd}>Loading security audit...</td>
                   </tr>
                 ) : filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={emptyTd}>No rows match this view.</td>
+                    <td colSpan={7} style={emptyTd}>No rows match this view.</td>
                   </tr>
                 ) : (
                   filteredRows.map((row) => (
@@ -448,24 +443,7 @@ function AuditRow({ row, deleting, onDelete, selected, onToggleSelected }) {
         <div style={mutedText}>Default: {row.defaultWorkspace || "-"}</div>
       </Td>
       <Td>
-        <div className={layoutStyles.extracted11}>
-          <SmallPill good={row.phoneVerified}>Phone</SmallPill>
-          <SmallPill good={row.mfaEnabled}>MFA</SmallPill>
-          {row.mfaResetRequired ? <SmallPill good={false}>Reset</SmallPill> : null}
-        </div>
-        <div style={mutedText}>{row.phone || row.mfaPhoneNumber || "-"}</div>
-        <div style={mutedText}>{row.mfaEnrolledAt ? formatDateTime(row.mfaEnrolledAt) : "No MFA date"}</div>
-      </Td>
-      <Td>
-        <div className={layoutStyles.extracted12}>
-          <SmallPill good={row.privateMfaSecretPresent}>Private</SmallPill>
-          <SmallPill good={!row.legacyMfaSecretPresent}>Legacy</SmallPill>
-        </div>
-        <div style={mutedText}>Passkeys: {row.passkeyCount || 0}</div>
-      </Td>
-      <Td>
         <div style={strongText}>{row.employeeIds?.length ? row.employeeIds.join(", ") : "-"}</div>
-        <div style={mutedText}>Code present: {row.employeeCodePresent ? "yes" : "no"}</div>
         {row.duplicateEmailCount > 1 ? <div style={warnText}>Duplicates: {row.duplicateEmailCount}</div> : null}
       </Td>
       <Td>

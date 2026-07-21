@@ -310,13 +310,7 @@ service cloud.firestore {
         "phone",
         "updatedAt",
         "phoneVerified",
-        "phoneVerifiedAt",
-        "mfaMethod",
-        "mfaEnabled",
-        "mfaPhoneNumber",
-        "mfaSecret",
-        "mfaEnrolledAt",
-        "mfaResetRequired"
+        "phoneVerifiedAt"
       ]);
     }
 
@@ -327,6 +321,8 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Obsolete application-owned authentication records remain explicitly
+    // inaccessible until a separately reviewed data-cleanup migration removes them.
     match /mfaSecrets/{uid} {
       allow read, write: if false;
     }

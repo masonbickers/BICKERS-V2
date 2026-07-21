@@ -306,9 +306,7 @@ export default function AdminPage() {
 
   const [qText, setQText] = useState("");
   const [toast, setToast] = useState(null);
-  const [resettingMfaUserId, setResettingMfaUserId] = useState("");
   const [deletingUserId, setDeletingUserId] = useState("");
-  const [migratingMfaSecrets, setMigratingMfaSecrets] = useState(false);
 
   // Data
   const [users, setUsers] = useState([]); // de-duped list
@@ -376,35 +374,6 @@ export default function AdminPage() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Delete failed.");
     return data;
-  };
-
-  const migrateMfaSecrets = async () => {
-    if (
-      !confirm(
-        "Move legacy MFA secrets out of user records?\n\nThis should be run once after deploying the private MFA store."
-      )
-    ) {
-      return;
-    }
-
-    setMigratingMfaSecrets(true);
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error("You need to sign in again.");
-      const idToken = await currentUser.getIdToken();
-      const res = await fetch("/api/admin/migrate-mfa-secrets", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "MFA migration failed.");
-      showToast("ok", `Migrated ${data?.migrated || 0} MFA secret(s)`);
-      await fetchUsers();
-    } catch (e) {
-      showToast("error", e?.message || "MFA migration failed");
-    } finally {
-      setMigratingMfaSecrets(false);
-    }
   };
 
   const refreshServerAccess = async (currentUser) => {
@@ -573,37 +542,13 @@ export default function AdminPage() {
     }
   };
 
-  const resetUserMfa = async (targetUser) => {
-    if (!targetUser?.id) return;
-
-    const label = targetUser.email || targetUser.name || targetUser.id;
-    if (
-      !confirm(
-        `Reset MFA for ${label}?\n\nThey will need to log in with their password and set up Authenticator again.`
-      )
-    ) {
-      return;
-    }
-
-    setResettingMfaUserId(targetUser.id);
-    try {
-      await callAdminUserAction(targetUser.id, { action: "resetMfa" });
-      showToast("ok", "MFA reset. User must set up Authenticator again.");
-      await fetchUsers();
-    } catch (e) {
-      showToast("error", e?.message || "Failed to reset MFA");
-    } finally {
-      setResettingMfaUserId("");
-    }
-  };
-
   const deleteAccessAccount = async (targetUser) => {
     if (!targetUser?.id) return;
 
     const label = targetUser.email || targetUser.name || targetUser.id;
     if (
       !confirm(
-        `Delete access account for ${label}?\n\nThis removes their Firestore access record and MFA secret record. It does not delete bookings, employees, timesheets, or the Firebase Authentication login.`
+        `Delete access account for ${label}?\n\nThis removes their Firestore access record. It does not delete bookings, employees, timesheets, or the Clerk identity.`
       )
     ) {
       return;
@@ -923,7 +868,7 @@ export default function AdminPage() {
             <button
               onClick={() => router.push("/admin/security-audit")}
               style={btnStyle}
-              title="Review user access and MFA readiness"
+              title="Review user access and identity-link readiness"
             >
               <ShieldCheck size={14} />
               Security audit
@@ -941,22 +886,6 @@ export default function AdminPage() {
             <button onClick={bootstrap} style={btnStyle} title="Refresh">
               <RefreshCw size={14} />
               Refresh
-            </button>
-
-            <button
-              onClick={migrateMfaSecrets}
-              disabled={migratingMfaSecrets}
-              style={{
-                ...btnStyle,
-                background: migratingMfaSecrets ? "var(--color-surface-hover)" : UI.warnSoft,
-                borderColor: "var(--color-warning-border)",
-                color: migratingMfaSecrets ? UI.muted : UI.warn,
-                cursor: migratingMfaSecrets ? "wait" : "pointer",
-              }}
-              title="Move legacy MFA secrets into the private server store"
-            >
-              <ShieldCheck size={14} />
-              {migratingMfaSecrets ? "Migrating..." : "Migrate MFA"}
             </button>
 
             {showAprilFools && (
@@ -1057,7 +986,6 @@ export default function AdminPage() {
                       <Th>Email</Th>
                       <Th>Role</Th>
                       <Th>Enabled</Th>
-                      <Th>MFA</Th>
                       <Th>Actions</Th>
                     </tr>
                   </thead>
@@ -1065,7 +993,7 @@ export default function AdminPage() {
                   <tbody>
                     {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={emptyTd}>
+                        <td colSpan={4} style={emptyTd}>
                           {users.length === 0 ? (
                             <>
                               No access users found. Linked employees with authUid will appear here once access records are repaired.
@@ -1080,8 +1008,6 @@ export default function AdminPage() {
                         const email = (u.email || "").toLowerCase();
                         const locked = ADMIN_EMAILS.includes(email);
                         const enabled = u.isEnabled ?? true;
-                        const mfaEnabled = u.mfaEnabled === true && u.mfaMethod === "totp";
-                        const resetInProgress = resettingMfaUserId === u.id;
                         const deleteInProgress = deletingUserId === u.id;
                         const isSelf =
                           (me?.uid && u.id === me.uid) ||
@@ -1119,17 +1045,6 @@ export default function AdminPage() {
                             </Td>
 
                             <Td>
-                              <span style={{ fontWeight: 900, color: mfaEnabled ? UI.ok : UI.warn }}>
-                                {mfaEnabled ? "Enabled" : "Needs setup"}
-                              </span>
-                              {u.mfaResetRequired ? (
-                                <div style={{ marginTop: 3, fontSize: 12, color: UI.muted }}>
-                                  Reset requested
-                                </div>
-                              ) : null}
-                            </Td>
-
-                            <Td>
                               <div className={layoutStyles.extracted5}>
                                 <button
                                   disabled={locked}
@@ -1148,23 +1063,6 @@ export default function AdminPage() {
                                   }
                                 >
                                   {enabled ? "Disable" : "Enable"}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => resetUserMfa(u)}
-                                  disabled={resetInProgress}
-                                  style={{
-                                    ...btnStyle,
-                                    borderColor: "var(--color-warning-border)",
-                                    background: resetInProgress ? "var(--color-surface-hover)" : UI.warnSoft,
-                                    color: resetInProgress ? UI.muted : UI.warn,
-                                    cursor: resetInProgress ? "wait" : "pointer",
-                                  }}
-                                  title="Clear this user's Authenticator setup"
-                                >
-                                  <ShieldCheck size={14} />
-                                  {resetInProgress ? "Resetting..." : "Reset MFA"}
                                 </button>
 
                                 <button
@@ -1660,7 +1558,7 @@ export default function AdminPage() {
           {activeTab === Tabs.AUDIT && (
             <Card
               title="Admin Audit Log"
-              subtitle="Security-sensitive admin actions including role changes, user enable/disable, MFA resets and MFA migration."
+              subtitle="Security-sensitive admin actions including role changes and user enable/disable operations."
             >
               <div
                 className={layoutStyles.extracted27}
