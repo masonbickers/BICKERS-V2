@@ -17,6 +17,8 @@
     "audit:styles:check": "node scripts/style-audit.mjs --check",
     "test:access": "node --test tests/accessControl.test.mjs",
     "test:appearance": "node --test tests/globalAppearance.test.mjs",
+    "test:firestore-rules": "firebase emulators:exec --only firestore --project demo-bickers-service-access-rules \"node --test tests/firestoreServiceAccess.rules.test.mjs\"",
+    "test:storage-rules": "firebase emulators:exec --only firestore,storage --project demo-bickers-storage-access-rules \"node --test tests/storageAccess.rules.test.mjs\"",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
     "test:dates": "node --test tests/dateNormalization.test.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
@@ -52,7 +54,9 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@firebase/rules-unit-testing": "^4.0.1",
     "eslint": "^9",
-    "eslint-config-next": "15.3.0"
+    "eslint-config-next": "15.3.0",
+    "firebase-tools": "^15.24.0"
   }
 }
