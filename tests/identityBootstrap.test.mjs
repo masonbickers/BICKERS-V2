@@ -151,7 +151,6 @@ function baseBootstrapState() {
           isService: false,
         },
       },
-      mfaSecrets: {},
       settings: {},
       platformCompanies: {},
     },
@@ -167,6 +166,7 @@ function baseBootstrapState() {
       },
     }],
     patches: [],
+    reads: [],
     logs: [],
     failPatch: false,
     failAudit: false,
@@ -182,7 +182,10 @@ async function loadBootstrap(state) {
         if (state.failAudit && collection === "adminAuditLogs") throw new Error("audit failed");
       },
       adminListDocuments: async (collection) => structuredClone(collection === "employees" ? state.employees : []),
-      adminReadDocument: async (collection, id) => structuredClone(state.docs[collection]?.[id] ?? null),
+      adminReadDocument: async (collection, id) => {
+        state.reads.push([collection, id]);
+        return structuredClone(state.docs[collection]?.[id] ?? null);
+      },
       adminPatchDocument: async (collection, id, patch) => {
         state.patches.push([collection, id, structuredClone(patch)]);
         if (state.failPatch) throw new Error("write failed");
@@ -437,6 +440,27 @@ test("bootstrap refreshes a valid explicit employee link", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.body.access.uid, "user-1");
   assert.equal(response.body.access.companyId, "company-1");
+});
+
+test("valid Clerk-linked access does not depend on or write custom MFA state", async () => {
+  const state = baseBootstrapState();
+  state.docs.users["user-1"] = {
+    ...state.docs.users["user-1"],
+    mfaEnabled: false,
+    mfaResetRequired: true,
+    mfaSecret: "legacy-secret-must-be-ignored",
+  };
+
+  const response = await (await loadBootstrap(state))(request());
+  assert.equal(response.status, 200);
+  assert.equal(response.body.access.uid, "user-1");
+  assert.equal(state.reads.some(([collection]) => collection === "mfaSecrets"), false);
+  assert.equal(
+    state.patches.some(([, , patch]) =>
+      Object.keys(patch).some((key) => key.toLowerCase().includes("mfa"))
+    ),
+    false
+  );
 });
 
 test("bootstrap creates a missing canonical record only from the proven employee link", async () => {

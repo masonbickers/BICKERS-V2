@@ -24,9 +24,6 @@ export const moduleLabels = [
   ["assistant", "Assistant"],
   ["mobileApp", "Mobile App"],
   ["pushNotifications", "Push Notifications"],
-  ["passkeys", "Passkeys"],
-  ["mfa", "MFA"],
-  ["userCodeLogin", "Setup-code Login"],
   ["settings", "Settings"],
 ];
 
@@ -66,10 +63,6 @@ export async function authedFetch(url, options = {}) {
 export function companyName(companies, companyId) {
   const id = companyId || DEFAULT_COMPANY_ID;
   return companies.find((company) => company.id === id)?.name || id;
-}
-
-export function userMfaReady(user) {
-  return user?.mfaEnabled === true && user?.mfaMethod === "totp" && user?.mfaResetRequired !== true;
 }
 
 export function statusTone(status) {

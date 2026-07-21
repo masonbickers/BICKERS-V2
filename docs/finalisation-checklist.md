@@ -13,13 +13,13 @@ Use this checklist for the controlled pilot before final rollout.
 
 ## Role Smoke Tests
 
-- Admin user can sign in, complete MFA, open Admin, Platform Admin, HR, Vehicles, Dashboard, and Finance.
+- Admin user can sign in through Clerk and open Admin, Platform Admin, HR, Vehicles, Dashboard, and Finance.
 - User-only employee lands in the user workspace and cannot open service-only pages.
 - Service-only employee lands in the service workspace and cannot open user-only pages.
 - Hybrid employee can use both workspaces and returns to the preferred workspace.
 - Disabled account is signed out and shown the disabled-account message.
-- User with missing phone or authenticator is sent to setup MFA.
-- User without current MFA verification is sent to verify MFA.
+- User with an unverified company email or missing canonical employee link is denied access.
+- Active Clerk-linked users reach protected application access without a second application-owned authentication prompt.
 
 ## Workflow Smoke Tests
 

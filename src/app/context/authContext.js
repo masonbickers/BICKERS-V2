@@ -12,11 +12,6 @@ import {
   resolveEmployeeAccess,
 } from "@/app/utils/accessControl";
 import { isAccountDisabled } from "@/app/utils/accountAccess";
-import {
-  hasAuthenticatorMfa,
-  isMfaVerifiedOnDevice,
-  isPhoneVerified,
-} from "@/app/utils/authSecurity";
 
 const AuthContext = createContext(null);
 const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v2";
@@ -81,9 +76,6 @@ const emptyAccess = {
   featureFlags: normalizeFeatureFlags(),
   isAdmin: false,
   isEnabled: true,
-  phoneReady: false,
-  mfaReady: false,
-  mfaPassed: false,
   accessReady: false,
 };
 
@@ -160,13 +152,6 @@ const writeAdminViewUser = (userDoc) => {
   }
 };
 
-const readStoredMfaPassed = (uid) =>
-  isMfaVerifiedOnDevice(
-    typeof window !== "undefined" ? window.localStorage : null,
-    typeof window !== "undefined" ? window.sessionStorage : null,
-    uid
-  );
-
 async function resolveUserDoc(currentUser) {
   const resolvedRef = doc(db, "users", currentUser.uid);
   const snap = await getDoc(resolvedRef);
@@ -203,15 +188,12 @@ async function resolveFeatureFlags(userDoc = {}) {
   return normalizeFeatureFlags(userDoc?.featureFlags || userDoc?.features || {});
 }
 
-const resolveAccessState = async (currentUser, userDoc) => {
+const resolveAccessState = async (userDoc) => {
   const isEnabled = Boolean(userDoc?.uid) && !isAccountDisabled(userDoc);
   const role = normalizePlatformRole(userDoc?.role);
   const isAdmin = role === "admin" || role === "platformAdmin";
   const accessSource = hasMirroredAccessRecord(userDoc || {}) ? userDoc || {} : {};
   const employeeAccess = resolveEmployeeAccess(accessSource, { isAdmin });
-  const phoneReady = isPhoneVerified(userDoc || {});
-  const mfaReady = hasAuthenticatorMfa(userDoc || {});
-  const mfaPassed = readStoredMfaPassed(currentUser.uid);
   const featureFlags = await resolveFeatureFlags(userDoc || {});
 
   return {
@@ -220,9 +202,6 @@ const resolveAccessState = async (currentUser, userDoc) => {
     featureFlags,
     isAdmin,
     isEnabled,
-    phoneReady,
-    mfaReady,
-    mfaPassed,
     accessReady: true,
   };
 };
@@ -389,7 +368,7 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        const nextAccess = await resolveAccessState(firebaseUser, userDoc);
+        const nextAccess = await resolveAccessState(userDoc);
         if (token !== resolvingRef.current) return;
 
         setAccessState(nextAccess);
@@ -408,7 +387,7 @@ export const AuthProvider = ({ children }) => {
               return;
             }
 
-            const liveAccess = await resolveAccessState(firebaseUser, liveUserDoc);
+            const liveAccess = await resolveAccessState(liveUserDoc);
             setAccessState(liveAccess);
             writeAccessCache(firebaseUser.uid, liveAccess);
           },
@@ -431,17 +410,6 @@ export const AuthProvider = ({ children }) => {
       if (userDocUnsubRef.current) userDocUnsubRef.current();
     };
   }, [bridgeReady, clerkLoaded, signOutClerk]);
-
-  const refreshMfaState = useCallback(() => {
-    const uid = auth.currentUser?.uid || user?.uid;
-    if (!uid) return false;
-    const nextMfaPassed = readStoredMfaPassed(uid);
-    setAccessState((prev) => ({
-      ...prev,
-      mfaPassed: nextMfaPassed,
-    }));
-    return nextMfaPassed;
-  }, [user?.uid]);
 
   const setAdminViewMode = useCallback(
     (mode) => {
@@ -522,10 +490,6 @@ export const AuthProvider = ({ children }) => {
       featureFlags: accessState.featureFlags,
       isAdmin: effectiveIsAdmin,
       isEnabled: accessState.isEnabled,
-      phoneReady: accessState.phoneReady,
-      mfaReady: accessState.mfaReady,
-      mfaPassed: accessState.mfaPassed,
-      refreshMfaState,
       accessReady: accessState.accessReady,
       accessLoading: !!user && !accessState.accessReady,
       canUseAdminViewSwitch,
@@ -543,7 +507,6 @@ export const AuthProvider = ({ children }) => {
       effectiveUserDoc,
       effectiveEmployeeAccess,
       effectiveIsAdmin,
-      refreshMfaState,
       canUseAdminViewSwitch,
       adminViewMode,
       setAdminViewMode,

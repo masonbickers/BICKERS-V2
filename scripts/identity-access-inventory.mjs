@@ -8,7 +8,7 @@ const UID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const KNOWN_MODULES = [
   "diary", "bookings", "workshop", "vehicles", "equipment", "uCrane", "jobSheets",
   "employees", "hr", "hAndS", "statistics", "timesheets", "holidays", "finance",
-  "invoices", "assistant", "settings", "mfa", "passkeys", "userCodeLogin", "mobileApp",
+  "invoices", "assistant", "settings", "mobileApp",
   "pushNotifications",
 ];
 

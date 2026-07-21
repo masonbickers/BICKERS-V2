@@ -8,7 +8,6 @@ import {
 import {
   adminCreateDocument,
   adminDeleteDocument,
-  adminListDocuments,
   adminPatchDocument,
   adminReadDocument,
 } from "../../../_firebaseAdminRest";
@@ -244,230 +243,6 @@ export async function PATCH(req, context) {
       return Response.json({ ok: true });
     }
 
-    if (action === "resetMfa") {
-      await Promise.all([
-        adminPatchDocument(
-          "users",
-          targetUserId,
-          {
-            mfaEnabled: false,
-            mfaMethod: "",
-            mfaResetRequired: true,
-            mfaResetAt: nowIso,
-            mfaResetBy: admin.verifiedUser.email || "admin",
-            mfaResetByUid: admin.verifiedUser.uid,
-            updatedAt: nowIso,
-            updatedBy: admin.verifiedUser.email || "admin",
-            updatedByUid: admin.verifiedUser.uid,
-          },
-          { deleteFields: ["mfaSecret", "mfaEnrolledAt"] }
-        ),
-        adminPatchDocument(
-          "mfaSecrets",
-          targetUserId,
-          {
-            resetAt: nowIso,
-            resetBy: admin.verifiedUser.email || "admin",
-            resetByUid: admin.verifiedUser.uid,
-            updatedAt: nowIso,
-          },
-          { deleteFields: ["secret", "pendingSecret", "pendingCreatedAt", "enrolledAt"] }
-        ),
-      ]);
-      await writeAuditLog(
-        admin.idToken,
-        auditPayload({
-          action: "Reset user MFA",
-          actor: admin.verifiedUser,
-          targetUserId,
-          before: targetBefore,
-          after: { ...(targetBefore || {}), mfaEnabled: false, mfaMethod: "", mfaResetRequired: true, mfaResetAt: nowIso },
-          req,
-        })
-      );
-      return Response.json({ ok: true });
-    }
-
-    if (action === "forceMfaSetup") {
-      await adminPatchDocument(
-        "users",
-        targetUserId,
-        {
-          mfaResetRequired: true,
-          mfaSetupRequired: true,
-          mfaSetupRequiredAt: nowIso,
-          mfaSetupRequiredBy: admin.verifiedUser.email || "admin",
-          mfaSetupRequiredByUid: admin.verifiedUser.uid,
-          updatedAt: nowIso,
-          updatedBy: admin.verifiedUser.email || "admin",
-          updatedByUid: admin.verifiedUser.uid,
-        }
-      );
-      await writeAuditLog(
-        admin.idToken,
-        auditPayload({
-          action: "Forced user MFA setup",
-          actor: admin.verifiedUser,
-          targetUserId,
-          before: targetBefore,
-          after: { ...(targetBefore || {}), mfaResetRequired: true, mfaSetupRequired: true, mfaSetupRequiredAt: nowIso },
-          req,
-        })
-      );
-      return Response.json({ ok: true });
-    }
-
-    if (action === "clearLegacyMfaSecret") {
-      await adminPatchDocument(
-        "users",
-        targetUserId,
-        {
-          legacyMfaSecretClearedAt: nowIso,
-          legacyMfaSecretClearedBy: admin.verifiedUser.email || "admin",
-          legacyMfaSecretClearedByUid: admin.verifiedUser.uid,
-          updatedAt: nowIso,
-          updatedBy: admin.verifiedUser.email || "admin",
-          updatedByUid: admin.verifiedUser.uid,
-        },
-        { deleteFields: ["mfaSecret"] }
-      );
-      await writeAuditLog(
-        admin.idToken,
-        auditPayload({
-          action: "Cleared legacy user MFA secret",
-          actor: admin.verifiedUser,
-          targetUserId,
-          before: targetBefore,
-          after: { ...(targetBefore || {}), legacyMfaSecretClearedAt: nowIso, mfaSecret: undefined },
-          req,
-        })
-      );
-      return Response.json({ ok: true });
-    }
-
-    if (action === "forcePasswordReset") {
-      await adminPatchDocument(
-        "users",
-        targetUserId,
-        {
-          passwordResetRequired: true,
-          passwordResetAt: nowIso,
-          passwordResetBy: admin.verifiedUser.email || "admin",
-          passwordResetByUid: admin.verifiedUser.uid,
-          updatedAt: nowIso,
-          updatedBy: admin.verifiedUser.email || "admin",
-          updatedByUid: admin.verifiedUser.uid,
-        }
-      );
-      await writeAuditLog(
-        admin.idToken,
-        auditPayload({
-          action: "Forced password reset",
-          actor: admin.verifiedUser,
-          targetUserId,
-          before: targetBefore,
-          after: { ...(targetBefore || {}), passwordResetRequired: true, passwordResetAt: nowIso },
-          req,
-        })
-      );
-      return Response.json({ ok: true });
-    }
-
-    if (action === "revokeSessions") {
-      await adminPatchDocument(
-        "users",
-        targetUserId,
-        {
-          sessionsRevokedAt: nowIso,
-          sessionsRevokedBy: admin.verifiedUser.email || "admin",
-          sessionsRevokedByUid: admin.verifiedUser.uid,
-          updatedAt: nowIso,
-          updatedBy: admin.verifiedUser.email || "admin",
-          updatedByUid: admin.verifiedUser.uid,
-        }
-      );
-      await writeAuditLog(
-        admin.idToken,
-        auditPayload({
-          action: "Revoked user sessions",
-          actor: admin.verifiedUser,
-          targetUserId,
-          before: targetBefore,
-          after: { ...(targetBefore || {}), sessionsRevokedAt: nowIso },
-          req,
-          details: { sessionsRevokedAt: nowIso },
-        })
-      );
-      return Response.json({ ok: true });
-    }
-
-    if (action === "resetAccount") {
-      const targetUser = await adminReadDocument("users", targetUserId);
-      const uidCandidates = new Set(
-        [targetUserId, targetUser?.uid].map(cleanUserId).filter(Boolean)
-      );
-      const passkeys = await adminListDocuments("passkeyCredentials");
-      const targetPasskeys = passkeys.filter(({ data }) => uidCandidates.has(cleanUserId(data?.uid)));
-
-      await Promise.all([
-        adminPatchDocument(
-          "users",
-          targetUserId,
-          {
-            mfaEnabled: false,
-            mfaMethod: "",
-            mfaResetRequired: true,
-            mfaResetAt: nowIso,
-            mfaResetBy: admin.verifiedUser.email || "admin",
-            mfaResetByUid: admin.verifiedUser.uid,
-            passkeyEnabled: false,
-            accountResetRequired: true,
-            accountResetAt: nowIso,
-            accountResetBy: admin.verifiedUser.email || "admin",
-            accountResetByUid: admin.verifiedUser.uid,
-            updatedAt: nowIso,
-            updatedBy: admin.verifiedUser.email || "admin",
-            updatedByUid: admin.verifiedUser.uid,
-          },
-          { deleteFields: ["mfaSecret", "mfaEnrolledAt", "passkeyRegisteredAt"] }
-        ),
-        adminPatchDocument(
-          "mfaSecrets",
-          targetUserId,
-          {
-            resetAt: nowIso,
-            resetBy: admin.verifiedUser.email || "admin",
-            resetByUid: admin.verifiedUser.uid,
-            updatedAt: nowIso,
-          },
-          { deleteFields: ["secret", "pendingSecret", "pendingCreatedAt", "enrolledAt"] }
-        ),
-        ...targetPasskeys.map(({ id }) => adminDeleteDocument("passkeyCredentials", id)),
-        ...[...uidCandidates].map((uid) => adminDeleteDocument("passkeyChallenges", uid)),
-      ]);
-      await writeAuditLog(
-        admin.idToken,
-        auditPayload({
-          action: "Reset user account security",
-          actor: admin.verifiedUser,
-          targetUserId,
-          before: targetBefore,
-          after: {
-            ...(targetBefore || {}),
-            mfaEnabled: false,
-            mfaMethod: "",
-            mfaResetRequired: true,
-            passkeyEnabled: false,
-            accountResetRequired: true,
-            accountResetAt: nowIso,
-          },
-          req,
-          details: { deletedPasskeys: targetPasskeys.length },
-        })
-      );
-      return Response.json({ ok: true, deletedPasskeys: targetPasskeys.length });
-    }
-
     return jsonError("Unknown admin action.", 400);
   } catch (error) {
     console.error("Admin user action failed:", error);
@@ -501,23 +276,10 @@ export async function DELETE(req, context) {
       return jsonError("Admin gate accounts cannot be deleted.", 400);
     }
 
-    const uidCandidates = [
-      ...new Set([targetUserId, targetUser.uid].map(cleanUserId).filter(Boolean)),
-    ];
-    const passkeys = await adminListDocuments("passkeyCredentials");
-    const targetPasskeys = passkeys.filter(({ data }) =>
-      uidCandidates.includes(cleanUserId(data?.uid))
-    );
     const userDocIds = [targetUserId];
-    const mfaSecretIds = [
-      ...new Set(uidCandidates),
-    ];
 
     await Promise.all([
       ...userDocIds.map((id) => adminDeleteDocument("users", id)),
-      ...mfaSecretIds.map((id) => adminDeleteDocument("mfaSecrets", id)),
-      ...targetPasskeys.map(({ id }) => adminDeleteDocument("passkeyCredentials", id)),
-      ...uidCandidates.map((uid) => adminDeleteDocument("passkeyChallenges", uid)),
     ]);
 
     await writeAuditLog(
@@ -532,8 +294,6 @@ export async function DELETE(req, context) {
         details: {
           email: targetEmail,
           deletedUserDocIds: userDocIds,
-          deletedMfaSecretIds: mfaSecretIds,
-          deletedPasskeys: targetPasskeys.length,
         },
       })
     );
@@ -541,8 +301,6 @@ export async function DELETE(req, context) {
     return Response.json({
       ok: true,
       deletedUserDocs: userDocIds.length,
-      deletedMfaSecrets: mfaSecretIds.length,
-      deletedPasskeys: targetPasskeys.length,
     });
   } catch (error) {
     console.error("Admin access delete failed:", error);

@@ -16,7 +16,6 @@ import {
   normalizePlatformRole,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
-import { hasAuthenticatorMfa, isPhoneVerified } from "@/app/utils/authSecurity";
 import {
   clearPagePermissionDenied,
   PAGE_PERMISSION_CLEAR_EVENT,
@@ -458,21 +457,16 @@ export default function HeaderSidebarLayout({
   }, [hrNotif]);
 
   const accountSetup = useMemo(() => {
-    const emailReady = user?.emailVerified === true;
-    const phoneReady = isPhoneVerified(userDoc || {});
-    const mfaReady = hasAuthenticatorMfa(userDoc || {});
-    const complete = emailReady && phoneReady && mfaReady;
+    const complete = Boolean(accessReady && userDoc?.uid && isEnabled !== false);
 
     return {
       complete,
-      label: complete ? "Verified" : "Setup incomplete",
+      label: complete ? "Authorised" : "Checking access",
       detail: complete
-        ? "Email, phone, and authenticator are active"
-        : [emailReady ? null : "Email", phoneReady ? null : "Phone", mfaReady ? null : "Authenticator"]
-            .filter(Boolean)
-            .join(" / "),
+        ? "Clerk identity and application access are verified"
+        : "Canonical application access",
     };
-  }, [user?.emailVerified, userDoc]);
+  }, [accessReady, isEnabled, userDoc?.uid]);
 
   const accountBadge = useMemo(() => {
     return {

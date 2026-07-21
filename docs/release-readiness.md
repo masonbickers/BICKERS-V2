@@ -37,8 +37,8 @@ npm.cmd run build
 - Known issues are recorded in `docs/known-issues.md`.
 - Firestore rules and Storage rules are reviewed.
 - Firebase data backup/export is available.
-- Environment variables are confirmed for Firebase, DVLA, OpenAI, MFA/passkeys, and cron/API secrets.
-- Admin, platform admin, user-only, service-only, hybrid, disabled, and MFA flows have been tested.
+- Environment variables are confirmed for Clerk, Firebase, DVLA, OpenAI, and cron/API secrets.
+- Admin, platform admin, user-only, service-only, hybrid, disabled, verified-email, missing-link, and canonical-account-conflict flows have been tested.
 
 ## Support During Pilot
 

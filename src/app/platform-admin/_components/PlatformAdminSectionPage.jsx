@@ -23,7 +23,6 @@ import {
   Pill,
   statusTone,
   ui,
-  userMfaReady,
 } from "./platformAdminData";
 import { auth } from "../../../../firebaseConfig";
 
@@ -31,13 +30,12 @@ const sectionCopy = {
   dashboard: ["Platform Dashboard", "Companies, users, security warnings and recent events."],
   companies: ["Companies", "Create, review and control tenant settings."],
   branding: ["Branding Settings", "Global and company-specific BAS Software branding."],
-  users: ["All Users", "Manage user access, workspace permissions and MFA readiness."],
+  users: ["All Users", "Manage canonical user access and workspace permissions."],
   employeeLinking: ["Employee Linking", "Repair links between Firebase users and employee records."],
   security: ["Security Centre", "Users and companies that need security attention."],
-  mfa: ["MFA Management", "Authenticator readiness and legacy MFA cleanup."],
   roles: ["Roles & Permissions", "Current role model and module permission matrix."],
   auditLogs: ["Audit Logs", "Admin/security changes written to adminAuditLogs."],
-  loginSecurity: ["Login Security", "Login, setup-code and lockout activity."],
+  loginSecurity: ["Login Security", "Application login and blocked-access activity."],
   cleanup: ["System Cleanup", "Safe cleanup tasks with preview-first behaviour."],
   featureFlags: ["Feature Flags", "Global and company module/security switches."],
   settings: ["Global Settings", "Current operating model and hardening checklist."],
@@ -88,7 +86,7 @@ function usePlatformData({ includeAudit = false } = {}) {
 }
 
 export default function PlatformAdminSectionPage({ section }) {
-  const needsAudit = ["security", "mfa", "cleanup", "dashboard"].includes(section);
+  const needsAudit = ["security", "cleanup", "dashboard"].includes(section);
   const { data, audit, loading, notice, load } = usePlatformData({ includeAudit: needsAudit });
   const [query, setQuery] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
@@ -147,7 +145,6 @@ function renderSection(section, ctx) {
   if (section === "users") return <UsersView {...ctx} />;
   if (section === "employeeLinking") return <EmployeeLinkingView {...ctx} />;
   if (section === "security") return <SecurityView {...ctx} />;
-  if (section === "mfa") return <MfaView {...ctx} />;
   if (section === "roles") return <RolesView {...ctx} />;
   if (section === "auditLogs") return <AuditLogsView {...ctx} />;
   if (section === "loginSecurity") return <LoginLogsView {...ctx} />;
@@ -162,8 +159,6 @@ function DashboardView({ data, audit }) {
   const disabledCompanies = data.companies.filter((c) => ["suspended", "archived", "locked"].includes(c.status)).length;
   const activeUsers = data.users.filter((u) => u.isEnabled).length;
   const disabledUsers = data.users.filter((u) => !u.isEnabled).length;
-  const setupCodeCompanies = data.companies.filter((c) => c.security?.userCodeLogin === true).length;
-  const mfaMissing = data.users.filter((u) => !userMfaReady(u)).length;
   return (
     <div className={layoutStyles.extracted2}>
       <div style={ui.grid}>
@@ -173,11 +168,9 @@ function DashboardView({ data, audit }) {
         <Metric label="Total Users" value={data.users.length} />
         <Metric label="Active Users" value={activeUsers} tone="green" />
         <Metric label="Blocked/Disabled Users" value={disabledUsers} tone={disabledUsers ? "red" : "blue"} />
-        <Metric label="MFA Missing Users" value={mfaMissing} tone={mfaMissing ? "amber" : "blue"} />
-        <Metric label="Setup-code Login Enabled Companies" value={setupCodeCompanies} tone={setupCodeCompanies ? "amber" : "blue"} />
       </div>
       <QuickActions />
-      <Warnings rows={audit.rows} users={data.users} companies={data.companies} />
+      <Warnings rows={audit.rows} users={data.users} />
       <div className={layoutStyles.extracted3}>
         <Recent title="Recent Security Events" rows={data.loginLogs} />
         <Recent title="Recent Admin Audit Logs" rows={data.audits} />
@@ -232,28 +225,18 @@ const blankCompanyDraft = {
     assistant: true,
     mobileApp: true,
     pushNotifications: true,
-    passkeys: true,
-    mfa: true,
-    userCodeLogin: false,
     settings: true,
   },
   security: {
-    mfaRequired: true,
-    passkeysAllowed: true,
     loginAlerts: true,
     locationAlerts: true,
-    userCodeLogin: false,
-    rememberMfaDays: 30,
     selfSignup: false,
   },
 };
 
 const companySecurityLabels = [
-  ["mfaRequired", "MFA required"],
-  ["passkeysAllowed", "Passkeys"],
   ["loginAlerts", "Login emails"],
   ["locationAlerts", "Location checks"],
-  ["userCodeLogin", "Setup-code login"],
   ["selfSignup", "Self signup"],
 ];
 
@@ -277,13 +260,10 @@ const featureFlagLabels = [
   ["invoices", "Invoice pages"],
   ["mobileApp", "Mobile app"],
   ["pushNotifications", "Push notifications"],
-  ["passkeys", "Passkeys"],
-  ["mfa", "MFA"],
-  ["userCodeLogin", "Setup-code login"],
 ];
 
 const defaultFeatureFlags = featureFlagLabels.reduce((acc, [key]) => {
-  acc[key] = key !== "userCodeLogin";
+  acc[key] = true;
   return acc;
 }, {});
 
@@ -486,10 +466,9 @@ function CompaniesView({ data, load }) {
                 <Td>{userCount} / {company.maxUsers || "-"}<Small>{employeeCount} employees</Small></Td>
                 <Td>{enabledModules.join(", ") || "-"}</Td>
                 <Td>
-                  <Pill tone={company.security?.userCodeLogin === false ? "green" : "amber"}>
-                    {company.security?.userCodeLogin === false ? "setup-code off" : "setup-code on"}
+                  <Pill tone={company.security?.loginAlerts === false ? "amber" : "green"}>
+                    {company.security?.loginAlerts === false ? "login alerts off" : "login alerts on"}
                   </Pill>
-                  <Small>MFA {company.security?.mfaRequired === false ? "optional" : "required"}</Small>
                 </Td>
                 <Td><Small>Created: {formatDate(company.createdAt)}</Small><Small>Updated: {formatDate(company.updatedAt)}</Small></Td>
                 <Td>
@@ -598,9 +577,6 @@ function CompanyDrawer({ mode, draft, busy, onClose, onSave, onPatch }) {
             <ToggleRow key={key} label={label} checked={draft.security?.[key] === true} onChange={(checked) => onPatch(["security", key], checked)} />
           ))}
         </div>
-        <Field label="Remember MFA days">
-          <input type="number" min="0" max="90" value={draft.security?.rememberMfaDays ?? 30} onChange={(event) => onPatch(["security", "rememberMfaDays"], event.target.value)} style={ui.input} />
-        </Field>
       </div>
 
       <div className={layoutStyles.extracted21}>
@@ -642,7 +618,6 @@ function UsersView({ data, load }) {
   const [companyFilter, setCompanyFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [enabledFilter, setEnabledFilter] = useState("all");
-  const [mfaFilter, setMfaFilter] = useState("all");
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [notice, setNotice] = useState("");
@@ -655,13 +630,11 @@ function UsersView({ data, load }) {
       if (roleFilter !== "all" && user.role !== roleFilter) return false;
       if (enabledFilter === "enabled" && !user.isEnabled) return false;
       if (enabledFilter === "disabled" && user.isEnabled) return false;
-      if (mfaFilter === "ready" && !userMfaReady(user)) return false;
-      if (mfaFilter === "missing" && userMfaReady(user)) return false;
       if (workspaceFilter !== "all" && user.appAccess?.[workspaceFilter] !== true) return false;
       if (!q) return true;
       return [user.name, user.email, user.uid, user.id].join(" ").toLowerCase().includes(q);
     });
-  }, [companyFilter, data.users, enabledFilter, mfaFilter, query, roleFilter, workspaceFilter]);
+  }, [companyFilter, data.users, enabledFilter, query, roleFilter, workspaceFilter]);
 
   const selectedUser = useMemo(
     () => data.users.find((user) => user.id === selectedUserId) || filteredRows[0] || null,
@@ -688,12 +661,8 @@ function UsersView({ data, load }) {
               ? { uid: user.id, action: "Moved user between companies", patch: { companyId: payload.companyId } }
               : payload.action === "setEnabled"
                 ? { uid: user.id, action: payload.isEnabled ? "Re-enabled user" : "Disabled user", patch: { isEnabled: payload.isEnabled } }
-                : payload.action === "forcePasswordReset"
-                  ? { uid: user.id, action: "Forced password reset", patch: { passwordResetRequired: true } }
-                  : payload.action === "revokeSessions"
-                    ? { uid: user.id, action: "Revoked user sessions", patch: { sessionsRevokedAt: new Date().toISOString() } }
-                    : { uid: user.id, action: payload.action || "Updated platform user", patch: payload };
-      await authedFetch(payload.action === "resetMfa" ? "/api/platform/users/force-mfa-reset" : "/api/platform/users/update", {
+                : { uid: user.id, action: payload.action || "Updated platform user", patch: payload };
+      await authedFetch("/api/platform/users/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(platformPayload),
@@ -738,11 +707,6 @@ function UsersView({ data, load }) {
             <option value="enabled">Enabled</option>
             <option value="disabled">Disabled</option>
           </select>
-          <select value={mfaFilter} onChange={(event) => setMfaFilter(event.target.value)} style={ui.input}>
-            <option value="all">Any MFA</option>
-            <option value="ready">MFA ready</option>
-            <option value="missing">MFA missing/reset</option>
-          </select>
           <select value={workspaceFilter} onChange={(event) => setWorkspaceFilter(event.target.value)} style={ui.input}>
             <option value="all">Any workspace</option>
             <option value="user">User workspace</option>
@@ -750,7 +714,7 @@ function UsersView({ data, load }) {
           </select>
         </div>
         {notice ? <div style={userNotice}>{notice}</div> : null}
-        <Table headers={["User", "Company", "Role", "Access", "MFA", "Status", "Updated"]}>
+        <Table headers={["User", "Company", "Role", "Access", "Status", "Updated"]}>
           {filteredRows.map((user) => (
             <tr key={user.id} style={selectedUser?.id === user.id ? selectedRowStyle : null}>
               <Td>
@@ -762,12 +726,11 @@ function UsersView({ data, load }) {
               <Td>{companyName(data.companies, user.companyId)}<Small>{user.companyId}</Small></Td>
               <Td><Pill tone={["admin", "platformAdmin"].includes(user.role) ? "amber" : "blue"}>{user.role}</Pill></Td>
               <Td><Pill tone={user.appAccess?.user ? "green" : "gray"}>User</Pill> <Pill tone={user.appAccess?.service ? "green" : "gray"}>Service</Pill><Small>Default: {user.defaultWorkspace}</Small></Td>
-              <Td><Pill tone={userMfaReady(user) ? "green" : "red"}>{userMfaReady(user) ? "Ready" : "Needs MFA"}</Pill><Small>{user.mfaMethod || "no method"}</Small></Td>
               <Td><Pill tone={user.isEnabled ? "green" : "red"}>{user.isEnabled ? "Enabled" : "Disabled"}</Pill></Td>
               <Td>{formatDate(user.updatedAt)}</Td>
             </tr>
           ))}
-          {!filteredRows.length ? <tr><Td colSpan={7}>No users match the current filters.</Td></tr> : null}
+          {!filteredRows.length ? <tr><Td colSpan={6}>No users match the current filters.</Td></tr> : null}
         </Table>
       </div>
       <UserDetailPanel
@@ -796,9 +759,6 @@ function UserDetailPanel({ user, companies, busy, onAction, onAccess }) {
         <Detail label="Employee ID" value={user.employeeId || "-"} />
         <Detail label="Created" value={formatDate(user.createdAt)} />
         <Detail label="Updated" value={formatDate(user.updatedAt)} />
-        <Detail label="Phone verified" value={user.phoneVerified ? "Yes" : "No"} />
-        <Detail label="MFA method" value={user.mfaMethod || "-"} />
-        <Detail label="MFA reset required" value={user.mfaResetRequired ? "Yes" : "No"} />
       </div>
       <Field label="Company">
         <select value={user.companyId || DEFAULT_COMPANY_ID} disabled={busy} onChange={(event) => onAction(user, { action: "setCompany", companyId: event.target.value })} style={ui.input}>
@@ -824,9 +784,6 @@ function UserDetailPanel({ user, companies, busy, onAction, onAccess }) {
         <button type="button" disabled={busy} onClick={() => onAction(user, { action: "setEnabled", isEnabled: !user.isEnabled })} style={user.isEnabled ? ui.dangerButton : primaryActionButton}>
           {user.isEnabled ? "Disable user" : "Enable user"}
         </button>
-        <button type="button" disabled={busy} onClick={() => onAction(user, { action: "forcePasswordReset" })} style={ui.button}>Force password reset</button>
-        <button type="button" disabled={busy} onClick={() => onAction(user, { action: "resetMfa" })} style={ui.button}>Force MFA reset</button>
-        <button type="button" disabled={busy} onClick={() => onAction(user, { action: "revokeSessions" })} style={ui.button}>Revoke sessions</button>
       </div>
     </aside>
   );
@@ -1046,17 +1003,10 @@ function Panel({ title, children }) {
 function SecurityView({ data, audit, load }) {
   const [notice, setNotice] = useState("");
   const [busyKey, setBusyKey] = useState("");
-  const weakCompanies = data.companies.filter((c) => c.security?.mfaRequired === false || c.security?.userCodeLogin !== false || c.security?.loginAlerts === false);
+  const weakCompanies = data.companies.filter((c) => c.security?.loginAlerts === false);
   const riskyRows = audit.rows.filter((row) => ["fail", "warn"].includes(row.status));
-  const usersMissingMfa = data.users.filter((user) => !userMfaReady(user));
-  const usersMissingPhone = data.users.filter((user) => !user.phoneVerified);
-  const mfaResetUsers = data.users.filter((user) => user.mfaResetRequired);
   const disabledUsers = data.users.filter((user) => !user.isEnabled);
   const failedLogins = data.loginLogs.filter((row) => ["failed", "fail", "error", "denied", "blocked"].includes(String(row.status || "").toLowerCase()));
-  const setupCodeLogs = data.loginLogs.filter((row) => {
-    const method = String(row.loginMethod || "").toLowerCase();
-    return method.includes("user-code") || method.includes("usercode") || method.includes("setup");
-  });
   const suspiciousRows = [
     ...failedLogins.slice(0, 30),
     ...riskyRows.slice(0, 30).map((row) => ({ ...row, loginMethod: row.source || "audit", email: row.email || row.name || row.uid, employeeId: row.id })),
@@ -1080,65 +1030,15 @@ function SecurityView({ data, audit, load }) {
     }
   };
 
-  const disableSetupCode = async (company) => {
-    setBusyKey(`company:${company.id}`);
-    setNotice("");
-    try {
-      await authedFetch("/api/platform-admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "saveCompany",
-          companyId: company.id,
-          company: {
-            ...company,
-            security: { ...(company.security || {}), userCodeLogin: false },
-          },
-        }),
-      });
-      await load();
-      setNotice("Setup-code login disabled.");
-    } catch (error) {
-      setNotice(error?.message || "Could not disable setup-code login.");
-    } finally {
-      setBusyKey("");
-    }
-  };
-
   return (
     <div className={layoutStyles.extracted48}>
       {notice ? <div style={userNotice}>{notice}</div> : null}
       <div style={ui.grid}>
-        <Metric label="Users Missing MFA" value={usersMissingMfa.length} tone={usersMissingMfa.length ? "amber" : "blue"} />
-        <Metric label="Phone Not Verified" value={usersMissingPhone.length} tone={usersMissingPhone.length ? "amber" : "blue"} />
-        <Metric label="MFA Reset Required" value={mfaResetUsers.length} tone={mfaResetUsers.length ? "red" : "blue"} />
         <Metric label="Disabled Users" value={disabledUsers.length} tone={disabledUsers.length ? "red" : "blue"} />
         <Metric label="Failed Logins" value={failedLogins.length} tone={failedLogins.length ? "red" : "blue"} />
-        <Metric label="Setup-code Activity" value={setupCodeLogs.length} tone={setupCodeLogs.length ? "amber" : "blue"} />
         <Metric label="Weak Company Settings" value={weakCompanies.length} tone={weakCompanies.length ? "amber" : "blue"} />
       </div>
 
-      <SecurityUserTable
-        title="Users missing MFA"
-        rows={usersMissingMfa}
-        companies={data.companies}
-        busyKey={busyKey}
-        onUserAction={callUserSecurityAction}
-      />
-      <SecurityUserTable
-        title="Users missing phone verification"
-        rows={usersMissingPhone}
-        companies={data.companies}
-        busyKey={busyKey}
-        onUserAction={callUserSecurityAction}
-      />
-      <SecurityUserTable
-        title="Users with mfaResetRequired"
-        rows={mfaResetUsers}
-        companies={data.companies}
-        busyKey={busyKey}
-        onUserAction={callUserSecurityAction}
-      />
       <SecurityUserTable
         title="Disabled users"
         rows={disabledUsers}
@@ -1148,31 +1048,23 @@ function SecurityView({ data, audit, load }) {
       />
 
       <Panel title="Companies with weak security settings">
-        <Table headers={["Company", "Issues", "Action"]}>
+        <Table headers={["Company", "Issues"]}>
           {weakCompanies.map((company) => {
             const issues = [
-              company.security?.mfaRequired === false ? "MFA not required" : "",
-              company.security?.userCodeLogin !== false ? "Setup-code login enabled" : "",
               company.security?.loginAlerts === false ? "Login emails disabled" : "",
             ].filter(Boolean);
             return (
               <tr key={company.id}>
                 <Td><strong>{company.name}</strong><Small>{company.id}</Small></Td>
                 <Td>{issues.join(", ")}</Td>
-                <Td>
-                  <button type="button" disabled={busyKey === `company:${company.id}` || company.security?.userCodeLogin === false} onClick={() => disableSetupCode(company)} style={ui.button}>
-                    Disable setup-code login
-                  </button>
-                </Td>
               </tr>
             );
           })}
-          {!weakCompanies.length ? <tr><Td colSpan={3}>No weak company security settings found.</Td></tr> : null}
+          {!weakCompanies.length ? <tr><Td colSpan={2}>No weak company security settings found.</Td></tr> : null}
         </Table>
       </Panel>
 
       <SecurityLogs title="Failed login attempts" rows={failedLogins} />
-      <SecurityLogs title="Setup-code login activity" rows={setupCodeLogs} />
       <SecurityLogs title="Suspicious access" rows={suspiciousRows} />
       <Panel title="Security audit warnings">
         <Table headers={["Account", "Status", "Issues"]}>
@@ -1193,27 +1085,20 @@ function SecurityView({ data, audit, load }) {
 function SecurityUserTable({ title, rows, companies, busyKey, onUserAction }) {
   return (
     <Panel title={title}>
-      <Table headers={["User", "Company", "Security", "Status", "Actions"]}>
+      <Table headers={["User", "Company", "Status", "Actions"]}>
         {rows.slice(0, 80).map((user) => (
           <tr key={`${title}-${user.id}`}>
             <Td><strong>{user.email}</strong><Small>{user.name || user.uid}</Small></Td>
             <Td>{companyName(companies, user.companyId)}<Small>{user.companyId}</Small></Td>
-            <Td>
-              <Pill tone={userMfaReady(user) ? "green" : "red"}>{userMfaReady(user) ? "MFA ready" : "MFA needed"}</Pill>{" "}
-              <Pill tone={user.phoneVerified ? "green" : "amber"}>{user.phoneVerified ? "Phone verified" : "Phone missing"}</Pill>
-              <Small>{user.mfaResetRequired ? "MFA reset required" : user.mfaMethod || "No MFA method"}</Small>
-            </Td>
             <Td><Pill tone={user.isEnabled ? "green" : "red"}>{user.isEnabled ? "Enabled" : "Disabled"}</Pill></Td>
             <Td>
               <div className={layoutStyles.extracted49}>
-                <button type="button" disabled={!!busyKey} onClick={() => onUserAction(user, { action: "forceMfaSetup" }, "setup")} style={ui.button}>Force MFA setup</button>
-                <button type="button" disabled={!!busyKey} onClick={() => onUserAction(user, { action: "resetMfa" }, "reset")} style={ui.button}>Force MFA reset</button>
                 <button type="button" disabled={!!busyKey || !user.isEnabled} onClick={() => onUserAction(user, { action: "setEnabled", isEnabled: false }, "disable")} style={ui.dangerButton}>Disable user</button>
               </div>
             </Td>
           </tr>
         ))}
-        {!rows.length ? <tr><Td colSpan={5}>No users in this security category.</Td></tr> : null}
+        {!rows.length ? <tr><Td colSpan={4}>No users in this security category.</Td></tr> : null}
       </Table>
     </Panel>
   );
@@ -1234,79 +1119,6 @@ function SecurityLogs({ title, rows }) {
         {!rows.length ? <tr><Td colSpan={4}>No records found.</Td></tr> : null}
       </Table>
     </Panel>
-  );
-}
-
-function MfaView({ data, audit, load }) {
-  const [notice, setNotice] = useState("");
-  const [busyUserId, setBusyUserId] = useState("");
-  const rows = audit.rows.filter((row) => row.source === "users");
-  const missingMfa = rows.filter((row) => !row.mfaEnabled);
-  const legacyRows = rows.filter((row) => row.legacyMfaSecretPresent);
-  const resetRows = rows.filter((row) => row.mfaResetRequired);
-  const privateMissing = rows.filter((row) => !row.privateMfaSecretPresent);
-
-  const callMfaAction = async (row, action) => {
-    setBusyUserId(row.id);
-    setNotice("");
-    try {
-      await authedFetch(`/api/admin/users/${encodeURIComponent(row.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      await load();
-      setNotice("MFA action completed.");
-    } catch (error) {
-      setNotice(error?.message || "MFA action failed.");
-    } finally {
-      setBusyUserId("");
-    }
-  };
-
-  return (
-    <div className={layoutStyles.extracted50}>
-      {notice ? <div style={userNotice}>{notice}</div> : null}
-      <div style={ui.grid}>
-        <Metric label="MFA Accounts" value={rows.length} />
-        <Metric label="Missing MFA" value={missingMfa.length} tone={missingMfa.length ? "red" : "blue"} />
-        <Metric label="MFA Reset Required" value={resetRows.length} tone={resetRows.length ? "amber" : "blue"} />
-        <Metric label="Private Secret Missing" value={privateMissing.length} tone={privateMissing.length ? "red" : "blue"} />
-        <Metric label="Legacy users.mfaSecret" value={legacyRows.length} tone={legacyRows.length ? "amber" : "blue"} />
-      </div>
-
-      <Panel title="MFA status table">
-        <Table headers={["User", "Phone", "MFA", "Private Store", "Legacy Secret", "Issues", "Actions"]}>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <Td><strong>{row.email}</strong><Small>{row.uid}</Small><Small>{row.id}</Small></Td>
-              <Td>{row.phone || row.mfaPhoneNumber || "-"}</Td>
-              <Td>
-                <Pill tone={row.mfaEnabled ? "green" : "red"}>{row.mfaEnabled ? "Enabled" : "Missing"}</Pill>
-                <Small>{row.mfaResetRequired ? "Reset required" : row.mfaMethod || "No method"}</Small>
-              </Td>
-              <Td><Pill tone={row.privateMfaSecretPresent ? "green" : "red"}>{row.privateMfaSecretPresent ? "mfaSecrets/{uid}" : "Missing"}</Pill></Td>
-              <Td><Pill tone={row.legacyMfaSecretPresent ? "amber" : "green"}>{row.legacyMfaSecretPresent ? "Legacy found" : "Clean"}</Pill></Td>
-              <Td>{(row.issues || []).join(", ") || "-"}</Td>
-              <Td>
-                <div className={layoutStyles.extracted51}>
-                  <button type="button" disabled={busyUserId === row.id} onClick={() => callMfaAction(row, "resetMfa")} style={ui.button}>
-                    Force reset
-                  </button>
-                  <button type="button" disabled={busyUserId === row.id} onClick={() => callMfaAction(row, "forceMfaSetup")} style={ui.button}>
-                    Mark reset required
-                  </button>
-                  <button type="button" disabled={busyUserId === row.id || !row.legacyMfaSecretPresent} onClick={() => callMfaAction(row, "clearLegacyMfaSecret")} style={row.legacyMfaSecretPresent ? ui.dangerButton : ui.button}>
-                    Clear legacy secret
-                  </button>
-                </div>
-              </Td>
-            </tr>
-          ))}
-          {!rows.length ? <tr><Td colSpan={7}>No MFA audit rows found.</Td></tr> : null}
-        </Table>
-      </Panel>
-    </div>
   );
 }
 
@@ -1501,9 +1313,6 @@ function LoginLogsView({ data }) {
   const rows = data.loginLogs || [];
   const successful = rows.filter(isSuccessfulLoginLog);
   const failed = rows.filter(isFailedLoginLog);
-  const mfaRows = rows.filter(isMfaLoginLog);
-  const mfaFailures = mfaRows.filter(isFailedLoginLog);
-  const setupCodeRows = rows.filter(isSetupCodeLoginLog);
   const lockedRows = rows.filter(isLockedLoginLog);
 
   return (
@@ -1511,8 +1320,6 @@ function LoginLogsView({ data }) {
       <div style={ui.grid}>
         <Metric label="Successful Logins" value={successful.length} tone="green" />
         <Metric label="Failed Logins" value={failed.length} tone={failed.length ? "red" : "blue"} />
-        <Metric label="MFA Failures" value={mfaFailures.length} tone={mfaFailures.length ? "red" : "blue"} />
-        <Metric label="Setup-code Attempts" value={setupCodeRows.length} tone={setupCodeRows.length ? "amber" : "blue"} />
         <Metric label="Locked/Rate-limited" value={lockedRows.length} tone={lockedRows.length ? "red" : "blue"} />
         <Metric label="Device Info Rows" value={rows.filter((row) => row.userAgent || row.device).length} />
         <Metric label="Location Rows" value={rows.filter((row) => row.location || row.ip).length} />
@@ -1971,16 +1778,15 @@ function SettingsView() {
     "Global features are stored in settings/platformFeatures.",
     "Company branding is stored in platformCompanies/{companyId}.branding.",
     "Company feature/module flags are stored in platformCompanies/{companyId}.modules.",
-    "MFA secrets stay server-only in mfaSecrets/{uid} and are never rendered in the UI.",
+    "Clerk is the sole application sign-in provider; Firebase tokens are issued only after canonical identity checks.",
     "Business data repair actions are preview-first and avoid destructive deletes unless explicitly confirmed.",
   ];
   return <div style={ui.card}>{items.map((item) => <p key={item} className={layoutStyles.extracted101}>{item}</p>)}</div>;
 }
 
-function Warnings({ rows, users, companies }) {
+function Warnings({ rows, users }) {
   const warnings = [
     ...rows.filter((row) => ["fail", "warn"].includes(row.status)).slice(0, 5).map((row) => `${row.email || row.name || row.uid}: ${(row.issues || []).join(", ")}`),
-    ...companies.filter((company) => company.security?.userCodeLogin !== false).slice(0, 3).map((company) => `${company.name}: setup-code login still enabled`),
     ...users.filter((user) => !user.companyId).slice(0, 3).map((user) => `${user.email}: missing companyId`),
   ];
   return (
@@ -2048,8 +1854,6 @@ function isSecurityAuditRow(row = {}) {
   ].join(" ").toLowerCase();
   return [
     "security",
-    "mfa",
-    "passkey",
     "password",
     "session",
     "login",
@@ -2074,14 +1878,6 @@ function isFailedLoginLog(row = {}) {
   return text.includes("fail") || text.includes("invalid") || text.includes("disabled");
 }
 
-function isMfaLoginLog(row = {}) {
-  return loginLogText(row).includes("mfa");
-}
-
-function isSetupCodeLoginLog(row = {}) {
-  return loginLogText(row).includes("user-code") || loginLogText(row).includes("setup-code");
-}
-
 function isLockedLoginLog(row = {}) {
   const text = loginLogText(row);
   return text.includes("rate-limited") || text.includes("locked") || text.includes("too many") || text.includes("blocked");
@@ -2091,8 +1887,6 @@ function loginLogCategories(row = {}) {
   const categories = [];
   if (isSuccessfulLoginLog(row)) categories.push("Success");
   if (isFailedLoginLog(row)) categories.push("Failed");
-  if (isMfaLoginLog(row)) categories.push("MFA");
-  if (isSetupCodeLoginLog(row)) categories.push("Setup-code");
   if (isLockedLoginLog(row)) categories.push("Locked");
   if (row.userAgent || row.device) categories.push("Device");
   if (row.location || row.ip) categories.push("Location");
@@ -2102,7 +1896,6 @@ function loginLogCategories(row = {}) {
 function loginCategoryTone(category) {
   if (category === "Success") return "green";
   if (category === "Failed" || category === "Locked") return "red";
-  if (category === "MFA" || category === "Setup-code") return "amber";
   return "blue";
 }
 
@@ -2127,9 +1920,6 @@ function companyFeatureFlags(company = {}) {
     assistant: company.modules?.assistant === true,
     mobileApp: company.modules?.mobileApp ?? (company.featureFlags?.mobileApp !== false),
     pushNotifications: company.modules?.pushNotifications ?? (company.featureFlags?.pushNotifications !== false),
-    mfa: company.modules?.mfa ?? (company.security?.mfaRequired !== false),
-    passkeys: company.security?.passkeysAllowed === true,
-    userCodeLogin: company.security?.userCodeLogin === true,
     settings: company.modules?.settings !== false,
   };
 }
