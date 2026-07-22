@@ -75,7 +75,9 @@ async function getAccessToken() {
 // GET /api/dvla/mot-history?vrm=AB12CDE
 export async function GET(request) {
   try {
-    const access = await requireActiveUserFromRequest(request);
+    const access = await requireActiveUserFromRequest(request, {
+      workspaces: ["user", "service"],
+    });
     if (access.error) return access.error;
     const { searchParams } = new URL(request.url);
     const vrm = cleanRegistration(searchParams.get("vrm"));

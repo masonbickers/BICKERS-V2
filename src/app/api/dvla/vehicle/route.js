@@ -10,7 +10,9 @@ const DVLA_VES_URL =
 // GET /api/dvla/vehicle?vrm=AB12CDE
 export async function GET(request) {
   try {
-    const access = await requireActiveUserFromRequest(request);
+    const access = await requireActiveUserFromRequest(request, {
+      workspaces: ["user", "service"],
+    });
     if (access.error) return access.error;
     if (!DVLA_API_KEY) {
       return Response.json(

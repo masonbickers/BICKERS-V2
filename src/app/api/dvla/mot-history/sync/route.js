@@ -224,14 +224,39 @@ function jsToFirestoreValue(value) {
   return { stringValue: String(value) };
 }
 
-async function listVehiclesWithUserToken(idToken) {
-  const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/vehicles?pageSize=1000`,
-    {
-      headers: { Authorization: `Bearer ${idToken}` },
-      cache: "no-store",
-    }
-  );
+async function listVehiclesWithUserToken(idToken, userData = {}) {
+  const isPlatformAdmin = userData?.role === "platformAdmin";
+  const companyId = String(userData?.companyId || "").trim();
+  if (!isPlatformAdmin && !companyId) {
+    throw new Error("Company access is not configured.");
+  }
+
+  const url = isPlatformAdmin
+    ? `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/vehicles?pageSize=1000`
+    : `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`;
+  const res = await fetch(url, {
+    method: isPlatformAdmin ? "GET" : "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      ...(isPlatformAdmin ? {} : { "Content-Type": "application/json" }),
+    },
+    body: isPlatformAdmin
+      ? undefined
+      : JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: "vehicles" }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "companyId" },
+                op: "EQUAL",
+                value: { stringValue: companyId },
+              },
+            },
+            limit: 1000,
+          },
+        }),
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -239,7 +264,10 @@ async function listVehiclesWithUserToken(idToken) {
   }
 
   const data = await res.json();
-  return (data.documents || []).map(firestoreDocToVehicle);
+  const documents = isPlatformAdmin
+    ? data.documents || []
+    : (Array.isArray(data) ? data : []).map((row) => row?.document).filter(Boolean);
+  return documents.map(firestoreDocToVehicle);
 }
 
 async function updateVehicleWithUserToken(vehicle, patch, idToken) {
@@ -421,10 +449,10 @@ async function runMotHistorySync() {
   return results;
 }
 
-async function runMotHistorySyncWithUserToken(idToken) {
+async function runMotHistorySyncWithUserToken(idToken, userData) {
   const startedAtMs = Date.now();
   const startedAt = new Date(startedAtMs).toISOString();
-  const vehicles = await listVehiclesWithUserToken(idToken);
+  const vehicles = await listVehiclesWithUserToken(idToken, userData);
   const token = await getAccessToken();
 
   const results = {
@@ -511,7 +539,7 @@ export async function POST(request) {
   const user = { ...access.verifiedUser, idToken: access.idToken };
 
   try {
-    const results = await runMotHistorySyncWithUserToken(user.idToken);
+    const results = await runMotHistorySyncWithUserToken(user.idToken, access.userData);
     await updateSyncMetadataWithUserToken(results, user, user.idToken);
     return Response.json({ ...results, triggeredBy: user.email }, { status: 200 });
   } catch (err) {

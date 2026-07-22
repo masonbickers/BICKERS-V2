@@ -1,5 +1,11 @@
 import { adminCreateDocument, adminReadDocument } from "../_firebaseAdminRest";
-import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
+import {
+  hasCanonicalAccessRecord,
+  hasCompanyAccess,
+  hasRequiredWorkspaceAccess,
+  isAccountDisabled,
+  isModuleEnabledForUser,
+} from "@/app/utils/accountAccess";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -252,9 +258,14 @@ export async function requireActiveUserFromRequest(req, options = {}) {
     return { error: jsonError("Company access is not configured.", 403) };
   }
   const moduleKey = String(options.module || "").trim();
-  if (moduleKey && userData?.featureFlags?.[moduleKey] === false) {
+  if (!isModuleEnabledForUser(userData, moduleKey)) {
     await writeBlockedAccessLog(req, verifiedUser, `${moduleKey} module disabled`);
     return { error: jsonError("Required module access is disabled.", 403) };
+  }
+  const workspaces = options.workspaces || options.workspace || [];
+  if (!hasRequiredWorkspaceAccess(userData, workspaces)) {
+    await writeBlockedAccessLog(req, verifiedUser, "Required workspace access missing");
+    return { error: jsonError("Required workspace access is disabled.", 403) };
   }
   return { idToken, verifiedUser, userData: { ...userData, role: normalizedRole } };
 }

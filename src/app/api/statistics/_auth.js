@@ -6,7 +6,10 @@ const enabled = (userData, key) => {
 };
 
 export async function requireStatisticsUser(req) {
-  const access = await requireActiveUserFromRequest(req, { module: "statistics" });
+  const access = await requireActiveUserFromRequest(req, {
+    module: "statistics",
+    workspaces: ["user"],
+  });
   if (access.error) return access;
   const { idToken, verifiedUser, userData } = access;
   if (!enabled(userData, "statistics")) {

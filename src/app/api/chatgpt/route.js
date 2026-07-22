@@ -232,7 +232,10 @@ export async function POST(req) {
       );
     }
 
-    const access = await requireActiveUserFromRequest(req, { module: "assistant" });
+    const access = await requireActiveUserFromRequest(req, {
+      module: "assistant",
+      workspaces: ["user"],
+    });
     if (access.error) return access.error;
 
     const { prompt, messages, clientContext } = await req.json();
