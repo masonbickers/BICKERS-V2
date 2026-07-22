@@ -1,8 +1,14 @@
 # Bickers Booking working-tree reconciliation
 
-Captured: 20 July 2026, Europe/London  
-Inspection scope: `/Users/masonbickers/Developer/Bickers-Booking1`  
+Captured: 20 July 2026, Europe/London
+Inspection scope: `/Users/masonbickers/Developer/Bickers-Booking1`
 Inspection rule: read-only until creation of this report; no existing repository file was modified, deleted, restored, renamed, staged, committed, merged, or reconciled.
+
+## PR #8 controlled revision — 22 July 2026
+
+Following remote review, PR #8 was narrowed to the safe API-access changes, their required caller adjustment, focused API-authorization tests, and reconciliation documentation. The tenant-isolation candidate is not shipping in this PR: Firestore rules, Storage rules, tenant query/write helpers, Storage-path helpers, rule-emulator tests and their package tooling are restored to `main` behavior.
+
+This preserves visibility of existing records without `companyId`, introduces no composite-index requirement, leaves legacy Storage paths and timesheet-message authorization unchanged, and makes no claim that tenant enforcement is ready for deployment. The deferred rollout requires its own production-data preparation and authorization review.
 
 ## Executive conclusion
 
@@ -368,21 +374,21 @@ The two unique appearance API conflict copies are not safe to remove until their
 
 Do not commit until conflict-copy and nested-repository decisions are complete. When approved, the intended work should be separated into reviewable groups:
 
-1. **Canonical Clerk/Firebase account linkage**  
+1. **Canonical Clerk/Firebase account linkage**
    `accountAccess.js`, `clerkFirebaseLink.js`, Firebase-token route, and `authBoundary.test.mjs`.
-2. **Application and server access boundary**  
+2. **Application and server access boundary**
    Admin auth library, bootstrap route, auth context, protected layout, access-control helper/test, middleware, and MFA routes.
-3. **Tenant-isolated Firestore and Storage**  
+3. **Tenant-isolated Firestore and Storage**
    Firestore/Storage helpers, rules, emulator tests, and only the required package tooling.
-4. **Protected assistant and DVLA endpoints**  
+4. **Protected assistant and DVLA endpoints**
    `_clerkAccess.js`, ChatGPT route, and the three DVLA routes.
-5. **Appearance draft and migration workflow**  
+5. **Appearance draft and migration workflow**
    Editor and the two API routes only after manually reconciling document-ID handling and eliminating the missing export.
-6. **Audit documentation**  
+6. **Audit documentation**
    Page audit tracker and this reconciliation report.
-7. **Repository hygiene**  
+7. **Repository hygiene**
    Line-ending policy and conflict-copy removal as a separate non-functional operation, never mixed with source changes.
-8. **Nested repository decision**  
+8. **Nested repository decision**
    Handle each `.codex-*` gitlink independently; do not mix it into any application commit.
 
 ## 15. Recommended safe order of operations
@@ -416,4 +422,3 @@ The seven manual-judgment entries are the four unique conflict copies and the th
 ### Recommended first reconciliation action
 
 After the user verifies the external snapshot, create an approved reconciliation branch and manually reconcile the two appearance API conflict pairs first. Preserve the canonical legacy-migration and publish-draft behavior while resolving the missing `appearanceDocumentId` strategy using the direct-ID logic found in the conflict copies. Do not remove any conflict copy until that merge has been reviewed.
-

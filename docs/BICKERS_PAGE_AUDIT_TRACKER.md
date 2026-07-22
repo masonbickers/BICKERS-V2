@@ -1,8 +1,14 @@
 # Bickers Booking Page and Workflow Audit Tracker
 
-Last inventory update: 20 July 2026  
-Inventory scope: the complete primary Next.js application under `src/app`, its shared route infrastructure, route handlers under `src/app/api`, the legacy `src/pages/_document.js`, and the Firebase/Firestore/Storage touchpoints reachable from those pages.  
+Last inventory update: 20 July 2026
+Inventory scope: the complete primary Next.js application under `src/app`, its shared route infrastructure, route handlers under `src/app/api`, the legacy `src/pages/_document.js`, and the Firebase/Firestore/Storage touchpoints reachable from those pages.
 Change policy: preserve the approved inventory and record each bounded audit below. The authentication/private-access boundary audit began on 20 July 2026; no later audit item has started.
+
+## PR #8 controlled revision — 22 July 2026
+
+PR #8 now retains only the reviewed protected-API changes, their required caller adjustment, focused API-authorization tests, and these reconciliation records. The proposed production tenant-isolation rollout has been deferred: this PR no longer changes `firestore.rules`, `storage.rules`, `firestoreAccess.js`, `storageAccess.js`, rules-emulator tests, or Firebase rules tooling.
+
+Current main-branch data visibility, Firestore rules, Storage rules, legacy Storage-path policy, and timesheet-message authorization therefore remain unchanged by this PR. Tenant enforcement requires a separately reviewed rollout after the recorded `companyId` backfill, writer migration, index definition, Storage migration, parent-tenant enforcement for timesheet messages, and production-compatible verification are complete. Historical sections below describe the assessed candidate and its evidence; they do not mean the deferred rule/helper files are included in the revised PR.
 
 ## How to use this tracker
 
@@ -128,9 +134,9 @@ Changes made:
 - Required verified Clerk email and an explicit canonical/employee Firebase UID link; removed employee-document-ID fallback.
 - Made canonical `users/{uid}` role/company the server authority; removed email-only admin escalation and added a shared active-user API guard.
 - Hardened bootstrap, MFA, DVLA/DVSA, manual MOT sync and Assistant API authorization.
-- Preserved explicit no-workspace access; added canonical/company validation and tenant query/write helpers.
-- Hardened Firestore and scoped Storage rules for active account, workspace and company checks; moved callers of `companyStoragePath` to `companies/{companyId}/...` automatically.
-- Added focused access, bridge/account, Firestore-rule and Storage-rule tests.
+- Preserved explicit no-workspace access in the retained API boundary and added focused API workspace/module checks.
+- Evaluated tenant query/write helpers and hardened Firestore/Storage rules, then deferred them from PR #8 because production data and Storage paths are not migration-ready.
+- Retained focused access, bridge/account and API-authorization tests; candidate-only Firestore/Storage rule tests and their tooling are not part of the revised PR.
 
 Tests completed:
 

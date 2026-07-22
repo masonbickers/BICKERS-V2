@@ -2,6 +2,12 @@
 
 Captured: 20 July 2026, Europe/London
 
+## PR #8 controlled revision — 22 July 2026
+
+The remote review of PR #8 blocked the proposed tenant-isolation rollout. The revised PR retains protected API access for ChatGPT, DVLA vehicle lookup, DVLA MOT history, manual MOT synchronization and Statistics, plus the required vehicle-page token caller and reconciliation documentation. API authorization now checks the intended workspace, honors both supported module-flag representations, and scopes company-admin MOT synchronization to the caller's company.
+
+The revised PR deliberately restores `firestore.rules`, `storage.rules`, `src/app/utils/firestoreAccess.js`, `src/app/utils/storageAccess.js`, `package.json`, and `package-lock.json` to the `main` versions and removes the candidate Firestore/Storage rule tests. No tenant-filter, composite-index, legacy Storage-path, or timesheet-message policy change is included. Those controls remain a separate rollout gated by data backfill, writer migration, index validation, Storage migration, parent-tenant enforcement and focused review.
+
 Assessment scope:
 
 - Canonical candidate: /Users/masonbickers/Developer/Bickers-Booking1
