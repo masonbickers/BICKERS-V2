@@ -18,11 +18,14 @@ export async function requireStatisticsUser(req) {
 
   const role = normalizeServerRole(userData.role);
   const management = role === "admin" || role === "platformAdmin";
+  const companyId =
+    String(userData.companyId || "").trim() ||
+    (role === "platformAdmin" ? "bickers-action" : "");
   return {
     idToken,
     verifiedUser,
     userData,
-    companyId: String(userData.companyId || "").trim(),
+    companyId,
     role,
     variant: management && enabled(userData, "finance") ? "management" : "booking",
     canManageRules: management,
