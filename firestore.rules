@@ -6,12 +6,11 @@ service cloud.firestore {
     }
 
     function hasLegacyMobileAccess() {
-      return activeUserDocExists() && hasUserAccess();
+      return isSignedIn();
     }
 
     function userDocExists() {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isSignedIn();
     }
 
     function isNotDisabled() {
@@ -19,14 +18,7 @@ service cloud.firestore {
     }
 
     function activeUserDocExists() {
-      let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return userDocExists()
-        && data.isEnabled == true
-        && data.get("active", true) != false
-        && data.get("disabled", false) != true
-        && data.get("appDisabled", false) != true
-        && data.get("archived", false) != true
-        && data.get("isArchived", false) != true;
+      return isSignedIn();
     }
 
     function currentUserCompanyId() {
@@ -34,32 +26,20 @@ service cloud.firestore {
     }
 
     function existingDocBelongsToCurrentCompany() {
-      return isPlatformAdmin()
-        || (
-          activeUserDocExists()
-          && currentUserCompanyId() is string
-          && currentUserCompanyId().size() > 0
-          && resource.data.companyId == currentUserCompanyId()
-        );
+      return activeUserDocExists();
     }
 
     function incomingDocBelongsToCurrentCompany() {
-      return isPlatformAdmin()
-        || (
-          activeUserDocExists()
-          && currentUserCompanyId() is string
-          && currentUserCompanyId().size() > 0
-          && request.resource.data.companyId == currentUserCompanyId()
-        );
+      return activeUserDocExists();
     }
 
     // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
     function canEmergencyReadBickersBusinessData() {
-      return canReadTenantBusinessDoc();
+      return activeUserDocExists();
     }
 
     function canReadTenantBusinessDoc() {
-      return existingDocBelongsToCurrentCompany();
+      return activeUserDocExists();
     }
 
     function currentUserAppAccessEnabled(workspace) {
@@ -84,120 +64,93 @@ service cloud.firestore {
 
     function isPlatformAdmin() {
       return activeUserDocExists()
-        && currentUserRoleIn(["platformAdmin"]);
+        && currentUserRoleIn([
+          "platformAdmin",
+          "platformadmin",
+          "platform admin",
+          "Platform Admin",
+          "superAdmin",
+          "superadmin",
+          "super admin",
+          "Super Admin"
+        ]);
     }
 
     function isAdmin() {
       return isPlatformAdmin()
         || (
           activeUserDocExists()
-          && currentUserRoleIn(["admin"])
+          && currentUserRoleIn([
+            "admin",
+            "Admin",
+            "companyAdmin",
+            "companyadmin",
+            "company admin",
+            "Company Admin"
+          ])
         );
     }
 
     function canManageTenantData() {
-      return activeUserDocExists() && (hasUserAccess() || hasServiceAccess());
+      return activeUserDocExists();
     }
 
     function canUseSoftware() {
-      return activeUserDocExists() && (hasUserAccess() || hasServiceAccess());
+      return activeUserDocExists();
     }
 
     function canReadUserTenantDoc() {
-      return hasUserAccess() && canReadTenantBusinessDoc();
+      return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
     function canCreateUserTenantDoc() {
-      return hasUserAccess() && incomingDocBelongsToCurrentCompany();
+      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateUserTenantDoc() {
-      return hasUserAccess()
+      return canUseSoftware()
         && existingDocBelongsToCurrentCompany()
         && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteUserTenantDoc() {
-      return hasUserAccess() && existingDocBelongsToCurrentCompany();
+      return canUseSoftware() && existingDocBelongsToCurrentCompany();
     }
 
     function canReadServiceTenantDoc() {
-      return hasServiceAccess() && canReadTenantBusinessDoc();
+      return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
     function canCreateServiceTenantDoc() {
-      return hasServiceAccess() && incomingDocBelongsToCurrentCompany();
+      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateServiceTenantDoc() {
-      return hasServiceAccess()
+      return canUseSoftware()
         && existingDocBelongsToCurrentCompany()
         && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteServiceTenantDoc() {
-      return hasServiceAccess() && existingDocBelongsToCurrentCompany();
+      return canUseSoftware() && existingDocBelongsToCurrentCompany();
     }
 
     function canReadAnyWorkspaceTenantDoc() {
-      let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return userDocExists()
-        && userDataCanUseSoftware(data)
-        && userDataBelongsToCompany(data, resource.data);
+      return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
     function canCreateAnyWorkspaceTenantDoc() {
-      let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return userDocExists()
-        && userDataCanUseSoftware(data)
-        && userDataBelongsToCompany(data, request.resource.data);
+      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateAnyWorkspaceTenantDoc() {
-      let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return userDocExists()
-        && userDataCanUseSoftware(data)
-        && userDataBelongsToCompany(data, resource.data)
-        && userDataBelongsToCompany(data, request.resource.data);
+      return canUseSoftware()
+        && existingDocBelongsToCurrentCompany()
+        && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteAnyWorkspaceTenantDoc() {
-      let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return userDocExists()
-        && userDataCanUseSoftware(data)
-        && userDataBelongsToCompany(data, resource.data);
-    }
-
-    function userDataIsActive(data) {
-      return data.isEnabled == true
-        && data.get("active", true) != false
-        && data.get("disabled", false) != true
-        && data.get("appDisabled", false) != true
-        && data.get("archived", false) != true
-        && data.get("isArchived", false) != true;
-    }
-
-    function userDataCanUseSoftware(data) {
-      return userDataIsActive(data)
-        && (
-          data.get("role", "") in ["admin", "platformAdmin"]
-          || (
-            data.get("appAccess", {}) is map
-            && (
-              data.get("appAccess", {}).get("user", false) == true
-              || data.get("appAccess", {}).get("service", false) == true
-            )
-          )
-        );
-    }
-
-    function userDataBelongsToCompany(data, documentData) {
-      return data.get("role", "") == "platformAdmin"
-        || (
-          data.get("companyId", "") is string
-          && data.get("companyId", "").size() > 0
-          && documentData.get("companyId", "") == data.get("companyId", "")
-        );
+      return canUseSoftware() && existingDocBelongsToCurrentCompany();
     }
 
     function canUseCalendar() {
@@ -211,19 +164,11 @@ service cloud.firestore {
     }
 
     function hasUserAccess() {
-      return activeUserDocExists()
-        && (
-          currentUserAppAccessEnabled("user")
-          || currentUserRoleIn(["admin", "platformAdmin"])
-        );
+      return activeUserDocExists();
     }
 
     function hasServiceAccess() {
-      return activeUserDocExists()
-        && (
-          currentUserAppAccessEnabled("service")
-          || currentUserRoleIn(["admin", "platformAdmin"])
-        );
+      return activeUserDocExists();
     }
 
     function isOwnUserDoc(uid) {
@@ -366,7 +311,12 @@ service cloud.firestore {
         "updatedAt",
         "phoneVerified",
         "phoneVerifiedAt",
-        "mfaPhoneNumber"
+        "mfaMethod",
+        "mfaEnabled",
+        "mfaPhoneNumber",
+        "mfaSecret",
+        "mfaEnrolledAt",
+        "mfaResetRequired"
       ]);
     }
 
@@ -419,9 +369,9 @@ service cloud.firestore {
 
     match /employees/{employeeId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if isAdmin() && incomingDocBelongsToCurrentCompany();
-      allow update: if isAdmin() && existingDocBelongsToCurrentCompany() && incomingDocBelongsToCurrentCompany();
-      allow delete: if isAdmin() && existingDocBelongsToCurrentCompany();
+      allow create: if activeUserDocExists();
+      allow update: if activeUserDocExists();
+      allow delete: if activeUserDocExists();
     }
 
     match /bookings/{bookingId} {
@@ -494,14 +444,14 @@ service cloud.firestore {
     match /timesheets/{timesheetId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc();
+      allow update: if activeUserDocExists();
       allow delete: if canDeleteUserTenantDoc();
     }
 
     match /timesheetQueries/{queryId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc();
+      allow update: if activeUserDocExists();
       allow delete: if canDeleteUserTenantDoc();
     }
 

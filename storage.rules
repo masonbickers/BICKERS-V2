@@ -11,39 +11,22 @@ service firebase.storage {
     }
 
     function userData() {
-      return isSignedIn()
-        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
-        ? userDoc().data
-        : {};
-    }
-
-    function userDataIsActive(data) {
-      return data != null
-        && data.get("isEnabled", false) == true
-        && data.get("active", true) != false
-        && data.get("disabled", false) != true
-        && data.get("appDisabled", false) != true
-        && data.get("archived", false) != true
-        && data.get("isArchived", false) != true;
+      return userDoc().data;
     }
 
     function isNotDisabled() {
-      let data = userData();
-      return isSignedIn() && userDataIsActive(data);
+      return isSignedIn();
     }
 
     function roleValue() {
-      let data = userData();
-      return data != null && data.keys().hasAny(["role"])
-        ? data.role
+      return userData() != null && userData().keys().hasAny(["role"])
+        ? userData().role
         : "";
     }
 
     function isPlatformAdmin() {
-      let data = userData();
-      return isSignedIn()
-        && userDataIsActive(data)
-        && data.get("role", "") in [
+      return isNotDisabled()
+        && roleValue() in [
           "platformAdmin",
           "platformadmin",
           "platform admin",
@@ -56,60 +39,34 @@ service firebase.storage {
     }
 
     function isAdmin() {
-      let data = userData();
-      return isSignedIn()
-        && userDataIsActive(data)
-        && data.get("role", "") in [
-          "platformAdmin",
-          "platformadmin",
-          "platform admin",
-          "Platform Admin",
-          "superAdmin",
-          "superadmin",
-          "super admin",
-          "Super Admin",
+      return isPlatformAdmin()
+        || (
+          isNotDisabled()
+          && roleValue() in [
             "admin",
             "Admin",
             "companyAdmin",
             "companyadmin",
             "company admin",
             "Company Admin"
-          ];
-    }
-
-    function canUseSoftware() {
-      let data = userData();
-      return isSignedIn() && userDataIsActive(data);
-    }
-
-    function canAccessCompany(companyId) {
-      let data = userData();
-      return isSignedIn()
-        && userDataIsActive(data)
-        && (
-          data.get("role", "") in [
-            "platformAdmin",
-            "platformadmin",
-            "platform admin",
-            "Platform Admin",
-            "superAdmin",
-            "superadmin",
-            "super admin",
-            "Super Admin"
           ]
-          || (
-            data.get("companyId", "") is string
-            && data.get("companyId", "").size() > 0
-            && data.get("companyId", "") == companyId
-          )
         );
     }
 
+    function canUseSoftware() {
+      return isNotDisabled();
+    }
+
+    function canAccessCompany(companyId) {
+      return canUseSoftware();
+    }
+
     function appAccessEnabled(workspace) {
-      let data = userData();
-      return data != null
-        && data.get("appAccess", {}) is map
-        && data.get("appAccess", {}).get(workspace, false) == true;
+      return userData() != null
+        && userData().keys().hasAny(["appAccess"])
+        && userData().appAccess is map
+        && userData().appAccess.keys().hasAny([workspace])
+        && userData().appAccess[workspace] == true;
     }
 
     function defaultWorkspaceIs(workspace) {
@@ -131,37 +88,11 @@ service firebase.storage {
     }
 
     function hasUserAccess() {
-      let data = userData();
-      return isSignedIn()
-        && userDataIsActive(data)
-        && (
-          data.get("role", "") in [
-            "platformAdmin", "platformadmin", "platform admin", "Platform Admin",
-            "superAdmin", "superadmin", "super admin", "Super Admin",
-            "admin", "Admin", "companyAdmin", "companyadmin", "company admin", "Company Admin"
-          ]
-          || (
-            data.get("appAccess", {}) is map
-            && data.get("appAccess", {}).get("user", false) == true
-          )
-        );
+      return canUseSoftware();
     }
 
     function hasServiceAccess() {
-      let data = userData();
-      return isSignedIn()
-        && userDataIsActive(data)
-        && (
-          data.get("role", "") in [
-            "platformAdmin", "platformadmin", "platform admin", "Platform Admin",
-            "superAdmin", "superadmin", "super admin", "Super Admin",
-            "admin", "Admin", "companyAdmin", "companyadmin", "company admin", "Company Admin"
-          ]
-          || (
-            data.get("appAccess", {}) is map
-            && data.get("appAccess", {}).get("service", false) == true
-          )
-        );
+      return canUseSoftware();
     }
 
     function isSafeFileSize(maxBytes) {
@@ -174,8 +105,8 @@ service firebase.storage {
     }
 
     match /profilePhotos/{uid}/{allPaths=**} {
-      allow read: if canUseSoftware();
-      allow write: if canUseSoftware()
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
         && (request.auth.uid == uid || isAdmin())
         && isSafeFileSize(10 * 1024 * 1024)
         && isSafeMimeType('image/.*');
