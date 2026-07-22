@@ -1,5 +1,6 @@
 // src/app/api/dvla/vehicle/route.js
 import axios from "axios";
+import { requireActiveUserFromRequest } from "@/app/api/admin/_lib";
 
 const DVLA_API_KEY = process.env.DVLA_API_KEY;
 const DVLA_VES_URL =
@@ -9,6 +10,10 @@ const DVLA_VES_URL =
 // GET /api/dvla/vehicle?vrm=AB12CDE
 export async function GET(request) {
   try {
+    const access = await requireActiveUserFromRequest(request, {
+      workspaces: ["user", "service"],
+    });
+    if (access.error) return access.error;
     if (!DVLA_API_KEY) {
       return Response.json(
         { error: "DVLA_API_KEY not set on server" },

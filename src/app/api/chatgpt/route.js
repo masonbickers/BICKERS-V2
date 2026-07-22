@@ -2,42 +2,10 @@
 
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-
-const FIREBASE_WEB_API_KEY =
-  process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-  process.env.FIREBASE_API_KEY ||
-  "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE";
+import { requireActiveUserFromRequest } from "@/app/api/admin/_lib";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-
-async function verifyFirebaseIdTokenFromRequest(req) {
-  const authHeader = req.headers.get("authorization") || "";
-  if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
-
-  const idToken = authHeader.slice(7).trim();
-  if (!idToken || !FIREBASE_WEB_API_KEY) return null;
-
-  const res = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_WEB_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
-      cache: "no-store",
-    }
-  );
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  const user = Array.isArray(data?.users) ? data.users[0] : null;
-  if (!user?.localId) return null;
-
-  return {
-    uid: user.localId,
-    email: String(user.email || "").toLowerCase(),
-  };
-}
 
 function serializeDateish(value) {
   if (!value) return null;
@@ -264,16 +232,17 @@ export async function POST(req) {
       );
     }
 
-    const verifiedUser = await verifyFirebaseIdTokenFromRequest(req);
-    if (!verifiedUser?.uid) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-    }
+    const access = await requireActiveUserFromRequest(req, {
+      module: "assistant",
+      workspaces: ["user"],
+    });
+    if (access.error) return access.error;
 
     const { prompt, messages, clientContext } = await req.json();
     if (!prompt || !safeString(prompt)) {
       return NextResponse.json({ error: "Missing prompt." }, { status: 400 });
     }
-    const userRole = safeString(clientContext?.user?.role).toLowerCase() || "user";
+    const userRole = safeString(access.userData?.role).toLowerCase() || "user";
     let contextPayload = null;
     if (clientContext && typeof clientContext === "object") {
       contextPayload = normalizeRecord(clientContext);

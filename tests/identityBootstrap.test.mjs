@@ -222,7 +222,9 @@ async function loadVerifier(payload) {
     "@/app/utils/accountAccess": synthetic(ctx, {
       hasCanonicalAccessRecord: () => true,
       hasCompanyAccess: () => true,
+      hasRequiredWorkspaceAccess: () => true,
       isAccountDisabled: () => false,
+      isModuleEnabledForUser: () => true,
     }),
   };
   const sourceModule = new vm.SourceTextModule(verifierSource, { context: ctx, identifier: verifierPath.href });
