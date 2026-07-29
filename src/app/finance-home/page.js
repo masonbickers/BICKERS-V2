@@ -2,7 +2,7 @@
 
 import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getDocs, doc, updateDoc } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useRouter } from "next/navigation";
@@ -11,599 +11,419 @@ import {
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
-  tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import {
+  FINANCE_GROUP_LABELS,
+  FINANCE_GROUPS,
+  buildFinanceRows,
+  countFinanceGroups,
+  financeRowMatchesSearch,
+} from "@/app/utils/financeInvoiceClassification";
+import { getInvoiceDraftReferenceDisplay } from "@/app/utils/invoiceLifecycle";
 
-/* ---------- Small helpers ---------- */
-const fmtDate = (d) => {
+const GROUP_ORDER = [
+  FINANCE_GROUPS.READY_FOR_FINANCE,
+  FINANCE_GROUPS.DRAFT,
+  FINANCE_GROUPS.PENDING_APPROVAL,
+  FINANCE_GROUPS.APPROVED,
+  FINANCE_GROUPS.EXPORT_PENDING,
+  FINANCE_GROUPS.EXPORTING,
+  FINANCE_GROUPS.SYNC_FAILED,
+  FINANCE_GROUPS.ISSUED,
+  FINANCE_GROUPS.PART_PAID,
+  FINANCE_GROUPS.PAID,
+  FINANCE_GROUPS.VOID,
+  FINANCE_GROUPS.DISPUTED,
+  FINANCE_GROUPS.CREDITED,
+  FINANCE_GROUPS.WRITTEN_OFF,
+  FINANCE_GROUPS.EXCEPTION,
+];
+
+const fmtDate = (value, fallback = "—") => {
+  if (!value) return fallback;
   try {
-    const x = typeof d?.toDate === "function" ? d.toDate() : new Date(d);
-    if (isNaN(x)) return "TBC";
-    return x.toLocaleDateString("en-GB");
+    const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+    return Number.isNaN(date.getTime()) ? fallback : date.toLocaleDateString("en-GB");
   } catch {
-    return "TBC";
+    return fallback;
   }
 };
 
-const toISODate = (yyyyMmDd) => {
-  if (!yyyyMmDd) return new Date().toISOString();
-  const [y, m, d] = yyyyMmDd.split("-").map((n) => parseInt(n, 10));
-  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0));
-  return dt.toISOString();
+const money = (value, currency = "GBP") =>
+  Number.isFinite(Number(value))
+    ? new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: currency || "GBP",
+      }).format(Number(value))
+    : "—";
+
+const rowTimestamp = (row) =>
+  Date.parse(row.updatedAt || row.issuedAt || row.createdAt || 0) || 0;
+
+const actionForRow = (row) => {
+  const invoiceRoute = `/invoice/${row.bookingId || row.id}`;
+  const previewRoute = `/invoice-view/${row.invoice?.id || row.id}`;
+  const financeReviewRoute = `/job-summary/${row.bookingId || row.id}`;
+  const actions = {
+    ready_for_finance: ["Open finance review", financeReviewRoute],
+    draft: ["Open draft", invoiceRoute],
+    pending_approval: ["Review approval", invoiceRoute],
+    approved: ["Open approved invoice", invoiceRoute],
+    export_pending: ["View pending export", invoiceRoute],
+    exporting: ["View export", invoiceRoute],
+    sync_failed: ["View sync error", invoiceRoute],
+    issued: ["View payment status", previewRoute],
+    part_paid: ["View payment status", previewRoute],
+    paid: ["View invoice", previewRoute],
+    void: ["View invoice", previewRoute],
+    disputed: ["View invoice", previewRoute],
+    credited: ["View invoice", previewRoute],
+    written_off: ["View invoice", previewRoute],
+    exception: [row.invoice ? "Review invoice data" : "Review job data", row.invoice ? invoiceRoute : financeReviewRoute],
+  };
+  return actions[row.group] || ["Open", invoiceRoute];
 };
 
-const todayInputValue = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+const statusPalette = {
+  ready_for_finance: ["var(--color-info-soft)", "var(--color-brand)"],
+  draft: ["var(--color-warning-soft)", "var(--color-warning)"],
+  pending_approval: ["var(--color-warning-soft)", "var(--color-warning)"],
+  approved: ["var(--color-success-soft)", "var(--color-success)"],
+  export_pending: ["var(--color-info-soft)", "var(--color-info)"],
+  exporting: ["var(--color-info-soft)", "var(--color-info)"],
+  sync_failed: ["var(--color-danger-soft)", "var(--color-danger)"],
+  issued: ["var(--color-info-soft)", "var(--color-info)"],
+  part_paid: ["var(--color-warning-soft)", "var(--color-warning)"],
+  paid: ["var(--color-success-soft)", "var(--color-success)"],
+  void: ["var(--color-surface-hover)", "var(--color-text-muted)"],
+  disputed: ["var(--color-warning-soft)", "var(--color-warning)"],
+  credited: ["var(--color-surface-hover)", "var(--color-text-muted)"],
+  written_off: ["var(--color-surface-hover)", "var(--color-text-muted)"],
+  exception: ["var(--color-danger-soft)", "var(--color-danger)"],
 };
 
-/* ---------- STATUS NORMALISER ---------- */
-const extractStatusString = (raw) => {
-  if (raw == null) return "";
-  if (typeof raw === "string") return raw;
-  if (typeof raw === "object") {
-    if (typeof raw.value === "string") return raw.value;
-    if (typeof raw.name === "string") return raw.name;
-    try { return JSON.stringify(raw); } catch { return String(raw); }
-  }
-  return String(raw);
-};
-
-const normalizeStatus = (raw) => {
-  const s0 = extractStatusString(raw);
-  const s = s0.toLowerCase().trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
-  if (s === "paid" || s === "settled") return "paid";
-  if (s === "invoiced" || s === "invoice sent" || s === "billed") return "invoiced";
-  if (["ready","ready to invoice","ready invoice","ready for invoice"].includes(s)) return "ready";
-  if (["pending","queued","queue"].includes(s)) return "pending";
-  if (["complete","completed"].includes(s)) return "ready";
-  return s || "pending";
-};
-
-/* ---------- DEDUPE ---------- */
-const statusRank = { pending: 0, ready: 1, invoiced: 2, paid: 3 };
-const rank = (s) => statusRank[normalizeStatus(s)] ?? -1;
-const ts = (j) =>
-  Date.parse(j.updatedAt || j.invoiceDate || j.paidDate || j.createdAt || 0) || 0;
-
-// date span "YYYY-MM-DD..YYYY-MM-DD"
-const dateSpanKey = (row) => {
-  const arr = Array.isArray(row.dates) ? row.dates : [];
-  const toJS = (d) => (typeof d?.toDate === "function" ? d.toDate() : new Date(d));
-  const stamps = arr
-    .map(toJS)
-    .filter((d) => d && !isNaN(d))
-    .map((d) => {
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    });
-  if (!stamps.length) return "";
-  const min = Math.min(...stamps);
-  const max = Math.max(...stamps);
-  const iso = (t) => new Date(t).toISOString().slice(0, 10);
-  return `${iso(min)}..${iso(max)}`;
-};
-
-const dedupeRows = (rows) => {
-  const map = new Map();
-  for (const j of rows) {
-    const span = dateSpanKey(j);
-    const key =
-      (j.jobNumber ? `JN:${j.jobNumber}|D:${span}` : "") ||
-      (j.invoiceNumber ? `INV:${j.invoiceNumber}` : "") ||
-      (j.bookingId ? `B:${j.bookingId}` : "") ||
-      `ID:${j.id}`;
-
-    const prev = map.get(key);
-    if (!prev) {
-      map.set(key, j);
-      continue;
-    }
-    const a = rank(j.status);
-    const b = rank(prev.status);
-    if (a > b || (a === b && ts(j) >= ts(prev))) {
-      map.set(key, j);
-    }
-  }
-  return Array.from(map.values());
-};
-
-/* ---------- Visual tokens ---------- */
-const palette = {
-  bg: "var(--color-surface-subtle)",
-  text: "var(--color-text)",
-  subtext: "var(--color-text-muted)",
-  border: "var(--color-border)",
-  cardBg: "var(--color-white)",
-  shadow: "0 6px 18px rgba(2, 6, 23, 0.06)",
-};
-
-const statusChip = {
-  pending:  { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)", label: "Queued" },
-  ready:    { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--color-brand)", label: "Ready to Invoice" },
-  invoiced: { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--color-info)", label: "Invoiced" },
-  paid:     { bg: "var(--color-success-soft)", border: "var(--color-success-border)", text: "var(--color-brand)", label: "Paid" },
-  default:  { bg: "var(--color-surface-hover)", border: "var(--color-border)", text: "var(--color-text-muted)", label: "TBC" },
-};
-
-const StatusBadge = ({ status }) => {
-  const key = normalizeStatus(status);
-  const c = statusChip[key] || statusChip.default;
+function StatusBadge({ row }) {
+  const [background, color] =
+    statusPalette[row.group] || statusPalette.exception;
   return (
     <span
+      title={row.isLegacyStatus ? `Legacy status: ${row.legacyStatus}` : row.label}
       style={{
         display: "inline-flex",
-        gap: 6,
         alignItems: "center",
-        padding: "4px 10px",
-        fontSize: 12,
+        gap: 6,
+        padding: "5px 9px",
         borderRadius: 999,
-        border: `1px solid ${c.border}`,
-        background: c.bg,
-        color: c.text,
-        fontWeight: 700,
-        lineHeight: 1,
+        background,
+        color,
+        fontSize: 12,
+        fontWeight: 800,
       }}
-      title={key || "tbc"}
     >
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.text }} />
-      {c.label}
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+      {row.label}
+      {row.isLegacyStatus ? " · Legacy" : ""}
     </span>
   );
-};
-
-/* ---------- Tiny toast ---------- */
-const Toast = ({ msg, onClose }) => {
-  if (!msg) return null;
-  return (
-    <div
-      onClick={onClose}
-      className={layoutStyles.extracted1}
-      title="Click to dismiss"
-    >
-      {msg}
-    </div>
-  );
-};
+}
 
 export default function FinanceDashboard() {
   const router = useRouter();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
-
-  const [invoiceJobs, setInvoiceJobs] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  //  dropdown filter is back
-  const [filter, setFilter] = useState("all"); // all | pending | ready | invoiced | paid
+  const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-
-  const [savingIds, setSavingIds] = useState(new Set());
-  const [toast, setToast] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
     if (!gate.allowed) {
-      reportDataAccessBlocked(gate, { collectionName: "invoiceQueue", operation: "load invoice queue" });
-      setInvoiceJobs([]);
+      reportDataAccessBlocked(gate, {
+        collectionName: "invoiceQueue",
+        operation: "load Finance Home",
+      });
+      setBookings([]);
+      setInvoices([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    const snapshot = await getDocs(tenantCollectionQuery(db, "invoiceQueue", dataAccessState));
-    const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    const withSafe = data.map((j) => ({
-      ...j,
-      dates: Array.isArray(j.dates) ? j.dates : (j.bookingDates || []),
-      status: normalizeStatus(j.status),
-    }));
-    const deduped = dedupeRows(withSafe);
-    setInvoiceJobs(deduped);
-    setLoading(false);
+    setLoadError("");
+    try {
+      const [bookingSnapshot, invoiceSnapshot] = await Promise.all([
+        getDocs(tenantCollectionQuery(db, "bookings", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "invoiceQueue", dataAccessState)),
+      ]);
+      setBookings(
+        bookingSnapshot.docs.map((snapshot) => ({
+          id: snapshot.id,
+          ...snapshot.data(),
+        }))
+      );
+      setInvoices(
+        invoiceSnapshot.docs.map((snapshot) => ({
+          id: snapshot.id,
+          ...snapshot.data(),
+        }))
+      );
+    } catch (error) {
+      setLoadError(error?.message || "Finance records could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
   }, [dataAccessState]);
 
   useEffect(() => {
     load();
   }, [accessKey, load]);
 
-  const totals = useMemo(() => {
-    const t = { pending: 0, ready: 0, invoiced: 0, paid: 0 };
-    for (const j of invoiceJobs) if (t[j.status] !== undefined) t[j.status] += 1;
-    return t;
-  }, [invoiceJobs]);
+  const classifiedRows = useMemo(
+    () => buildFinanceRows({ bookings, invoices }),
+    [bookings, invoices]
+  );
+  const counts = useMemo(
+    () => countFinanceGroups(classifiedRows),
+    [classifiedRows]
+  );
+  const visibleRows = useMemo(() => {
+    const rows = classifiedRows.filter(
+      (row) =>
+        (filter === "all" || row.group === filter) &&
+        financeRowMatchesSearch(row, search)
+    );
+    return rows.sort((a, b) => rowTimestamp(b) - rowTimestamp(a));
+  }, [classifiedRows, filter, search]);
 
-  /* ---------- Lists (respect dropdown + search) ---------- */
-  const invoicesList = useMemo(() => {
-    let rows = invoiceJobs.filter((j) => j.status !== "paid");
-    if (filter !== "all" && filter !== "paid") {
-      rows = rows.filter((j) => j.status === filter);
-    }
-    const q = search.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter((j) =>
-        [j.client, j.location, j.jobNumber, j.invoiceNumber]
-          .map((x) => (x || "").toString().toLowerCase())
-          .some((v) => v.includes(q))
-      );
-    }
-    rows.sort((a, b) => {
-      const ad = a.dates?.[0] ? new Date(a.dates[0]).getTime() : 0;
-      const bd = b.dates?.[0] ? new Date(b.dates[0]).getTime() : 0;
-      return bd - ad;
-    });
-    return rows;
-  }, [invoiceJobs, filter, search]);
-
-  const paidList = useMemo(() => {
-    let rows = invoiceJobs.filter((j) => j.status === "paid");
-    if (filter !== "all" && filter !== "paid") {
-      rows = [];
-    }
-    const q = search.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter((j) =>
-        [j.client, j.location, j.jobNumber, j.invoiceNumber]
-          .map((x) => (x || "").toString().toLowerCase())
-          .some((v) => v.includes(q))
-      );
-    }
-    rows.sort((a, b) => ts(b) - ts(a));
-    return rows;
-  }, [invoiceJobs, filter, search]);
-
-  /* ---------- Click helpers ---------- */
-  const getJobHref = (job) =>
-    job?.bookingId ? `/invoice-view` : `/finance/job/${job.id}`;
-
-  const onRowClick = (job) => {
-    router.push(getJobHref(job));
-  };
-
-  const onRowKeyDown = (e, job) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      router.push(getJobHref(job));
-    }
-  };
-
-  /* ---------- Actions ---------- */
-  const markAsInvoiced = async (row, e) => {
-    e?.stopPropagation(); // prevent row navigation
-    setSavingIds((s) => new Set(s).add(row.id));
-    try {
-      const invoiceNumber = prompt("Enter invoice number (optional):", row.invoiceNumber || "");
-      const dueDays = parseInt(prompt("Due in how many days? (e.g. 30)", "30") || "30", 10);
-      const dueDate = isNaN(dueDays)
-        ? null
-        : new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000).toISOString();
-
-      await updateDoc(doc(db, "invoiceQueue", row.id), tenantPayload(dataAccessState, {
-        status: "invoiced",
-        invoiceNumber: invoiceNumber || row.invoiceNumber || "",
-        invoiceDate: new Date().toISOString(),
-        dueDate: dueDate || row.dueDate || null,
-        updatedAt: new Date().toISOString(),
-      }));
-
-      setToast("Invoice marked as Invoiced");
-      await load();
-    } catch (e) {
-      alert("Failed to mark as invoiced: " + (e?.message || e));
-    } finally {
-      setSavingIds((s) => {
-        const n = new Set(s); n.delete(row.id); return n;
-      });
-    }
-  };
-
-  const markAsPaid = async (row, e) => {
-    e?.stopPropagation(); // prevent row navigation
-    const paidISO = toISODate(todayInputValue());
-    setSavingIds((s) => new Set(s).add(row.id));
-    try {
-      await updateDoc(doc(db, "invoiceQueue", row.id), tenantPayload(dataAccessState, {
-        status: "paid",
-        paidDate: paidISO,
-        updatedAt: new Date().toISOString(),
-      }));
-
-      if (row.bookingId) {
-        try {
-          await updateDoc(doc(db, "bookings", row.bookingId), tenantPayload(dataAccessState, {
-            status: "Paid",
-            paidDate: paidISO,
-            statusUpdatedAt: new Date().toISOString(),
-          }));
-        } catch (e) {
-          console.warn("Booking status update failed:", e?.message || e);
-          alert("Paid in invoiceQueue, but failed to update booking record.");
-        }
-      }
-
-      setToast("Invoice marked as Paid");
-      await load();
-    } catch (e) {
-      alert("Failed to mark as paid: " + (e?.message || e));
-    } finally {
-      setSavingIds((s) => {
-        const n = new Set(s); n.delete(row.id); return n;
-      });
-    }
-  };
-
-  /* ---------- Styles ---------- */
   const pageWrap = {
-    padding: "32px 24px",
-    background: palette.bg,
+    padding: "28px 24px",
     minHeight: "100vh",
-    color: palette.text,
-  };
-
-  const sectionTitle = { fontSize: 20, fontWeight: 800, marginBottom: 12 };
-
-  const panel = {
-    background: palette.cardBg,
-    border: `1px solid ${palette.border}`,
-    borderRadius: 16,
-    boxShadow: palette.shadow,
-  };
-
-  const statsWrap = { display: "grid", gridTemplateColumns: "repeat(4, minmax(180px, 1fr))", gap: 16, marginBottom: 24 };
-  const statCard = { ...panel, padding: 18, textAlign: "center" };
-  const statLabel = { color: palette.subtext, fontSize: 13, fontWeight: 700, marginBottom: 6, letterSpacing: 0.2 };
-  const statNumber = { fontSize: 30, fontWeight: 900, lineHeight: 1.1 };
-
-  const controls = { display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" };
-  const selector = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, background: "var(--color-surface)" };
-  const input = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, minWidth: 260, background: "var(--color-surface)" };
-  const btn = (bg, fg = "var(--color-white)") => ({
-    background: bg,
-    color: fg,
-    border: "none",
-    borderRadius: 12,
-    padding: "10px 14px",
-    cursor: "pointer",
-    fontWeight: 800,
-    fontSize: 12,
-    boxShadow: "0 4px 10px rgba(2,6,23,0.08)",
-  });
-
-  const tableWrap = { ...panel, overflow: "hidden" };
-  const table = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
-  const th = {
-    padding: "14px 12px",
-    textAlign: "left",
-    fontWeight: 800,
-    fontSize: 12,
-    color: palette.subtext,
-    borderBottom: `1px solid ${palette.border}`,
+    color: "var(--color-text)",
     background: "var(--color-surface-subtle)",
   };
-  const td = { padding: "14px 12px", fontSize: 13, borderBottom: `1px solid ${palette.border}` };
-  const row = (i) => ({
-    background: i % 2 ? "var(--color-surface)" : "var(--color-surface)",
-    cursor: "pointer",
-  });
-  const rowHover = {
-    transition: "background 120ms ease",
+  const panel = {
+    overflow: "hidden",
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
+    borderRadius: 14,
+    boxShadow: "var(--shadow-sm)",
   };
-  const right = { textAlign: "right" };
-  const link = {
-    color: "var(--color-brand)",
-    textDecoration: "none",
-    fontWeight: 700,
+  const controls = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    margin: "18px 0",
+    flexWrap: "wrap",
+  };
+  const control = {
+    minHeight: 40,
+    padding: "8px 11px",
+    color: "var(--color-text)",
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
+    borderRadius: 9,
+  };
+  const table = { width: "100%", borderCollapse: "collapse" };
+  const th = {
+    padding: "11px 10px",
+    color: "var(--color-text-muted)",
+    background: "var(--color-surface-subtle)",
+    borderBottom: "1px solid var(--color-border)",
+    fontSize: 11,
+    fontWeight: 900,
+    textAlign: "left",
+    textTransform: "uppercase",
+  };
+  const td = {
+    padding: "12px 10px",
+    borderBottom: "1px solid var(--color-border)",
+    fontSize: 13,
+    verticalAlign: "top",
   };
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <h1 className={layoutStyles.extracted2}>Finance Dashboard</h1>
-        <div className={layoutStyles.extracted3}>
-          Status summary — pending: {totals.pending} · ready: {totals.ready} · invoiced: {totals.invoiced} · paid: {totals.paid}
-          {loading ? " (loading…)" : ""}
+      <main style={pageWrap}>
+        <div>
+          <h1 className={layoutStyles.extracted2}>Finance Home</h1>
+          <p className={layoutStyles.extracted3}>
+            Invoice records are the authority for lifecycle status. Finance Home is read-only for issue and payment transitions.
+          </p>
         </div>
 
-        {/* Controls */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            gap: 9,
+            marginTop: 18,
+          }}
+        >
+          {GROUP_ORDER.filter(
+            (group) =>
+              counts[group] ||
+              [
+                FINANCE_GROUPS.READY_FOR_FINANCE,
+                FINANCE_GROUPS.DRAFT,
+                FINANCE_GROUPS.APPROVED,
+                FINANCE_GROUPS.ISSUED,
+                FINANCE_GROUPS.PART_PAID,
+                FINANCE_GROUPS.PAID,
+                FINANCE_GROUPS.EXCEPTION,
+              ].includes(group)
+          ).map((group) => (
+            <button
+              key={group}
+              type="button"
+              onClick={() => setFilter(filter === group ? "all" : group)}
+              style={{
+                ...panel,
+                padding: 12,
+                cursor: "pointer",
+                textAlign: "left",
+                outline:
+                  filter === group
+                    ? "2px solid var(--color-brand)"
+                    : "none",
+              }}
+            >
+              <span style={{ display: "block", color: "var(--color-text-muted)", fontSize: 11, fontWeight: 800 }}>
+                {FINANCE_GROUP_LABELS[group]}
+              </span>
+              <strong style={{ display: "block", marginTop: 3, fontSize: 23 }}>
+                {counts[group] || 0}
+              </strong>
+            </button>
+          ))}
+        </div>
+
         <div style={controls}>
-          <select value={filter} onChange={(e) => setFilter(e.target.value)} style={selector}>
-            <option value="all">All</option>
-            <option value="pending">Queued</option>
-            <option value="ready">Ready to Invoice</option>
-            <option value="invoiced">Invoiced</option>
-            <option value="paid">Paid</option>
+          <select value={filter} onChange={(event) => setFilter(event.target.value)} style={control}>
+            <option value="all">All finance records</option>
+            {GROUP_ORDER.map((group) => (
+              <option key={group} value={group}>
+                {FINANCE_GROUP_LABELS[group]}
+              </option>
+            ))}
           </select>
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search client, location, job#, invoice#"
-            style={input}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search job, client, draft reference, invoice number or PO"
+            style={{ ...control, minWidth: 360 }}
           />
-          <button onClick={load} style={btn("var(--color-text)")}>Refresh</button>
+          <button type="button" onClick={load} style={{ ...control, cursor: "pointer", fontWeight: 800 }}>
+            Refresh
+          </button>
+          <span style={{ marginLeft: "auto", color: "var(--color-text-muted)", fontSize: 12 }}>
+            {visibleRows.length} of {classifiedRows.length} records
+          </span>
         </div>
 
-        {/* Footer stats (optional) */}
-        <div style={{ ...statsWrap, marginTop: 24 }}>
-          <div style={statCard}>
-            <div style={statLabel}>Queued</div>
-            <div style={statNumber}>{totals.pending}</div>
+        {loadError ? (
+          <div style={{ marginBottom: 12, padding: 12, color: "var(--color-danger)", background: "var(--color-danger-soft)", borderRadius: 9 }}>
+            {loadError}
           </div>
-          <div style={statCard}>
-            <div style={statLabel}>Ready</div>
-            <div style={statNumber}>{totals.ready}</div>
-          </div>
-          <div style={statCard}>
-            <div style={statLabel}>Invoiced</div>
-            <div style={statNumber}>{totals.invoiced}</div>
-          </div>
-          <div style={statCard}>
-            <div style={statLabel}>Paid</div>
-            <div style={statNumber}>{totals.paid}</div>
-          </div>
-        </div>
+        ) : null}
 
-        {/* Invoices (non-paid) */}
-        {filter !== "paid" && (
-          <>
-            <div style={{ ...sectionTitle, marginTop: 8 }}>
-              {filter === "all" ? "Invoices" :
-                filter === "pending" ? "Invoices — Queued" :
-                filter === "ready" ? "Invoices — Ready" :
-                filter === "invoiced" ? "Invoices — Invoiced" : "Invoices"}
-            </div>
-            <div style={tableWrap}>
-              <table style={table}>
-                <thead>
-                  <tr>
-                    <th style={th}>Job #</th>
-                    <th style={th}>Client</th>
-                    <th style={th}>Location</th>
-                    <th style={th}>Dates</th>
-                    <th style={th}>Invoice #</th>
-                    <th style={th}>Status</th>
-                    <th style={{ ...th, ...right }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoicesList.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ ...td, padding: 24, textAlign: "center", color: palette.subtext }}>
-                        {loading ? "Loading…" : "No invoices to show."}
+        <section style={panel}>
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={th}>Job / customer</th>
+                <th style={th}>Invoice identity</th>
+                <th style={th}>Status</th>
+                <th style={th}>Total / balance</th>
+                <th style={th}>Dates</th>
+                <th style={th}>Current action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!visibleRows.length ? (
+                <tr>
+                  <td colSpan={6} style={{ ...td, padding: 28, textAlign: "center", color: "var(--color-text-muted)" }}>
+                    {loading ? "Loading finance records…" : "No records match this view."}
+                  </td>
+                </tr>
+              ) : (
+                visibleRows.map((row) => {
+                  const [actionLabel, actionHref] = actionForRow(row);
+                  const gross = row.totals?.gross ?? row.invoiceTotal ?? row.total;
+                  const outstanding =
+                    row.outstandingBalance ??
+                    (Number.isFinite(Number(gross)) && Number.isFinite(Number(row.amountPaid))
+                      ? Number(gross) - Number(row.amountPaid)
+                      : null);
+                  return (
+                    <tr key={`${row.bookingId}-${row.id}-${row.group}`}>
+                      <td style={td}>
+                        <strong>Job #{row.jobNumber || row.bookingId || "—"}</strong>
+                        <span style={{ display: "block", marginTop: 3, color: "var(--color-text-muted)" }}>
+                          {row.customer?.name || row.client || "Customer not recorded"}
+                        </span>
+                        {row.purchaseOrderNumber || row.poNumber || row.finance?.poNumber ? (
+                          <small style={{ display: "block", marginTop: 4 }}>
+                            PO: {row.purchaseOrderNumber || row.poNumber || row.finance?.poNumber}
+                          </small>
+                        ) : null}
+                      </td>
+                      <td style={td}>
+                        <strong>{getInvoiceDraftReferenceDisplay(row)}</strong>
+                        <span style={{ display: "block", marginTop: 4, color: "var(--color-text-muted)" }}>
+                          {row.invoiceNumber
+                            ? `Official: ${row.invoiceNumber}`
+                            : "Official invoice number pending"}
+                        </span>
+                      </td>
+                      <td style={td}>
+                        <StatusBadge row={row} />
+                        {row.warnings?.map((warning) => (
+                          <div key={warning} style={{ maxWidth: 260, marginTop: 6, color: "var(--color-danger)", fontSize: 11, fontWeight: 700 }}>
+                            ⚠ {warning}
+                          </div>
+                        ))}
+                      </td>
+                      <td style={td}>
+                        <strong>{money(gross, row.currency)}</strong>
+                        <span style={{ display: "block", marginTop: 4, color: "var(--color-text-muted)" }}>
+                          Outstanding: {money(outstanding, row.currency)}
+                        </span>
+                      </td>
+                      <td style={td}>
+                        <span>Issued: {fmtDate(row.issueDate || row.issuedAt)}</span>
+                        <span style={{ display: "block", marginTop: 4 }}>Due: {fmtDate(row.dueDate)}</span>
+                      </td>
+                      <td style={td}>
+                        <button
+                          type="button"
+                          onClick={() => router.push(actionHref)}
+                          style={{
+                            minHeight: 36,
+                            padding: "8px 11px",
+                            color: "var(--color-text)",
+                            background: "var(--color-surface)",
+                            border: "1px solid var(--color-border-strong)",
+                            borderRadius: 8,
+                            cursor: "pointer",
+                            fontWeight: 800,
+                          }}
+                        >
+                          {actionLabel}
+                        </button>
                       </td>
                     </tr>
-                  ) : (
-                    invoicesList.map((job, i) => {
-                      const saving = savingIds.has(job.id);
-                      const href = getJobHref(job);
-                      return (
-                        <tr
-                          key={job.id}
-                          style={{ ...row(i), ...rowHover }}
-                          onClick={() => onRowClick(job)}
-                          onKeyDown={(e) => onRowKeyDown(e, job)}
-                          tabIndex={0}
-                          role="button"
-                          title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--shell-text)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-surface)")}
-                        >
-                          <td style={td}>
-                            <a href={href} onClick={(e) => e.stopPropagation()} style={link}>
-                              {job.jobNumber || job.bookingId || job.id}
-                            </a>
-                          </td>
-                          <td style={td}>{job.client || "—"}</td>
-                          <td style={td}>{job.location || "—"}</td>
-                          <td style={td}>
-                            {(job.dates || []).length
-                              ? (job.dates || []).map((d, idx) => <div key={idx}>{fmtDate(d)}</div>)
-                              : "TBC"}
-                          </td>
-                          <td style={td}>{job.invoiceNumber || "—"}</td>
-                          <td style={td}><StatusBadge status={job.status} /></td>
-                          <td style={{ ...td, ...right, whiteSpace: "nowrap" }}>
-                            {job.status === "ready" && (
-                              <button
-                                onClick={(e) => markAsInvoiced(job, e)}
-                                style={btn("var(--color-info)")}
-                                disabled={saving}
-                                title="Set status to Invoiced"
-                              >
-                                {saving ? "Saving…" : "Mark Invoiced"}
-                              </button>
-                            )}{" "}
-                            <button
-                              onClick={(e) => markAsPaid(job, e)}
-                              style={btn("var(--color-success)")}
-                              disabled={saving}
-                              title="Set status to Paid"
-                            >
-                              {saving ? "Saving…" : "Mark Paid"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {/* Paid */}
-        {(filter === "all" || filter === "paid") && (
-          <>
-            <div style={{ ...sectionTitle, marginTop: 24 }}>Paid</div>
-            <div style={tableWrap}>
-              <table style={table}>
-                <thead>
-                  <tr>
-                    <th style={th}>Job #</th>
-                    <th style={th}>Client</th>
-                    <th style={th}>Location</th>
-                    <th style={th}>Dates</th>
-                    <th style={th}>Invoice #</th>
-                    <th style={th}>Status</th>
-                    <th style={{ ...th, ...right }}>Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paidList.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ ...td, padding: 24, textAlign: "center", color: palette.subtext }}>
-                        {loading ? "Loading…" : "No paid rows."}
-                      </td>
-                    </tr>
-                  ) : (
-                    paidList.map((job, i) => {
-                      const href = getJobHref(job);
-                      return (
-                        <tr
-                          key={job.id}
-                          style={{ ...row(i), ...rowHover }}
-                          onClick={() => onRowClick(job)}
-                          onKeyDown={(e) => onRowKeyDown(e, job)}
-                          tabIndex={0}
-                          role="button"
-                          title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--shell-text)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "var(--color-surface)")}
-                        >
-                          <td style={td}>
-                            <a href={href} onClick={(e) => e.stopPropagation()} style={link}>
-                              {job.jobNumber || job.bookingId || job.id}
-                            </a>
-                          </td>
-                          <td style={td}>{job.client || "—"}</td>
-                          <td style={td}>{job.location || "—"}</td>
-                          <td style={td}>
-                            {(job.dates || []).length
-                              ? (job.dates || []).map((d, idx) => <div key={idx}>{fmtDate(d)}</div>)
-                              : "TBC"}
-                          </td>
-                          <td style={td}>{job.invoiceNumber || "—"}</td>
-                          <td style={td}><StatusBadge status={job.status} /></td>
-                          <td style={{ ...td, ...right }}>
-                            {new Date(ts(job)).toLocaleDateString("en-GB")}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        <Toast msg={toast} onClose={() => setToast("")} />
-      </div>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </section>
+      </main>
     </HeaderSidebarLayout>
   );
 }

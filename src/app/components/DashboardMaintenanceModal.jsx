@@ -3,9 +3,9 @@
 import layoutStyles from "./DashboardMaintenanceModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { arrayUnion, deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { db, storage } from "../../../firebaseConfig";
+import { deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { auth, db, storage } from "../../../firebaseConfig";
 import EditMaintenanceBookingForm from "./EditMaintenanceBookingForm";
 import MaintenanceBookingForm from "./MaintenanceBookingForm";
 import {
@@ -21,6 +21,16 @@ import {
 } from "@/app/utils/maintenanceWorkflowSpec";
 import { tenantPayload, useDataAccessState } from "@/app/utils/firestoreAccess";
 import { companyStoragePath } from "@/app/utils/storageAccess";
+import { ADDITIONAL_MAINTENANCE_WORKFLOWS } from "@/app/utils/maintenanceSchema";
+import {
+  appendMaintenanceDocumentToHistory,
+  buildMaintenanceDocument,
+  getCurrentMaintenanceUploader,
+  normalizeMaintenanceDocumentList,
+  removeMaintenanceDocument,
+  removeMaintenanceDocumentFromHistory,
+} from "@/app/utils/maintenanceDocuments";
+import { buildAdditionalMaintenanceCompletionPatch } from "@/app/utils/additionalMaintenanceCompletion";
 
 const EMPTY_VALUE = "-";
 
@@ -49,39 +59,6 @@ const ymd = (value) => {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-};
-
-const addWeeksToYmd = (value, weeks) => {
-  const start = toJsDate(value);
-  const numericWeeks = Number(weeks || 0);
-  if (!start || !Number.isFinite(numericWeeks) || numericWeeks <= 0) return "";
-  const next = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  next.setDate(next.getDate() + Math.round(numericWeeks) * 7);
-  return ymd(next);
-};
-
-const getIsoWeekLabel = (value) => {
-  const date = toJsDate(value);
-  if (!date) return "";
-  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = utc.getUTCDay() || 7;
-  utc.setUTCDate(utc.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
-  return `${utc.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
-};
-
-const resolveFreqWeeks = (explicitFreq, lastDate, nextDate) => {
-  const explicit = Number(explicitFreq || 0);
-  if (Number.isFinite(explicit) && explicit > 0) return Math.round(explicit);
-
-  const last = toJsDate(lastDate);
-  const next = toJsDate(nextDate);
-  if (!last || !next) return 0;
-
-  const diffDays = Math.round((next.getTime() - last.getTime()) / 86400000);
-  if (diffDays <= 0) return 0;
-  return Math.max(1, Math.round(diffDays / 7));
 };
 
 const hasDisplayValue = (value) =>
@@ -134,6 +111,7 @@ const safeFileName = (name = "document") =>
     .slice(0, 120) || "document";
 
 const documentList = (value) => (Array.isArray(value) ? value.filter((item) => item?.url || item?.name) : []);
+const safeArr = (value) => (Array.isArray(value) ? value : []);
 
 export default function DashboardMaintenanceModal({ event, onClose }) {
   const router = useRouter();
@@ -167,8 +145,9 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [jobEditorError, setJobEditorError] = useState("");
   const [bookingActionMessage, setBookingActionMessage] = useState("");
   const [bookingActionError, setBookingActionError] = useState("");
-  const [brakeTestDocumentFile, setBrakeTestDocumentFile] = useState(null);
-  const [pmiDocumentFile, setPmiDocumentFile] = useState(null);
+  const [maintenanceDocumentFiles, setMaintenanceDocumentFiles] = useState({});
+  const [deletingDocumentUrl, setDeletingDocumentUrl] = useState("");
+  const [deletedDocumentUrls, setDeletedDocumentUrls] = useState([]);
 
   const vehicleId = String(event?.vehicleId || "").trim();
   const bookingId = String(event?.__parentId || event?.id || "").trim();
@@ -194,19 +173,25 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase());
 
   const generatedAppointmentKinds = useMemo(() => {
-    const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
-      ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
+    const maintenanceTypeIds = Array.isArray(event?.maintenanceTypeIds)
+      ? event.maintenanceTypeIds.map((item) => String(item || "").trim().toLowerCase())
+      : event?.maintenanceTypeId
+      ? [String(event.maintenanceTypeId).trim().toLowerCase()]
       : [];
-    const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
-    return {
-      brake: maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake"),
-      pmi: maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi"),
-    };
+    return Object.fromEntries(
+      ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => [
+        workflow.key,
+        maintenanceTypeIds.includes(workflow.maintenanceTypeId),
+      ])
+    );
   }, [event]);
+  const activeGeneratedWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.filter(
+    (workflow) => generatedAppointmentKinds[workflow.key]
+  );
   const canAttachGeneratedAppointmentDocuments =
     isGeneratedMaintenanceAppointment &&
     !!vehicleId &&
-    (generatedAppointmentKinds.brake || generatedAppointmentKinds.pmi);
+    activeGeneratedWorkflows.length > 0;
 
   useEffect(() => {
     let active = true;
@@ -350,113 +335,40 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
   const uploadAppointmentDocument = async (file, kind, completedDate) => {
     if (!file) return null;
-    const kindLabel = kind === "pmi" ? "PMI inspection" : "Brake test";
+    const workflow = ADDITIONAL_MAINTENANCE_WORKFLOWS.find((item) => item.key === kind);
     const path = companyStoragePath(
       dataAccessState,
       `vehicles/${vehicleId}/maintenance-documents/${kind}/${completedDate}-${Date.now()}-${safeFileName(file.name)}`
     );
     const snap = await uploadBytes(storageRef(storage, path), file);
     const url = await getDownloadURL(snap.ref);
-    return {
-      name: file.name || `${kindLabel} document`,
+    return buildMaintenanceDocument({
+      file,
       url,
-      type: kind,
-      label: kindLabel,
-      uploadedAt: new Date().toISOString(),
-    };
+      storagePath: path,
+      maintenanceTypeId: workflow?.maintenanceTypeId || kind,
+      source: "appointment",
+      sourceRecordId: String(event?.id || completedDate),
+      uploadedBy: getCurrentMaintenanceUploader(dataAccessState, auth.currentUser),
+    });
   };
 
-  const buildGeneratedAppointmentCompletionPatch = ({ brakeDocument = null, pmiDocument = null } = {}) => {
+  const buildGeneratedAppointmentCompletionPatch = (documentsByKey = {}) => {
     const completedDate = ymd(event?.appointmentDateISO || event?.start);
     if (!completedDate) return null;
-
-    const shouldCompleteBrake = generatedAppointmentKinds.brake;
-    const shouldCompletePmi = generatedAppointmentKinds.pmi;
-    const patch = {
-      updatedAt: new Date().toISOString(),
-      updatedAtServer: serverTimestamp(),
-    };
-    const localPatch = {
-      updatedAt: patch.updatedAt,
-    };
     const completedAt = new Date().toISOString();
-
-    if (shouldCompleteBrake) {
-      const freqWeeks = resolveFreqWeeks(vehicle?.brakeTestFreq, vehicle?.lastBrakeTest, vehicle?.nextBrakeTest);
-      const nextBrakeTest = addWeeksToYmd(completedDate, freqWeeks);
-      const brakeDocuments = brakeDocument ? [brakeDocument] : [];
-      patch.lastBrakeTest = completedDate;
-      localPatch.lastBrakeTest = completedDate;
-      if (brakeDocument) {
-        patch.brakeTestDocuments = arrayUnion(brakeDocument);
-        localPatch.brakeTestDocuments = [...documentList(vehicle?.brakeTestDocuments), brakeDocument];
-      }
-      if (nextBrakeTest) {
-        patch.nextBrakeTest = nextBrakeTest;
-        patch.brakeISOWeek = getIsoWeekLabel(nextBrakeTest);
-        localPatch.nextBrakeTest = nextBrakeTest;
-        localPatch.brakeISOWeek = patch.brakeISOWeek;
-      }
-      patch.brakeTestHistory = arrayUnion({
-        type: "brake_test",
-        label: "Brake test",
-        completedDate,
-        nextDueDate: nextBrakeTest || "",
-        completedAt,
-        documents: brakeDocuments,
-      });
-      localPatch.brakeTestHistory = [
-        ...(Array.isArray(vehicle?.brakeTestHistory) ? vehicle.brakeTestHistory : []),
-        {
-          type: "brake_test",
-          label: "Brake test",
-          completedDate,
-          nextDueDate: nextBrakeTest || "",
-          completedAt,
-          documents: brakeDocuments,
-        },
-      ];
-    }
-
-    if (shouldCompletePmi) {
-      const freqWeeks = resolveFreqWeeks(vehicle?.pmiFreq, vehicle?.lastPMI, vehicle?.nextPMI);
-      const nextPMI = addWeeksToYmd(completedDate, freqWeeks);
-      const pmiDocuments = pmiDocument ? [pmiDocument] : [];
-      patch.lastPMI = completedDate;
-      localPatch.lastPMI = completedDate;
-      if (pmiDocument) {
-        patch.pmiDocuments = arrayUnion(pmiDocument);
-        localPatch.pmiDocuments = [...documentList(vehicle?.pmiDocuments), pmiDocument];
-      }
-      if (nextPMI) {
-        patch.nextPMI = nextPMI;
-        patch.pmiISOWeek = getIsoWeekLabel(nextPMI);
-        localPatch.nextPMI = nextPMI;
-        localPatch.pmiISOWeek = patch.pmiISOWeek;
-      }
-      patch.pmiHistory = arrayUnion({
-        type: "pmi",
-        label: "PMI inspection",
-        completedDate,
-        nextDueDate: nextPMI || "",
-        completedAt,
-        documents: pmiDocuments,
-      });
-      localPatch.pmiHistory = [
-        ...(Array.isArray(vehicle?.pmiHistory) ? vehicle.pmiHistory : []),
-        {
-          type: "pmi",
-          label: "PMI inspection",
-          completedDate,
-          nextDueDate: nextPMI || "",
-          completedAt,
-          documents: pmiDocuments,
-        },
-      ];
-    }
-
-    if (!shouldCompleteBrake && !shouldCompletePmi) return null;
-    return { patch, localPatch };
+    const localPatch = buildAdditionalMaintenanceCompletionPatch({
+      vehicle,
+      workflows: activeGeneratedWorkflows,
+      completedDate,
+      completedAt,
+      documentsByKey,
+    });
+    if (!localPatch) return null;
+    return {
+      localPatch,
+      patch: { ...localPatch, updatedAtServer: serverTimestamp() },
+    };
   };
 
   const handleMarkGeneratedAppointmentComplete = async () => {
@@ -473,15 +385,19 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     setBookingActionError("");
     setBookingActionMessage("");
     try {
-      const [brakeDocument, pmiDocument] = await Promise.all([
-        generatedAppointmentKinds.brake
-          ? uploadAppointmentDocument(brakeTestDocumentFile, "brake_test", completedDate)
-          : Promise.resolve(null),
-        generatedAppointmentKinds.pmi
-          ? uploadAppointmentDocument(pmiDocumentFile, "pmi", completedDate)
-          : Promise.resolve(null),
-      ]);
-      const completionPatch = buildGeneratedAppointmentCompletionPatch({ brakeDocument, pmiDocument });
+      const uploadedEntries = await Promise.all(
+        activeGeneratedWorkflows.map(async (workflow) => [
+          workflow.key,
+          await uploadAppointmentDocument(
+            maintenanceDocumentFiles[workflow.key],
+            workflow.key,
+            completedDate
+          ),
+        ])
+      );
+      const completionPatch = buildGeneratedAppointmentCompletionPatch(
+        Object.fromEntries(uploadedEntries)
+      );
       if (!completionPatch?.patch) {
         setBookingActionError("Could not calculate the next maintenance date.");
         setBookingActionMessage("");
@@ -490,8 +406,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       }
       await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, completionPatch.patch));
       setVehicle((prev) => (prev ? { ...prev, ...completionPatch.localPatch } : prev));
-      setBrakeTestDocumentFile(null);
-      setPmiDocumentFile(null);
+      setMaintenanceDocumentFiles({});
       setBookingActionMessage("Appointment marked complete and next date calculated.");
     } catch (error) {
       console.error("[DashboardMaintenanceModal] generated appointment complete failed:", error);
@@ -499,40 +414,6 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     } finally {
       setCompletingAppointment(false);
     }
-  };
-
-  const appendDocumentToHistory = (history, { type, label, completedDate, completedAt, document }) => {
-    if (!document) return Array.isArray(history) ? history : [];
-    const rows = Array.isArray(history) ? [...history] : [];
-    const index = rows.findIndex((item) => {
-      const itemType = String(item?.type || item?.key || "").trim().toLowerCase();
-      const itemLabel = String(item?.label || "").trim().toLowerCase();
-      return (
-        String(item?.completedDate || "").slice(0, 10) === completedDate &&
-        (itemType === type || itemLabel === label.toLowerCase())
-      );
-    });
-
-    if (index >= 0) {
-      const existingDocuments = documentList(rows[index]?.documents);
-      rows[index] = {
-        ...rows[index],
-        documents: [...existingDocuments, document],
-      };
-      return rows;
-    }
-
-    return [
-      ...rows,
-      {
-        type,
-        label,
-        completedDate,
-        nextDueDate: "",
-        completedAt,
-        documents: [document],
-      },
-    ];
   };
 
   const handleSaveGeneratedAppointmentDocuments = async () => {
@@ -543,7 +424,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       setBookingActionMessage("");
       return;
     }
-    if (!brakeTestDocumentFile && !pmiDocumentFile) {
+    if (!activeGeneratedWorkflows.some((workflow) => maintenanceDocumentFiles[workflow.key])) {
       setBookingActionError("Choose a document before saving.");
       setBookingActionMessage("");
       return;
@@ -553,14 +434,17 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     setBookingActionError("");
     setBookingActionMessage("");
     try {
-      const [brakeDocument, pmiDocument] = await Promise.all([
-        generatedAppointmentKinds.brake
-          ? uploadAppointmentDocument(brakeTestDocumentFile, "brake_test", completedDate)
-          : Promise.resolve(null),
-        generatedAppointmentKinds.pmi
-          ? uploadAppointmentDocument(pmiDocumentFile, "pmi", completedDate)
-          : Promise.resolve(null),
-      ]);
+      const uploadedEntries = await Promise.all(
+        activeGeneratedWorkflows.map(async (workflow) => [
+          workflow.key,
+          await uploadAppointmentDocument(
+            maintenanceDocumentFiles[workflow.key],
+            workflow.key,
+            completedDate
+          ),
+        ])
+      );
+      const documentsByKey = Object.fromEntries(uploadedEntries);
 
       const patch = {
         updatedAt: new Date().toISOString(),
@@ -569,42 +453,101 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       const localPatch = { updatedAt: patch.updatedAt };
       const completedAt = event?.completedAt || new Date().toISOString();
 
-      if (brakeDocument) {
-        patch.brakeTestDocuments = arrayUnion(brakeDocument);
-        patch.brakeTestHistory = appendDocumentToHistory(vehicle?.brakeTestHistory, {
-          type: "brake_test",
-          label: "Brake test",
-          completedDate,
-          completedAt,
-          document: brakeDocument,
-        });
-        localPatch.brakeTestDocuments = [...documentList(vehicle?.brakeTestDocuments), brakeDocument];
-        localPatch.brakeTestHistory = patch.brakeTestHistory;
-      }
-
-      if (pmiDocument) {
-        patch.pmiDocuments = arrayUnion(pmiDocument);
-        patch.pmiHistory = appendDocumentToHistory(vehicle?.pmiHistory, {
-          type: "pmi",
-          label: "PMI inspection",
-          completedDate,
-          completedAt,
-          document: pmiDocument,
-        });
-        localPatch.pmiDocuments = [...documentList(vehicle?.pmiDocuments), pmiDocument];
-        localPatch.pmiHistory = patch.pmiHistory;
-      }
+      activeGeneratedWorkflows.forEach((workflow) => {
+        const document = documentsByKey[workflow.key];
+        if (!document) return;
+        patch[workflow.documentsField] = [
+          ...normalizeMaintenanceDocumentList(vehicle?.[workflow.documentsField], {
+            maintenanceTypeId: workflow.maintenanceTypeId,
+          }),
+          document,
+        ];
+        patch[workflow.historyField] = appendMaintenanceDocumentToHistory(
+          vehicle?.[workflow.historyField],
+          {
+            maintenanceTypeId: workflow.maintenanceTypeId,
+            label: workflow.label,
+            completedDate,
+            completedAt,
+            document,
+          }
+        );
+        localPatch[workflow.documentsField] = patch[workflow.documentsField];
+        localPatch[workflow.historyField] = patch[workflow.historyField];
+      });
 
       await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, patch));
       setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
-      setBrakeTestDocumentFile(null);
-      setPmiDocumentFile(null);
+      setMaintenanceDocumentFiles({});
       setBookingActionMessage("Maintenance document saved.");
     } catch (error) {
       console.error("[DashboardMaintenanceModal] document save failed:", error);
       setBookingActionError("Could not save the maintenance document.");
     } finally {
       setCompletingAppointment(false);
+    }
+  };
+
+  const handleDeleteGeneratedAppointmentDocument = async (kind, file) => {
+    if (!vehicleId || deletingDocumentUrl) return;
+    const url = String(file?.url || "").trim();
+    const name = String(file?.name || file?.label || "this document").trim();
+    const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    const workflow = ADDITIONAL_MAINTENANCE_WORKFLOWS.find((item) => item.key === kind);
+    if (!workflow) return;
+    const documentField = workflow.documentsField;
+    const historyField = workflow.historyField;
+    const nextDocuments = removeMaintenanceDocument(
+      vehicle?.[documentField],
+      file,
+      { maintenanceTypeId: workflow.maintenanceTypeId }
+    );
+    const nextHistory = removeMaintenanceDocumentFromHistory(
+      vehicle?.[historyField],
+      file,
+      { maintenanceTypeId: workflow.maintenanceTypeId }
+    );
+
+    setDeletingDocumentUrl(url || name);
+    setBookingActionError("");
+    setBookingActionMessage("");
+    try {
+      await updateDoc(
+        doc(db, "vehicles", vehicleId),
+        tenantPayload(dataAccessState, {
+          [documentField]: nextDocuments,
+          [historyField]: nextHistory,
+          updatedAt: new Date().toISOString(),
+          updatedAtServer: serverTimestamp(),
+        })
+      );
+      setVehicle((previous) =>
+        previous
+          ? {
+              ...previous,
+              [documentField]: nextDocuments,
+              [historyField]: nextHistory,
+            }
+          : previous
+      );
+      if (file?.storagePath || url) {
+        setDeletedDocumentUrls((previous) =>
+          previous.includes(url) ? previous : [...previous, url]
+        );
+        try {
+          await deleteObject(storageRef(storage, file.storagePath || url));
+        } catch (storageError) {
+          if (storageError?.code !== "storage/object-not-found") throw storageError;
+        }
+      }
+      setBookingActionMessage("Maintenance document deleted.");
+    } catch (error) {
+      console.error("[DashboardMaintenanceModal] document delete failed:", error);
+      setBookingActionError("Could not delete the maintenance document.");
+    } finally {
+      setDeletingDocumentUrl("");
     }
   };
 
@@ -827,7 +770,35 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     { label: "Vehicles", value: bookingDetails.vehicles, show: canEditBooking && hasDisplayValue(bookingDetails.vehicles) },
     { label: "Equipment", value: bookingDetails.equipment, show: canEditBooking && hasDisplayValue(bookingDetails.equipment) },
   ].filter((item) => item.show !== false && hasDisplayValue(item.value));
-  const eventDocuments = documentList(event?.documents);
+  const eventDocuments = documentList(event?.documents).filter(
+    (item) => !deletedDocumentUrls.includes(String(item?.url || "").trim())
+  );
+  const generatedAppointmentDate = ymd(event?.appointmentDateISO || event?.start);
+  const documentsForAppointment = (kind) => {
+    const workflow = ADDITIONAL_MAINTENANCE_WORKFLOWS.find((item) => item.key === kind);
+    if (!workflow) return [];
+    return safeArr(vehicle?.[workflow.historyField])
+      .filter(
+        (entry) =>
+          !generatedAppointmentDate ||
+          String(entry?.completedDate || "").slice(0, 10) === generatedAppointmentDate
+      )
+      .flatMap((entry) =>
+        normalizeMaintenanceDocumentList(entry?.documents, {
+          maintenanceTypeId: workflow.maintenanceTypeId,
+          source: "appointment",
+          sourceRecordId: entry?.completedDate || generatedAppointmentDate,
+          uploadedAt: entry?.completedAt || entry?.completedDate || "",
+        })
+      )
+      .filter((item) => !deletedDocumentUrls.includes(String(item?.url || "").trim()));
+  };
+  const savedDocumentsByKey = Object.fromEntries(
+    activeGeneratedWorkflows.map((workflow) => [
+      workflow.key,
+      documentsForAppointment(workflow.key),
+    ])
+  );
 
   return (
     <div className={layoutStyles.extracted1} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
@@ -892,28 +863,59 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
               Attach the inspection paperwork for this maintenance appointment.
             </div>
             <div className={layoutStyles.extracted25}>
-              {generatedAppointmentKinds.brake ? (
-                <Field label="Brake Test Document">
+              {activeGeneratedWorkflows.map((workflow) => {
+                const savedDocuments = savedDocumentsByKey[workflow.key] || [];
+                const selectedFile = maintenanceDocumentFiles[workflow.key] || null;
+                return (
+                <Field key={workflow.key} label={`${workflow.label} Document`}>
+                  {savedDocuments.length ? (
+                    <div className={layoutStyles.savedDocumentList}>
+                      {savedDocuments.map((file, index) => (
+                        <div
+                          key={`${file.url || file.name}-${index}`}
+                          className={layoutStyles.savedDocumentRow}
+                        >
+                          <div className={layoutStyles.savedDocumentDetails}>
+                            <a href={file.url} target="_blank" rel="noopener noreferrer">
+                              {file.name || `${workflow.label} document ${index + 1}`}
+                            </a>
+                            <span>
+                              {file.source} · {fmtDate(file.uploadedAt)} ·{" "}
+                              {file.uploadedBy?.name || file.uploadedBy?.email || "Unknown"}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteGeneratedAppointmentDocument(workflow.key, file)
+                            }
+                            disabled={deletingDocumentUrl === (file.url || file.name)}
+                          >
+                            {deletingDocumentUrl === (file.url || file.name)
+                              ? "Deleting…"
+                              : "Delete"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   <input
                     type="file"
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={(e) => setBrakeTestDocumentFile(e.target.files?.[0] || null)}
+                    onChange={(event) =>
+                      setMaintenanceDocumentFiles((previous) => ({
+                        ...previous,
+                        [workflow.key]: event.target.files?.[0] || null,
+                      }))
+                    }
                     className={layoutStyles.extracted26}
                   />
-                  {brakeTestDocumentFile ? <div className={layoutStyles.extracted27}>{brakeTestDocumentFile.name}</div> : null}
+                  {selectedFile ? (
+                    <div className={layoutStyles.extracted27}>{selectedFile.name}</div>
+                  ) : null}
                 </Field>
-              ) : null}
-              {generatedAppointmentKinds.pmi ? (
-                <Field label="PMI Inspection Document">
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={(e) => setPmiDocumentFile(e.target.files?.[0] || null)}
-                    className={layoutStyles.extracted28}
-                  />
-                  {pmiDocumentFile ? <div className={layoutStyles.extracted29}>{pmiDocumentFile.name}</div> : null}
-                </Field>
-              ) : null}
+                );
+              })}
             </div>
             {!canCompleteGeneratedAppointment ? (
               <div className={layoutStyles.extracted30}>

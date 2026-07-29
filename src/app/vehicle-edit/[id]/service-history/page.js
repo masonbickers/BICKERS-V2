@@ -7,6 +7,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../../../firebaseConfig";
 import { formatDateForDisplay, normalizeServiceRecord, toDateLike } from "@/app/utils/serviceRecordCompat";
+import { buildServiceHistoryItems } from "@/app/utils/serviceHistory";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const UI = UI_TOKENS;
@@ -105,40 +106,8 @@ export default function VehicleServiceHistoryPage() {
   }, [id]);
 
   const serviceHistoryItems = useMemo(() => {
-    const stored = Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : [];
-    const derived = serviceRecords.map((record) => ({
-      completedDate: record.serviceDateDisplay || formatDateForDisplay(record.serviceDateOnly || record.serviceDate) || "",
-      sortDate: record.serviceDateOnly || record.serviceDate || "",
-      bookingId: record.id,
-      bookingRef: record.serviceType || "",
-      notes: record.workSummary || record.extraNotes || "",
-      location: record.registration || "",
-      odometer: record.odometer || "",
-      partsUsed: record.partsUsed || "",
-    }));
-
-    // Prefer structured serviceRecords when present. Legacy vehicle.serviceHistory
-    // entries are only used as a fallback for vehicles that do not yet have
-    // migrated service record documents.
-    if (derived.length > 0) {
-      return derived.sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
-    }
-
-    const seen = new Set();
-    return [...stored]
-      .map((item) => ({
-        ...item,
-        completedDate: formatDateForDisplay(item?.completedDate) || item?.completedDate || "",
-        sortDate: item?.sortDate || item?.completedDate || "",
-      }))
-      .filter((item, index) => {
-        const key = item?.bookingId || `${item?.completedDate || ""}-${item?.bookingRef || ""}-${index}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
-  }, [vehicle?.serviceHistory, serviceRecords]);
+    return buildServiceHistoryItems({ vehicle, serviceRecords });
+  }, [vehicle, serviceRecords]);
 
   const vehicleLabel =
     vehicle?.name || vehicle?.registration || vehicle?.reg || "Vehicle";
@@ -172,10 +141,10 @@ export default function VehicleServiceHistoryPage() {
                 <div className={layoutStyles.extracted2}>
                   {serviceHistoryItems.map((item, index) => (
                     <div
-                      key={item.bookingId || `${item.completedDate}-${index}`}
+                      key={item.serviceRecordId || item.maintenanceBookingId || `${item.completedDate}-${index}`}
                       onClick={() =>
-                        item.bookingId
-                          ? router.push(`/vehicle-edit/${id}/service-history/${item.bookingId}`)
+                        item.serviceRecordId
+                          ? router.push(`/vehicle-edit/${id}/service-history/${item.serviceRecordId}`)
                           : undefined
                       }
                       style={{
@@ -183,11 +152,11 @@ export default function VehicleServiceHistoryPage() {
                         borderRadius: 12,
                         padding: 10,
                         background: "var(--color-surface)",
-                        cursor: item.bookingId ? "pointer" : "default",
+                        cursor: item.serviceRecordId ? "pointer" : "default",
                       }}
                     >
                       <div style={{ fontWeight: 900, color: UI.text }}>
-                        {item.completedDate || "-"}
+                        {formatDateForDisplay(item.completedDate) || "-"}
                       </div>
                       <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
                         {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
@@ -206,11 +175,15 @@ export default function VehicleServiceHistoryPage() {
                       {item.notes ? (
                         <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
                       ) : null}
-                      {item.bookingId ? (
+                      {item.serviceRecordId ? (
                         <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 900, color: UI.brand }}>
                           Open full service details
                         </div>
-                      ) : null}
+                      ) : (
+                        <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 900, color: UI.muted }}>
+                          {item.sourceLabel || "Vehicle service history"}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

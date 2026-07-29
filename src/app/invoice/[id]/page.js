@@ -1,30 +1,48 @@
 "use client";
 
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useState, useMemo } from "react";
+import { Fragment, useCallback, useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  doc, getDoc, updateDoc, setDoc,
-  collection, getDocs, where
+  doc, getDoc,
+  collection, getDocs
 } from "firebase/firestore";
-import { db } from "../../../../firebaseConfig";
+import { auth, db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
-  tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import {
+  INVOICE_STATUSES,
+  calculateInvoiceTotals,
+  createInvoiceDraftFromQuote,
+  getSageReadiness,
+  getInvoiceIdentityDisplay,
+  hydrateInvoiceDraftForEditing,
+  invoiceLinesWithQuantity,
+  parseInvoiceRecord,
+  resolveAcceptedQuote,
+  validateInvoice,
+} from "../../utils/invoiceLifecycle";
+import {
+  createInvoiceCustomerSnapshot,
+  getAccountingMappingReadiness,
+} from "../../utils/accountingMappings";
+import { formatVehicleList } from "@/app/utils/vehicleDisplay";
+import { useVehicleLookup } from "@/app/utils/useVehicleLookup";
+import { invoiceTimesheetRows } from "@/app/utils/timesheetBookingLink";
 
 /* ───────────────────────────────────────────
    Mini design system
 ─────────────────────────────────────────── */
 const UI = UI_TOKENS;
 
-const pageWrap = { padding: "40px 24px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "20px 24px 28px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: "var(--color-surface)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const section = { ...surface, padding: 14, marginBottom: UI.gap };
 const sectionTitle = { fontSize: 16, fontWeight: 900, marginBottom: 8, color: UI.text };
@@ -186,10 +204,15 @@ export default function InvoiceJobPage() {
   const { id } = useParams();
   const router = useRouter();
   const dataAccessState = useDataAccessState();
+  const vehicleLookup = useVehicleLookup(dataAccessState);
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [job, setJob] = useState(null);
+  const [invoice, setInvoice] = useState(null);
+  const [invoiceLoadError, setInvoiceLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exportJob, setExportJob] = useState(null);
+  const [billingCustomers, setBillingCustomers] = useState([]);
 
   const [timesheets, setTimesheets] = useState([]);
   const [tsLoading, setTsLoading] = useState(true);
@@ -201,7 +224,40 @@ export default function InvoiceJobPage() {
       try {
         const ref = doc(db, "bookings", id);
         const snap = await getDoc(ref);
-        setJob(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        const loadedJob = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+        setJob(loadedJob);
+        if (loadedJob) {
+          const invoiceSnap = await getDoc(doc(db, "invoiceQueue", id));
+          if (invoiceSnap.exists() && invoiceSnap.data()?.schemaVersion) {
+            const savedInvoice = invoiceSnap.data();
+            setInvoice(
+              hydrateInvoiceDraftForEditing(
+                parseInvoiceRecord(
+                  { id: invoiceSnap.id, ...savedInvoice },
+                  loadedJob
+                )
+              )
+            );
+          } else {
+            const acceptedQuote = resolveAcceptedQuote(loadedJob);
+            if (acceptedQuote) {
+              try {
+                setInvoice(createInvoiceDraftFromQuote({ booking: loadedJob, quote: acceptedQuote }));
+                setInvoiceLoadError("");
+              } catch (error) {
+                setInvoice(null);
+                setInvoiceLoadError(error?.message || "The approved job quote could not be converted into an invoice.");
+              }
+            } else {
+              setInvoice(null);
+              setInvoiceLoadError("Save a quote for the completed job before creating its invoice.");
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Invoice page failed to load", error);
+        setInvoice(null);
+        setInvoiceLoadError(error?.message || "The invoice could not be loaded.");
       } finally {
         setLoading(false);
       }
@@ -209,7 +265,34 @@ export default function InvoiceJobPage() {
     fetchJob();
   }, [id]);
 
-  // Load timesheets (multi-strategy)
+  useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking || !gate.allowed) return;
+    getDocs(tenantCollectionQuery(db, "contacts", dataAccessState))
+      .then((snapshot) =>
+        setBillingCustomers(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() || {}) })))
+      )
+      .catch(() => setBillingCustomers([]));
+  }, [accessKey, dataAccessState]);
+
+  const loadExportJobStatus = useCallback(async () => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token || !id) return;
+    const response = await fetch(
+      `/api/integrations/sage50/export-jobs?invoiceId=${encodeURIComponent(id)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+    );
+    if (!response.ok) return;
+    const data = await response.json();
+    setExportJob(Array.isArray(data.jobs) ? data.jobs[0] || null : null);
+  }, [id]);
+
+  useEffect(() => {
+    if (!invoice?.bookingId) return;
+    loadExportJobStatus().catch(() => {});
+  }, [invoice?.bookingId, invoice?.sageSync?.status, loadExportJobStatus]);
+
+  // Load only timesheets linked to this persisted booking identity.
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
@@ -220,31 +303,18 @@ export default function InvoiceJobPage() {
       setTsLoading(true);
 
       const results = [];
-
-      // 1) top-level timesheets by bookingId
       try {
-        const q1 = tenantCollectionQuery(db, "timesheets", dataAccessState, [where("bookingId", "==", id)]);
-        const s1 = await getDocs(q1);
-        s1.forEach((d) => results.push({ id: d.id, ...(d.data() || {}) }));
+        const snapshot = await getDocs(
+          tenantCollectionQuery(db, "timesheets", dataAccessState)
+        );
+        const allTimesheets = snapshot.docs.map((item) => ({
+          id: item.id,
+          ...(item.data() || {}),
+        }));
+        results.push(...invoiceTimesheetRows(allTimesheets, id));
       } catch {}
 
-      // 2) by jobId
-      try {
-        const q2 = tenantCollectionQuery(db, "timesheets", dataAccessState, [where("jobId", "==", id)]);
-        const s2 = await getDocs(q2);
-        s2.forEach((d) => results.push({ id: d.id, ...(d.data() || {}) }));
-      } catch {}
-
-      // 3) by jobNumber (requires job loaded)
-      try {
-        if (job?.jobNumber) {
-          const q3 = tenantCollectionQuery(db, "timesheets", dataAccessState, [where("jobNumber", "==", job.jobNumber)]);
-          const s3 = await getDocs(q3);
-          s3.forEach((d) => results.push({ id: d.id, ...(d.data() || {}) }));
-        }
-      } catch {}
-
-      // 4) subcollection bookings/:id/timesheets
+      // Legacy booking subcollection records are inherently booking-scoped.
       try {
         const sub = await getDocs(collection(db, "bookings", id, "timesheets"));
         sub.forEach((d) => results.push({ id: d.id, ...(d.data() || {}) }));
@@ -268,8 +338,7 @@ export default function InvoiceJobPage() {
     };
 
     fetchTimesheets();
-    // re-run when jobNumber resolves
-  }, [accessKey, dataAccessState, id, job?.jobNumber]);
+  }, [accessKey, dataAccessState, id]);
 
   // Render helpers
   const renderDates = useMemo(() => {
@@ -320,40 +389,282 @@ export default function InvoiceJobPage() {
       .map((d) => d.toISOString());
   };
 
-  const markInvoiced = async () => {
+  const updateInvoiceField = (field, value) => {
+    setInvoice((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateInvoiceLine = (index, field, value) => {
+    setInvoice((current) => {
+      const lines = current.lines.map((line, lineIndex) =>
+        lineIndex === index ? { ...line, [field]: value } : line
+      );
+      const totals = calculateInvoiceTotals(lines);
+      return {
+        ...current,
+        lines: totals.lines,
+        totals: { net: totals.net, tax: totals.tax, gross: totals.gross },
+      };
+    });
+  };
+
+  const selectBillingCustomer = (contactId) => {
+    const contact = billingCustomers.find((item) => item.id === contactId);
+    if (!contact) return;
+    const customer = createInvoiceCustomerSnapshot(contact, invoice.customer);
+    setInvoice((current) => ({
+      ...current,
+      customer,
+      currency: contact.financeProfile?.defaultCurrency || current.currency || "GBP",
+      paymentTermsDays:
+        contact.financeProfile?.defaultPaymentTerms ?? current.paymentTermsDays ?? 30,
+    }));
+  };
+
+  const addInvoiceLine = () => {
+    setInvoice((current) => {
+      const lines = [
+        ...current.lines,
+        {
+          id: `line-${Date.now()}`,
+          sourceLineId: "",
+          section: "Additional charges",
+          description: "",
+          quantity: 1,
+          unitPrice: 0,
+          taxRate: 20,
+          nominalCode: "",
+          taxCode: "",
+          notes: "",
+        },
+      ];
+      const totals = calculateInvoiceTotals(lines);
+      return { ...current, lines: totals.lines, totals: { net: totals.net, tax: totals.tax, gross: totals.gross } };
+    });
+  };
+
+  const removeInvoiceLine = (index) => {
+    setInvoice((current) => {
+      const lines = current.lines.filter((_, lineIndex) => lineIndex !== index);
+      const totals = calculateInvoiceTotals(lines);
+      return { ...current, lines: totals.lines, totals: { net: totals.net, tax: totals.tax, gross: totals.gross } };
+    });
+  };
+
+  const persistInvoice = async (nextInvoice, successMessage) => {
+    const errors = validateInvoice(nextInvoice);
+    if (errors.length) {
+      alert(errors.join("\n"));
+      return false;
+    }
+    setSaving(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Sign in again before saving this invoice.");
+      const response = await fetch(`/api/invoices/${encodeURIComponent(id)}/lifecycle`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "save_draft",
+          expectedUpdatedAt: invoice.updatedAt || "",
+          invoice: {
+            ...nextInvoice,
+            draftReference: invoice.draftReference,
+            invoiceNumber: nextInvoice.invoiceNumber || null,
+            dates: cleanDatesArray(job),
+            client: nextInvoice.customer?.name || job?.client || "",
+            location: job?.location || "",
+          },
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.invoice) {
+        throw new Error(data.error || "Invoice draft could not be saved.");
+      }
+      const payload = hydrateInvoiceDraftForEditing(
+        parseInvoiceRecord(data.invoice, job)
+      );
+      setInvoice(payload);
+      if (successMessage) alert(successMessage);
+      return payload;
+    } catch (e) {
+      alert("Failed to save invoice: " + (e?.message || e));
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveDraft = async () => {
+    const totals = calculateInvoiceTotals(
+      invoiceLinesWithQuantity(invoice.lines)
+    );
+    return persistInvoice(
+      { ...invoice, lines: totals.lines, totals: { net: totals.net, tax: totals.tax, gross: totals.gross } },
+      "Invoice draft saved."
+    );
+  };
+
+  const openInvoiceDocument = async (action = "view") => {
+    const printableLines = invoiceLinesWithQuantity(invoice.lines);
+    const totals = calculateInvoiceTotals(printableLines);
+    const currentInvoice = {
+      ...invoice,
+      lines: totals.lines,
+      totals: { net: totals.net, tax: totals.tax, gross: totals.gross },
+    };
+    const saved =
+      invoice.status === INVOICE_STATUSES.DRAFT
+        ? await persistInvoice(currentInvoice, "")
+        : invoice;
+    if (saved) {
+      router.push(`/invoice-view/${id}${action === "download" ? "?action=download" : ""}`);
+    }
+  };
+
+  const runLifecycleAction = async (action) => {
     try {
       setSaving(true);
-
-      const bookingRef = doc(db, "bookings", id);
-      await updateDoc(bookingRef, tenantPayload(dataAccessState, {
-        status: "invoiced",
-        invoicedAt: new Date().toISOString(),
-      }));
-
-      const now = new Date();
-      const dueISO = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      const invoiceRef = doc(db, "invoiceQueue", id);
-
-      await setDoc(
-        invoiceRef,
-        tenantPayload(dataAccessState, {
-          bookingId: id,
-          jobNumber: job?.jobNumber || id,
-          client: job?.client || "",
-          location: job?.location || "",
-          dates: cleanDatesArray(job),
-          status: "invoiced",
-          invoiceNumber: job?.finance?.invoiceNumber || job?.invoiceNumber || "",
-          invoiceDate: now.toISOString(),
-          dueDate: dueISO,
-          updatedAt: now.toISOString(),
+      let currentInvoice = invoice;
+      if (action === "approve" && invoice.status === INVOICE_STATUSES.DRAFT) {
+        const saved = await saveDraft();
+        if (!saved) return;
+        currentInvoice = saved;
+      }
+      const needsReason = ["return_to_draft", "void"].includes(action);
+      const reason = needsReason
+        ? window.prompt(
+            action === "void"
+              ? "Reason for voiding this invoice:"
+              : "Reason for returning this invoice to draft:",
+            ""
+          ) || ""
+        : "";
+      if (needsReason && !reason.trim()) return;
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Sign in again before changing invoice status.");
+      const response = await fetch(`/api/invoices/${encodeURIComponent(id)}/lifecycle`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action,
+          reason,
+          expectedUpdatedAt: currentInvoice.updatedAt || "",
         }),
-        { merge: true }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.invoice) {
+        throw new Error(data.error || "Invoice lifecycle action failed.");
+      }
+      setInvoice(parseInvoiceRecord(data.invoice, job));
+      alert(
+        action === "approve"
+          ? "Invoice approved."
+          : action === "return_to_draft"
+          ? "Invoice returned to draft."
+          : action === "prepare_for_export"
+          ? "Invoice prepared for accounting export."
+          : "Invoice voided."
       );
+    } catch (error) {
+      alert(error?.message || String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-      router.push("/finance-home");
-    } catch (e) {
-      alert("Failed to mark invoiced: " + (e?.message || e));
+  const queueSage50Export = async () => {
+    try {
+      setSaving(true);
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Sign in again before queueing this invoice.");
+      const response = await fetch("/api/integrations/sage50/export-jobs", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ invoiceId: id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.job) throw new Error(data.error || "Invoice could not be queued.");
+      setExportJob(data.job);
+      alert(data.created ? "Invoice queued for the Sage 50 connector." : "This invoice is already queued.");
+    } catch (error) {
+      alert(error?.message || String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reconcileSage50Export = async () => {
+    if (!exportJob?.queueJobId) return;
+    try {
+      setSaving(true);
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Sign in again before reconciling this invoice.");
+      const response = await fetch(
+        `/api/integrations/sage50/export-jobs/${encodeURIComponent(exportJob.queueJobId)}/reconcile`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.invoice) {
+        throw new Error(data.error || "Sage 50 result could not be reconciled.");
+      }
+      setInvoice(parseInvoiceRecord(data.invoice, job));
+      await loadExportJobStatus();
+      alert(data.idempotent ? "Invoice was already reconciled." : "Invoice issued from the confirmed Sage 50 result.");
+    } catch (error) {
+      alert(error?.message || String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendIssuedInvoice = async () => {
+    const recipient = String(invoice.issuedSnapshot?.customer?.email || "").trim();
+    if (!recipient) {
+      alert("The issued customer snapshot does not contain an accounts-payable email.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `${invoice.delivery?.status === "failed" ? "Retry delivery" : "Send invoice"} ${invoice.invoiceNumber} to ${recipient}?`
+      )
+    ) return;
+    try {
+      setSaving(true);
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Sign in again before sending this invoice.");
+      const response = await fetch(`/api/invoices/${encodeURIComponent(id)}/delivery`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ recipient }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.delivery) {
+        throw new Error(data.error || "Invoice delivery failed.");
+      }
+      setInvoice((current) => ({ ...current, delivery: data.delivery }));
+      alert(data.idempotent ? "This invoice was already delivered." : "Issued invoice sent.");
+    } catch (error) {
+      alert(error?.message || String(error));
+      const invoiceSnap = await getDoc(doc(db, "invoiceQueue", id)).catch(() => null);
+      if (invoiceSnap?.exists()) {
+        setInvoice(parseInvoiceRecord({ id: invoiceSnap.id, ...invoiceSnap.data() }, job));
+      }
+    } finally {
       setSaving(false);
     }
   };
@@ -372,13 +683,30 @@ export default function InvoiceJobPage() {
       </HeaderSidebarLayout>
     );
   }
+  if (!invoice) {
+    return (
+      <HeaderSidebarLayout>
+        <div style={pageWrap}>
+          <div style={section}>
+            <div style={sectionTitle}>Invoice cannot be created yet</div>
+            <p style={{ color: UI.muted }}>
+              {invoiceLoadError || "Save the approved job quote first. It becomes the immutable source for the invoice draft."}
+            </p>
+            <button onClick={() => router.push(`/quote/${id}`)}>Open quotes</button>
+          </div>
+        </div>
+      </HeaderSidebarLayout>
+    );
+  }
+
+  const invoiceIdentity = getInvoiceIdentityDisplay(invoice);
+  const sageReadiness = getSageReadiness(invoice);
+  const accountingReadiness = getAccountingMappingReadiness(invoice);
 
   const employees = listToString(job.employees, (e) =>
     typeof e === "string" ? e : e?.name || e?.displayName || e?.email
   );
-  const vehicles = listToString(job.vehicles, (v) =>
-    typeof v === "string" ? v : v?.name || v?.registration
-  );
+  const vehicles = formatVehicleList(job.vehicles, vehicleLookup) || "—";
   const equipment = listToString(job.equipment, (x) =>
     typeof x === "string" ? x : x?.name || x?.serial || x?.assetNumber
   );
@@ -415,83 +743,281 @@ export default function InvoiceJobPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        {/* Back + Title */}
-        <div className={layoutStyles.extracted3}>
-          <button
-            onClick={() => router.back()}
-            className={layoutStyles.extracted4}
-          >
-            ← Back
-          </button>
-
-          <div className={layoutStyles.extracted5}>
-            <span className={layoutStyles.extracted6}>{statusPretty}</span>
-          </div>
-        </div>
-
-        <h1 className={layoutStyles.extracted7}>
-          Invoice Job #{job.jobNumber || job.id}
-        </h1>
-        <div style={{ color: UI.muted, marginBottom: 18 }}>
-          Client: <strong style={{ color: UI.text }}>{job.client || "—"}</strong>
-        </div>
-
-        {/* Summary */}
-        <div style={section}>
-          <div style={sectionTitle}>Summary</div>
-          <div style={grid(3)}>
-            <div><div style={k}>Client</div><div style={v}>{job.client || "—"}</div></div>
-            <div><div style={k}>Location</div><div style={v}>{job.location || "—"}</div></div>
-            <div><div style={k}>Dates</div><div style={v}>{dateRangeLabel(job)}</div></div>
-
-            <div><div style={k}>Status</div><div style={v}>{statusPretty}</div></div>
-            <div><div style={k}>Employees</div><div style={v}>{employees}</div></div>
-            <div><div style={k}>Vehicles</div><div style={v}>{vehicles}</div></div>
-
-            <div><div style={k}>Equipment</div><div style={v}>{equipment}</div></div>
-            <div><div style={k}>Booking Dates (detailed)</div><div className={layoutStyles.extracted8}>{renderDates}</div></div>
-            <div><div style={k}>PO Number</div><div style={v}>{job?.finance?.poNumber || job?.poNumber || "—"}</div></div>
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div style={section}>
-          <div style={sectionTitle}>Notes</div>
-          <div className={layoutStyles.extracted9}>
-            <div style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
-              <div style={k}>General Notes</div>
-              <div className={layoutStyles.extracted10}>{job.notes || job.generalNotes || "—"}</div>
+        {/* Authoritative invoice */}
+        <section className={layoutStyles.invoiceWorkspace}>
+          <div className={layoutStyles.invoiceSectionHeader}>
+            <div className={layoutStyles.invoiceBuilderIdentity}>
+              <button type="button" onClick={() => router.push(`/job-summary/${id}`)}>← Job</button>
+              <div>
+                <div className={layoutStyles.invoiceWorkspaceEyebrow}>Invoice builder</div>
+                <div className={layoutStyles.invoiceWorkspaceTitle}>Job #{job.jobNumber || job.id} · {job.client || "Customer"}</div>
+              </div>
             </div>
-            <div style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
-              <div style={k}>Per-Day Notes</div>
-              <div className={layoutStyles.extracted11}>
-                {job?.notesByDate && typeof job.notesByDate === "object" ? (
-                  <ul className={layoutStyles.extracted12}>
-                    {Object.entries(job.notesByDate).map(([d, n]) => (
-                      <li key={d} className={layoutStyles.extracted13}>
-                        <strong>{formatNotesDateKey(d)}:</strong>{" "}
-                        <span className={layoutStyles.extracted14}>{String(n || "")}</span>
-                      </li>
+            <div className={layoutStyles.invoiceHeaderActions}>
+              <span className={layoutStyles.builderDate}>{fmtLong(new Date())}</span>
+              <span style={chip}>{prettifyStatus(invoice.status)}</span>
+              <button onClick={() => openInvoiceDocument("view")} disabled={saving}>Print / preview</button>
+              <button onClick={() => openInvoiceDocument("download")} disabled={saving}>Save PDF</button>
+              {invoice.status === INVOICE_STATUSES.DRAFT ? (
+                <>
+                  <button onClick={saveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</button>
+                  <button onClick={() => runLifecycleAction("approve")} disabled={saving}>Approve invoice</button>
+                  <button onClick={() => runLifecycleAction("void")} disabled={saving}>Void invoice</button>
+                </>
+              ) : null}
+              {invoice.status === INVOICE_STATUSES.APPROVED ? (
+                <>
+                  <button onClick={() => runLifecycleAction("return_to_draft")} disabled={saving}>Return to draft</button>
+                  <button onClick={() => runLifecycleAction("prepare_for_export")} disabled={saving || invoice.sageSync?.status === "pending"}>Prepare for export</button>
+                  {invoice.sageSync?.status === "pending" ? (
+                    <button onClick={queueSage50Export} disabled={saving || ["claimed", "processing", "succeeded"].includes(exportJob?.status)}>
+                      {exportJob ? `Sage queue: ${exportJob.status}` : "Queue for Sage 50"}
+                    </button>
+                  ) : null}
+                  {exportJob?.status === "succeeded" && !exportJob.invoiceReconciled ? (
+                    <button onClick={reconcileSage50Export} disabled={saving}>
+                      Reconcile Sage result
+                    </button>
+                  ) : null}
+                  <button onClick={() => runLifecycleAction("void")} disabled={saving}>Void invoice</button>
+                </>
+              ) : null}
+              {invoice.status === INVOICE_STATUSES.ISSUED ? (
+                <button
+                  onClick={sendIssuedInvoice}
+                  disabled={saving || ["sending", "sent"].includes(invoice.delivery?.status)}
+                >
+                  {invoice.delivery?.status === "sent"
+                    ? "Invoice sent"
+                    : invoice.delivery?.status === "sending"
+                    ? "Sending..."
+                    : invoice.delivery?.status === "failed"
+                    ? "Retry sending invoice"
+                    : "Send invoice"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className={layoutStyles.invoiceBuilderGrid}>
+            <aside className={layoutStyles.invoiceBuilderSidebar}>
+              <div className={layoutStyles.sidebarHeading}>
+                <div><span>Invoice summary</span><strong>{invoiceIdentity.draftReference}</strong></div>
+                <span className={layoutStyles.sidebarStatus}>{prettifyStatus(invoice.status)}</span>
+              </div>
+              <div className={layoutStyles.sidebarPanel}>
+                <h3>Invoice details</h3>
+                <dl>
+                  <div><dt>Job</dt><dd>#{job.jobNumber || job.id}</dd></div>
+                  <div><dt>Draft reference</dt><dd>{invoiceIdentity.draftReference}</dd></div>
+                  <div><dt>Official invoice number</dt><dd>{invoiceIdentity.officialNumber === "Pending" ? "Pending accounting issue" : invoiceIdentity.officialNumber}</dd></div>
+                  <div><dt>Sage sync</dt><dd>{String(invoice.sageSync?.status || "not_ready").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}</dd></div>
+                  <div>
+                    <dt>Sage readiness</dt>
+                    <dd title={sageReadiness.blockers.map((blocker) => blocker.message).join("\n")}>
+                      {sageReadiness.ready ? "Ready" : `${sageReadiness.blockers.length} requirement${sageReadiness.blockers.length === 1 ? "" : "s"} outstanding`}
+                    </dd>
+                  </div>
+                  <div><dt>Quote</dt><dd>{invoice.sourceQuote?.quoteNumber || "—"}</dd></div>
+                  <div><dt>PO number</dt><dd>{invoice.purchaseOrderNumber || "—"}</dd></div>
+                  <div><dt>Terms</dt><dd>{invoice.paymentTermsDays ?? 30} days</dd></div>
+                  <div>
+                    <dt>Delivery</dt>
+                    <dd>{prettifyStatus(invoice.delivery?.status || "not_sent")}</dd>
+                  </div>
+                  {invoice.delivery?.recipient ? (
+                    <div><dt>Sent to</dt><dd>{invoice.delivery.recipient}</dd></div>
+                  ) : null}
+                  {invoice.delivery?.sentAt ? (
+                    <div><dt>Delivered</dt><dd>{fmtLong(parseDate(invoice.delivery.sentAt))}</dd></div>
+                  ) : null}
+                  {invoice.delivery?.error?.message ? (
+                    <div><dt>Delivery error</dt><dd title={invoice.delivery.error.message}>{invoice.delivery.error.message}</dd></div>
+                  ) : null}
+                  <div><dt>Saved</dt><dd>{invoice.updatedAt ? fmtLong(parseDate(invoice.updatedAt)) : "Not yet"}</dd></div>
+                </dl>
+              </div>
+              <div className={layoutStyles.sidebarPanel}>
+                <h3>Invoice totals</h3>
+                <dl>
+                  <div><dt>Net</dt><dd>{money(invoice.totals?.net)}</dd></div>
+                  <div><dt>VAT</dt><dd>{money(invoice.totals?.tax)}</dd></div>
+                  <div><dt>Total</dt><dd><strong>{money(invoice.totals?.gross)}</strong></dd></div>
+                </dl>
+              </div>
+              <div className={layoutStyles.sidebarPanel}>
+                <h3>Accounting mapping</h3>
+                <label>
+                  <span style={k}>Billing customer</span>
+                  <select
+                    value={invoice.customer?.contactId || ""}
+                    disabled={invoice.status !== "draft"}
+                    onChange={(event) => selectBillingCustomer(event.target.value)}
+                  >
+                    <option value="">Select saved customer…</option>
+                    {billingCustomers.map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {contact.financeProfile?.billingLegalName || contact.name || contact.id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <dl>
+                  <div><dt>Sage customer</dt><dd>{invoice.customer?.sageCustomerId || "Not mapped"}</dd></div>
+                  <div><dt>Export job</dt><dd>{exportJob?.invoiceReconciled ? "Reconciled" : exportJob?.status ? prettifyStatus(exportJob.status) : "Not queued"}</dd></div>
+                  {exportJob?.result?.invoiceNumber ? <div><dt>Sage invoice</dt><dd>{exportJob.result.invoiceNumber}</dd></div> : null}
+                  {invoice.status === "issued" ? <div><dt>Issued</dt><dd>{fmtLong(parseDate(invoice.issueDate || invoice.issuedAt))}</dd></div> : null}
+                  <div><dt>Mapping</dt><dd>{accountingReadiness.ready ? "Complete" : `${accountingReadiness.blockers.length} outstanding`}</dd></div>
+                </dl>
+                {!accountingReadiness.ready ? (
+                  <ul>
+                    {accountingReadiness.blockers.map((blocker, index) => (
+                      <li key={`${blocker.code}-${blocker.line || index}`}>{blocker.message}</li>
                     ))}
                   </ul>
-                ) : "—"}
+                ) : null}
+              </div>
+            </aside>
+
+          <div className={layoutStyles.invoiceDocument}>
+            <div className={layoutStyles.invoiceDocumentHeader}>
+              <div className={layoutStyles.invoiceBrand}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/bickers-action-logo.png" alt="Bickers Action" />
+              </div>
+              <div className={layoutStyles.invoiceIdentity}>
+                <span>{invoiceIdentity.documentLabel.toUpperCase()}</span>
+                <strong>{invoiceIdentity.draftReference}</strong>
+              </div>
+            </div>
+
+            <div className={layoutStyles.invoiceParties}>
+              <div className={layoutStyles.billTo}>
+                <span className={layoutStyles.documentLabel}>Bill to</span>
+                <label>
+                  <input value={invoice.customer?.name || ""} aria-label="Customer" disabled={invoice.status !== "draft"} onChange={(e) => setInvoice((current) => ({ ...current, customer: { ...current.customer, name: e.target.value } }))} />
+                </label>
+                <span>{job.location || "Address not recorded"}</span>
+              </div>
+              <div className={layoutStyles.invoiceMetaGrid}>
+                <div>
+                  <div style={k}>Draft reference</div>
+                  <strong>{invoiceIdentity.draftReference}</strong>
+                </div>
+                <div>
+                  <div style={k}>Official invoice number</div>
+                  <strong>{invoiceIdentity.officialNumber === "Pending" ? "Pending accounting issue" : invoiceIdentity.officialNumber}</strong>
+                </div>
+                <label><div style={k}>PO Number</div><input value={invoice.purchaseOrderNumber || ""} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceField("purchaseOrderNumber", e.target.value)} /></label>
+                <label><div style={k}>Payment terms</div><div className={layoutStyles.termsInput}><input type="number" min="0" value={invoice.paymentTermsDays ?? 30} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceField("paymentTermsDays", Number(e.target.value))} /><span>days</span></div></label>
+                <div><div style={k}>Job reference</div><strong>#{job.jobNumber || job.id}</strong></div>
+              </div>
+            </div>
+
+            <div className={layoutStyles.invoiceSource}>
+              Approved job quote <strong>{invoice.sourceQuote?.quoteNumber}</strong>
+              <span>Invoice edits do not change the approved quote.</span>
+            </div>
+
+            <div className={layoutStyles.invoiceTableWrap}>
+              <table className={layoutStyles.invoiceTable}>
+              <colgroup>
+                <col className={layoutStyles.descriptionCol} />
+                <col className={layoutStyles.qtyCol} />
+                <col className={layoutStyles.priceCol} />
+                <col className={layoutStyles.vatRateCol} />
+                <col className={layoutStyles.mappingCol} />
+                <col className={layoutStyles.mappingCol} />
+                <col className={layoutStyles.moneyCol} />
+                <col className={layoutStyles.moneyCol} />
+                <col className={layoutStyles.grossCol} />
+                <col className={layoutStyles.actionCol} />
+              </colgroup>
+              <thead>
+                <tr>
+                  {["Description", "Qty", "Unit price", "VAT %", "Nominal", "Sage tax", "Net", "VAT", "Gross", ""].map((heading) => (
+                    <th key={heading} className={heading === "Description" ? layoutStyles.textHeading : layoutStyles.numberHeading}>{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {invoice.lines.map((line, index) => {
+                  const section = String(line.section || "").trim();
+                  const previousSection =
+                    index > 0
+                      ? String(invoice.lines[index - 1]?.section || "").trim()
+                      : "";
+                  return (
+                    <Fragment key={line.id}>
+                      {section && section !== previousSection ? (
+                        <tr className={layoutStyles.invoiceSectionRow}>
+                          <td colSpan={10}>{section}</td>
+                        </tr>
+                      ) : null}
+                      <tr>
+                        <td><input className={layoutStyles.descriptionInput} value={line.description} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "description", e.target.value)} /></td>
+                        <td><input className={layoutStyles.numberInput} type="number" step="0.01" value={line.quantity} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "quantity", e.target.value)} /></td>
+                        <td><input className={layoutStyles.numberInput} type="number" step="0.01" value={line.unitPrice} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "unitPrice", e.target.value)} /></td>
+                        <td><input className={layoutStyles.numberInput} type="number" step="0.01" value={line.taxRate} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "taxRate", e.target.value)} /></td>
+                        <td><input className={layoutStyles.numberInput} aria-label={`Line ${index + 1} nominal code`} value={line.nominalCode || ""} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "nominalCode", e.target.value)} /></td>
+                        <td><input className={layoutStyles.numberInput} aria-label={`Line ${index + 1} Sage tax code`} value={line.taxCode || ""} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "taxCode", e.target.value)} /></td>
+                        <td className={layoutStyles.moneyCell}>{money(line.net)}</td>
+                        <td className={layoutStyles.moneyCell}>{money(line.tax)}</td>
+                        <td className={layoutStyles.grossCell}>{money(line.gross)}</td>
+                        <td className={layoutStyles.actionCell}><button className={layoutStyles.removeButton} disabled={invoice.status !== "draft" || invoice.lines.length === 1} onClick={() => removeInvoiceLine(index)}>Remove</button></td>
+                      </tr>
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+              </table>
+            </div>
+            <div className={layoutStyles.invoiceDocumentFooter}>
+              <div>
+                {invoice.status === "draft" ? <button className={layoutStyles.addLineButton} onClick={addInvoiceLine}>+ Add invoice line</button> : null}
+                <label className={layoutStyles.invoiceNotes}>
+                  <div style={k}>Invoice notes</div>
+                  <textarea value={invoice.notes || ""} placeholder="Payment details or invoice notes…" disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceField("notes", e.target.value)} />
+                </label>
+              </div>
+              <div className={layoutStyles.invoiceTotalsPanel}>
+                <div><span>Subtotal</span><strong>{money(invoice.totals?.net)}</strong></div>
+                <div><span>VAT</span><strong>{money(invoice.totals?.tax)}</strong></div>
+                <div><span>Total due</span><strong>{money(invoice.totals?.gross)}</strong></div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Finance */}
-        <div style={section}>
-          <div style={sectionTitle}>Finance</div>
-          <div style={grid(4)}>
-            <div><div style={k}>Invoice #</div><div style={v}>{job?.finance?.invoiceNumber || job?.invoiceNumber || "—"}</div></div>
-            <div><div style={k}>Invoice Amount</div><div style={v}>{money(job?.finance?.total || job?.invoiceTotal)}</div></div>
-            <div><div style={k}>Invoiced At</div><div style={v}>{fmtLong(parseDate(job?.finance?.invoicedAt) || parseDate(job?.invoicedAt))}</div></div>
-            <div><div style={k}>Paid At</div><div style={v}>{fmtLong(parseDate(job?.finance?.paidAt) || parseDate(job?.paidAt))}</div></div>
-            <div><div style={k}>Payment Terms</div><div style={v}>{job?.finance?.terms || job?.paymentTerms || "—"}</div></div>
-            <div><div style={k}>Finance Notes</div><div className={layoutStyles.extracted15}>{job?.finance?.notes || "—"}</div></div>
+            <aside className={layoutStyles.invoiceBuilderSidebar}>
+              <div className={layoutStyles.sidebarHeading}>
+                <div><span>Booking summary</span><strong>#{job.jobNumber || job.id}</strong></div>
+                <span className={layoutStyles.sidebarStatus}>{statusPretty}</span>
+              </div>
+              <div className={layoutStyles.sidebarPanel}>
+                <h3>Job details</h3>
+                <dl>
+                  <div><dt>Customer</dt><dd>{job.client || "—"}</dd></div>
+                  <div><dt>Location</dt><dd>{job.location || "—"}</dd></div>
+                  <div><dt>Dates</dt><dd>{dateRangeLabel(job)}</dd></div>
+                  <div><dt>Crew</dt><dd>{employees}</dd></div>
+                  <div><dt>Vehicles</dt><dd>{vehicles}</dd></div>
+                  <div><dt>Equipment</dt><dd>{equipment === "—" ? "None recorded" : equipment}</dd></div>
+                </dl>
+              </div>
+              <div className={layoutStyles.sidebarPanel}>
+                <h3>Day notes</h3>
+                {job?.notesByDate && typeof job.notesByDate === "object" ? (
+                  <ul className={layoutStyles.builderDayNotes}>
+                    {Object.entries(job.notesByDate)
+                      .filter(([date]) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([date, note]) => <li key={date}><strong>{formatNotesDateKey(date)}</strong><span>{String(note || "No note")}</span></li>)}
+                  </ul>
+                ) : <p>No day notes recorded.</p>}
+              </div>
+            </aside>
           </div>
-        </div>
+        </section>
 
         {/* Timesheets */}
         <div style={section}>
@@ -688,24 +1214,6 @@ export default function InvoiceJobPage() {
           )}
         </div>
 
-        {/* Actions */}
-        <div className={layoutStyles.extracted33}>
-          <button
-            onClick={markInvoiced}
-            disabled={saving}
-            style={{
-              padding: "10px 18px",
-              borderRadius: 8,
-              border: "none",
-              background: saving ? "var(--color-text-muted)" : "var(--color-success-accent)",
-              color: "var(--color-white)",
-              fontWeight: 700,
-              cursor: saving ? "not-allowed" : "pointer",
-            }}
-          >
-            {saving ? "Saving..." : " Mark as Invoiced"}
-          </button>
-        </div>
       </div>
     </HeaderSidebarLayout>
   );

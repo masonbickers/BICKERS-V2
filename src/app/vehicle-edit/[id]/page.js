@@ -7,9 +7,10 @@
 "use client";
 
 import layoutStyles from "./page.styles.module.css";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
+  Activity,
   AlertTriangle,
   ArrowLeft,
   CalendarPlus,
@@ -18,7 +19,6 @@ import {
   ExternalLink,
   Save,
   Trash2,
-  Wrench,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
@@ -51,17 +51,45 @@ import {
 } from "@/app/utils/vehicleCategorySettings";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import { deleteMaintenanceBooking as deleteMaintenanceBookingRecord } from "@/app/utils/maintenanceBookingService";
-import { getIsoWeekLabel, isMotNotApplicable, isServiceNotApplicable } from "@/app/utils/maintenanceSchema";
+import { isOpenMaintenanceBooking } from "@/app/utils/maintenanceCalendar";
+import {
+  getIsoWeekLabel,
+  isMotNotApplicable,
+  isServiceNotApplicable,
+  isVehicleOutOfUse as getIsVehicleOutOfUse,
+  normalizeVehicleOperatingStatus,
+  syncVehicleOperatingStatus,
+} from "@/app/utils/maintenanceSchema";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
+import {
+  buildServiceHistoryItems,
+  ensureServiceHistoryForLastService,
+} from "@/app/utils/serviceHistory";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { buildVehicleComplianceAttention } from "@/app/utils/vehicleComplianceAttention";
+import {
+  applyVorCountdownResume,
+  buildHistoricVorPeriod,
+  calculateVorDurationDays,
+  returnVehicleFromVor,
+  startVehicleVorPeriod,
+} from "@/app/utils/vorPeriods";
+import {
+  Button as UIButton,
+  FormField,
+  Input,
+  Modal,
+  Select,
+  Textarea,
+} from "@/app/components/ui";
 
 /* UI tokens */
 const UI = UI_TOKENS;
 
 const pageWrap = {
-  padding: "16px 16px 32px",
+  padding: "10px 16px 24px",
   background: UI.bg,
   minHeight: "100vh",
 };
@@ -83,6 +111,13 @@ const heroCard = {
   padding: 12,
   background: "var(--color-surface)",
   border: UI.border,
+};
+const vehicleToolbar = {
+  padding: "0 0 4px",
+  background: "transparent",
+  border: "none",
+  borderRadius: 0,
+  boxShadow: "none",
 };
 
 const btn = (kind = "primary") => {
@@ -220,10 +255,16 @@ const metricCard = {
   ...card,
   borderRadius: UI.radius,
   padding: 12,
-  minHeight: 88,
 };
 const sectionStack = { display: "flex", flexDirection: "column", gap: UI.gap };
-const sidebarStack = { position: "sticky", top: 18, alignSelf: "start", display: "flex", flexDirection: "column", gap: UI.gap };
+const sidebarStack = {
+  position: "sticky",
+  top: 12,
+  alignSelf: "start",
+  display: "flex",
+  flexDirection: "column",
+  gap: UI.gap,
+};
 
 /* helpers */
 const clampISODate = (d) => {
@@ -256,6 +297,14 @@ const formatDisplayDateTime = (value) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatOdometerInput = (value) => {
+  if (String(value ?? "").trim() === "") return "";
+  const numeric = Number(String(value ?? "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(numeric) && numeric >= 0
+    ? numeric.toLocaleString("en-GB")
+    : String(value || "");
 };
 
 const parseISOorBlank = (v) => {
@@ -560,6 +609,16 @@ export default function EditVehiclePage() {
   const [fetchingMotHistory, setFetchingMotHistory] = useState(false);
   const [taxDatePrompt, setTaxDatePrompt] = useState(null);
   const [insuranceDatePrompt, setInsuranceDatePrompt] = useState(null);
+  const [vorPrompt, setVorPrompt] = useState(null);
+  const [dateOverrides, setDateOverrides] = useState({
+    mot: false,
+    service: false,
+    inspection: false,
+  });
+  const [advancedDatesOpen, setAdvancedDatesOpen] = useState(false);
+  const [maintenanceMenuOpen, setMaintenanceMenuOpen] = useState(false);
+  const maintenanceMenuRef = useRef(null);
+  const maintenanceMenuTriggerRef = useRef(null);
 
   // booking modals (create)
   const [showMotBooking, setShowMotBooking] = useState(false);
@@ -579,6 +638,27 @@ export default function EditVehiclePage() {
   const tradePlateExpiryWeeks = String(
     vehicleComplianceSettings.tradePlateExpiryWeeks || DEFAULT_VEHICLE_COMPLIANCE_SETTINGS.tradePlateExpiryWeeks
   );
+
+  useEffect(() => {
+    if (!maintenanceMenuOpen) return undefined;
+    const closeForOutsideClick = (event) => {
+      if (!maintenanceMenuRef.current?.contains(event.target)) {
+        setMaintenanceMenuOpen(false);
+      }
+    };
+    const closeForEscape = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMaintenanceMenuOpen(false);
+      maintenanceMenuTriggerRef.current?.focus();
+    };
+    document.addEventListener("mousedown", closeForOutsideClick);
+    document.addEventListener("keydown", closeForEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeForOutsideClick);
+      document.removeEventListener("keydown", closeForEscape);
+    };
+  }, [maintenanceMenuOpen]);
 
   // categories list
   useEffect(() => {
@@ -681,10 +761,7 @@ export default function EditVehiclePage() {
     setVehicleBookings(sortedRows);
     setServiceRecords(sortedServiceRows);
 
-    const active = rows.filter((b) => {
-      const s = String(b.status || "").toLowerCase();
-      return !s.includes("cancel") && !s.includes("declin") && !isArchivedMotBooking(b);
-    });
+    const active = rows.filter((booking) => isOpenMaintenanceBooking(booking));
 
     const byNewest = [...active].sort((a, b) => {
       const ad = toDate(a.appointmentDate || a.startDate || a.createdAt) || new Date(0);
@@ -800,6 +877,8 @@ export default function EditVehiclePage() {
     if (!id) return;
     setInitialSnapshot("");
     setShownAdditionalMaintenance([]);
+    setDateOverrides({ mot: false, service: false, inspection: false });
+    setAdvancedDatesOpen(false);
     reloadVehicle().catch((error) => {
       console.error("Failed to load vehicle:", error);
       setLoadError("Vehicle could not be loaded.");
@@ -819,8 +898,18 @@ export default function EditVehiclePage() {
   // Single, consistent auto-calc engine
   useEffect(() => {
     if (!vehicle) return;
+    if (getIsVehicleOutOfUse(vehicle)) return;
 
     const updates = {};
+    const resumedDueDates =
+      vehicle.maintenanceCountdownPause?.status === "resumed"
+        ? vehicle.maintenanceCountdownPause?.resumedDueDates || {}
+        : {};
+    const keepResumedDate = (field) =>
+      Boolean(
+        resumedDueDates[field] &&
+          String(resumedDueDates[field]) === String(vehicle[field] || "")
+      );
 
     // MOT expiry due. DVSA-fetched expiry dates are the source of truth;
     // frequency is only a fallback for records without fetched MOT data.
@@ -838,12 +927,12 @@ export default function EditVehiclePage() {
       const hasFetchedMotData =
         Boolean(vehicle.dvsaMotHistoryFetchedAt || vehicle.dvsaLatestMot) ||
         safeArr(vehicle.dvsaMotTests).length > 0;
-      if (!hasFetchedMotData || !vehicle.nextMOT) {
+      if ((!hasFetchedMotData || !vehicle.nextMOT) && !dateOverrides.mot) {
         const nextMOT = calcNextFromWeeks(
           vehicle.lastMOT,
           resolveFreqWeeks(vehicle.motFreq, vehicle.lastMOT, vehicle.nextMOT)
         );
-        if (nextMOT && vehicle.nextMOT !== nextMOT) {
+        if (nextMOT && vehicle.nextMOT !== nextMOT && !keepResumedDate("nextMOT")) {
           updates.nextMOT = nextMOT;
           updates.nextMot = nextMOT;
           updates.nextMotDate = nextMOT;
@@ -869,26 +958,30 @@ export default function EditVehiclePage() {
         updates.serviceDueDate = "";
         updates.serviceISOWeek = "";
       }
-    } else {
+    } else if (!dateOverrides.service) {
       const nextService = calcNextFromWeeks(
         dateOnly(vehicle.lastService),
         resolveFreqWeeks(vehicle.serviceFreq, dateOnly(vehicle.lastService), vehicle.nextService)
       );
-      if (nextService && vehicle.nextService !== nextService) updates.nextService = nextService;
+      if (nextService && vehicle.nextService !== nextService && !keepResumedDate("nextService")) updates.nextService = nextService;
     }
 
-    const nextEightWeekInspection = calcNextEightWeekFromCycle(
-      vehicle.eightWeekInspectionStart,
-      vehicle.nextEightWeekInspection
-    );
+    const nextEightWeekInspection = dateOverrides.inspection
+      ? vehicle.nextEightWeekInspection
+      : calcNextEightWeekFromCycle(
+          vehicle.eightWeekInspectionStart,
+          vehicle.nextEightWeekInspection
+        );
     if (
       nextEightWeekInspection &&
       vehicle.nextEightWeekInspection !== nextEightWeekInspection
     ) {
-      updates.nextEightWeekInspection = nextEightWeekInspection;
+      if (!keepResumedDate("nextEightWeekInspection")) {
+        updates.nextEightWeekInspection = nextEightWeekInspection;
+      }
     }
     const inspectionIso = getIsoWeekLabel(
-      nextEightWeekInspection || vehicle.nextEightWeekInspection
+      updates.nextEightWeekInspection || vehicle.nextEightWeekInspection
     );
     if (inspectionIso && vehicle.eightWeekInspectionISOWeek !== inspectionIso) {
       updates.eightWeekInspectionISOWeek = inspectionIso;
@@ -896,41 +989,41 @@ export default function EditVehiclePage() {
 
     // Tacho Inspection
     const nextTacho = calcNextFromWeeks(vehicle.lastTacho, vehicle.tachoFreq);
-    if (nextTacho && vehicle.nextTacho !== nextTacho) updates.nextTacho = nextTacho;
+    if (nextTacho && vehicle.nextTacho !== nextTacho && !keepResumedDate("nextTacho")) updates.nextTacho = nextTacho;
 
     // Brake Test
     const nextBrakeTest = calcNextFromWeeks(vehicle.lastBrakeTest, vehicle.brakeTestFreq);
-    if (nextBrakeTest && vehicle.nextBrakeTest !== nextBrakeTest) updates.nextBrakeTest = nextBrakeTest;
+    if (nextBrakeTest && vehicle.nextBrakeTest !== nextBrakeTest && !keepResumedDate("nextBrakeTest")) updates.nextBrakeTest = nextBrakeTest;
 
     // PMI
     const nextPMI = calcNextFromWeeks(vehicle.lastPMI, vehicle.pmiFreq);
-    if (nextPMI && vehicle.nextPMI !== nextPMI) updates.nextPMI = nextPMI;
+    if (nextPMI && vehicle.nextPMI !== nextPMI && !keepResumedDate("nextPMI")) updates.nextPMI = nextPMI;
 
     // RFL
     const nextRFL = calcNextFromWeeks(vehicle.lastRFL, vehicle.rflFreq);
-    if (nextRFL && vehicle.nextRFL !== nextRFL) updates.nextRFL = nextRFL;
+    if (nextRFL && vehicle.nextRFL !== nextRFL && !keepResumedDate("nextRFL")) updates.nextRFL = nextRFL;
 
     // Tacho Download
     const nextTachoDownload = calcNextFromWeeks(vehicle.lastTachoDownload, vehicle.tachoDownloadFreq);
-    if (nextTachoDownload && vehicle.nextTachoDownload !== nextTachoDownload)
+    if (nextTachoDownload && vehicle.nextTachoDownload !== nextTachoDownload && !keepResumedDate("nextTachoDownload"))
       updates.nextTachoDownload = nextTachoDownload;
 
     // Tail-lift
     const nextTailLift = calcNextFromWeeks(vehicle.lastTailLift, vehicle.tailLiftFreq);
-    if (nextTailLift && vehicle.nextTailLift !== nextTailLift) updates.nextTailLift = nextTailLift;
+    if (nextTailLift && vehicle.nextTailLift !== nextTailLift && !keepResumedDate("nextTailLift")) updates.nextTailLift = nextTailLift;
 
     // LOLER
     const nextLoler = calcNextFromWeeks(vehicle.lastLoler, vehicle.lolerFreq);
-    if (nextLoler && vehicle.nextLoler !== nextLoler) updates.nextLoler = nextLoler;
+    if (nextLoler && vehicle.nextLoler !== nextLoler && !keepResumedDate("nextLoler")) updates.nextLoler = nextLoler;
 
     // Tacho Calibration
     const nextTachoCalibration = calcNextFromWeeks(vehicle.lastTachoCalibration, vehicle.tachoCalibrationFreq);
-    if (nextTachoCalibration && vehicle.nextTachoCalibration !== nextTachoCalibration)
+    if (nextTachoCalibration && vehicle.nextTachoCalibration !== nextTachoCalibration && !keepResumedDate("nextTachoCalibration"))
       updates.nextTachoCalibration = nextTachoCalibration;
 
     // Lorry Inspection
     const nextLorryInspection = calcNextFromWeeks(vehicle.lastLorryInspection, vehicle.lorryInspectionFreq);
-    if (nextLorryInspection && vehicle.nextLorryInspection !== nextLorryInspection)
+    if (nextLorryInspection && vehicle.nextLorryInspection !== nextLorryInspection && !keepResumedDate("nextLorryInspection"))
       updates.nextLorryInspection = nextLorryInspection;
 
     // Derived MOT booking status (only derives when not explicitly completed/cancelled)
@@ -985,6 +1078,9 @@ export default function EditVehiclePage() {
     vehicle?.motAppointmentDate,
     vehicle?.motBookedOn,
     vehicle?.motBookedStatus,
+    dateOverrides.mot,
+    dateOverrides.service,
+    dateOverrides.inspection,
   ]);
 
   const handleChange = (e) => {
@@ -1051,6 +1147,209 @@ export default function EditVehiclePage() {
       }
       return syncStatusDateFields(next);
     });
+  };
+
+  const handleOperatingStatusChange = (event) => {
+    const nextStatus = event.target.value;
+    const currentlyVor = isVehicleOutOfUse;
+
+    if (nextStatus === "VOR" && !currentlyVor) {
+      setVorPrompt({
+        mode: "start",
+        offRoadDate: todayISO(),
+        odometer: formatOdometerInput(vehicle?.odometer),
+        approvedBy: "",
+        approvedPosition: "",
+        reason: "",
+        operatorLicenceNumber: vehicle?.operatorLicenceNumber || "OF0202656",
+      });
+      return;
+    }
+
+    if (nextStatus === "Active" && currentlyVor) {
+      setVorPrompt({
+        mode: "return",
+        returnedDate: todayISO(),
+        odometer: formatOdometerInput(vehicle?.odometer),
+        removedBy: "",
+        removedPosition: "",
+        signature: "",
+        firstUseInspectionDate: "",
+      });
+      return;
+    }
+
+    setVehicle((previous) => syncVehicleOperatingStatus(previous, nextStatus));
+  };
+
+  const updateVorPrompt = (field, value) => {
+    setVorPrompt((previous) => (previous ? { ...previous, [field]: value } : previous));
+  };
+
+  const openHistoricVorMigration = () => {
+    setVorPrompt({
+      mode: "historic",
+      offRoadDate: "",
+      returnedDate: "",
+      offRoadOdometer: "",
+      returnOdometer: "",
+      approvedBy: "",
+      approvedPosition: "",
+      removedBy: "",
+      removedPosition: "",
+      reason: "",
+      firstUseInspectionDate: "",
+      operatorLicenceNumber: vehicle?.operatorLicenceNumber || "OF0202656",
+      applyCountdownPause: false,
+    });
+  };
+
+  const confirmVorPrompt = () => {
+    if (!vorPrompt) return;
+
+    if (vorPrompt.mode === "historic") {
+      const required = [
+        ["offRoadDate", "historic start date"],
+        ["returnedDate", "historic return date"],
+        ["approvedBy", "VOR approver"],
+        ["approvedPosition", "approver position"],
+        ["removedBy", "return authoriser"],
+        ["removedPosition", "return authoriser position"],
+        ["reason", "reason for VOR/SORN"],
+      ];
+      const missing = required.find(([field]) => !String(vorPrompt[field] || "").trim());
+      if (missing) {
+        alert(`Enter the ${missing[1]} before adding this historic period.`);
+        return;
+      }
+      try {
+        const record = buildHistoricVorPeriod({
+          registration: vehicle.registration || vehicle.reg || "",
+          operatorLicenceNumber: vorPrompt.operatorLicenceNumber,
+          offRoadDate: vorPrompt.offRoadDate,
+          returnedDate: vorPrompt.returnedDate,
+          offRoadOdometer: vorPrompt.offRoadOdometer,
+          returnOdometer: vorPrompt.returnOdometer,
+          approvedBy: vorPrompt.approvedBy,
+          approvedPosition: vorPrompt.approvedPosition,
+          removedBy: vorPrompt.removedBy,
+          removedPosition: vorPrompt.removedPosition,
+          reason: vorPrompt.reason,
+          firstUseInspectionDate: vorPrompt.firstUseInspectionDate,
+          migratedBy: {
+            uid: authAccess.user?.uid,
+            name:
+              authAccess.userDoc?.displayName ||
+              authAccess.userDoc?.name ||
+              authAccess.user?.displayName,
+            email: authAccess.user?.email,
+          },
+        });
+        setVehicle((previous) => {
+          const countdownResume = vorPrompt.applyCountdownPause
+            ? applyVorCountdownResume(previous, {
+                offRoadDate: record.offRoadDate,
+                returnedDate: record.returnedDate,
+              })
+            : { updates: {} };
+          return {
+            ...previous,
+            ...countdownResume.updates,
+            ...(vorPrompt.applyCountdownPause
+              ? {
+                  maintenanceCountdownPause: {
+                    status: "resumed",
+                    source: "historic_migration",
+                    recordId: record.id,
+                    startedDate: record.offRoadDate,
+                    returnedDate: record.returnedDate,
+                    durationDays: record.durationDays,
+                    resumedDueDates: countdownResume.updates,
+                  },
+                }
+              : {}),
+            vorHistory: [...safeArr(previous.vorHistory), record],
+          };
+        });
+        setVorPrompt(null);
+      } catch (migrationError) {
+        alert(migrationError.message || "This historic VOR/SORN period is invalid.");
+      }
+      return;
+    }
+
+    if (vorPrompt.mode === "start") {
+      const required = [
+        ["offRoadDate", "date taken off the fleet"],
+        ["approvedBy", "VOR approver"],
+        ["approvedPosition", "approver position"],
+        ["reason", "reason for VOR"],
+      ];
+      const missing = required.find(([field]) => !String(vorPrompt[field] || "").trim());
+      if (missing) {
+        alert(`Enter the ${missing[1]} before marking this vehicle VOR.`);
+        return;
+      }
+
+      setVehicle((previous) =>
+        startVehicleVorPeriod(previous, {
+          offRoadDate: vorPrompt.offRoadDate,
+          odometer: vorPrompt.odometer,
+          approvedBy: vorPrompt.approvedBy,
+          approvedPosition: vorPrompt.approvedPosition,
+          reason: vorPrompt.reason,
+          operatorLicenceNumber: vorPrompt.operatorLicenceNumber,
+        })
+      );
+      setVorPrompt(null);
+      return;
+    }
+
+    const required = [
+      ["returnedDate", "date returned to the fleet"],
+      ["odometer", "odometer reading"],
+      ["removedBy", "person removing the VOR"],
+      ["removedPosition", "position"],
+      ["signature", "signature"],
+      ["firstUseInspectionDate", "first-use PMI inspection date"],
+    ];
+    const missing = required.find(([field]) => !String(vorPrompt[field] || "").trim());
+    if (missing) {
+      alert(`Enter the ${missing[1]} before returning this vehicle to active service.`);
+      return;
+    }
+    const activeRecord =
+      safeArr(vehicle.vorHistory).find(
+        (record) =>
+          record.id === vehicle.activeVorRecordId ||
+          (!vehicle.activeVorRecordId && record.status === "open")
+      ) || null;
+    const offRoadDate =
+      activeRecord?.offRoadDate || vehicle.maintenanceCountdownPause?.startedDate;
+    const durationDays = calculateVorDurationDays(offRoadDate, vorPrompt.returnedDate);
+    if (durationDays === null) {
+      alert("The return date must be on or after the date the vehicle was taken off the fleet.");
+      return;
+    }
+    if (
+      vorPrompt.firstUseInspectionDate < offRoadDate ||
+      vorPrompt.firstUseInspectionDate > vorPrompt.returnedDate
+    ) {
+      alert("The first-use PMI must be completed during the VOR period and before the vehicle returns to active service.");
+      return;
+    }
+
+    setVehicle((previous) =>
+      returnVehicleFromVor(previous, {
+        returnedDate: vorPrompt.returnedDate,
+        odometer: vorPrompt.odometer,
+        removedBy: vorPrompt.removedBy,
+        removedPosition: vorPrompt.removedPosition,
+        signature: vorPrompt.signature,
+        firstUseInspectionDate: vorPrompt.firstUseInspectionDate,
+      })
+    );
+    setVorPrompt(null);
   };
 
   const handleTaxStatusChange = (e) => {
@@ -1304,10 +1603,22 @@ export default function EditVehiclePage() {
       payload.serviceApplicable = !serviceDisabled;
       payload.serviceStatus = serviceDisabled ? "N/A" : String(payload.serviceStatus || "").trim();
       if (serviceDisabled) payload.serviceISOWeek = "";
+      payload.serviceHistory = serviceDisabled
+        ? []
+        : ensureServiceHistoryForLastService(payload.serviceHistory, lastService, {
+            recordedAt: new Date().toISOString(),
+          });
       payload.insuredUntil = insuredUntil;
       payload.insuranceExpiry = insuredUntil;
       payload.insuranceExpiryDate = insuredUntil;
       Object.assign(payload, syncStatusDateFields(payload));
+      Object.assign(
+        payload,
+        syncVehicleOperatingStatus(
+          {},
+          normalizeVehicleOperatingStatus(payload)
+        )
+      );
       if (isRetentionPlateRecord(payload)) {
         payload.category = RETENTION_PLATE_CATEGORY;
         payload.recordType = "numberPlateRetention";
@@ -1407,13 +1718,22 @@ export default function EditVehiclePage() {
   }, [vehicle]);
 
   const summaryMotBooking = vehicleBookings.find((b) => b.id === vehicle?.motBookingId);
+  const summaryServiceBooking = vehicleBookings.find((b) => b.id === vehicle?.serviceBookingId);
+  const summaryInspectionBooking = vehicleBookings.find(
+    (b) => b.id === vehicle?.inspectionBookingId
+  );
   const activeMotBookingId =
-    summaryMotBooking && !isArchivedMotBooking(summaryMotBooking)
+    summaryMotBooking && isOpenMaintenanceBooking(summaryMotBooking)
       ? summaryMotBooking.id
       : latestMotBooking?.id || "";
-  const activeServiceBookingId = vehicle?.serviceBookingId || latestServiceBooking?.id || "";
+  const activeServiceBookingId =
+    summaryServiceBooking && isOpenMaintenanceBooking(summaryServiceBooking)
+      ? summaryServiceBooking.id
+      : latestServiceBooking?.id || "";
   const activeInspectionBookingId =
-    vehicle?.inspectionBookingId || latestInspectionBooking?.id || "";
+    summaryInspectionBooking && isOpenMaintenanceBooking(summaryInspectionBooking)
+      ? summaryInspectionBooking.id
+      : latestInspectionBooking?.id || "";
   const hasMotBooking = Boolean(activeMotBookingId);
   const hasServiceBooking = Boolean(activeServiceBookingId);
   const hasInspectionBooking = Boolean(activeInspectionBookingId);
@@ -1423,6 +1743,10 @@ export default function EditVehiclePage() {
         vehicle.motHistoryLatestTestNumber ? ` - test ${vehicle.motHistoryLatestTestNumber}` : ""
       }`
     : "";
+  const normalizedTaxStatus = String(vehicle?.taxStatus || "Taxed").trim().toLowerCase();
+  const normalizedInsuranceStatus = String(
+    vehicle?.insuranceStatus || "Insured"
+  ).trim().toLowerCase();
   const dvsaMotSyncLabel = vehicle?.motHistorySyncedAt
     ? `DVSA MOT data loaded ${formatDisplayDateTime(vehicle.motHistorySyncedAt)}`
     : "";
@@ -1439,11 +1763,24 @@ export default function EditVehiclePage() {
   const dvsaVehicleDetails = vehicle?.dvsaMotVehicleDetails || {};
   const dvsaMotMileageWarning = vehicle?.dvsaMotMileageWarning || getMileageAnomaly(dvsaMotTests);
   const hiddenAdditionalMaintenance = safeArr(vehicle?.hiddenAdditionalMaintenance);
-  const visibleAdditionalMaintenanceSections = ADDITIONAL_MAINTENANCE_SECTIONS.filter(
+  const availableAdditionalMaintenanceSections = ADDITIONAL_MAINTENANCE_SECTIONS;
+  const visibleAdditionalMaintenanceSections = availableAdditionalMaintenanceSections.filter(
     (section) =>
       !hiddenAdditionalMaintenance.includes(section.key) &&
       (sectionHasDateValue(vehicle, section) || shownAdditionalMaintenance.includes(section.key))
   );
+  const enabledAdditionalMaintenance = visibleAdditionalMaintenanceSections.map(
+    (section) => section.key
+  );
+  const complianceAttentionItems = buildVehicleComplianceAttention(vehicle || {}, {
+    settings: vehicleComplianceSettings,
+    requireEightWeekInspection: false,
+    enabledAdditional: enabledAdditionalMaintenance,
+  });
+  const activeComplianceAttention = complianceAttentionItems.filter(
+    (item) => item.status !== "in-date"
+  );
+  const isVehicleOutOfUse = getIsVehicleOutOfUse(vehicle || {});
 
   useUnsavedChangesGuard({
     enabled: Boolean(vehicle),
@@ -1452,7 +1789,7 @@ export default function EditVehiclePage() {
   });
 
   const activeVehicleBookings = useMemo(
-    () => vehicleBookings.filter((b) => !isArchivedMotBooking(b)),
+    () => vehicleBookings.filter((booking) => isOpenMaintenanceBooking(booking)),
     [vehicleBookings]
   );
 
@@ -1475,13 +1812,20 @@ export default function EditVehiclePage() {
   );
 
   const motHistoryItems = useMemo(() => {
-    const stored = Array.isArray(vehicle?.motHistory) ? vehicle.motHistory : [];
+    const stored = (Array.isArray(vehicle?.motHistory) ? vehicle.motHistory : []).map((item) => ({
+      ...item,
+      bookingStateLabel: "Completed booking",
+    }));
     const derived = completedMotHistory.map((b) => ({
       completedDate: bookingCompletedLabel(b),
       bookingId: b.id,
       provider: b.provider || "",
       bookingRef: b.bookingRef || "",
       notes: b.notes || "",
+      bookingStateLabel:
+        String(b.status || "").trim().toLowerCase() === "completed"
+          ? "Completed booking"
+          : "Past booking",
     }));
 
     const seen = new Set();
@@ -1494,45 +1838,8 @@ export default function EditVehiclePage() {
   }, [vehicle?.motHistory, completedMotHistory]);
 
   const serviceHistoryItems = useMemo(() => {
-    const stored = Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : [];
-    const derived = serviceRecords.map((record) => ({
-      completedDate:
-        record.serviceDateDisplay ||
-        formatDateForDisplay(record.serviceDateOnly || record.serviceDate) ||
-        "",
-      sortDate: record.serviceDateOnly || record.serviceDate || "",
-      bookingId: record.id,
-      provider: record.signedBy || "",
-      bookingRef: record.serviceType || "",
-      notes: record.workSummary || record.extraNotes || "",
-      location: record.registration || "",
-      odometer: record.odometer || "",
-      partsUsed: record.partsUsed || "",
-      cost: "",
-    }));
-
-    if (derived.length > 0) {
-      return derived.sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
-    }
-
-    return stored
-      .map((item) => ({
-        ...item,
-        completedDate: formatDateForDisplay(item?.completedDate) || item?.completedDate || "",
-        sortDate: item?.sortDate || item?.completedDate || "",
-      }))
-      .sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
-  }, [vehicle?.serviceHistory, serviceRecords]);
-
-  const motAppointmentDisplay =
-    vehicle?.motAppointmentDate ||
-    toISODate(latestMotBooking?.appointmentDate) ||
-    latestMotBooking?.appointmentDateISO ||
-    latestMotBooking?.startDateISO ||
-    toISODate(latestMotBooking?.startDate) ||
-    "";
-  const motBookedOnDisplay =
-    vehicle?.motBookedOn || toISODate(latestMotBooking?.createdAt) || "";
+    return buildServiceHistoryItems({ vehicle, serviceRecords });
+  }, [vehicle, serviceRecords]);
 
   if (!vehicle) {
     return (
@@ -1720,6 +2027,152 @@ export default function EditVehiclePage() {
     }
   };
 
+  const focusScheduleField = (key) => {
+    const fieldByKey = {
+      tax: "nextRFL",
+      insurance: "insuredUntil",
+      tachoInspection: "nextTacho",
+      brakeTest: "nextBrakeTest",
+      pmiInspection: "nextPMI",
+      tachoDownload: "nextTachoDownload",
+      tailLift: "nextTailLift",
+      loler: "nextLoler",
+    };
+    const field = fieldByKey[key];
+    if (!field) return;
+    const target = document.querySelector(`[name="${field}"]`);
+    target?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    target?.focus?.({ preventScroll: true });
+  };
+
+  const handleAttentionAction = (item) => {
+    if (item.actionType === "book-mot") {
+      hasMotBooking ? setEditBookingId(activeMotBookingId) : setShowMotBooking(true);
+      return;
+    }
+    if (item.actionType === "book-service") {
+      hasServiceBooking ? setEditBookingId(activeServiceBookingId) : setShowServiceBooking(true);
+      return;
+    }
+    if (item.actionType === "book-inspection") {
+      if (hasInspectionBooking) setEditBookingId(activeInspectionBookingId);
+      else if (item.status === "missing") {
+        const target = document.querySelector('[name="eightWeekInspectionStart"]');
+        target?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        target?.focus?.({ preventScroll: true });
+      } else {
+        setShowInspectionBooking(true);
+      }
+      return;
+    }
+    focusScheduleField(item.key);
+  };
+
+  const attentionDetail = (item) => {
+    if (item.status === "missing") return "No schedule recorded";
+    if (item.status === "overdue") {
+      const days = Math.abs(Number(item.daysRemaining || 0));
+      return `Due ${formatDisplayDate(item.dueDate)} · ${days} ${days === 1 ? "day" : "days"} overdue`;
+    }
+    const days = Number(item.daysRemaining || 0);
+    return `Due ${formatDisplayDate(item.dueDate)} · ${days} ${days === 1 ? "day" : "days"}`;
+  };
+
+  const notesAndOpenWorkPanels = (
+    <>
+      <div className="vehicle-edit-notes">
+        <h2 style={{ ...sectionTitle, margin: "0 0 8px 2px" }}>Notes</h2>
+        <div style={{ ...panel, padding: 10 }}>
+          <FormField
+            className={layoutStyles.vehicleFormField}
+            label="General vehicle notes"
+            htmlFor="vehicle-notes"
+            help="Operational information that is useful to anyone managing this vehicle."
+          >
+            <Textarea
+              id="vehicle-notes"
+              name="notes"
+              value={vehicle.notes || ""}
+              onChange={handleChange}
+              rows={5}
+              style={{ minHeight: 118 }}
+              placeholder="General notes for this vehicle..."
+            />
+          </FormField>
+        </div>
+      </div>
+
+      <div className="vehicle-edit-open-work">
+        <div className={layoutStyles.sidebarSectionHeader}>
+          <h2 style={sectionTitle}>Open Work / Maintenance</h2>
+          <div style={sectionMeta}>Current and upcoming bookings linked to this vehicle.</div>
+        </div>
+        <div style={{ ...panel, padding: 10 }}>
+          {activeVehicleBookings.length === 0 ? (
+            <div style={{ color: UI.muted, fontSize: 13 }}>
+              No open maintenance bookings for this vehicle.
+            </div>
+          ) : (
+            <div className={layoutStyles.extracted23}>
+              {activeVehicleBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  style={{
+                    border: UI.border,
+                    borderRadius: UI.radius,
+                    padding: 10,
+                    background: "var(--color-surface)",
+                  }}
+                >
+                  <div className={layoutStyles.extracted24}>
+                    <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
+                      {bookingTypeLabel(booking)}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: UI.text,
+                        border: UI.border,
+                        borderRadius: 999,
+                        padding: "4px 8px",
+                        background: "var(--color-surface-subtle)",
+                      }}
+                    >
+                      {booking.status || "Booked"}
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text, fontWeight: 800 }}>
+                    {bookingDateLabel(booking)}
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: 12.5, color: UI.muted, lineHeight: 1.4 }}>
+                    {booking.provider ? `Provider: ${booking.provider}` : "Provider: -"}
+                    <br />
+                    {booking.bookingRef ? `Ref: ${booking.bookingRef}` : "Ref: -"}
+                    <br />
+                    {booking.location ? `Location: ${booking.location}` : "Location: -"}
+                  </div>
+                  <div className={layoutStyles.extracted25}>
+                    <button type="button" style={btn("ghost")} onClick={() => setEditBookingId(booking.id)}>
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      style={btn("danger")}
+                      onClick={() => deleteMaintenanceBooking(booking.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <HeaderSidebarLayout>
       <style jsx global>{`
@@ -1735,6 +2188,11 @@ export default function EditVehiclePage() {
           background: var(--color-surface);
           color: var(--color-text);
         }
+        .vehicle-edit-left-rest .vehicle-edit-core { order: 1; }
+        .vehicle-edit-left-rest .vehicle-edit-additional { order: 2; }
+        .vehicle-edit-left-rest .vehicle-edit-dvsa { order: 3; }
+        .vehicle-edit-left-rest .vehicle-edit-inspection-history { order: 4; }
+        .vehicle-edit-history-sidebar { position: static !important; }
         @media (max-width: 1180px) {
           .vehicle-edit-layout { grid-template-columns: 1fr !important; }
           .vehicle-edit-sidebar { position: static !important; }
@@ -1749,91 +2207,233 @@ export default function EditVehiclePage() {
       `}</style>
 
       <div style={pageWrap}>
-        <div style={heroCard}>
+        <div
+          className={layoutStyles.stickyVehicleToolbar}
+          style={vehicleToolbar}
+        >
           <div className={layoutStyles.extracted6}>
-          <div>
-            <div className={layoutStyles.extracted7}>
-              <h1 style={title}>{headerLabel}</h1>
-              {motStatusPill}
+            <div>
+              <div className={layoutStyles.extracted7}>
+                <h1 style={title}>{headerLabel}</h1>
+                {motStatusPill}
+                <span
+                  className={`${layoutStyles.saveState} ${
+                    hasUnsavedChanges ? layoutStyles.saveStateDirty : layoutStyles.saveStateSaved
+                  }`}
+                  role="status"
+                >
+                  {saving ? "Saving…" : hasUnsavedChanges ? "Unsaved changes" : "Saved"}
+                </span>
+              </div>
+              <div style={subtitle}>
+                Vehicle identity, compliance schedules, bookings and maintenance history.
+              </div>
             </div>
-            <div style={subtitle}>Edit details, due dates, paperwork, attachments, notes and create/edit MOT / Service bookings.</div>
-          </div>
 
-          <div className={layoutStyles.extracted8}>
-            <button
-              onClick={() => setShowMotBooking(true)}
-              style={btn(isMotNotApplicable(vehicle) ? "ghost" : "success")}
-              disabled={isMotNotApplicable(vehicle)}
-              title={isMotNotApplicable(vehicle) ? "MOT is not applicable for this vehicle." : "Book MOT"}
-            >
-              <CalendarPlus size={15} />
-              {isMotNotApplicable(vehicle) ? "MOT N/A" : "Book MOT"}
-            </button>
-            {hasMotBooking ? (
+            <div className={layoutStyles.extracted8}>
               <button
-                onClick={() => setEditBookingId(activeMotBookingId)}
+                type="button"
+                onClick={() => router.push(`/vehicle-edit/${vehicle.id}/timeline`)}
                 style={btn("ghost")}
-              title="Edit the MOT booking record"
               >
-                <ClipboardList size={15} />
-                Edit MOT Booking
+                <Activity size={15} />
+                Vehicle Timeline
               </button>
-            ) : null}
-
-            <button onClick={() => setShowServiceBooking(true)} style={btn("success")}>
-              <CalendarPlus size={15} />
-              Book Service
-            </button>
-            {hasServiceBooking ? (
+              <button type="button" onClick={() => router.push("/vehicle-checks")} style={btn("ghost")}>
+                <ClipboardList size={15} />
+                Vehicle Checks
+              </button>
+              <div ref={maintenanceMenuRef} className={layoutStyles.maintenanceMenu}>
+                <button
+                  ref={maintenanceMenuTriggerRef}
+                  type="button"
+                  className={layoutStyles.maintenanceMenuTrigger}
+                  aria-haspopup="menu"
+                  aria-expanded={maintenanceMenuOpen}
+                  onClick={() => setMaintenanceMenuOpen((open) => !open)}
+                  onKeyDown={(event) => {
+                    if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+                    event.preventDefault();
+                    setMaintenanceMenuOpen(true);
+                    requestAnimationFrame(() => {
+                      const items = maintenanceMenuRef.current?.querySelectorAll(
+                        '[role="menuitem"]:not(:disabled)'
+                      );
+                      const target =
+                        event.key === "ArrowUp" ? items?.[items.length - 1] : items?.[0];
+                      target?.focus();
+                    });
+                  }}
+                >
+                  <CalendarPlus size={15} />
+                  Book maintenance
+                </button>
+                {maintenanceMenuOpen ? (
+                <div
+                  className={layoutStyles.maintenanceMenuPanel}
+                  role="menu"
+                  aria-label="Book maintenance"
+                  onKeyDown={(event) => {
+                    const items = Array.from(
+                      maintenanceMenuRef.current?.querySelectorAll(
+                        '[role="menuitem"]:not(:disabled)'
+                      ) || []
+                    );
+                    const currentIndex = items.indexOf(document.activeElement);
+                    let nextIndex = currentIndex;
+                    if (event.key === "ArrowDown") nextIndex = (currentIndex + 1) % items.length;
+                    else if (event.key === "ArrowUp") {
+                      nextIndex = (currentIndex - 1 + items.length) % items.length;
+                    } else if (event.key === "Home") nextIndex = 0;
+                    else if (event.key === "End") nextIndex = items.length - 1;
+                    else return;
+                    event.preventDefault();
+                    items[nextIndex]?.focus();
+                  }}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMaintenanceMenuOpen(false);
+                      if (hasMotBooking) {
+                        setEditBookingId(activeMotBookingId);
+                      } else {
+                        setShowMotBooking(true);
+                      }
+                    }}
+                    disabled={isMotNotApplicable(vehicle)}
+                  >
+                    {isMotNotApplicable(vehicle)
+                      ? "MOT not applicable"
+                      : hasMotBooking
+                        ? "Edit MOT booking"
+                        : "Book MOT"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMaintenanceMenuOpen(false);
+                      hasServiceBooking
+                        ? setEditBookingId(activeServiceBookingId)
+                        : setShowServiceBooking(true);
+                    }}
+                  >
+                    {hasServiceBooking ? "Edit service booking" : "Book service"}
+                  </button>
+                  {showEightWeekInspection ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMaintenanceMenuOpen(false);
+                        if (hasInspectionBooking) {
+                          setEditBookingId(activeInspectionBookingId);
+                        } else {
+                          setShowInspectionBooking(true);
+                        }
+                      }}
+                    >
+                      {hasInspectionBooking
+                        ? "Edit inspection booking"
+                        : "Book 8 week inspection"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMaintenanceMenuOpen(false);
+                      setShowWorkBooking(true);
+                    }}
+                  >
+                    Book work
+                  </button>
+                </div>
+                ) : null}
+              </div>
               <button
-                onClick={() => setEditBookingId(activeServiceBookingId)}
-                style={btn("ghost")}
-              title="Edit the Service booking record"
+                className={layoutStyles.saveButton}
+                onClick={() => handleSave()}
+                style={btn()}
+                disabled={saving || !hasUnsavedChanges}
               >
-                <ClipboardList size={15} />
-                Edit Service Booking
+                <Save size={15} />
+                {saving ? "Saving..." : "Save"}
               </button>
-            ) : null}
-
-            {showEightWeekInspection ? (
-              <button onClick={() => setShowInspectionBooking(true)} style={btn("success")}>
-                <CalendarPlus size={15} />
-                Book 8 Week Inspection
-              </button>
-            ) : null}
-            {showEightWeekInspection && hasInspectionBooking ? (
-              <button
-                onClick={() => setEditBookingId(activeInspectionBookingId)}
-                style={btn("ghost")}
-              title="Edit the inspection booking record"
-              >
-                <ClipboardList size={15} />
-                Edit Inspection Booking
-              </button>
-            ) : null}
-
-            <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
-              <Wrench size={15} />
-              Book Work
-            </button>
-            <button onClick={handleSave} style={btn()} disabled={saving}>
-              <Save size={15} />
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button onClick={handleDelete} style={btn("danger")}>
-              <Trash2 size={15} />
-              Delete
-            </button>
+            </div>
           </div>
-          </div>
+        </div>
+        <div className={layoutStyles.vehicleMetricsCard}>
           <div className={layoutStyles.extracted9}>
             <MetricCard label="Registration" value={vehicle.registration || vehicle.reg || "-"} />
             <MetricCard label="Category" value={vehicle.category || "-"} />
-            <MetricCard label="Next MOT" value={isMotNotApplicable(vehicle) ? "N/A" : formatDisplayDate(vehicle.nextMOT)} />
-            <MetricCard label="Next Service" value={formatDisplayDate(vehicle.nextService)} />
+            <MetricCard
+              label="Operating Status"
+              value={normalizeVehicleOperatingStatus(vehicle)}
+            />
             <MetricCard label="Open Bookings" value={String(activeVehicleBookings.length)} />
+            <MetricCard
+              label="Needs Attention"
+              value={
+                isVehicleOutOfUse
+                  ? "Paused"
+                  : `${activeComplianceAttention.length} ${
+                      activeComplianceAttention.length === 1 ? "item" : "items"
+                    }`
+              }
+            />
           </div>
         </div>
+
+        {!isVehicleOutOfUse && activeComplianceAttention.length > 0 ? (
+          <section
+            className={layoutStyles.attentionSection}
+            aria-label="Compliance items needing attention"
+          >
+            <div className={layoutStyles.attentionPanel}>
+              <div className={layoutStyles.attentionGrid}>
+                {activeComplianceAttention.map((item) => (
+                  <article
+                    key={item.key}
+                    className={`${layoutStyles.attentionItem} ${
+                      item.status === "overdue"
+                        ? layoutStyles.attentionOverdue
+                        : item.status === "missing"
+                          ? layoutStyles.attentionMissing
+                          : layoutStyles.attentionSoon
+                    }`}
+                  >
+                    <div className={layoutStyles.attentionItemContent}>
+                      <strong className={layoutStyles.attentionItemTitle}>{item.label}</strong>
+                      <div className={layoutStyles.attentionMeta}>
+                        <span>{attentionDetail(item)}</span>
+                        <span className={layoutStyles.attentionStatus}>
+                          {item.status.replace("-", " ")}
+                        </span>
+                        <span>{item.source}</span>
+                      </div>
+                    </div>
+                    <UIButton
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className={layoutStyles.attentionAction}
+                      onClick={() => handleAttentionAction(item)}
+                    >
+                      {item.status === "missing"
+                        ? "Set schedule"
+                        : item.actionType.startsWith("book-")
+                          ? "Book or edit"
+                          : "Edit schedule"}
+                    </UIButton>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {/*  CREATE Booking modals */}
         {showMotBooking ? (
@@ -1925,75 +2525,130 @@ export default function EditVehiclePage() {
           }}
         >
           {/* LEFT: Main form */}
-          <div style={sectionStack}>
+          <div className="vehicle-edit-left" style={sectionStack}>
             {/* Main Information */}
-            <div style={panel}>
-              <h2 style={sectionTitle}>Main Information</h2>
-              <div style={grid(2)}>
+            <div className="vehicle-edit-main">
+              <h2 style={{ ...sectionTitle, margin: "0 0 8px 2px" }}>Main Information</h2>
+              <div style={panel}>
+                <div className="vehicle-edit-field-grid" style={grid(2)}>
                 <Field label="Name" name="name" value={vehicle.name} onChange={handleChange} />
                 <Field label="Registration" name="registration" value={vehicle.registration || vehicle.reg} onChange={handleChange} />
                 <Field label="Manufacturer" name="manufacturer" value={vehicle.manufacturer} onChange={handleChange} />
                 <Field label="Model" name="model" value={vehicle.model} onChange={handleChange} />
 
-                <div>
-                  <label style={labelStyle}>Category</label>
-                  <select name="category" value={vehicle.category || ""} onChange={handleChange} style={inputField}>
+                <FormField className={layoutStyles.vehicleFormField} label="Category" htmlFor="vehicle-category">
+                  <Select id="vehicle-category" name="category" value={vehicle.category || ""} onChange={handleChange} style={inputField}>
                     <option value="">Select category...</option>
                     {categories.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
                       </option>
                     ))}
-                  </select>
-                </div>
+                  </Select>
+                </FormField>
 
                 <SelectField
                   label="Operating Status"
                   name="operationalStatus"
-                  value={vehicle.operationalStatus || "Active"}
-                  onChange={handleChange}
-                  options={["Active", "Out of use"]}
+                  value={isVehicleOutOfUse ? "VOR" : "Active"}
+                  onChange={handleOperatingStatusChange}
+                  options={["Active", "VOR"]}
                 />
 
-                <Field label="Chassis No." name="chassis" value={vehicle.chassis} onChange={handleChange} />
-                <Field label="Odometer" name="odometer" value={vehicle.odometer} onChange={handleChange} meta={dvsaMotMeta} />
+                <Field
+                  label="VIN / Chassis number"
+                  name="chassis"
+                  value={vehicle.chassis}
+                  onChange={handleChange}
+                  placeholder="Not recorded"
+                />
+                <Field
+                  label="Odometer"
+                  name="odometer"
+                  value={formatOdometerInput(vehicle.odometer)}
+                  onChange={handleChange}
+                  meta={dvsaMotMeta || "Stored in miles"}
+                  source={dvsaMotMeta ? "DVSA" : "Manual"}
+                  suffix="mi"
+                  inputMode="numeric"
+                />
+
+                <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                  <UIButton type="button" variant="ghost" onClick={openHistoricVorMigration}>
+                    Add historic VOR/SORN period
+                  </UIButton>
+                </div>
 
                 <div className={layoutStyles.extracted10}>
-                  <div>
-                    <label style={labelStyle}>Tax Status</label>
-                    <select name="taxStatus" value={vehicle.taxStatus || "Taxed"} onChange={handleTaxStatusChange} style={inputField}>
-                      <option value="Taxed">Taxed</option>
-                      <option value="Sorn">Sorn</option>
-                      <option value="N/A">N/A</option>
-                    </select>
+                  <fieldset className={layoutStyles.complianceGroup}>
+                    <legend>Tax</legend>
+                    <div className={layoutStyles.complianceGroupFields}>
+                      <FormField className={layoutStyles.vehicleFormField} label="Status" htmlFor="vehicle-taxStatus">
+                        <Select id="vehicle-taxStatus" name="taxStatus" value={vehicle.taxStatus || "Taxed"} onChange={handleTaxStatusChange} style={inputField}>
+                          <option value="Taxed">Taxed</option>
+                          <option value="Sorn">Sorn</option>
+                          <option value="N/A">N/A</option>
+                        </Select>
+                      </FormField>
+
+                      <DateField
+                        label="Taxed until"
+                        name="nextRFL"
+                        value={vehicle.nextRFL}
+                        onChange={handleChange}
+                        disabled={normalizedTaxStatus !== "taxed"}
+                      />
+                    </div>
+                  </fieldset>
+
+                  <fieldset className={layoutStyles.complianceGroup}>
+                    <legend>Insurance</legend>
+                    <div className={layoutStyles.complianceGroupFields}>
+                      <FormField className={layoutStyles.vehicleFormField} label="Status" htmlFor="vehicle-insuranceStatus">
+                        <Select
+                          id="vehicle-insuranceStatus"
+                          name="insuranceStatus"
+                          value={vehicle.insuranceStatus || "Insured"}
+                          onChange={handleInsuranceStatusChange}
+                          style={inputField}
+                        >
+                          <option value="Insured">Insured</option>
+                          <option value="Not Insured">Not Insured</option>
+                          <option value="N/A">N/A</option>
+                        </Select>
+                      </FormField>
+
+                      <DateField
+                        label="Insured until"
+                        name="insuredUntil"
+                        value={getInsuredUntil(vehicle)}
+                        onChange={handleChange}
+                        disabled={normalizedInsuranceStatus !== "insured"}
+                      />
+                    </div>
+                  </fieldset>
                   </div>
-
-                  <DateField label="Taxed Until" name="nextRFL" value={vehicle.nextRFL} onChange={handleChange} />
-
-                  <div>
-                    <label style={labelStyle}>Insurance Status</label>
-                    <select
-                      name="insuranceStatus"
-                      value={vehicle.insuranceStatus || "Insured"}
-                      onChange={handleInsuranceStatusChange}
-                      style={inputField}
-                    >
-                      <option value="Insured">Insured</option>
-                      <option value="Not Insured">Not Insured</option>
-                      <option value="N/A">N/A</option>
-                    </select>
-                  </div>
-
-                  <DateField label="Insured Until" name="insuredUntil" value={getInsuredUntil(vehicle)} onChange={handleChange} />
                 </div>
               </div>
             </div>
+          </div>
 
+          <div
+            className="vehicle-edit-sidebar vehicle-edit-notes-sidebar"
+            style={{ ...sidebarStack, position: "static" }}
+          >
+            {notesAndOpenWorkPanels}
+          </div>
+
+          <div className="vehicle-edit-left vehicle-edit-left-rest" style={sectionStack}>
             {/* Due Dates & Intervals */}
-            <div style={panel}>
-              <h2 style={sectionTitle}>Core Due Dates</h2>
-              <div style={sectionMeta}>Edit the last date and frequency; next will auto-calculate.</div>
-              <div className={layoutStyles.extracted11}>
+            <div className="vehicle-edit-core">
+              <h2 style={{ ...sectionTitle, margin: "0 0 0 2px" }}>Core Due Dates</h2>
+              <div style={{ ...sectionMeta, margin: "3px 0 8px 2px" }}>
+                Edit the last date and frequency; next will auto-calculate.
+              </div>
+              <div style={{ ...panel, padding: 10 }}>
+                <div className={layoutStyles.extracted11}>
                 <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
                   {dvsaMotSyncLabel || "MOT dates can be pulled from DVSA; frequency remains as a manual fallback."}
                 </div>
@@ -2010,18 +2665,7 @@ export default function EditVehiclePage() {
               </div>
 
               <div className={`vehicle-edit-core-grid ${layoutStyles.extracted12}`} >
-                <label
-                  style={{
-                    gridColumn: "1 / -1",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    color: UI.text,
-                    fontSize: 13,
-                    fontWeight: 850,
-                    cursor: "pointer",
-                  }}
-                >
+                <label className={layoutStyles.dueGroupHeader}>
                   <input
                     type="checkbox"
                     name="motNotApplicable"
@@ -2030,22 +2674,42 @@ export default function EditVehiclePage() {
                   />
                   MOT not applicable for this vehicle
                 </label>
-                <DateField label="Last MOT" name="lastMOT" value={vehicle.lastMOT} onChange={handleChange} meta={dvsaMotMeta} disabled={isMotNotApplicable(vehicle)} />
-                <Field label="MOT Freq (fallback weeks)" name="motFreq" value={vehicle.motFreq} onChange={handleChange} meta="Manual fallback only; DVSA expiry is used when fetched." disabled={isMotNotApplicable(vehicle)} />
-                <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} meta={dvsaMotMeta} disabled={isMotNotApplicable(vehicle)} />
-                <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} disabled={isMotNotApplicable(vehicle)} />
+                <DateField
+                  label="Last MOT"
+                  name="lastMOT"
+                  value={vehicle.lastMOT}
+                  onChange={handleChange}
+                  disabled={isMotNotApplicable(vehicle)}
+                  source={vehicle.motHistorySyncedAt ? "DVSA" : "Manual"}
+                />
+                <Field
+                  label="MOT Freq (fallback weeks)"
+                  name="motFreq"
+                  value={vehicle.motFreq}
+                  onChange={handleChange}
+                  meta="Fallback used when DVSA data is unavailable."
+                  disabled={isMotNotApplicable(vehicle)}
+                />
+                <DateField
+                  label="Next MOT (Expiry)"
+                  name="nextMOT"
+                  value={vehicle.nextMOT}
+                  onChange={handleChange}
+                  disabled={isMotNotApplicable(vehicle)}
+                  readOnly={Boolean(vehicle.motHistorySyncedAt) || !dateOverrides.mot}
+                  source={vehicle.motHistorySyncedAt ? "DVSA" : dateOverrides.mot ? "Manual override" : "Calculated"}
+                  allowOverride={!vehicle.motHistorySyncedAt}
+                  overridden={dateOverrides.mot}
+                  onToggleOverride={() =>
+                    setDateOverrides((current) => ({ ...current, mot: !current.mot }))
+                  }
+                />
+                {advancedDatesOpen ? (
+                  <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} disabled={isMotNotApplicable(vehicle)} readOnly source="Calculated" />
+                ) : null}
 
                 <label
-                  style={{
-                    gridColumn: "1 / -1",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    color: UI.text,
-                    fontSize: 13,
-                    fontWeight: 850,
-                    cursor: "pointer",
-                  }}
+                  className={`${layoutStyles.dueGroupHeader} ${layoutStyles.dueGroupHeaderSeparate}`}
                 >
                   <input
                     type="checkbox"
@@ -2057,142 +2721,38 @@ export default function EditVehiclePage() {
                 </label>
                 <DateField label="Last Service" name="lastService" value={dateOnly(vehicle.lastService)} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
                 <Field label="Service Freq (weeks)" name="serviceFreq" value={vehicle.serviceFreq} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
-                <DateField label="Next Service" name="nextService" value={vehicle.nextService} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
-                <Field label="Service ISO Week" name="serviceISOWeek" value={vehicle.serviceISOWeek} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
-
-                {showEightWeekInspection ? (
-                  <>
-                    <DateField
-                      label="8 Week Inspection Base Date"
-                      name="eightWeekInspectionStart"
-                      value={vehicle.eightWeekInspectionStart}
-                      onChange={handleChange}
-                    />
-                    <div>
-                      <label style={labelStyle}>Inspection Freq (weeks)</label>
-                      <input type="text" value="8" readOnly style={inputField} />
-                    </div>
-                    <DateField
-                      label="Next 8 Week Inspection"
-                      name="nextEightWeekInspection"
-                      value={vehicle.nextEightWeekInspection}
-                      onChange={handleChange}
-                    />
-                    <Field
-                      label="Inspection ISO Week"
-                      name="eightWeekInspectionISOWeek"
-                      value={vehicle.eightWeekInspectionISOWeek}
-                      onChange={handleChange}
-                    />
-                  </>
+                <DateField
+                  label="Next Service"
+                  name="nextService"
+                  value={vehicle.nextService}
+                  onChange={handleChange}
+                  disabled={isServiceNotApplicable(vehicle)}
+                  readOnly={!dateOverrides.service}
+                  source={dateOverrides.service ? "Manual override" : "Calculated"}
+                  allowOverride
+                  overridden={dateOverrides.service}
+                  onToggleOverride={() =>
+                    setDateOverrides((current) => ({ ...current, service: !current.service }))
+                  }
+                />
+                {advancedDatesOpen ? (
+                  <Field label="Service ISO Week" name="serviceISOWeek" value={vehicle.serviceISOWeek} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} readOnly source="Calculated" />
                 ) : null}
-              </div>
-            </div>
 
-            <div style={panel}>
-              <div className={layoutStyles.extracted13}>
-                <div>
-                  <h2 style={sectionTitle}>DVSA MOT Summary</h2>
-                  <div style={sectionMeta}>
-                    Latest fetched MOT result, advisories, defects and DVSA vehicle identity.
-                  </div>
                 </div>
                 <button
                   type="button"
-                  style={btn("ghost")}
-                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/mot-history`)}
+                  className={layoutStyles.advancedToggle}
+                  onClick={() => setAdvancedDatesOpen((open) => !open)}
+                  aria-expanded={advancedDatesOpen}
                 >
-                  <ExternalLink size={15} />
-                  Full MOT History
+                  {advancedDatesOpen ? "Hide advanced date details" : "Show advanced date details"}
                 </button>
               </div>
-
-              {!dvsaLatestMot ? (
-                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>
-                  No DVSA MOT data saved yet. Press Fetch DVSA MOT above, then Save.
-                </div>
-              ) : (
-                <div className={layoutStyles.extracted14}>
-                  <div className={`vehicle-edit-core-grid ${layoutStyles.extracted15}`} >
-                    <MiniLine label="Latest Result" value={vehicle.dvsaLatestMotResult || dvsaLatestMot.testResult || "-"} />
-                    <MiniLine label="Test Date" value={formatDisplayDate(dvsaLatestMot.completedDate)} />
-                    <MiniLine label="Expiry Date" value={formatDisplayDate(dvsaLatestMot.expiryDate || vehicle.nextMOT)} />
-                    <MiniLine label="Odometer" value={vehicle.dvsaLatestMotOdometer || formatOdometer(dvsaLatestMot)} />
-                    <MiniLine label="Test Number" value={vehicle.dvsaLatestMotTestNumber || dvsaLatestMot.motTestNumber || "-"} />
-                    <MiniLine label="Fuel / Colour" value={[dvsaVehicleDetails.fuelType, dvsaVehicleDetails.primaryColour].filter(Boolean).join(" / ") || "-"} />
-                    <MiniLine label="Engine Size" value={dvsaVehicleDetails.engineSize || "-"} />
-                    <MiniLine label="Outstanding Recall" value={String(dvsaVehicleDetails.hasOutstandingRecall || "-")} />
-                  </div>
-
-                  {dvsaMotMileageWarning ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 8,
-                        alignItems: "flex-start",
-                        border: "1px solid var(--color-accent)",
-                        background: "var(--color-warning-soft)",
-                        color: "var(--color-warning)",
-                        borderRadius: UI.radius,
-                        padding: 10,
-                        fontSize: 12.5,
-                        fontWeight: 850,
-                      }}
-                    >
-                      <AlertTriangle size={16} />
-                      <span>{dvsaMotMileageWarning}</span>
-                    </div>
-                  ) : null}
-
-                  {dvsaLatestSeriousDefects.length ? (
-                    <div
-                      style={{
-                        border: "1px solid var(--color-danger-border)",
-                        background: "var(--color-danger-soft)",
-                        color: "var(--color-danger)",
-                        borderRadius: UI.radius,
-                        padding: 10,
-                        fontSize: 12.5,
-                      }}
-                    >
-                      <div className={layoutStyles.extracted16}>
-                        Serious defects on latest MOT
-                      </div>
-                      {dvsaLatestSeriousDefects.slice(0, 3).map((defect, index) => (
-                        <div key={`${defect.text}-${index}`} style={{ marginTop: index ? 4 : 0 }}>
-                          {defect.type ? `${defect.type}: ` : ""}
-                          {defect.text}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {dvsaLatestAdvisories.length ? (
-                    <div
-                      style={{
-                        border: UI.border,
-                        background: "var(--color-surface)",
-                        borderRadius: UI.radius,
-                        padding: 10,
-                        fontSize: 12.5,
-                        color: UI.text,
-                      }}
-                    >
-                      <div className={layoutStyles.extracted17}>
-                        Latest advisories
-                      </div>
-                      {dvsaLatestAdvisories.slice(0, 4).map((defect, index) => (
-                        <div key={`${defect.text}-${index}`} style={{ marginTop: index ? 4 : 0 }}>
-                          {defect.text}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              )}
             </div>
+
             {showEightWeekInspection ? (
-                <div style={panel}>
+                <div className="vehicle-edit-inspection-history" style={panel}>
                   <h2 style={sectionTitle}>8 Week Inspection History</h2>
                   <div style={sectionMeta}>Completed 8 week inspections stored on this vehicle.</div>
 
@@ -2238,9 +2798,12 @@ export default function EditVehiclePage() {
                 </div>
             ) : null}
 
-            <div style={panel}>
-              <h2 style={sectionTitle}>Additional Maintenance</h2>
-              <div style={{ ...grid(2), marginTop: 10, marginBottom: 12 }}>
+            <div className="vehicle-edit-additional">
+              <h2 style={{ ...sectionTitle, margin: "0 0 8px 2px" }}>
+                Additional Maintenance
+              </h2>
+              <div style={{ ...panel, padding: 10 }}>
+              <div style={{ ...grid(2), marginTop: 0, marginBottom: 8 }}>
                 <SelectField label="Warranty" name="warranty" value={vehicle.warranty} onChange={handleChange} options={["Yes", "No"]} />
                 <DateField label="Warranty Expiry" name="warrantyExpiry" value={vehicle.warrantyExpiry} onChange={handleChange} />
               </div>
@@ -2250,7 +2813,7 @@ export default function EditVehiclePage() {
               <div
                 className={layoutStyles.extracted20}
               >
-                {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
+                {availableAdditionalMaintenanceSections.map((section) => {
                   const checked =
                     !hiddenAdditionalMaintenance.includes(section.key) &&
                     (sectionHasDateValue(vehicle, section) ||
@@ -2266,7 +2829,7 @@ export default function EditVehiclePage() {
                         background: checked ? UI.brandSoft : "var(--color-surface)",
                         color: UI.text,
                         borderRadius: UI.radius,
-                        padding: "7px 9px",
+                        padding: "6px 8px",
                         fontSize: 12,
                         fontWeight: 850,
                         cursor: "pointer",
@@ -2291,57 +2854,108 @@ export default function EditVehiclePage() {
                 </div>
               ) : null}
 
-              <div className={`vehicle-edit-maintenance-grid ${layoutStyles.extracted22}`} >
-                {visibleAdditionalMaintenanceSections.flatMap((section) =>
-                  section.fields.map((field) =>
-                    field.type === "date" ? (
-                      <DateField
-                        key={`${section.key}-${field.name}`}
-                        label={field.label}
-                        name={field.name}
-                        value={vehicle[field.name]}
-                        onChange={handleChange}
-                      />
-                    ) : (
-                      <Field
-                        key={`${section.key}-${field.name}`}
-                        label={field.label}
-                        name={field.name}
-                        value={vehicle[field.name]}
-                        onChange={handleChange}
-                      />
-                    )
-                  )
-                )}
+              <div className={layoutStyles.maintenanceGroups}>
+                {visibleAdditionalMaintenanceSections.map((section) => (
+                  <section
+                    key={section.key}
+                    className={layoutStyles.maintenanceGroupCard}
+                    aria-labelledby={`maintenance-group-${section.key}`}
+                  >
+                    <div className={layoutStyles.maintenanceGroupHeader}>
+                      <h3
+                        id={`maintenance-group-${section.key}`}
+                        className={layoutStyles.maintenanceGroupTitle}
+                      >
+                        {section.label}
+                      </h3>
+                      <button
+                        type="button"
+                        className={layoutStyles.maintenanceHistoryLink}
+                        onClick={() =>
+                          router.push(
+                            `/vehicle-edit/${vehicle.id}/maintenance-history/${section.key}`
+                          )
+                        }
+                      >
+                        View history
+                        <ExternalLink size={12} />
+                      </button>
+                    </div>
+                    <div
+                      className={`vehicle-edit-maintenance-grid ${layoutStyles.maintenanceGroupFields}`}
+                    >
+                      {section.fields.map((field) => {
+                        const isIsoWeek = /isoweek$/i.test(field.name);
+                        if (isIsoWeek && !advancedDatesOpen) return null;
+                        if (field.type === "date") {
+                          const isCalculatedNext = /^next/i.test(field.name);
+                          return (
+                            <DateField
+                              key={`${section.key}-${field.name}`}
+                              label={field.label}
+                              name={field.name}
+                              value={vehicle[field.name]}
+                              onChange={handleChange}
+                              readOnly={isCalculatedNext}
+                              source={isCalculatedNext ? "Calculated" : ""}
+                            />
+                          );
+                        }
+                        return (
+                          <Field
+                            key={`${section.key}-${field.name}`}
+                            label={field.label}
+                            name={field.name}
+                            value={vehicle[field.name]}
+                            onChange={handleChange}
+                            readOnly={isIsoWeek}
+                            source={isIsoWeek ? "Calculated" : ""}
+                          />
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
               </div>
             </div>
 
             {/* (rest of your page continues as before...) */}
           </div>
 
-          {/* RIGHT: Notes + quick info */}
-          <div className="vehicle-edit-sidebar" style={sidebarStack}>
-            <div style={panel}>
+          {/* RIGHT: Notes and current work */}
+          <div className="vehicle-edit-sidebar vehicle-edit-history-sidebar" style={sidebarStack}>
+            {false ? (
+              <>
+            <div className="vehicle-edit-notes" style={panel}>
               <h2 style={sectionTitle}>Notes</h2>
-              <textarea
-                name="notes"
-                value={vehicle.notes || ""}
-                onChange={handleChange}
-                rows={5}
-                style={{ ...textarea, minHeight: 118 }}
-                placeholder="General notes for this vehicle..."
-              />
+              <FormField
+                className={layoutStyles.vehicleFormField}
+                label="General vehicle notes"
+                htmlFor="vehicle-notes"
+                help="Operational information that is useful to anyone managing this vehicle."
+              >
+                <Textarea
+                  id="vehicle-notes"
+                  name="notes"
+                  value={vehicle.notes || ""}
+                  onChange={handleChange}
+                  rows={5}
+                  style={{ minHeight: 118 }}
+                  placeholder="General notes for this vehicle..."
+                />
+              </FormField>
             </div>
 
-            <div style={panel}>
-              <h2 style={sectionTitle}>Booked Work / Maintenance</h2>
+            <div className="vehicle-edit-open-work" style={panel}>
+              <h2 style={sectionTitle}>Open Work / Maintenance</h2>
               <div style={sectionMeta}>
-                All bookings linked to this vehicle.
+                Current and upcoming bookings linked to this vehicle.
               </div>
 
               {activeVehicleBookings.length === 0 ? (
                 <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>
-                  No maintenance bookings found for this vehicle.
+                  No open maintenance bookings for this vehicle.
                 </div>
               ) : (
                 <div className={layoutStyles.extracted23}>
@@ -2408,12 +3022,123 @@ export default function EditVehiclePage() {
                 </div>
               )}
             </div>
+              </>
+            ) : null}
 
-            <div style={panel}>
-              <div className={layoutStyles.extracted26}>
+            <div className="vehicle-edit-dvsa">
+              <div
+                className={`${layoutStyles.extracted13} ${layoutStyles.dvsaSummaryHeader}`}
+              >
                 <div>
-                  <h2 style={sectionTitle}>MOT Bookings</h2>
-                  <div style={sectionMeta}>Completed or past MOT bookings.</div>
+                  <h2 style={sectionTitle}>DVSA MOT Summary</h2>
+                  <div style={sectionMeta}>
+                    Latest fetched MOT result, advisories, defects and DVSA vehicle identity.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  style={btn("ghost")}
+                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/mot-history`)}
+                >
+                  <ExternalLink size={15} />
+                  Full MOT History
+                </button>
+              </div>
+
+              <div style={{ ...panel, padding: 10 }}>
+                {!dvsaLatestMot ? (
+                  <div style={{ color: UI.muted, fontSize: 13 }}>
+                    No DVSA MOT data saved yet. Press Fetch DVSA MOT above, then Save.
+                  </div>
+                ) : (
+                  <div className={layoutStyles.extracted14}>
+                    <div className={`vehicle-edit-core-grid ${layoutStyles.extracted15}`}>
+                      <MiniLine label="Latest Result" value={vehicle.dvsaLatestMotResult || dvsaLatestMot.testResult || "-"} />
+                      <MiniLine label="Test Date" value={formatDisplayDate(dvsaLatestMot.completedDate)} />
+                      <MiniLine label="Expiry Date" value={formatDisplayDate(dvsaLatestMot.expiryDate || vehicle.nextMOT)} />
+                      <MiniLine label="Odometer" value={vehicle.dvsaLatestMotOdometer || formatOdometer(dvsaLatestMot)} />
+                      <MiniLine label="Test Number" value={vehicle.dvsaLatestMotTestNumber || dvsaLatestMot.motTestNumber || "-"} />
+                      <MiniLine label="Fuel / Colour" value={[dvsaVehicleDetails.fuelType, dvsaVehicleDetails.primaryColour].filter(Boolean).join(" / ") || "-"} />
+                      <MiniLine label="Engine Size" value={dvsaVehicleDetails.engineSize || "-"} />
+                      <MiniLine label="Outstanding Recall" value={String(dvsaVehicleDetails.hasOutstandingRecall || "-")} />
+                    </div>
+
+                    {dvsaMotMileageWarning ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "flex-start",
+                          border: "1px solid var(--color-accent)",
+                          background: "var(--color-warning-soft)",
+                          color: "var(--color-warning)",
+                          borderRadius: UI.radius,
+                          padding: 10,
+                          fontSize: 12.5,
+                          fontWeight: 850,
+                        }}
+                      >
+                        <AlertTriangle size={16} />
+                        <span>{dvsaMotMileageWarning}</span>
+                      </div>
+                    ) : null}
+
+                    {dvsaLatestSeriousDefects.length ? (
+                      <div
+                        style={{
+                          border: "1px solid var(--color-danger-border)",
+                          background: "var(--color-danger-soft)",
+                          color: "var(--color-danger)",
+                          borderRadius: UI.radius,
+                          padding: 10,
+                          fontSize: 12.5,
+                        }}
+                      >
+                        <div className={layoutStyles.extracted16}>
+                          Serious defects on latest MOT
+                        </div>
+                        {dvsaLatestSeriousDefects.slice(0, 3).map((defect, index) => (
+                          <div key={`${defect.text}-${index}`} style={{ marginTop: index ? 4 : 0 }}>
+                            {defect.type ? `${defect.type}: ` : ""}
+                            {defect.text}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {dvsaLatestAdvisories.length ? (
+                      <div
+                        style={{
+                          border: UI.border,
+                          background: "var(--color-surface)",
+                          borderRadius: UI.radius,
+                          padding: 10,
+                          fontSize: 12.5,
+                          color: UI.text,
+                        }}
+                      >
+                        <div className={layoutStyles.extracted17}>
+                          Latest advisories
+                        </div>
+                        {dvsaLatestAdvisories.slice(0, 4).map((defect, index) => (
+                          <div key={`${defect.text}-${index}`} style={{ marginTop: index ? 4 : 0 }}>
+                            {defect.text}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="vehicle-edit-mot-history">
+              <div
+                className={`${layoutStyles.extracted26} ${layoutStyles.sidebarSectionHeader}`}
+              >
+                <div>
+                  <h2 style={sectionTitle}>Internal MOT Bookings</h2>
+                  <div style={sectionMeta}>Completed or past maintenance booking records.</div>
                 </div>
                 <button
                   type="button"
@@ -2424,8 +3149,11 @@ export default function EditVehiclePage() {
                 </button>
               </div>
 
+              <div style={{ ...panel, padding: 10 }}>
               {motHistoryItems.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No MOT history yet.</div>
+                <div style={{ color: UI.muted, fontSize: 13 }}>
+                  No internal MOT bookings. DVSA history is available above.
+                </div>
               ) : (
                 <div className={layoutStyles.extracted27}>
                   {motHistoryItems.map((item, index) => (
@@ -2439,7 +3167,7 @@ export default function EditVehiclePage() {
                         background: "var(--color-surface)",
                         cursor: item.bookingId ? "pointer" : "default",
                       }}
-                      title={item.bookingId ? "Open booking" : "No linked booking record"}
+                      title={item.bookingId ? "View linked booking record" : "No linked booking record"}
                     >
                       <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
                         {formatDisplayDate(item.completedDate)}
@@ -2456,20 +3184,23 @@ export default function EditVehiclePage() {
                       ) : null}
                       {item.bookingId ? (
                         <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 800, color: UI.brand }}>
-                          Open booking
+                          {item.bookingStateLabel || "Historical booking"}
                         </div>
                       ) : null}
                     </div>
                   ))}
                 </div>
               )}
+              </div>
             </div>
 
-            <div style={panel}>
-              <div className={layoutStyles.extracted28}>
+            <div className="vehicle-edit-service-history">
+              <div
+                className={`${layoutStyles.extracted28} ${layoutStyles.sidebarSectionHeader}`}
+              >
                 <div>
                   <h2 style={sectionTitle}>Service History</h2>
-                  <div style={sectionMeta}>Completed service bookings.</div>
+                  <div style={sectionMeta}>Completed services and recorded service dates.</div>
                 </div>
                 <button
                   type="button"
@@ -2480,16 +3211,19 @@ export default function EditVehiclePage() {
                 </button>
               </div>
 
+              <div style={{ ...panel, padding: 10 }}>
               {serviceHistoryItems.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No completed service history yet.</div>
+                <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>
               ) : (
                 <div className={layoutStyles.extracted29}>
                   {serviceHistoryItems.slice(0, 4).map((item, index) => (
                     <div
-                      key={item.bookingId || `${item.completedDate}-${index}`}
+                      key={item.serviceRecordId || item.maintenanceBookingId || `${item.completedDate}-${index}`}
                       onClick={() =>
-                        item.bookingId
-                          ? router.push(`/vehicle-edit/${vehicle.id}/service-history/${item.bookingId}`)
+                        item.serviceRecordId
+                          ? router.push(`/vehicle-edit/${vehicle.id}/service-history/${item.serviceRecordId}`)
+                          : item.maintenanceBookingId
+                          ? setEditBookingId(item.maintenanceBookingId)
                           : router.push(`/vehicle-edit/${vehicle.id}/service-history`)
                       }
                       style={{
@@ -2499,7 +3233,13 @@ export default function EditVehiclePage() {
                         background: "var(--color-surface)",
                         cursor: "pointer",
                       }}
-                      title={item.bookingId ? "Open full service details" : "Open service history"}
+                      title={
+                        item.serviceRecordId
+                          ? "Open full service details"
+                          : item.maintenanceBookingId
+                          ? "View completed service booking"
+                          : "Open service history"
+                      }
                     >
                       <div className={layoutStyles.extracted30}>
                         <div>
@@ -2507,11 +3247,15 @@ export default function EditVehiclePage() {
                             {formatDisplayDate(item.completedDate)}
                           </div>
                           <div style={{ marginTop: 3, fontSize: 12.5, color: UI.muted }}>
-                            {item.bookingRef || "Service record"}
+                            {item.bookingRef || item.sourceLabel || "Service record"}
                           </div>
                         </div>
                         <span style={{ color: UI.brand, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
-                          Open
+                          {item.serviceRecordId
+                            ? "Open details"
+                            : item.maintenanceBookingId
+                            ? "View booking"
+                            : "Recorded date · no linked completion"}
                         </span>
                       </div>
 
@@ -2541,144 +3285,384 @@ export default function EditVehiclePage() {
                   ))}
                 </div>
               )}
-            </div>
-
-            <div style={panel}>
-              <h2 style={sectionTitle}>Quick Links</h2>
-              <div className={layoutStyles.extracted31}>
-                <button style={btn("ghost")} onClick={() => router.push("/vehicles")}>
-                  Vehicles List
-                </button>
-                <button style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
-                  Vehicle Checks
-                </button>
-                {showEightWeekInspection ? (
-                  <button style={btn("ghost")} onClick={() => setShowInspectionBooking(true)}>
-                    Book Inspection
-                  </button>
-                ) : null}
-                <button style={btn("ghost")} onClick={() => setShowWorkBooking(true)}>
-                  Book Work
-                </button>
               </div>
             </div>
 
-            <div style={panel}>
-              <h2 style={sectionTitle}>Next Dates</h2>
-              <div className={layoutStyles.extracted32}>
-                <MiniLine label="Next MOT (Expiry)" value={formatDisplayDate(vehicle.nextMOT)} />
-                <MiniLine label="MOT Appointment" value={formatDisplayDate(motAppointmentDisplay)} />
-                <MiniLine label="MOT Booked On" value={formatDisplayDate(motBookedOnDisplay)} />
-                <MiniLine label="Next Service" value={formatDisplayDate(vehicle.nextService)} />
-                {showEightWeekInspection ? (
-                  <MiniLine label="Next 8 Week Inspection" value={formatDisplayDate(vehicle.nextEightWeekInspection)} />
-                ) : null}
-                <MiniLine label="Next RFL" value={formatDisplayDate(vehicle.nextRFL)} />
-                <MiniLine label="Next Tacho" value={formatDisplayDate(vehicle.nextTacho)} />
-                <MiniLine label="Next Brake Test" value={formatDisplayDate(vehicle.nextBrakeTest)} />
-                <MiniLine label="Next PMI" value={formatDisplayDate(vehicle.nextPMI)} />
-              </div>
-            </div>
           </div>
         </div>
 
-        {taxDatePrompt ? (
-          <div className={layoutStyles.extracted33} onClick={() => setTaxDatePrompt(null)}>
-            <div style={modal} onClick={(e) => e.stopPropagation()}>
-              <div className={layoutStyles.extracted34}>
-                <div>
-                  <h2 style={modalTitle}>Set road tax date</h2>
-                  <div style={sectionMeta}>{vehicle.name || vehicle.registration || "Vehicle"}</div>
-                </div>
-                <button type="button" style={closeBtn} onClick={() => setTaxDatePrompt(null)}>
-                  x
-                </button>
-              </div>
-              <label style={modalLabel}>Taxed Until</label>
-              <input
-                type="date"
-                value={taxDatePrompt.date || ""}
-                onChange={(e) => setTaxDatePrompt((prev) => (prev ? { ...prev, date: e.target.value } : prev))}
-                style={modalInput}
-                autoFocus
-              />
-              <div className={layoutStyles.extracted35}>
-                <button type="button" style={btn("ghost")} onClick={() => setTaxDatePrompt(null)}>
-                  Cancel
-                </button>
-                <button type="button" style={btn()} onClick={saveTaxDatePrompt}>
-                  Save taxed
-                </button>
-              </div>
-            </div>
+        <Modal
+          open={Boolean(vorPrompt)}
+          onClose={() => setVorPrompt(null)}
+          title={
+            vorPrompt?.mode === "return"
+              ? "Return vehicle to active service"
+              : vorPrompt?.mode === "historic"
+              ? "Add historic VOR/SORN period"
+              : "Vehicle Off-Road (VOR)"
+          }
+          description={
+            vorPrompt?.mode === "return"
+              ? "Complete the return-to-fleet declaration and record a first-use inspection."
+              : vorPrompt?.mode === "historic"
+              ? "Migrate a completed off-road period into this vehicle’s timeline."
+              : "Complete the VOR Policy & Procedure record before taking this vehicle off the fleet."
+          }
+          size="lg"
+          footer={
+            <>
+              <UIButton type="button" variant="ghost" onClick={() => setVorPrompt(null)}>
+                Cancel
+              </UIButton>
+              <UIButton type="button" onClick={confirmVorPrompt}>
+                {vorPrompt?.mode === "return"
+                  ? "Return to active"
+                  : vorPrompt?.mode === "historic"
+                  ? "Add historic period"
+                  : "Confirm VOR"}
+              </UIButton>
+            </>
+          }
+        >
+          <div className={layoutStyles.vorPolicyNotice}>
+            {vorPrompt?.mode === "return"
+              ? "A vehicle cannot return to Active until a first-use PMI inspection is recorded. Every paused maintenance due date will move forward by the number of VOR days."
+              : vorPrompt?.mode === "historic"
+              ? "Historic periods are added to the vehicle timeline. Select the countdown option only when current due dates have not already been adjusted."
+              : "This record must be started on the day the vehicle is taken off the fleet. Compliance and inspection countdowns remain paused while its status is VOR."}
           </div>
-        ) : null}
 
-        {insuranceDatePrompt ? (
-          <div className={layoutStyles.extracted36} onClick={() => setInsuranceDatePrompt(null)}>
-            <div style={modal} onClick={(e) => e.stopPropagation()}>
-              <div className={layoutStyles.extracted37}>
-                <div>
-                  <h2 style={modalTitle}>Set insured until date</h2>
-                  <div style={sectionMeta}>{vehicle.name || vehicle.registration || "Vehicle"}</div>
-                </div>
-                <button type="button" style={closeBtn} onClick={() => setInsuranceDatePrompt(null)}>
-                  x
-                </button>
-              </div>
-              <label style={modalLabel}>Insured Until</label>
-              <input
-                type="date"
-                value={insuranceDatePrompt.date || ""}
-                onChange={(e) =>
-                  setInsuranceDatePrompt((prev) => (prev ? { ...prev, date: e.target.value } : prev))
-                }
-                style={modalInput}
-                autoFocus
+          <div className={layoutStyles.vorFormGrid}>
+            <FormField label="Vehicle registration / identification">
+              <Input
+                value={vehicle.registration || vehicle.reg || ""}
+                readOnly
               />
-              <div className={layoutStyles.extracted38}>
-                <button type="button" style={btn("ghost")} onClick={() => setInsuranceDatePrompt(null)}>
-                  Cancel
-                </button>
-                <button type="button" style={btn()} onClick={saveInsuranceDatePrompt}>
-                  Save insured
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+            </FormField>
 
-        {/* Bottom actions */}
-        <div className={layoutStyles.extracted39}>
-          <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
-            Book Work
+            {vorPrompt?.mode === "start" ? (
+              <>
+                <FormField label="Operator licence number" htmlFor="vor-operator-licence">
+                  <Input
+                    id="vor-operator-licence"
+                    value={vorPrompt?.operatorLicenceNumber || ""}
+                    onChange={(event) => updateVorPrompt("operatorLicenceNumber", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="Date taken off the fleet" htmlFor="vor-off-road-date">
+                  <Input
+                    id="vor-off-road-date"
+                    type="date"
+                    value={vorPrompt?.offRoadDate || ""}
+                    onChange={(event) => updateVorPrompt("offRoadDate", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="Odometer when classified VOR (mi)" htmlFor="vor-off-road-odometer">
+                  <Input
+                    id="vor-off-road-odometer"
+                    inputMode="decimal"
+                    value={vorPrompt?.odometer || ""}
+                    onChange={(event) => updateVorPrompt("odometer", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="VOR approved by" htmlFor="vor-approved-by">
+                  <Input
+                    id="vor-approved-by"
+                    value={vorPrompt?.approvedBy || ""}
+                    onChange={(event) => updateVorPrompt("approvedBy", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="Position" htmlFor="vor-approved-position">
+                  <Input
+                    id="vor-approved-position"
+                    value={vorPrompt?.approvedPosition || ""}
+                    onChange={(event) => updateVorPrompt("approvedPosition", event.target.value)}
+                  />
+                </FormField>
+                <FormField
+                  className={layoutStyles.vorReasonField}
+                  label="Reason for VOR classification"
+                  htmlFor="vor-reason"
+                >
+                  <Textarea
+                    id="vor-reason"
+                    rows={4}
+                    value={vorPrompt?.reason || ""}
+                    onChange={(event) => updateVorPrompt("reason", event.target.value)}
+                    placeholder="Describe why the vehicle is being taken off the road..."
+                  />
+                </FormField>
+              </>
+            ) : vorPrompt?.mode === "return" ? (
+              <>
+                <FormField label="Date returned to the fleet" htmlFor="vor-returned-date">
+                  <Input
+                    id="vor-returned-date"
+                    type="date"
+                    value={vorPrompt?.returnedDate || ""}
+                    onChange={(event) => updateVorPrompt("returnedDate", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="Odometer when VOR removed (mi)" htmlFor="vor-return-odometer">
+                  <Input
+                    id="vor-return-odometer"
+                    inputMode="decimal"
+                    value={vorPrompt?.odometer || ""}
+                    onChange={(event) => updateVorPrompt("odometer", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="VOR removed by" htmlFor="vor-removed-by">
+                  <Input
+                    id="vor-removed-by"
+                    value={vorPrompt?.removedBy || ""}
+                    onChange={(event) => updateVorPrompt("removedBy", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="Position" htmlFor="vor-removed-position">
+                  <Input
+                    id="vor-removed-position"
+                    value={vorPrompt?.removedPosition || ""}
+                    onChange={(event) => updateVorPrompt("removedPosition", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="Signature (type full name)" htmlFor="vor-signature">
+                  <Input
+                    id="vor-signature"
+                    value={vorPrompt?.signature || ""}
+                    onChange={(event) => updateVorPrompt("signature", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="First-use PMI inspection date" htmlFor="vor-first-use-inspection">
+                  <Input
+                    id="vor-first-use-inspection"
+                    type="date"
+                    value={vorPrompt?.firstUseInspectionDate || ""}
+                    onChange={(event) =>
+                      updateVorPrompt("firstUseInspectionDate", event.target.value)
+                    }
+                  />
+                </FormField>
+              </>
+            ) : (
+              <>
+                <FormField label="Operator licence number" htmlFor="historic-vor-operator-licence">
+                  <Input
+                    id="historic-vor-operator-licence"
+                    value={vorPrompt?.operatorLicenceNumber || ""}
+                    onChange={(event) => updateVorPrompt("operatorLicenceNumber", event.target.value)}
+                  />
+                </FormField>
+                <FormField label="VOR/SORN start date" htmlFor="historic-vor-start">
+                  <Input id="historic-vor-start" type="date" value={vorPrompt?.offRoadDate || ""} onChange={(event) => updateVorPrompt("offRoadDate", event.target.value)} />
+                </FormField>
+                <FormField label="Return date" htmlFor="historic-vor-return">
+                  <Input id="historic-vor-return" type="date" value={vorPrompt?.returnedDate || ""} onChange={(event) => updateVorPrompt("returnedDate", event.target.value)} />
+                </FormField>
+                <FormField label="Odometer when taken off road (mi)" htmlFor="historic-vor-start-odometer">
+                  <Input id="historic-vor-start-odometer" inputMode="decimal" value={vorPrompt?.offRoadOdometer || ""} onChange={(event) => updateVorPrompt("offRoadOdometer", event.target.value)} />
+                </FormField>
+                <FormField label="Odometer when returned (mi)" htmlFor="historic-vor-return-odometer">
+                  <Input id="historic-vor-return-odometer" inputMode="decimal" value={vorPrompt?.returnOdometer || ""} onChange={(event) => updateVorPrompt("returnOdometer", event.target.value)} />
+                </FormField>
+                <FormField label="VOR approved by" htmlFor="historic-vor-approved-by">
+                  <Input id="historic-vor-approved-by" value={vorPrompt?.approvedBy || ""} onChange={(event) => updateVorPrompt("approvedBy", event.target.value)} />
+                </FormField>
+                <FormField label="Approver position" htmlFor="historic-vor-approved-position">
+                  <Input id="historic-vor-approved-position" value={vorPrompt?.approvedPosition || ""} onChange={(event) => updateVorPrompt("approvedPosition", event.target.value)} />
+                </FormField>
+                <FormField label="Return authorised by" htmlFor="historic-vor-removed-by">
+                  <Input id="historic-vor-removed-by" value={vorPrompt?.removedBy || ""} onChange={(event) => updateVorPrompt("removedBy", event.target.value)} />
+                </FormField>
+                <FormField label="Return authoriser position" htmlFor="historic-vor-removed-position">
+                  <Input id="historic-vor-removed-position" value={vorPrompt?.removedPosition || ""} onChange={(event) => updateVorPrompt("removedPosition", event.target.value)} />
+                </FormField>
+                <FormField label="First-use inspection date (if known)" htmlFor="historic-vor-first-use">
+                  <Input id="historic-vor-first-use" type="date" value={vorPrompt?.firstUseInspectionDate || ""} onChange={(event) => updateVorPrompt("firstUseInspectionDate", event.target.value)} />
+                </FormField>
+                <FormField className={layoutStyles.vorReasonField} label="Reason for VOR/SORN" htmlFor="historic-vor-reason">
+                  <Textarea id="historic-vor-reason" rows={4} value={vorPrompt?.reason || ""} onChange={(event) => updateVorPrompt("reason", event.target.value)} />
+                </FormField>
+                <label className={layoutStyles.vorCountdownOption}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(vorPrompt?.applyCountdownPause)}
+                    onChange={(event) => updateVorPrompt("applyCountdownPause", event.target.checked)}
+                  />
+                  Shift current maintenance due dates by this historic VOR/SORN duration
+                </label>
+              </>
+            )}
+          </div>
+        </Modal>
+
+        <Modal
+          open={Boolean(taxDatePrompt)}
+          onClose={() => setTaxDatePrompt(null)}
+          title="Set road tax date"
+          description={vehicle.name || vehicle.registration || "Vehicle"}
+          size="sm"
+          footer={
+            <>
+              <UIButton type="button" variant="ghost" onClick={() => setTaxDatePrompt(null)}>
+                Cancel
+              </UIButton>
+              <UIButton type="button" onClick={saveTaxDatePrompt}>Save taxed</UIButton>
+            </>
+          }
+        >
+          <FormField label="Taxed Until" htmlFor="taxed-until-prompt">
+            <Input
+              id="taxed-until-prompt"
+              type="date"
+              value={taxDatePrompt?.date || ""}
+              onChange={(event) =>
+                setTaxDatePrompt((previous) =>
+                  previous ? { ...previous, date: event.target.value } : previous
+                )
+              }
+              autoFocus
+            />
+          </FormField>
+        </Modal>
+
+        <Modal
+          open={Boolean(insuranceDatePrompt)}
+          onClose={() => setInsuranceDatePrompt(null)}
+          title="Set insured until date"
+          description={vehicle.name || vehicle.registration || "Vehicle"}
+          size="sm"
+          footer={
+            <>
+              <UIButton type="button" variant="ghost" onClick={() => setInsuranceDatePrompt(null)}>
+                Cancel
+              </UIButton>
+              <UIButton type="button" onClick={saveInsuranceDatePrompt}>Save insured</UIButton>
+            </>
+          }
+        >
+          <FormField label="Insured Until" htmlFor="insured-until-prompt">
+            <Input
+              id="insured-until-prompt"
+              type="date"
+              value={insuranceDatePrompt?.date || ""}
+              onChange={(event) =>
+                setInsuranceDatePrompt((previous) =>
+                  previous ? { ...previous, date: event.target.value } : previous
+                )
+              }
+              autoFocus
+            />
+          </FormField>
+        </Modal>
+
+        <section className={layoutStyles.dangerZone} aria-labelledby="vehicle-danger-heading">
+          <div>
+            <h2 id="vehicle-danger-heading">Danger zone</h2>
+            <p>Permanently delete this vehicle and remove it from the active register.</p>
+          </div>
+          <button type="button" onClick={handleDelete} style={btn("danger")}>
+            <Trash2 size={15} />
+            Delete vehicle
           </button>
-          <button onClick={handleSave} style={btn()} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
+        </section>
       </div>
     </HeaderSidebarLayout>
   );
 }
 
 /* small components */
-function Field({ label, name, value, onChange, meta, disabled = false }) {
+function Field({
+  label,
+  name,
+  value,
+  onChange,
+  meta,
+  disabled = false,
+  readOnly = false,
+  source = "",
+  placeholder = "",
+  suffix = "",
+  inputMode,
+}) {
   return (
     <div>
-      <label style={labelStyle}>{label}</label>
-      <input type="text" name={name} value={value || ""} onChange={onChange} style={inputField} disabled={disabled} />
-      {meta ? <FieldMeta>{meta}</FieldMeta> : null}
+      <FormField className={layoutStyles.vehicleFormField} label={label} htmlFor={`vehicle-${name}`}>
+        <div id={`vehicle-${name}-wrap`} className={layoutStyles.fieldInputWrap}>
+          <Input
+            id={`vehicle-${name}`}
+            type="text"
+            name={name}
+            value={value || ""}
+            onChange={onChange}
+            placeholder={placeholder}
+            inputMode={inputMode}
+            style={{
+              ...inputField,
+              ...(suffix ? { paddingRight: 46 } : {}),
+              ...(readOnly ? { background: "var(--color-surface-subtle)" } : {}),
+            }}
+            disabled={disabled}
+            readOnly={readOnly}
+            data-source={source || undefined}
+          />
+          {suffix ? <span className={layoutStyles.fieldSuffix}>{suffix}</span> : null}
+        </div>
+      </FormField>
+      {meta || source ? (
+        <div className={layoutStyles.fieldMetaRow}>
+          {meta ? <span className={layoutStyles.fieldMetaText}>{meta}</span> : null}
+          {source ? <span className={layoutStyles.sourceBadge}>{source}</span> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function DateField({ label, name, value, onChange, meta, disabled = false }) {
+function DateField({
+  label,
+  name,
+  value,
+  onChange,
+  meta,
+  disabled = false,
+  readOnly = false,
+  source = "",
+  allowOverride = false,
+  overridden = false,
+  onToggleOverride,
+}) {
   return (
     <div>
-      <label style={labelStyle}>{label}</label>
-      <input type="date" name={name} value={value || ""} onChange={onChange} style={inputField} disabled={disabled} />
-      {meta ? <FieldMeta>{meta}</FieldMeta> : null}
+      <FormField className={layoutStyles.vehicleFormField} label={label} htmlFor={`vehicle-${name}`} help={meta || undefined}>
+        <Input
+          id={`vehicle-${name}`}
+          type="date"
+          name={name}
+          value={value || ""}
+          onChange={onChange}
+          style={{
+            ...inputField,
+            ...(readOnly ? { background: "var(--color-surface-subtle)" } : {}),
+          }}
+          disabled={disabled}
+          readOnly={readOnly}
+          data-source={source || undefined}
+        />
+      </FormField>
+      {source || allowOverride ? (
+        <div className={layoutStyles.fieldSourceRow}>
+          {source ? <span className={layoutStyles.sourceBadge}>{source}</span> : null}
+          {allowOverride ? (
+            <button
+              type="button"
+              className={layoutStyles.overrideButton}
+              onClick={onToggleOverride}
+            >
+              {overridden ? "Use calculated date" : "Override date"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2701,25 +3685,24 @@ function FieldMeta({ children }) {
 
 function SelectField({ label, name, value, onChange, options }) {
   return (
-    <div>
-      <label style={labelStyle}>{label}</label>
-      <select name={name} value={value || ""} onChange={onChange} style={inputField}>
+    <FormField className={layoutStyles.vehicleFormField} label={label} htmlFor={`vehicle-${name}`}>
+      <Select id={`vehicle-${name}`} name={name} value={value || ""} onChange={onChange} style={inputField}>
         <option value="">Select...</option>
         {options.map((opt) => (
           <option key={opt} value={opt}>
             {opt}
           </option>
         ))}
-      </select>
-    </div>
+      </Select>
+    </FormField>
   );
 }
 
 function TextAreaField({ label, name, value, onChange, placeholder }) {
   return (
-    <div>
-      <label style={labelStyle}>{label}</label>
-      <textarea
+    <FormField className={layoutStyles.vehicleFormField} label={label} htmlFor={`vehicle-${name}`}>
+      <Textarea
+        id={`vehicle-${name}`}
         name={name}
         value={value || ""}
         onChange={onChange}
@@ -2727,7 +3710,7 @@ function TextAreaField({ label, name, value, onChange, placeholder }) {
         rows={6}
         style={{ ...textarea, minHeight: 140 }}
       />
-    </div>
+    </FormField>
   );
 }
 
@@ -2783,7 +3766,6 @@ function MiniLine({ label, value }) {
   );
 }
 
-/* modal styles */
 function MetricCard({ label, value }) {
   return (
     <div style={metricCard}>
@@ -2815,93 +3797,3 @@ function MetaPill({ label, value }) {
     </div>
   );
 }
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(15,23,42,0.42)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 90,
-  padding: 16,
-};
-
-const modal = {
-  width: "min(520px, 95vw)",
-  borderRadius: UI.radius,
-  padding: 16,
-  color: UI.text,
-  background: UI.card,
-  border: UI.border,
-  boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
-};
-
-const headerRow = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 10,
-};
-
-const modalTitle = {
-  margin: 0,
-  fontSize: 18,
-  fontWeight: 800,
-  color: UI.text,
-};
-
-const closeBtn = {
-  border: UI.border,
-  borderRadius: UI.radiusSm,
-  background: "var(--color-surface)",
-  color: UI.muted,
-  fontSize: 20,
-  cursor: "pointer",
-  padding: 6,
-  lineHeight: 1,
-};
-
-const modalLabel = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 800,
-  color: UI.muted,
-  marginBottom: 6,
-};
-
-const modalInput = {
-  width: "100%",
-  padding: "8px 10px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  backgroundColor: "var(--color-surface)",
-  color: UI.text,
-  outline: "none",
-  fontSize: 14,
-  appearance: "none",
-};
-
-const primaryBtn = {
-  width: "100%",
-  padding: "8px 12px",
-  borderRadius: UI.radiusSm,
-  border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-  color: "var(--color-white)",
-  fontWeight: 800,
-  fontSize: 14,
-};
-
-const dangerBtn = {
-  width: "100%",
-  padding: "8px 12px",
-  borderRadius: UI.radiusSm,
-  border: `1px solid ${UI.red}`,
-  background: UI.red,
-  color: "var(--color-white)",
-  fontWeight: 800,
-  fontSize: 14,
-  cursor: "pointer",
-};

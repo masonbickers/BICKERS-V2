@@ -7,6 +7,28 @@ export const MAINTENANCE_JOB_STATUSES = [
   "closed",
 ];
 
+export const ADDITIONAL_MAINTENANCE_WORKFLOWS = Object.freeze([
+  { key: "tacho_inspection", maintenanceTypeId: "tacho_inspection", label: "Tacho inspection", dueKey: "tachoInspection", lastField: "lastTacho", nextField: "nextTacho", frequencyField: "tachoFreq", isoWeekField: "tachoISOWeek", historyField: "tachoInspectionHistory", documentsField: "tachoInspectionDocuments" },
+  { key: "brake_test", maintenanceTypeId: "brake_test", label: "Brake test", dueKey: "brakeTest", lastField: "lastBrakeTest", nextField: "nextBrakeTest", frequencyField: "brakeTestFreq", isoWeekField: "brakeISOWeek", historyField: "brakeTestHistory", documentsField: "brakeTestDocuments" },
+  { key: "pmi", maintenanceTypeId: "pmi", label: "PMI inspection", dueKey: "pmi", lastField: "lastPMI", nextField: "nextPMI", frequencyField: "pmiFreq", isoWeekField: "pmiISOWeek", historyField: "pmiHistory", documentsField: "pmiDocuments" },
+  { key: "tacho_download", maintenanceTypeId: "tacho_download", label: "Tacho download", dueKey: "tachoDownload", lastField: "lastTachoDownload", nextField: "nextTachoDownload", frequencyField: "tachoDownloadFreq", isoWeekField: "tachoDownloadISOWeek", historyField: "tachoDownloadHistory", documentsField: "tachoDownloadDocuments" },
+  { key: "tail_lift", maintenanceTypeId: "tail_lift", label: "Tail-lift inspection", dueKey: "tailLift", lastField: "lastTailLift", nextField: "nextTailLift", frequencyField: "tailLiftFreq", isoWeekField: "tailLiftISOWeek", historyField: "tailLiftHistory", documentsField: "tailLiftDocuments" },
+  { key: "loler", maintenanceTypeId: "loler", label: "LOLER", dueKey: "loler", lastField: "lastLoler", nextField: "nextLoler", frequencyField: "lolerFreq", isoWeekField: "lolerISOWeek", historyField: "lolerHistory", documentsField: "lolerDocuments" },
+]);
+
+export const CORE_MAINTENANCE_TYPE_IDS = Object.freeze({
+  MOT: "mot",
+  SERVICE: "service",
+  INSPECTION: "eight_week_inspection",
+  WORK: "work",
+});
+
+export const maintenanceTypeIdForCoreType = (type) =>
+  CORE_MAINTENANCE_TYPE_IDS[String(type || "").trim().toUpperCase()] || "work";
+
+export const getMaintenanceTypeId = (record = {}) =>
+  String(record?.maintenanceTypeId || "").trim().toLowerCase();
+
 const DUE_FIELD_CANDIDATES = {
   mot: ["nextMOT", "nextMot", "nextMotDate", "motDate", "motDue", "motDueDate", "motExpiryDate"],
   service: ["nextService", "nextServiceDate", "serviceDate", "serviceDue", "serviceDueDate", "nextSvc"],
@@ -21,6 +43,7 @@ const DUE_FIELD_CANDIDATES = {
 };
 
 const OUT_OF_USE_STATUS_VALUES = new Set([
+  "vor",
   "out of use",
   "out-of-use",
   "out_of_use",
@@ -29,6 +52,37 @@ const OUT_OF_USE_STATUS_VALUES = new Set([
   "off-road",
   "off_road",
 ]);
+
+export const ACTIVE_VEHICLE_STATUS = "Active";
+export const VOR_VEHICLE_STATUS = "VOR";
+
+export const normalizeVehicleOperatingStatus = (valueOrAsset = {}) => {
+  const values =
+    valueOrAsset && typeof valueOrAsset === "object"
+      ? [
+          valueOrAsset.operationalStatus,
+          valueOrAsset.fleetStatus,
+          valueOrAsset.vehicleStatus,
+          valueOrAsset.availabilityStatus,
+          valueOrAsset.status,
+        ]
+      : [valueOrAsset];
+  return values.some((value) =>
+    OUT_OF_USE_STATUS_VALUES.has(String(value || "").trim().toLowerCase())
+  )
+    ? VOR_VEHICLE_STATUS
+    : ACTIVE_VEHICLE_STATUS;
+};
+
+export const syncVehicleOperatingStatus = (asset = {}, status) => {
+  const normalized = normalizeVehicleOperatingStatus(status);
+  return {
+    ...asset,
+    operationalStatus: normalized,
+    fleetStatus: normalized,
+    vehicleStatus: normalized,
+  };
+};
 
 export const isMotNotApplicable = (asset = {}) =>
   asset?.motNotApplicable === true ||
@@ -43,17 +97,7 @@ export const isServiceNotApplicable = (asset = {}) =>
   String(asset?.serviceStatus || "").trim().toLowerCase() === "not applicable";
 
 export const isVehicleOutOfUse = (asset = {}) => {
-  const candidates = [
-    asset.operationalStatus,
-    asset.fleetStatus,
-    asset.vehicleStatus,
-    asset.availabilityStatus,
-    asset.status,
-  ];
-
-  return candidates.some((value) =>
-    OUT_OF_USE_STATUS_VALUES.has(String(value || "").trim().toLowerCase())
-  );
+  return normalizeVehicleOperatingStatus(asset) === VOR_VEHICLE_STATUS;
 };
 
 export const toDateSafe = (value) => {
@@ -147,6 +191,7 @@ export const createMaintenanceJobPayload = ({
     assetId: String(assetId || "").trim(),
     assetLabel: String(assetLabel || "").trim(),
     type: cleanType,
+    maintenanceTypeId: cleanType,
     title: String(title || `${cleanType.toUpperCase()} job`).trim(),
     status: "planned",
     priority: String(priority || "normal").trim().toLowerCase(),

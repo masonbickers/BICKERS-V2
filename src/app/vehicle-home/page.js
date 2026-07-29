@@ -33,6 +33,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import { localizer } from "../utils/localizer";
 import {
+  ADDITIONAL_MAINTENANCE_WORKFLOWS,
   getCanonicalDueDate,
   getIsoWeekLabel,
   isVehicleOutOfUse,
@@ -677,24 +678,22 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   const currentDateKey = event?.appointmentDateISO || ymdDate(event?.start);
   if (!dateKey || dateKey === currentDateKey) return null;
 
-  const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
-    ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
+  const maintenanceTypeIds = Array.isArray(event?.maintenanceTypeIds)
+    ? event.maintenanceTypeIds.map((item) => String(item || "").trim().toLowerCase())
+    : event?.maintenanceTypeId
+    ? [String(event.maintenanceTypeId).trim().toLowerCase()]
     : [];
-  const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
-  const shouldMoveBrake = maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake");
-  const shouldMovePmi = maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi");
 
   const updates = { updatedAt: serverTimestamp() };
-  if (shouldMoveBrake) {
-    updates.nextBrakeTest = dateKey;
-    updates.brakeISOWeek = getIsoWeekLabel(dateKey);
-  }
-  if (shouldMovePmi) {
-    updates.nextPMI = dateKey;
-    updates.pmiISOWeek = getIsoWeekLabel(dateKey);
-  }
+  const matchedWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.filter(
+    (workflow) => maintenanceTypeIds.includes(workflow.maintenanceTypeId)
+  );
+  matchedWorkflows.forEach((workflow) => {
+    updates[workflow.nextField] = dateKey;
+    updates[workflow.isoWeekField] = getIsoWeekLabel(dateKey);
+  });
 
-  if (!shouldMoveBrake && !shouldMovePmi) return null;
+  if (!matchedWorkflows.length) return null;
   return { updates, movedDateKeys: new Set([currentDateKey]), movedNextDateKeys: [dateKey] };
 };
 

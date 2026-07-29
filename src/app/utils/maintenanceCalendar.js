@@ -1,6 +1,12 @@
 "use client";
 
-import { getCanonicalDueDate, isVehicleOutOfUse } from "./maintenanceSchema";
+import {
+  ADDITIONAL_MAINTENANCE_WORKFLOWS,
+  buildAssetLabel,
+  getCanonicalDueDate,
+  getMaintenanceTypeId,
+  isVehicleOutOfUse,
+} from "./maintenanceSchema.js";
 
 const INACTIVE_MAINTENANCE_BOOKING_STATUSES = new Set([
   "cancelled",
@@ -8,6 +14,12 @@ const INACTIVE_MAINTENANCE_BOOKING_STATUSES = new Set([
   "closed",
   "deleted",
   "declined",
+]);
+
+const CLOSED_MAINTENANCE_BOOKING_STATUSES = new Set([
+  ...INACTIVE_MAINTENANCE_BOOKING_STATUSES,
+  "complete",
+  "completed",
 ]);
 
 const INACTIVE_MAINTENANCE_JOB_STATUSES = new Set([
@@ -54,6 +66,34 @@ export const toYmdDate = (value) => {
 export const isInactiveMaintenanceBooking = (status) =>
   INACTIVE_MAINTENANCE_BOOKING_STATUSES.has(String(status || "").trim().toLowerCase());
 
+export const isOpenMaintenanceBooking = (booking = {}, now = new Date()) => {
+  const status = String(booking.status || "").trim().toLowerCase();
+  if (
+    CLOSED_MAINTENANCE_BOOKING_STATUSES.has(status) ||
+    status.includes("cancel") ||
+    status.includes("declin")
+  ) {
+    return false;
+  }
+
+  const bookingDates = Array.isArray(booking.bookingDates)
+    ? booking.bookingDates.map(toDateLike).filter(Boolean)
+    : [];
+  const end =
+    toDateLike(booking.endDate) ||
+    toDateLike(booking.endDateISO) ||
+    bookingDates.sort((a, b) => b.getTime() - a.getTime())[0] ||
+    toDateLike(booking.appointmentDate) ||
+    toDateLike(booking.appointmentDateISO) ||
+    toDateLike(booking.startDate) ||
+    toDateLike(booking.startDateISO) ||
+    toDateLike(booking.date);
+  const today = startOfLocalDay(now);
+  const bookingEnd = startOfLocalDay(end);
+
+  return !today || !bookingEnd || bookingEnd.getTime() >= today.getTime();
+};
+
 export const isActiveMaintenanceJob = (status) =>
   !INACTIVE_MAINTENANCE_JOB_STATUSES.has(String(status || "").trim().toLowerCase());
 
@@ -79,6 +119,33 @@ export const getMaintenanceDisplayType = (booking = {}) => {
   if (rawType) return rawType;
 
   return "MAINTENANCE";
+};
+
+export const reconcileMaintenanceEventVehicle = (event = {}, vehicle = null) => {
+  if (!vehicle) {
+    return {
+      ...event,
+      vehicleResolution: "not-found",
+    };
+  }
+
+  const vehicleLabel = buildAssetLabel(vehicle);
+  const typeLabel = getMaintenanceDisplayType(event);
+  const provider = String(event.provider || "").trim();
+
+  return {
+    ...event,
+    vehicleId: String(vehicle.id || event.vehicleId || "").trim(),
+    vehicleLabel,
+    vehicleName: String(vehicle.name || vehicle.vehicleName || "").trim(),
+    vehicleRegistration: String(
+      vehicle.registration || vehicle.reg || vehicle.registrationNumber || ""
+    )
+      .trim()
+      .toUpperCase(),
+    title: [vehicleLabel, typeLabel, provider].filter(Boolean).join(" - "),
+    vehicleResolution: "register",
+  };
 };
 
 const groupConsecutiveYmdDates = (dates) => {
@@ -154,6 +221,7 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
             kind,
             vehicleId,
             bookingStatus: booking.status || "Booked",
+            maintenanceTypeId: getMaintenanceTypeId(booking),
             maintenanceType: booking.maintenanceType || "",
             maintenanceTypeOther: booking.maintenanceTypeOther || "",
             maintenanceTypeLabel: typeLabel,
@@ -193,6 +261,7 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
         kind,
         vehicleId,
         bookingStatus: booking.status || "Booked",
+        maintenanceTypeId: getMaintenanceTypeId(booking),
         maintenanceType: booking.maintenanceType || "",
         maintenanceTypeOther: booking.maintenanceTypeOther || "",
         maintenanceTypeLabel: typeLabel,
@@ -229,6 +298,7 @@ export const buildMaintenanceJobEvents = (maintenanceJobs, options = {}) => {
         title: job.assetLabel || job.title || "Maintenance Job",
         kind: "MAINTENANCE",
         vehicleId: String(job.assetId || "").trim(),
+        maintenanceTypeId: getMaintenanceTypeId(job) || String(job.type || "maintenance").trim().toLowerCase(),
         maintenanceType: job.type || "maintenance",
         maintenanceTypeLabel: `Job Card (${statusText})`,
         workflowStatus: String(job.status || "planned").trim().toLowerCase(),
@@ -289,8 +359,10 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
     const bookedMeta = bookedMetaByVehicle[vehicleId] || null;
     const motDue = getCanonicalDueDate(vehicle, "mot");
     const serviceDue = getCanonicalDueDate(vehicle, "service");
-    const brakeTestDue = getCanonicalDueDate(vehicle, "brakeTest");
-    const pmiDue = getCanonicalDueDate(vehicle, "pmi");
+    const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
+      ...workflow,
+      due: getCanonicalDueDate(vehicle, workflow.dueKey),
+    }));
 
     const items = [
       {
@@ -332,6 +404,7 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
           booked: item.booked,
           bookingStatus: item.bookingStatus,
           maintenanceTypeLabel: item.maintenanceTypeLabel,
+          maintenanceTypeId: item.kind === "MOT" ? "mot" : "service",
           start,
           end: addDaysToDate(start, 1),
           allDay: true,
@@ -344,10 +417,7 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
         return item.kind === "MOT" && item.bookingStatus.includes("After Expiry");
       });
 
-    const additionalAppointmentsByDate = [
-      { key: "brake_test", due: brakeTestDue, label: "Brake test" },
-      { key: "pmi", due: pmiDue, label: "PMI inspection" },
-    ].reduce((acc, item) => {
+    const additionalAppointmentsByDate = maintenanceWorkflows.reduce((acc, item) => {
       const dateKey = toYmdDate(item.due);
       if (!dateKey) return acc;
       if (!acc[dateKey]) acc[dateKey] = [];
@@ -371,6 +441,8 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
           bookingStatus: "Appointment",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: appointmentItems.map((item) => item.label),
+          maintenanceKeys: appointmentItems.map((item) => item.key),
+          maintenanceTypeIds: appointmentItems.map((item) => item.maintenanceTypeId),
           requiresMaintenanceDocuments: true,
           requiresBrakeTestDocument: appointmentItems.some((item) => item.key === "brake_test"),
           requiresPmiDocument: appointmentItems.some((item) => item.key === "pmi"),
@@ -382,34 +454,23 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
       })
       .filter(Boolean);
 
-    const completedAppointmentsByDate = [
+    const completedAppointmentsByDate = maintenanceWorkflows.flatMap((workflow) => [
       {
-        key: "brake_test",
-        date: vehicle.lastBrakeTest,
-        label: "Brake test",
+        key: workflow.key,
+        maintenanceTypeId: workflow.maintenanceTypeId,
+        date: vehicle[workflow.lastField],
+        label: workflow.label,
         completedAt: "",
       },
-      {
-        key: "pmi",
-        date: vehicle.lastPMI,
-        label: "PMI inspection",
-        completedAt: "",
-      },
-      ...(Array.isArray(vehicle.brakeTestHistory) ? vehicle.brakeTestHistory : []).map((item) => ({
-        key: "brake_test",
+      ...(Array.isArray(vehicle[workflow.historyField]) ? vehicle[workflow.historyField] : []).map((item) => ({
+        key: workflow.key,
+        maintenanceTypeId: workflow.maintenanceTypeId,
         date: item?.completedDate,
-        label: "Brake test",
+        label: workflow.label,
         completedAt: item?.completedAt || "",
         documents: Array.isArray(item?.documents) ? item.documents : [],
       })),
-      ...(Array.isArray(vehicle.pmiHistory) ? vehicle.pmiHistory : []).map((item) => ({
-        key: "pmi",
-        date: item?.completedDate,
-        label: "PMI inspection",
-        completedAt: item?.completedAt || "",
-        documents: Array.isArray(item?.documents) ? item.documents : [],
-      })),
-    ].reduce((acc, item) => {
+    ]).reduce((acc, item) => {
       const dateKey = toYmdDate(item.date);
       if (!dateKey) return acc;
       if (!acc[dateKey]) acc[dateKey] = [];
@@ -449,6 +510,8 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
           bookingStatus: "Completed",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: appointmentItems.map((item) => item.label),
+          maintenanceKeys: appointmentItems.map((item) => item.key),
+          maintenanceTypeIds: appointmentItems.map((item) => item.maintenanceTypeId),
           documents,
           hasMaintenanceDocuments: documents.length > 0,
           requiresMaintenanceDocuments: true,

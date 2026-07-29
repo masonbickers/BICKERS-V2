@@ -204,6 +204,17 @@ export function isModuleEnabledForPath(pathname, featureFlags = DEFAULT_FEATURE_
   return normalizeFeatureFlags(featureFlags)[moduleKey] !== false;
 }
 
+export function isFinanceHandoffPath(pathname = "") {
+  const path = String(pathname || "").toLowerCase();
+  return (
+    path === "/finance-queue" ||
+    path.startsWith("/invoice/") ||
+    path.startsWith("/invoice-view/") ||
+    path === "/invoiced" ||
+    path === "/paid"
+  );
+}
+
 export function inferAccessFromLegacyFields(raw = {}) {
   const role = String(raw?.role || "").trim().toLowerCase();
   const legacyService = raw?.isService === true || role === "service";

@@ -16,6 +16,7 @@ import {
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { formatVehicleList } from "@/app/utils/vehicleDisplay";
 
 /* UI tokens */
 const UI = UI_TOKENS;
@@ -297,6 +298,7 @@ export default function VehicleChecksDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [checks, setChecks] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
 
   // filters
   const [qText, setQText] = useState("");
@@ -315,8 +317,24 @@ export default function VehicleChecksDashboardPage() {
         const rowsB = [];
         snapB.forEach((d) => rowsB.push({ id: d.id, ...d.data() }));
 
+        const snapV = await getDocs(query(collection(db, "vehicles")));
+        const rowsV = [];
+        snapV.forEach((d) => rowsV.push({ id: d.id, ...d.data() }));
+        const byId = {};
+        const byReg = {};
+        const byName = {};
+        rowsV.forEach((vehicle) => {
+          const id = String(vehicle.id || vehicle.vehicleId || "").trim();
+          const reg = String(vehicle.registration || vehicle.reg || "").trim().toUpperCase();
+          const name = String(vehicle.name || vehicle.vehicleName || vehicle.label || "").trim().toLowerCase();
+          if (id) byId[id] = vehicle;
+          if (reg) byReg[reg] = vehicle;
+          if (name) byName[name] = vehicle;
+        });
+
         setBookings(rowsB.filter(isConfirmed));
         setChecks(rowsC);
+        setVehicleLookup({ byId, byReg, byName });
       } finally {
         setLoading(false);
       }
@@ -375,7 +393,7 @@ export default function VehicleChecksDashboardPage() {
           jobLabel,
           client: b.client || "",
           dateISO: dk,
-          vehicles: vehicles.join(", "),
+          vehicles: formatVehicleList(vehicles, vehicleLookup),
           employees,
           state,
           checks: checkList,
@@ -419,7 +437,7 @@ export default function VehicleChecksDashboardPage() {
     });
 
     return filtered;
-  }, [bookings, checks, qText, onlyShow, dateOrder]);
+  }, [bookings, checks, qText, onlyShow, dateOrder, vehicleLookup]);
 
   // KPIs
   const kpis = useMemo(() => {

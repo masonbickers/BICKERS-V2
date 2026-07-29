@@ -330,10 +330,15 @@ export default function ViewUCraneBookingModal({
   const uCraneVehiclesPrettyWithStatus = useMemo(() => {
     const only = (normalizedVehicles || []).filter(isUCraneVehicle);
     if (!only.length) return [];
+    const bookingStatus = String(booking?.status || "").trim();
+    const bookingControlsVehicleStatus =
+      bookingStatus.toLowerCase() === "ready to invoice";
 
     return only.map((v) => {
       const vid = v?.id || v?.vehicleId || "";
-      const status = (vid && vehicleStatusById?.[vid]) || booking?.status || "";
+      const status = bookingControlsVehicleStatus
+        ? bookingStatus
+        : (vid && vehicleStatusById?.[vid]) || bookingStatus;
       const name =
         v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(vid || "");
       const plate = v?.registration ? String(v.registration).toUpperCase() : "";

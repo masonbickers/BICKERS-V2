@@ -74,3 +74,12 @@ export function buildMaintenanceHistoryEntry({ action, user, timestamp, changes 
     details: changes.length ? changes.join("\n") : `${action} maintenance booking`,
   };
 }
+
+export function buildMaintenanceCreatedHistoryEntry({ booking, user, timestamp }) {
+  return buildMaintenanceHistoryEntry({
+    action: "Created",
+    user,
+    timestamp,
+    changes: buildMaintenanceChangeList({}, booking),
+  });
+}

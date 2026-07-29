@@ -28,6 +28,7 @@ import {
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { FIXED_JOB_STATUS_STYLES, normalizeJobStatus } from "@/app/utils/jobStatusColors";
+import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
 
 /* ────────────────────────────────────────────────────────────
    Design tokens + layout
@@ -1023,9 +1024,15 @@ export default function JobInfoPage() {
       if (status === "Complete" && job) {
         Object.assign(updates, buildVehicleNameStatusUpdates(job, "Complete"));
       }
+      if (status === "Ready to Invoice" && job) {
+        updates.vehicleStatus = buildSynchronizedVehicleStatus(job, status);
+      }
 
       await updateDoc(doc(db, "bookings", id), tenantPayload(dataAccessState, updates));
 
+      setRelatedJobs((current) =>
+        current.map((item) => (item.id === id ? { ...item, ...updates } : item))
+      );
       setStatusByJob((p) => ({ ...p, [id]: status }));
       setSelectedStatusByJob((p) => ({ ...p, [id]: status }));
       alert(`Status updated to ${status}`);

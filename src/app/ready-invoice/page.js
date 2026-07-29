@@ -13,9 +13,12 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { formatVehicleList } from "@/app/utils/vehicleDisplay";
+import { useVehicleLookup } from "@/app/utils/useVehicleLookup";
 
 export default function ReadyToInvoicePage() {
   const dataAccessState = useDataAccessState();
+  const vehicleLookup = useVehicleLookup(dataAccessState);
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
 
@@ -156,7 +159,7 @@ export default function ReadyToInvoicePage() {
 
                   {Array.isArray(job.vehicles) && job.vehicles.length > 0 && (
                     <div className={layoutStyles.extracted7}>
-                      <strong>Vehicles:</strong> {job.vehicles.join(", ")}
+                      <strong>Vehicles:</strong> {formatVehicleList(job.vehicles, vehicleLookup)}
                     </div>
                   )}
                   {Array.isArray(job.employees) && job.employees.length > 0 && (

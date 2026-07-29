@@ -19,7 +19,13 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
-import { isMotNotApplicable, isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import {
+  countUniqueVehiclesByDeadlineState,
+  getRegisterComplianceState,
+  isRetentionPlateRecord,
+  RETENTION_PLATE_CATEGORY,
+} from "@/app/utils/vehicleRegisterPresentation";
 import {
   DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
   loadVehicleFleetSettings,
@@ -154,9 +160,6 @@ const formatDateWithStyle = (raw, options = {}) => {
 };
 
 const norm = (s) => String(s || "").trim().toLowerCase();
-const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
-const isRetentionPlate = (vehicle = {}) =>
-  norm(vehicle.category) === norm(RETENTION_PLATE_CATEGORY) || vehicle.recordType === "numberPlateRetention";
 const isTradePlate = (vehicle = {}) => norm(vehicle.plateType) === "trade";
 const categorySort = (a, b) => {
   const aRetention = norm(a) === norm(RETENTION_PLATE_CATEGORY);
@@ -251,7 +254,7 @@ const reportSettledPermissionFailures = (results, context) => {
 };
 
 /* columns count (IMPORTANT for colSpan) */
-const COLS = 15;
+const COLS = 16;
 
 export default function VehicleMaintenancePage() {
   const router = useRouter();
@@ -654,6 +657,11 @@ export default function VehicleMaintenancePage() {
     let soon = 0;
     let insured = 0;
     let taxed = 0;
+    let count = 0;
+    let retainedPlates = 0;
+    let motMissing = 0;
+    let serviceMissing = 0;
+    const vehicleDeadlines = [];
 
     const fields = [
       ["inspectionDate", 21],
@@ -665,49 +673,49 @@ export default function VehicleMaintenancePage() {
     ];
 
     for (const v of filteredVehicles) {
+      if (isRetentionPlateRecord(v)) {
+        retainedPlates++;
+        continue;
+      }
+
+      count++;
       if (getInsuranceStatus(v) === "Insured") insured++;
       if ((normalizeTaxStatusValue(v.taxStatus) || "Taxed") === "Taxed") taxed++;
 
+      const serviceState = getRegisterComplianceState(v, "service");
+      const motState = getRegisterComplianceState(v, "mot");
+      if (motState.status === "missing") motMissing++;
+      if (serviceState.status === "missing") serviceMissing++;
+
       if (isVehicleOutOfUse(v)) continue;
 
-      const insuredUntil = safeDate(getInsuredUntil(v));
-      if (insuredUntil) {
-        const diff = daysUntil(insuredUntil);
-        if (diff < 0) overdue++;
-        else if (diff <= complianceSettings.insuranceWarningDays) soon++;
-      }
-
-      const serviceDate = safeDate(isRetentionPlate(v) ? v.retentionExpiry : v.nextService);
-      if (serviceDate) {
-        const soonDays = isRetentionPlate(v)
-          ? isTradePlate(v)
-            ? complianceSettings.tradePlateWarningDays
-            : complianceSettings.retentionPlateWarningDays
-          : 21;
-        const diff = daysUntil(serviceDate);
-        if (diff < 0) overdue++;
-        else if (diff <= soonDays) soon++;
-      }
-
-      for (const [f, soonDays] of fields) {
-        const d = safeDate(v[f]);
-        if (!d) continue;
-        const diff = daysUntil(d);
-        if (diff < 0) overdue++;
-        else if (diff <= soonDays) soon++;
-      }
-
-      if (!isMotNotApplicable(v)) {
-        const motDate = safeDate(v.nextMOT);
-        if (motDate) {
-          const diff = daysUntil(motDate);
-          if (diff < 0) overdue++;
-          else if (diff <= 21) soon++;
-        }
-      }
+      vehicleDeadlines.push({
+        deadlines: [
+          {
+            value: getInsuredUntil(v),
+            warningDays: complianceSettings.insuranceWarningDays,
+          },
+          { value: serviceState.value, warningDays: 21 },
+          ...fields.map(([field, warningDays]) => ({
+            value: v[field],
+            warningDays,
+          })),
+          { value: motState.value, warningDays: 21 },
+        ],
+      });
     }
 
-    return { count: filteredVehicles.length, overdue, soon, insured, taxed };
+    ({ overdue, soon } = countUniqueVehiclesByDeadlineState(vehicleDeadlines));
+    return {
+      count,
+      retainedPlates,
+      overdue,
+      soon,
+      insured,
+      taxed,
+      motMissing,
+      serviceMissing,
+    };
   }, [complianceSettings, filteredVehicles]);
 
   return (
@@ -845,8 +853,15 @@ export default function VehicleMaintenancePage() {
 
             <div className={layoutStyles.extracted4}>
               <span style={chip("var(--color-white)", UI.text)}>{kpis.count} vehicles</span>
-              <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>Due soon: {kpis.soon}</span>
-              <span style={chip("var(--color-danger-soft)", "var(--color-danger)")}>Overdue: {kpis.overdue}</span>
+              {kpis.retainedPlates ? (
+                <span style={chip("var(--color-white)", UI.text)}>
+                  {kpis.retainedPlates} retained {kpis.retainedPlates === 1 ? "plate" : "plates"}
+                </span>
+              ) : null}
+              <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>Vehicles due soon: {kpis.soon}</span>
+              <span style={chip("var(--color-danger-soft)", "var(--color-danger)")}>Vehicles overdue: {kpis.overdue}</span>
+              <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>MOT missing: {kpis.motMissing}</span>
+              <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>Service missing: {kpis.serviceMissing}</span>
 
               <button
                 type="button"
@@ -942,6 +957,7 @@ export default function VehicleMaintenancePage() {
                       { label: "Insured Until" },
                       { label: "MOT" },
                       { label: "Service" },
+                      { label: "Retention Expiry" },
                       { label: "PMI" },
                       { label: "Brake Test" },
                       { label: "Tacho Insp." },
@@ -1030,7 +1046,7 @@ export default function VehicleMaintenancePage() {
                     {expandedCategories[category] &&
                       list.map((v, i) => {
                         const zebra = i % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
-                        const retentionPlate = isRetentionPlate(v);
+                        const retentionPlate = isRetentionPlateRecord(v);
                         const outOfUse = isVehicleOutOfUse(v);
                         const reg = v.registration || v.reg || "-";
 
@@ -1067,11 +1083,13 @@ export default function VehicleMaintenancePage() {
                           suppressStatus: outOfUse,
                         };
                         const serviceDateOptions = {
-                          soonDays: retentionPlate
-                            ? isTradePlate(v)
-                              ? complianceSettings.tradePlateWarningDays
-                              : complianceSettings.retentionPlateWarningDays
-                            : 21,
+                          soonDays: 21,
+                          suppressStatus: outOfUse,
+                        };
+                        const retentionDateOptions = {
+                          soonDays: isTradePlate(v)
+                            ? complianceSettings.tradePlateWarningDays
+                            : complianceSettings.retentionPlateWarningDays,
                           suppressStatus: outOfUse,
                         };
                         const rowBackground = outOfUse ? "var(--color-surface-hover)" : zebra;
@@ -1080,7 +1098,7 @@ export default function VehicleMaintenancePage() {
                           <tr
                             key={v.id}
                             className="vehicleDataRow"
-                            title={outOfUse ? "Vehicle marked out of use" : retentionPlate ? "Number plate on retention" : "Vehicle"}
+                            title={outOfUse ? "Vehicle marked VOR" : retentionPlate ? "Number plate on retention" : "Vehicle"}
                             onClick={() => router.push(`/vehicle-edit/${v.id}`)}
                             style={{ background: rowBackground, cursor: "pointer", opacity: outOfUse ? 0.78 : 1 }}
                           >
@@ -1089,7 +1107,7 @@ export default function VehicleMaintenancePage() {
                               {v.name || "-"}
                               {outOfUse ? (
                                 <span style={{ marginLeft: 6, color: UI.muted, fontWeight: 900 }}>
-                                  Out of use
+                                  VOR
                                 </span>
                               ) : null}
                             </td>
@@ -1097,42 +1115,53 @@ export default function VehicleMaintenancePage() {
                             <td style={modelCell}>{v.model || "-"}</td>
 
                             {/* Tax Status */}
-                            <td style={taxCell} onClick={(e) => e.stopPropagation()}>
-                              <select
-                                className={layoutStyles.extracted11}
-                                value={v.taxStatus || "Taxed"}
-                                onChange={(e) => handleTaxStatusChange(v, e.target.value)}
-                                disabled={savingKey === `${v.id}:taxStatus`}
-                              >
-                                <option value="Taxed">Taxed</option>
-                                <option value="Sorn">Sorn</option>
-                                <option value="N/A">N/A</option>
-                              </select>
-                            </td>
+                            {retentionPlate ? (
+                              <td style={taxCell}>N/A</td>
+                            ) : (
+                              <td style={taxCell} onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  className={layoutStyles.extracted11}
+                                  value={v.taxStatus || "Taxed"}
+                                  onChange={(e) => handleTaxStatusChange(v, e.target.value)}
+                                  disabled={savingKey === `${v.id}:taxStatus`}
+                                >
+                                  <option value="Taxed">Taxed</option>
+                                  <option value="Sorn">Sorn</option>
+                                  <option value="N/A">N/A</option>
+                                </select>
+                              </td>
+                            )}
 
-                            {renderDateCell(v.nextRFL, rowTd, taxDateOptions)}
+                            {retentionPlate ? <td style={rowTd}>N/A</td> : renderDateCell(v.nextRFL, rowTd, taxDateOptions)}
 
                             {/* Insurance Status */}
-                            <td style={insuranceCell} onClick={(e) => e.stopPropagation()}>
-                              <select
-                                style={{
-                                  ...miniSelect,
-                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "var(--color-text)" } : {}),
-                                }}
-                                value={insuranceStatus}
-                                onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
-                                disabled={savingKey === `${v.id}:insuranceStatus`}
-                              >
-                                <option value="Insured">Insured</option>
-                                <option value="Not Insured">Not Insured</option>
-                                <option value="N/A">N/A</option>
-                              </select>
-                            </td>
+                            {retentionPlate ? (
+                              <td style={insuranceCell}>N/A</td>
+                            ) : (
+                              <td style={insuranceCell} onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  style={{
+                                    ...miniSelect,
+                                    ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "var(--color-text)" } : {}),
+                                  }}
+                                  value={insuranceStatus}
+                                  onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
+                                  disabled={savingKey === `${v.id}:insuranceStatus`}
+                                >
+                                  <option value="Insured">Insured</option>
+                                  <option value="Not Insured">Not Insured</option>
+                                  <option value="N/A">N/A</option>
+                                </select>
+                              </td>
+                            )}
 
                             {/* Dates with colour-coded status */}
-                            {renderDateCell(getInsuredUntil(v), rowTd, insuranceDateOptions)}
-                            {isMotNotApplicable(v) ? <td style={rowTd}>N/A</td> : renderDateCell(v.nextMOT, rowTd, dateOptions)}
-                            {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, serviceDateOptions)}
+                            {retentionPlate ? <td style={rowTd}>N/A</td> : renderDateCell(getInsuredUntil(v), rowTd, insuranceDateOptions)}
+                            {renderComplianceDateCell(v, "mot", rowTd, dateOptions)}
+                            {renderComplianceDateCell(v, "service", rowTd, serviceDateOptions)}
+                            {retentionPlate
+                              ? renderDateCell(v.retentionExpiry, rowTd, retentionDateOptions)
+                              : <td style={rowTd}>-</td>}
                             {renderDateCell(v.nextPMI, rowTd, dateOptions)}
                             {renderDateCell(v.nextBrakeTest, rowTd, dateOptions)}
                             {renderDateCell(v.nextTacho, rowTd, dateOptions)}
@@ -1161,7 +1190,9 @@ export default function VehicleMaintenancePage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
-          <span style={{ color: "var(--color-danger)", fontWeight: 900 }}>red</span> = overdue.
+          <span style={{ color: "var(--color-danger)", fontWeight: 900 }}>red</span> = overdue.{" "}
+          <span style={{ color: UI.amber, fontWeight: 900 }}>Missing</span> = no date or exemption recorded;{" "}
+          <strong>N/A</strong> = deliberately marked not applicable.
         </div>
 
         {categorySettingsOpen ? (
@@ -1368,6 +1399,28 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled, dataAcces
 function renderDateCell(raw, baseStyle, options) {
   const { text, style } = formatDateWithStyle(raw, options);
   return <td style={{ ...baseStyle, ...style }}>{text}</td>;
+}
+
+function renderComplianceDateCell(vehicle, type, baseStyle, options) {
+  const state = getRegisterComplianceState(vehicle, type);
+  if (state.status === "not-applicable") {
+    return (
+      <td style={{ ...baseStyle, color: UI.muted, fontWeight: 800 }} title={state.reason}>
+        N/A
+      </td>
+    );
+  }
+  if (state.status === "missing") {
+    return (
+      <td
+        style={{ ...baseStyle, color: UI.amber, fontWeight: 950 }}
+        title={`No ${String(type).toUpperCase()} date or exemption recorded`}
+      >
+        Missing
+      </td>
+    );
+  }
+  return renderDateCell(state.value, baseStyle, options);
 }
 
 const miniSelect = {

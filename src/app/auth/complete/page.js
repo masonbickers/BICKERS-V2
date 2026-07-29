@@ -9,6 +9,7 @@ import {
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import { sendLoginNotification } from "@/app/utils/loginNotification";
+import BrandedLoader from "@/app/components/BrandedLoader";
 
 export default function CompleteClerkLoginPage() {
   const router = useRouter();
@@ -37,15 +38,9 @@ export default function CompleteClerkLoginPage() {
     return <div style={styles.page}>{authError}</div>;
   }
 
-  return (
-    <div style={styles.page}>
-      <div style={styles.spinner} />
-      <p>Preparing your workspace…</p>
-    </div>
-  );
+  return <BrandedLoader label="Preparing your workspace…" compact />;
 }
 
 const styles = {
   page: { minHeight: "100vh", display: "grid", placeItems: "center", alignContent: "center", gap: 14, background: "var(--shell-sidebar-bg)", color: "var(--color-surface)", fontFamily: "Arial, sans-serif" },
-  spinner: { width: 34, height: 34, border: "3px solid var(--color-text-muted)", borderTopColor: "var(--color-danger)", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
 };

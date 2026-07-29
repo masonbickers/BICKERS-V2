@@ -44,13 +44,26 @@ const DraggableBigCalendar = dynamic(
 );
 
 import { localizer } from "../utils/localizer";
-import { buildAssetLabel, getCanonicalDueDate, getIsoWeekLabel, isVehicleOutOfUse, ymd } from "../utils/maintenanceSchema";
 import {
+  ADDITIONAL_MAINTENANCE_WORKFLOWS,
+  buildAssetLabel,
+  getCanonicalDueDate,
+  getIsoWeekLabel,
+  isVehicleOutOfUse,
+  ymd,
+} from "../utils/maintenanceSchema";
+import {
+  buildBookedMetaByVehicle,
   buildMaintenanceBookingEvents,
   buildMaintenanceJobEvents,
   getMaintenanceBookingKind,
   getMaintenanceDisplayType,
+  reconcileMaintenanceEventVehicle,
 } from "../utils/maintenanceCalendar";
+import {
+  buildHolidayCalendarTitle,
+  buildHolidayEmployeeLabel,
+} from "../utils/dashboardHolidayLabels";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
   collection,
@@ -107,6 +120,10 @@ import {
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
 import { Button, Input } from "@/app/components/ui";
 import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import {
+  buildDashboardVehicleRegister,
+  resolveDashboardVehicles,
+} from "@/app/utils/dashboardVehicleResolver";
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -271,14 +288,6 @@ const startOfLocalDay = (d) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x;
-};
-
-const addWeeksToLocalDate = (value, weeks) => {
-  const base = parseLocalDate(value);
-  if (!base) return "";
-  const next = new Date(base);
-  next.setDate(next.getDate() + Number(weeks || 0) * 7);
-  return ymd(next);
 };
 
 const addDays = (d, n) => {
@@ -696,24 +705,22 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   const currentDateKey = event?.appointmentDateISO || ymd(event?.start);
   if (!dateKey || dateKey === currentDateKey) return null;
 
-  const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
-    ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
+  const maintenanceTypeIds = Array.isArray(event?.maintenanceTypeIds)
+    ? event.maintenanceTypeIds.map((item) => String(item || "").trim().toLowerCase())
+    : event?.maintenanceTypeId
+    ? [String(event.maintenanceTypeId).trim().toLowerCase()]
     : [];
-  const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
-  const shouldMoveBrake = maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake");
-  const shouldMovePmi = maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi");
 
   const updates = { updatedAt: serverTimestamp() };
-  if (shouldMoveBrake) {
-    updates.nextBrakeTest = dateKey;
-    updates.brakeISOWeek = getIsoWeekLabel(dateKey);
-  }
-  if (shouldMovePmi) {
-    updates.nextPMI = dateKey;
-    updates.pmiISOWeek = getIsoWeekLabel(dateKey);
-  }
+  const matchedWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.filter(
+    (workflow) => maintenanceTypeIds.includes(workflow.maintenanceTypeId)
+  );
+  matchedWorkflows.forEach((workflow) => {
+    updates[workflow.nextField] = dateKey;
+    updates[workflow.isoWeekField] = getIsoWeekLabel(dateKey);
+  });
 
-  if (!shouldMoveBrake && !shouldMovePmi) return null;
+  if (!matchedWorkflows.length) return null;
   return { updates, movedDateKeys: new Set([currentDateKey]), movedNextDateKeys: [dateKey] };
 };
 
@@ -1335,7 +1342,11 @@ function CalendarEvent({ event, onViewQuote }) {
                 "";
 
               const norm = (s) => String(s || "").trim();
-              const itemStatus = norm(itemStatusRaw) || bookingStatus;
+              const bookingControlsVehicleStatus =
+                bookingStatus === "ready to invoice";
+              const itemStatus = bookingControlsVehicleStatus
+                ? bookingStatus
+                : norm(itemStatusRaw) || bookingStatus;
               const different = itemStatus && itemStatus !== bookingStatus;
 
               if (different) {
@@ -1860,7 +1871,9 @@ function HolidayNotesCalendarEvent({ event }) {
   const [expanded, setExpanded] = useState(false);
   const isHoliday = event.status === "Holiday";
   const label = isHoliday ? "Holiday" : "Note";
-  const title = isHoliday ? event.employee || "Holiday" : event.title || "Note";
+  const title = isHoliday
+    ? buildHolidayEmployeeLabel(event.employee, event)
+    : event.title || "Note";
   const titleText = String(title || "");
   const shouldCollapse = !isHoliday && titleText.length > 110;
   const displayTitle = shouldCollapse && !expanded ? `${titleText.slice(0, 110).trim()}...` : titleText;
@@ -2361,7 +2374,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
         return {
           ...data,
-          title: `${employee} - Holiday`,
+          title: buildHolidayCalendarTitle(employee, data),
           start: startBase,
           end: startOfLocalDay(addDays(safeEnd, 1)),
           allDay: true,
@@ -2524,21 +2537,15 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     run();
   }, []);
 
+  const dashboardVehicleRegister = useMemo(
+    () => buildDashboardVehicleRegister(vehiclesData),
+    [vehiclesData]
+  );
+
   // normaliser/risk
   const normalizeVehicles = useCallback(
-    (list) => {
-      if (!Array.isArray(list)) return [];
-      return list.map((v) => {
-        if (v && typeof v === "object" && (v.name || v.registration)) return v;
-        const needle = String(v ?? "").trim();
-        const match =
-          vehiclesData.find((x) => x.id === needle) ||
-          vehiclesData.find((x) => String(x.registration ?? "").trim() === needle) ||
-          vehiclesData.find((x) => String(x.name ?? "").trim() === needle);
-        return match || { name: needle };
-      });
-    },
-    [vehiclesData]
+    (list) => resolveDashboardVehicles(list, dashboardVehicleRegister),
+    [dashboardVehicleRegister]
   );
 
   const getVehicleRisk = useCallback((vehicles, { offRoadTracking = false } = {}) => {
@@ -2551,6 +2558,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const name =
         v.name || [v.manufacturer, v.model].filter(Boolean).join(" ") || "Vehicle";
       const plate = v.registration ? ` (${String(v.registration).toUpperCase()})` : "";
+      if (v.__vehicleResolution === "ambiguous-name") {
+        reasons.push(`VEHICLE REGISTER MATCH AMBIGUOUS: ${name}${plate}`);
+        return;
+      }
+      if (v.__vehicleResolution === "not-found") {
+        reasons.push(`VEHICLE NOT FOUND IN REGISTER: ${name}${plate}`);
+        return;
+      }
       const tax = String(v.taxStatus ?? "").trim().toLowerCase();
       const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
       const motDue = getCanonicalDueDate(v, "mot");
@@ -2791,29 +2806,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     [maintenanceJobs]
   );
 
-  const maintenanceBookedMetaByVehicle = useMemo(() => {
-    const map = {};
-    (maintenanceBookings || []).forEach((b) => {
-      if (isInactiveMaintenanceBooking(b.status)) return;
-      const vehicleId = String(b.vehicleId || "").trim();
-      if (!vehicleId) return;
-
-      const type = String(b.type || "").trim().toUpperCase() === "SERVICE" ? "service" : "mot";
-      const appt = parseLocalDate(b.appointmentDate || b.startDate || b.date);
-      if (!appt) return;
-
-      if (!map[vehicleId]) {
-        map[vehicleId] = {
-          mot: { has: false, earliestAppt: null },
-          service: { has: false, earliestAppt: null },
-        };
-      }
-      map[vehicleId][type].has = true;
-      const cur = map[vehicleId][type].earliestAppt;
-      if (!cur || appt.getTime() < cur.getTime()) map[vehicleId][type].earliestAppt = appt;
-    });
-    return map;
-  }, [maintenanceBookings]);
+  const maintenanceBookedMetaByVehicle = useMemo(
+    () => buildBookedMetaByVehicle(maintenanceBookings),
+    [maintenanceBookings]
+  );
 
   const activeInspectionMetaByVehicle = useMemo(() => {
     const map = {};
@@ -2935,8 +2931,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const label = buildAssetLabel(v) || vehicleId;
       const motDue = getCanonicalDueDate(v, "mot");
       const serviceDue = getCanonicalDueDate(v, "service");
-      const brakeTestDue = getCanonicalDueDate(v, "brakeTest");
-      const pmiDue = getCanonicalDueDate(v, "pmi");
+      const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
+        ...workflow,
+        due: getCanonicalDueDate(v, workflow.dueKey),
+      }));
       const bookedMeta = maintenanceBookedMetaByVehicle[vehicleId] || null;
 
       if (motDue) {
@@ -2962,6 +2960,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             ? "Booked"
             : "",
           maintenanceTypeLabel: "MOT",
+          maintenanceTypeId: "mot",
         });
       }
 
@@ -2981,13 +2980,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           booked: serviceBooked,
           bookingStatus: serviceBooked ? "Booked" : "",
           maintenanceTypeLabel: "SERVICE",
+          maintenanceTypeId: "service",
         });
       }
 
-      const additionalAppointmentsByDate = [
-        { key: "brake_test", due: brakeTestDue, label: "Brake test" },
-        { key: "pmi", due: pmiDue, label: "PMI inspection" },
-      ].reduce((acc, item) => {
+      const additionalAppointmentsByDate = maintenanceWorkflows.reduce((acc, item) => {
         const dateKey = ymd(item.due);
         if (!dateKey) return acc;
         if (!acc[dateKey]) acc[dateKey] = [];
@@ -3016,40 +3013,31 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           bookingStatus: "Appointment",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: items.map((item) => item.label),
+          maintenanceKeys: items.map((item) => item.key),
+          maintenanceTypeIds: items.map((item) => item.maintenanceTypeId),
           requiresMaintenanceDocuments: true,
           requiresBrakeTestDocument: items.some((item) => item.key === "brake_test"),
           requiresPmiDocument: items.some((item) => item.key === "pmi"),
         });
       });
 
-      const completedAppointmentsByDate = [
+      const completedAppointmentsByDate = maintenanceWorkflows.flatMap((workflow) => [
         {
-          key: "brake_test",
-          date: v.lastBrakeTest,
-          label: "Brake test",
+          key: workflow.key,
+          maintenanceTypeId: workflow.maintenanceTypeId,
+          date: v[workflow.lastField],
+          label: workflow.label,
           completedAt: "",
         },
-        {
-          key: "pmi",
-          date: v.lastPMI,
-          label: "PMI inspection",
-          completedAt: "",
-        },
-        ...(Array.isArray(v.brakeTestHistory) ? v.brakeTestHistory : []).map((item) => ({
-          key: "brake_test",
+        ...(Array.isArray(v[workflow.historyField]) ? v[workflow.historyField] : []).map((item) => ({
+          key: workflow.key,
+          maintenanceTypeId: workflow.maintenanceTypeId,
           date: item?.completedDate,
-          label: "Brake test",
+          label: workflow.label,
           completedAt: item?.completedAt || "",
           documents: Array.isArray(item?.documents) ? item.documents : [],
         })),
-        ...(Array.isArray(v.pmiHistory) ? v.pmiHistory : []).map((item) => ({
-          key: "pmi",
-          date: item?.completedDate,
-          label: "PMI inspection",
-          completedAt: item?.completedAt || "",
-          documents: Array.isArray(item?.documents) ? item.documents : [],
-        })),
-      ].reduce((acc, item) => {
+      ]).reduce((acc, item) => {
         const dateKey = ymd(item.date);
         if (!dateKey) return acc;
         if (!acc[dateKey]) acc[dateKey] = [];
@@ -3094,6 +3082,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           bookingStatus: "Completed",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: items.map((item) => item.label),
+          maintenanceKeys: items.map((item) => item.key),
+          maintenanceTypeIds: items.map((item) => item.maintenanceTypeId),
           documents,
           hasMaintenanceDocuments: documents.length > 0,
           requiresMaintenanceDocuments: true,
@@ -3150,6 +3140,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 : "Booked"
               : "",
             maintenanceTypeLabel: "8 WEEK INSPECTION",
+            maintenanceTypeId: "eight_week_inspection",
             isoWeek: isoLabel,
           });
 
@@ -3315,31 +3306,19 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         const vehicle = vehicleById[String(event?.vehicleId || "").trim()] || null;
         const vehicleMotDue = vehicle ? ymd(getCanonicalDueDate(vehicle, "mot")) : "";
         const vehicleServiceDue = vehicle ? ymd(getCanonicalDueDate(vehicle, "service")) : "";
-        const fallbackMotDate =
-          vehicleMotDue ||
-          event?.nextMOT ||
-          addWeeksToLocalDate(
-            vehicle?.lastMOT ||
-              event?.completedDate ||
-              event?.completedAt ||
-              event?.appointmentDateISO ||
-              event?.startDateISO ||
-              event?.date ||
-              event?.__occurrence ||
-              event?.start,
-            52
-          );
         if (!vehicle) {
           return {
             ...event,
-            nextMOT: event?.kind === "MOT_BOOKING" ? fallbackMotDate : event?.nextMOT || "",
+            nextMOT: "",
+            nextService: "",
+            vehicleResolution: "not-found",
           };
         }
 
         return {
-          ...event,
-          nextMOT: event?.kind === "MOT_BOOKING" ? fallbackMotDate : vehicle?.nextMOT || event?.nextMOT || "",
-          nextService: vehicleServiceDue || event?.nextService || "",
+          ...reconcileMaintenanceEventVehicle(event, vehicle),
+          nextMOT: event?.kind === "MOT_BOOKING" ? vehicleMotDue : "",
+          nextService: vehicleServiceDue,
         };
       });
 

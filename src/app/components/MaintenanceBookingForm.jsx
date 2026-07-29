@@ -8,7 +8,7 @@
 "use client";
 
 import layoutStyles from "./MaintenanceBookingForm.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
 import { getIsoWeekLabel } from "../utils/maintenanceSchema";
@@ -26,6 +26,12 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import {
+  EMPTY_EQUIPMENT_SELECTION,
+  equipmentSelectionKey,
+  equipmentSelectionsEqual,
+  normalizeEquipmentSelection,
+} from "@/app/utils/maintenanceBookingFormState";
 
 /**
  * Props:
@@ -39,13 +45,16 @@ export default function MaintenanceBookingForm({
   vehicleId,
   type = "MOT",
   defaultDate = "",
-  initialEquipment = [],
+  initialEquipment = EMPTY_EQUIPMENT_SELECTION,
   sourceDueDate = "",
   sourceDueIsoWeek = "",
   sourceDueKey = "",
   onClose,
   onSaved,
 }) {
+  const dialogRef = useRef(null);
+  const dialogTitleId = useId();
+  const fieldPrefix = useId();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [vehicle, setVehicle] = useState(null);
@@ -62,12 +71,16 @@ export default function MaintenanceBookingForm({
   const [customDates, setCustomDates] = useState(defaultDate ? [defaultDate] : []);
 
   const [provider, setProvider] = useState("");
+  const [bookingRef, setBookingRef] = useState("");
+  const [location, setLocation] = useState("");
+  const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentSearchOpen, setEquipmentSearchOpen] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState(
-    Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []
+  const initialEquipmentKey = equipmentSelectionKey(initialEquipment);
+  const [selectedEquipment, setSelectedEquipment] = useState(() =>
+    normalizeEquipmentSelection(initialEquipment)
   );
 
   const [saving, setSaving] = useState(false);
@@ -291,8 +304,13 @@ export default function MaintenanceBookingForm({
   }, [accessKey, dataAccessState, vehicleId]);
 
   useEffect(() => {
-    setSelectedEquipment(Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []);
-  }, [initialEquipment]);
+    const nextSelection = normalizeEquipmentSelection(initialEquipment);
+    setSelectedEquipment((currentSelection) =>
+      equipmentSelectionsEqual(currentSelection, nextSelection)
+        ? currentSelection
+        : nextSelection
+    );
+  }, [initialEquipmentKey]);
 
   const equipmentOptions = useMemo(
     () =>
@@ -352,6 +370,24 @@ export default function MaintenanceBookingForm({
     if (typeof onClose === "function") onClose();
   };
 
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus?.();
+    };
+  }, []);
+
   const toggleEquipment = (name, checked) => {
     setSelectedEquipment((prev) =>
       checked ? Array.from(new Set([...prev, name])) : prev.filter((item) => item !== name)
@@ -383,9 +419,9 @@ export default function MaintenanceBookingForm({
         endDate,
         dateKeys: bookingDates.keys,
         provider,
-        bookingRef: "",
-        location: "",
-        cost: "",
+        bookingRef,
+        location,
+        cost,
         notes,
         equipment: selectedEquipment,
         sourceDueDate,
@@ -405,11 +441,18 @@ export default function MaintenanceBookingForm({
   };
 
   return (
-    <div className={layoutStyles.extracted1}>
-      <div className={layoutStyles.extracted2}>
+    <div className={layoutStyles.extracted1} onMouseDown={(event) => event.target === event.currentTarget && handleClose()}>
+      <div
+        ref={dialogRef}
+        className={layoutStyles.extracted2}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+        tabIndex={-1}
+      >
         <div className={layoutStyles.extracted3}>
           <div>
-            <h2 className={layoutStyles.extracted4}>{title}</h2>
+            <h2 id={dialogTitleId} className={layoutStyles.extracted4}>{title}</h2>
             <div className={layoutStyles.extracted5}>
               Vehicle: <b className={layoutStyles.extracted6}>{vehicleLabel || "Equipment only"}</b>
             </div>
@@ -427,8 +470,9 @@ export default function MaintenanceBookingForm({
         <form onSubmit={handleSubmit} className={layoutStyles.extracted9}>
           {/* Type */}
           <div className={layoutStyles.extracted10}>
-            <label className={layoutStyles.extracted11}>Maintenance type</label>
+            <label htmlFor={`${fieldPrefix}-type`} className={layoutStyles.extracted11}>Maintenance type</label>
             <input
+              id={`${fieldPrefix}-type`}
               className={layoutStyles.extracted12}
               value={
                 safeType === "MOT"
@@ -445,8 +489,8 @@ export default function MaintenanceBookingForm({
 
           {/* Status */}
           <div className={layoutStyles.extracted13}>
-            <label className={layoutStyles.extracted14}>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted15}>
+            <label htmlFor={`${fieldPrefix}-status`} className={layoutStyles.extracted14}>Status</label>
+            <select id={`${fieldPrefix}-status`} value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted15}>
               <option value="Requested">Requested</option>
               <option value="Booked">Booked</option>
               <option value="Completed">Completed</option>
@@ -456,8 +500,9 @@ export default function MaintenanceBookingForm({
 
           {/* Single vs multi */}
           <div className={layoutStyles.extracted16}>
-            <label className={layoutStyles.extracted17}>Booking type</label>
+            <label htmlFor={`${fieldPrefix}-booking-mode`} className={layoutStyles.extracted17}>Booking type</label>
             <select
+              id={`${fieldPrefix}-booking-mode`}
               value={useCustomDates ? "custom" : isMultiDay ? "multi" : "single"}
               onChange={(e) => {
                 const mode = e.target.value;
@@ -519,11 +564,12 @@ export default function MaintenanceBookingForm({
           {useCustomDates ? (
             <>
               <div className={layoutStyles.extracted19}>
-                <label className={layoutStyles.extracted20}>Selected dates</label>
+                <label id={`${fieldPrefix}-selected-dates-label`} className={layoutStyles.extracted20}>Selected dates</label>
                 <DatePicker
                   multiple
                   value={customDates}
                   format="YYYY-MM-DD"
+                  inputProps={{ "aria-labelledby": `${fieldPrefix}-selected-dates-label` }}
                   onChange={(vals) => {
                     const normalised = (Array.isArray(vals) ? vals : [])
                       .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
@@ -540,8 +586,9 @@ export default function MaintenanceBookingForm({
               </div>
 
               <div className={layoutStyles.extracted22}>
-                <label className={layoutStyles.extracted23}>Appointment time</label>
+                <label htmlFor={`${fieldPrefix}-appointment-time`} className={layoutStyles.extracted23}>Appointment time</label>
                 <input
+                  id={`${fieldPrefix}-appointment-time`}
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
@@ -552,8 +599,9 @@ export default function MaintenanceBookingForm({
           ) : !isMultiDay ? (
             <>
               <div className={layoutStyles.extracted25}>
-                <label className={layoutStyles.extracted26}>Appointment date</label>
+                <label htmlFor={`${fieldPrefix}-appointment-date`} className={layoutStyles.extracted26}>Appointment date</label>
                 <input
+                  id={`${fieldPrefix}-appointment-date`}
                   type="date"
                   value={appointmentDate}
                   onChange={(e) => setAppointmentDate(e.target.value)}
@@ -563,8 +611,9 @@ export default function MaintenanceBookingForm({
               </div>
 
               <div className={layoutStyles.extracted28}>
-                <label className={layoutStyles.extracted29}>Appointment time</label>
+                <label htmlFor={`${fieldPrefix}-appointment-time`} className={layoutStyles.extracted29}>Appointment time</label>
                 <input
+                  id={`${fieldPrefix}-appointment-time`}
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
@@ -575,8 +624,9 @@ export default function MaintenanceBookingForm({
           ) : (
             <>
               <div className={layoutStyles.extracted31}>
-                <label className={layoutStyles.extracted32}>Start date</label>
+                <label htmlFor={`${fieldPrefix}-start-date`} className={layoutStyles.extracted32}>Start date</label>
                 <input
+                  id={`${fieldPrefix}-start-date`}
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
@@ -586,8 +636,9 @@ export default function MaintenanceBookingForm({
               </div>
 
               <div className={layoutStyles.extracted34}>
-                <label className={layoutStyles.extracted35}>End date</label>
+                <label htmlFor={`${fieldPrefix}-end-date`} className={layoutStyles.extracted35}>End date</label>
                 <input
+                  id={`${fieldPrefix}-end-date`}
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
@@ -597,8 +648,9 @@ export default function MaintenanceBookingForm({
               </div>
 
               <div className={layoutStyles.extracted37}>
-                <label className={layoutStyles.extracted38}>Appointment time</label>
+                <label htmlFor={`${fieldPrefix}-appointment-time`} className={layoutStyles.extracted38}>Appointment time</label>
                 <input
+                  id={`${fieldPrefix}-appointment-time`}
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
@@ -620,16 +672,36 @@ export default function MaintenanceBookingForm({
 
           {/* Details */}
           <div className={layoutStyles.extracted42}>
-            <label className={layoutStyles.extracted43}>Provider / garage</label>
-            <input value={provider} onChange={(e) => setProvider(e.target.value)} className={layoutStyles.extracted44} />
+            <label htmlFor={`${fieldPrefix}-provider`} className={layoutStyles.extracted43}>Provider / garage</label>
+            <input id={`${fieldPrefix}-provider`} value={provider} onChange={(e) => setProvider(e.target.value)} className={layoutStyles.extracted44} />
+          </div>
+
+          <div className={layoutStyles.extracted42}>
+            <label htmlFor={`${fieldPrefix}-booking-ref`} className={layoutStyles.extracted43}>Booking reference</label>
+            <input id={`${fieldPrefix}-booking-ref`} value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} className={layoutStyles.extracted44} />
+          </div>
+
+          <div className={layoutStyles.extracted42}>
+            <label htmlFor={`${fieldPrefix}-location`} className={layoutStyles.extracted43}>Location</label>
+            <input id={`${fieldPrefix}-location`} value={location} onChange={(e) => setLocation(e.target.value)} className={layoutStyles.extracted44} />
+          </div>
+
+          <div className={layoutStyles.extracted42}>
+            <label htmlFor={`${fieldPrefix}-cost`} className={layoutStyles.extracted43}>Cost (optional)</label>
+            <input id={`${fieldPrefix}-cost`} value={cost} onChange={(e) => setCost(e.target.value)} className={layoutStyles.extracted44} />
           </div>
 
           <div className={layoutStyles.extracted45}>
-            <label className={layoutStyles.extracted46}>Book equipment off</label>
+            <label htmlFor={`${fieldPrefix}-equipment-search`} className={layoutStyles.extracted46}>Book equipment off</label>
             {equipmentOptions.length ? (
               <div className={layoutStyles.extracted47}>
                 <div className={layoutStyles.extracted48}>
                   <input
+                    id={`${fieldPrefix}-equipment-search`}
+                    role="combobox"
+                    aria-expanded={equipmentSearchOpen && Boolean(equipmentSearch.trim())}
+                    aria-controls={`${fieldPrefix}-equipment-options`}
+                    aria-autocomplete="list"
                     value={equipmentSearch}
                     onChange={(e) => {
                       setEquipmentSearch(e.target.value);
@@ -637,19 +709,27 @@ export default function MaintenanceBookingForm({
                     }}
                     onFocus={() => setEquipmentSearchOpen(true)}
                     onKeyDown={(e) => {
-                      if (e.key === "Escape") setEquipmentSearchOpen(false);
+                      if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setEquipmentSearchOpen(false);
+                      }
                     }}
                     placeholder="Search equipment by name or category..."
                     className={layoutStyles.extracted49}
                   />
 
                   {equipmentSearchOpen && equipmentSearch.trim() ? (
-                    <div className={layoutStyles.extracted50}>
+                    <div id={`${fieldPrefix}-equipment-options`} role="listbox" className={layoutStyles.extracted50}>
                       {filteredEquipmentOptions.length ? (
                         filteredEquipmentOptions.map(({ category, name }) => {
                           const checked = selectedEquipment.includes(name);
                           return (
-                            <label key={`${category}:${name}`} className={layoutStyles.extracted51}>
+                            <label
+                              key={`${category}:${name}`}
+                              role="option"
+                              aria-selected={checked}
+                              className={layoutStyles.extracted51}
+                            >
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -691,8 +771,9 @@ export default function MaintenanceBookingForm({
           </div>
 
           <div className={layoutStyles.extracted60}>
-            <label className={layoutStyles.extracted61}>Notes</label>
+            <label htmlFor={`${fieldPrefix}-notes`} className={layoutStyles.extracted61}>Notes</label>
             <textarea
+              id={`${fieldPrefix}-notes`}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}

@@ -33,6 +33,7 @@ import {
   Table2,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
 
 /* Mini design system */
 const UI = UI_TOKENS;
@@ -722,15 +723,37 @@ export default function JobSheetPage() {
 
   const updateJobStatus = async (job, nextStatus) => {
     const prev = job.status;
-    setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: nextStatus } : j)));
+    const previousVehicleStatus = job.vehicleStatus;
+    const vehicleStatus =
+      nextStatus === "Ready to Invoice"
+        ? buildSynchronizedVehicleStatus(job, nextStatus)
+        : previousVehicleStatus;
+    setBookings((old) =>
+      old.map((j) =>
+        j.id === job.id
+          ? {
+              ...j,
+              status: nextStatus,
+              ...(nextStatus === "Ready to Invoice" ? { vehicleStatus } : {}),
+            }
+          : j
+      )
+    );
     try {
       await updateDoc(doc(db, "bookings", job.id), {
         status: nextStatus,
         updatedAt: serverTimestamp(),
         ...(nextStatus === "complete" ? { completedAt: serverTimestamp() } : {}),
+        ...(nextStatus === "Ready to Invoice" ? { vehicleStatus } : {}),
       });
     } catch (e) {
-      setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: prev } : j)));
+      setBookings((old) =>
+        old.map((j) =>
+          j.id === job.id
+            ? { ...j, status: prev, vehicleStatus: previousVehicleStatus }
+            : j
+        )
+      );
       alert("Could not update job status. Please try again.");
     }
   };

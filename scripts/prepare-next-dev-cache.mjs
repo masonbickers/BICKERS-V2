@@ -6,6 +6,7 @@ import { writeBuildInfo } from "./write-build-info.mjs";
 
 const root = process.cwd();
 const devCacheDir = path.join(root, ".next-dev");
+const shouldResetCache = process.argv.includes("--reset");
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
@@ -74,5 +75,10 @@ function pinOneDriveFolder() {
 }
 
 writeBuildInfo();
-removeDevCache();
+if (shouldResetCache) {
+  removeDevCache();
+} else {
+  fs.mkdirSync(devCacheDir, { recursive: true });
+  seedDevCacheManifests();
+}
 pinOneDriveFolder();

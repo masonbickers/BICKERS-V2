@@ -20,7 +20,6 @@ import {
   Monitor,
   Moon,
   PencilLine,
-  ShieldCheck,
   Sun,
   UserCog,
 } from "lucide-react";
@@ -277,9 +276,6 @@ export default function SettingsPage() {
     () => ({
       accountStatus: userDocData?.isEnabled === false ? "Disabled" : "Active",
       emailVerified: userData?.emailVerified === true,
-      phoneVerified: userDocData?.phoneVerified === true,
-      authenticator: userDocData?.mfaEnabled === true,
-      mfaMethod: userDocData?.mfaMethod || "Not configured",
     }),
     [userData?.emailVerified, userDocData]
   );
@@ -289,9 +285,8 @@ export default function SettingsPage() {
       { label: "Role", value: userData?.role || "User", Icon: UserCog },
       { label: "Workspace", value: userDocData?.defaultWorkspace || "User", Icon: BriefcaseBusiness },
       { label: "Email", value: securitySummary.emailVerified ? "Verified" : "Pending", Icon: Mail },
-      { label: "Authenticator", value: securitySummary.authenticator ? "Enabled" : "Not enabled", Icon: ShieldCheck },
     ],
-    [securitySummary.authenticator, securitySummary.emailVerified, userData?.role, userDocData?.defaultWorkspace]
+    [securitySummary.emailVerified, userData?.role, userDocData?.defaultWorkspace]
   );
 
   const actionCard = (href, title, subtitle, pill = "Open", Icon = ArrowRight) => (
@@ -495,18 +490,6 @@ export default function SettingsPage() {
                     <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.accountStatus}</div>
                   </div>
                   <div style={detailCard}>
-                    <div style={fieldLabel}>Phone verification</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.phoneVerified ? "Verified" : "Pending"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Authenticator MFA</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.authenticator ? "Enabled" : "Not enabled"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>MFA method</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.mfaMethod}</div>
-                  </div>
-                  <div style={detailCard}>
                     <div style={fieldLabel}>Directory status</div>
                     <div style={{ ...fieldValue, marginTop: 6 }}>{userDocData ? "Profile configured" : "Basic auth profile"}</div>
                   </div>
@@ -569,20 +552,12 @@ export default function SettingsPage() {
                     <span style={statusPill("Email verified", securitySummary.emailVerified).style}>
                       Email {securitySummary.emailVerified ? "verified" : "pending"}
                     </span>
-                    <span style={statusPill("Phone verified", securitySummary.phoneVerified).style}>
-                      Phone {securitySummary.phoneVerified ? "verified" : "pending"}
-                    </span>
-                    <span style={statusPill("Authenticator", securitySummary.authenticator).style}>
-                      Authenticator {securitySummary.authenticator ? "enabled" : "not enabled"}
-                    </span>
                   </div>
 
                   <div style={detailCard}>
                     <div style={fieldLabel}>Current security posture</div>
                     <div style={{ ...fieldValue, marginTop: 6 }}>
-                      {securitySummary.authenticator && securitySummary.phoneVerified
-                        ? "Strong account protection enabled"
-                        : "Additional security setup recommended"}
+                      Clerk sign-in protection is active for this account.
                     </div>
                   </div>
 

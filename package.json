@@ -5,20 +5,25 @@
   "scripts": {
     "predev": "node scripts/prepare-next-dev-cache.mjs",
     "dev": "next dev",
+    "dev:clean": "node scripts/prepare-next-dev-cache.mjs --reset && next dev",
     "predev:turbo": "node scripts/prepare-next-dev-cache.mjs",
     "dev:turbo": "next dev --turbopack",
     "prebuild": "node scripts/write-build-info.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit --incremental false",
     "audit:access": "node scripts/security-access-audit.mjs",
     "audit:auth-repair": "node scripts/auth-access-repair-report.mjs",
     "audit:styles": "node scripts/style-audit.mjs",
     "audit:styles:check": "node scripts/style-audit.mjs --check",
     "test:access": "node --test tests/accessControl.test.mjs",
     "test:appearance": "node --test tests/globalAppearance.test.mjs",
+    "test:firestore-rules": "firebase emulators:exec --only firestore --project demo-bickers-service-access-rules \"node --test tests/firestoreServiceAccess.rules.test.mjs\"",
+    "test:storage-rules": "firebase emulators:exec --only firestore,storage --project demo-bickers-storage-access-rules \"node --test tests/storageAccess.rules.test.mjs\"",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
     "test:dates": "node --test tests/dateNormalization.test.mjs",
+    "test:vehicle-maintenance-flow": "node --test tests/vehicleMaintenanceFlow.test.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },
   "dependencies": {
@@ -52,7 +57,9 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@firebase/rules-unit-testing": "^4.0.1",
     "eslint": "^9",
-    "eslint-config-next": "15.3.0"
+    "eslint-config-next": "15.3.0",
+    "firebase-tools": "^15.24.0"
   }
 }

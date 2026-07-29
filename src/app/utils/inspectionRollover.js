@@ -1,11 +1,13 @@
 "use client";
 
 import { doc, updateDoc } from "firebase/firestore";
-import { getIsoWeekLabel, ymd } from "./maintenanceSchema";
+import { getIsoWeekLabel, isVehicleOutOfUse, ymd } from "./maintenanceSchema";
 import {
   mergeInspectionHistory,
   mergeMaintenanceHistory,
 } from "./inspectionHistory";
+import { resolveCompletedMotExpiry } from "./motExpiry";
+import { ensureServiceHistoryForLastService } from "./serviceHistory";
 
 const parseLocalDate = (value) => {
   if (!value) return null;
@@ -80,7 +82,7 @@ export async function syncEightWeekInspectionRollovers({
   const tasks = vehicles
     .map((vehicle) => {
       const vehicleId = String(vehicle?.id || "").trim();
-      if (!vehicleId) return null;
+      if (!vehicleId || isVehicleOutOfUse(vehicle)) return null;
       const patch = { updatedAt: new Date().toISOString() };
       let changed = false;
 
@@ -133,29 +135,43 @@ export async function syncEightWeekInspectionRollovers({
         Array.isArray(vehicle?.motHistory) ? vehicle.motHistory : []
       );
 
-      const serviceHistory = serviceCompletedBookings.reduce(
-        (acc, item) =>
-          mergeMaintenanceHistory(acc, {
-            completedDate: item.completedDate,
-            bookingId: String(item.booking?.id || "").trim(),
-            provider: String(item.booking?.provider || "").trim(),
-            bookingRef: String(item.booking?.bookingRef || "").trim(),
-            notes: String(item.booking?.notes || "").trim(),
-            recordedAt: String(item.booking?.updatedAt || item.booking?.createdAt || "").trim(),
-          }),
-        Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : []
+      const serviceHistory = ensureServiceHistoryForLastService(
+        serviceCompletedBookings.reduce(
+          (acc, item) =>
+            mergeMaintenanceHistory(acc, {
+              completedDate: item.completedDate,
+              bookingId: String(item.booking?.id || "").trim(),
+              provider: String(item.booking?.provider || "").trim(),
+              bookingRef: String(item.booking?.bookingRef || "").trim(),
+              notes: String(item.booking?.notes || "").trim(),
+              recordedAt: String(item.booking?.updatedAt || item.booking?.createdAt || "").trim(),
+            }),
+          Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : []
+        ),
+        serviceCompletedBookings[0]?.completedDate || vehicle?.lastService
       );
 
       const latestMot = motCompletedBookings[0] || null;
       if (latestMot) {
         const motFreqWeeks = resolveFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
-        const nextMotIso = motFreqWeeks ? ymd(addWeeks(latestMot.completedDay, motFreqWeeks)) : String(vehicle?.nextMOT || "").trim();
+        const calculatedMotExpiry = motFreqWeeks
+          ? ymd(addWeeks(latestMot.completedDay, motFreqWeeks))
+          : String(vehicle?.nextMOT || "").trim();
+        const nextMotIso = resolveCompletedMotExpiry({
+          vehicle,
+          fallbackExpiry: calculatedMotExpiry,
+        });
         if (String(vehicle?.lastMOT || "").trim() !== latestMot.completedDate) {
           patch.lastMOT = latestMot.completedDate;
+          patch.lastMot = latestMot.completedDate;
           changed = true;
         }
         if (nextMotIso && String(vehicle?.nextMOT || "").trim() !== nextMotIso) {
           patch.nextMOT = nextMotIso;
+          patch.nextMot = nextMotIso;
+          patch.nextMotDate = nextMotIso;
+          patch.motDueDate = nextMotIso;
+          patch.motExpiryDate = nextMotIso;
           patch.motISOWeek = getIsoWeekLabel(nextMotIso);
           changed = true;
         }

@@ -14,6 +14,8 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { formatVehicleList } from "@/app/utils/vehicleDisplay";
+import { useVehicleLookup } from "@/app/utils/useVehicleLookup";
 
 /* ───────────────────────────────────────────
    Mini design system (matching your page)
@@ -210,14 +212,6 @@ const crewInitials = (employees) =>
         .join(", ") || "—"
     : "—";
 
-const vehiclesList = (vehicles) =>
-  Array.isArray(vehicles)
-    ? vehicles
-        .map((v) => (typeof v === "string" ? v : v?.name || v?.registration || ""))
-        .filter(Boolean)
-        .join(", ") || "—"
-    : "—";
-
 /* ───────────────────────────────────────────
    Week helpers
 ─────────────────────────────────────────── */
@@ -244,6 +238,7 @@ function formatWeekRange(monday) {
 ─────────────────────────────────────────── */
 export default function PaidTablePage() {
   const dataAccessState = useDataAccessState();
+  const vehicleLookup = useVehicleLookup(dataAccessState);
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -379,8 +374,8 @@ export default function PaidTablePage() {
                 {crewInitials(job.employees)}
               </td>
 
-              <td className={layoutStyles.extracted24} title={vehiclesList(job.vehicles) === "—" ? "" : vehiclesList(job.vehicles)}>
-                {vehiclesList(job.vehicles)}
+              <td className={layoutStyles.extracted24} title={formatVehicleList(job.vehicles, vehicleLookup)}>
+                {formatVehicleList(job.vehicles, vehicleLookup) || "—"}
               </td>
 
               <td className={layoutStyles.extracted25}>
