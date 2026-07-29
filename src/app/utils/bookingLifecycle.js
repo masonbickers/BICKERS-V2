@@ -92,6 +92,47 @@ export function canonicalBookingStatus(rawStatus) {
   return cleaned;
 }
 
+export function isInactiveBookingStatus(rawStatus) {
+  return LOST_STATUSES.has(canonicalBookingStatus(rawStatus));
+}
+
+export function buildSynchronizedVehicleStatus(job = {}, nextStatus) {
+  const status = canonicalBookingStatus(nextStatus);
+  const existing =
+    job?.vehicleStatus &&
+    typeof job.vehicleStatus === "object" &&
+    !Array.isArray(job.vehicleStatus)
+      ? job.vehicleStatus
+      : {};
+  const synchronized = Object.fromEntries(
+    Object.keys(existing).map((key) => [key, status])
+  );
+
+  for (const vehicle of Array.isArray(job?.vehicles) ? job.vehicles : []) {
+    if (typeof vehicle === "string") {
+      const key = vehicle.trim();
+      if (key) synchronized[key] = status;
+      continue;
+    }
+
+    if (!vehicle || typeof vehicle !== "object") continue;
+
+    const keys = [
+      vehicle.id,
+      vehicle.vehicleId,
+      vehicle.registration,
+      vehicle.reg,
+      vehicle.name,
+    ]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+
+    for (const key of keys) synchronized[key] = status;
+  }
+
+  return synchronized;
+}
+
 export function bookingStatusCategory(rawStatus) {
   const status = canonicalBookingStatus(rawStatus);
   if (TENTATIVE_STATUSES.has(status)) return "tentative";

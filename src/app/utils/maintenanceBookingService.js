@@ -2,14 +2,21 @@
 
 import { collection, doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { auth, db } from "../../../firebaseConfig";
-import { getIsoWeekLabel } from "./maintenanceSchema";
+import {
+  getIsoWeekLabel,
+  getMaintenanceTypeId,
+  maintenanceTypeIdForCoreType,
+} from "./maintenanceSchema";
 import {
   buildMaintenanceChangeList,
+  buildMaintenanceCreatedHistoryEntry,
   buildMaintenanceHistoryEntry,
   getMaintenanceAuditIdentity,
 } from "./maintenanceAudit";
 import { tenantPayload } from "./firestoreAccess";
 import { mergeInspectionHistory, mergeMaintenanceHistory } from "./inspectionHistory";
+import { resolveCompletedMotExpiry } from "./motExpiry";
+import { resolveMaintenanceBookedOn } from "./maintenanceBookingLifecycle";
 
 export const normalizeMaintenanceType = (type) => {
   const raw = String(type || "").trim().toUpperCase();
@@ -237,6 +244,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
   notes = "",
   completedISO = "",
   sourceDueDate = "",
+  bookingCreatedAt = "",
   nowISO = todayISO(),
 }) => {
   const safeType = normalizeMaintenanceType(type);
@@ -248,10 +256,21 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
 
   if (safeType === "MOT") {
     const motFreqWeeks = resolveMaintenanceFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
+    const calculatedMotExpiry = calcNextMaintenanceDue(doneISO, motFreqWeeks);
+    const nextMotExpiry = resolveCompletedMotExpiry({
+      vehicle,
+      fallbackExpiry: calculatedMotExpiry,
+    });
     const updates = {
       motBookingId: bookingId,
       motBookedStatus: status,
-      motBookedOn: doneISO || nowISO,
+      motBookedOn: resolveMaintenanceBookedOn({
+        bookingId,
+        summaryBookingId: vehicle?.motBookingId,
+        summaryBookedOn: vehicle?.motBookedOn,
+        bookingCreatedAt,
+        fallbackISO: nowISO,
+      }),
       motAppointmentDate: activeAppointmentDate,
       motAppointmentTime: activeAppointmentTime,
       motBookingStartDate: activeStartDate,
@@ -262,8 +281,15 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
 
     if (doneISO) {
       updates.lastMOT = doneISO;
-      updates.nextMOT = calcNextMaintenanceDue(doneISO, motFreqWeeks);
+      updates.lastMot = doneISO;
+      updates.nextMOT = nextMotExpiry;
+      updates.nextMot = nextMotExpiry;
+      updates.nextMotDate = nextMotExpiry;
+      updates.motDueDate = nextMotExpiry;
+      updates.motExpiryDate = nextMotExpiry;
+      updates.motISOWeek = getIsoWeekLabel(nextMotExpiry);
       updates.motHistory = mergeMaintenanceHistory(vehicle?.motHistory, {
+        maintenanceTypeId: "mot",
         completedDate: doneISO,
         bookingId,
         provider: trimText(provider),
@@ -280,7 +306,13 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
     const updates = {
       serviceBookingId: bookingId,
       serviceBookedStatus: status,
-      serviceBookedOn: doneISO || nowISO,
+      serviceBookedOn: resolveMaintenanceBookedOn({
+        bookingId,
+        summaryBookingId: vehicle?.serviceBookingId,
+        summaryBookedOn: vehicle?.serviceBookedOn,
+        bookingCreatedAt,
+        fallbackISO: nowISO,
+      }),
       serviceAppointmentDate: activeAppointmentDate,
       serviceAppointmentTime: activeAppointmentTime,
       serviceBookingStartDate: activeStartDate,
@@ -293,6 +325,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
       updates.lastService = doneISO;
       updates.nextService = calcNextMaintenanceDue(doneISO, serviceFreqWeeks);
       updates.serviceHistory = mergeMaintenanceHistory(vehicle?.serviceHistory, {
+        maintenanceTypeId: "service",
         completedDate: doneISO,
         bookingId,
         provider: trimText(provider),
@@ -308,7 +341,13 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
     const updates = {
       inspectionBookingId: bookingId,
       inspectionBookedStatus: status,
-      inspectionBookedOn: doneISO || nowISO,
+      inspectionBookedOn: resolveMaintenanceBookedOn({
+        bookingId,
+        summaryBookingId: vehicle?.inspectionBookingId,
+        summaryBookedOn: vehicle?.inspectionBookedOn,
+        bookingCreatedAt,
+        fallbackISO: nowISO,
+      }),
       inspectionAppointmentDate: activeAppointmentDate,
       inspectionAppointmentTime: activeAppointmentTime,
       inspectionBookingStartDate: activeStartDate,
@@ -323,6 +362,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
       updates.nextEightWeekInspection = calcNextDueFromCycle(cycleAnchorISO, doneISO, 8);
       updates.eightWeekInspectionISOWeek = getIsoWeekLabel(updates.nextEightWeekInspection);
       updates.eightWeekInspectionHistory = mergeInspectionHistory(vehicle?.eightWeekInspectionHistory, {
+        maintenanceTypeId: "eight_week_inspection",
         completedDate: doneISO,
         bookingId,
         provider: trimText(provider),
@@ -440,6 +480,7 @@ const buildBookingPayload = ({
   cleanObject({
     kind: "MAINTENANCE",
     type: normalizeMaintenanceType(type),
+    maintenanceTypeId: maintenanceTypeIdForCoreType(type),
     vehicleId,
     vehicleLabel: vehicleLabel || "",
     status,
@@ -525,29 +566,30 @@ export const createMaintenanceBooking = async ({
     vehicleId ||
     "";
   const bookingRefDoc = doc(collection(db, "maintenanceBookings"));
+  const bookingPayload = buildBookingPayload({
+    type: safeType,
+    vehicleId,
+    vehicleLabel: resolvedVehicleLabel,
+    status,
+    dateInfo,
+    appointmentTime,
+    provider,
+    bookingRef,
+    location,
+    cost,
+    notes,
+    equipment,
+    sourceDueDate,
+    sourceDueIsoWeek,
+    sourceDueKey,
+    auditUser,
+  });
   const payload = tenantPayload(authState, {
-    ...buildBookingPayload({
-      type: safeType,
-      vehicleId,
-      vehicleLabel: resolvedVehicleLabel,
-      status,
-      dateInfo,
-      appointmentTime,
-      provider,
-      bookingRef,
-      location,
-      cost,
-      notes,
-      equipment,
-      sourceDueDate,
-      sourceDueIsoWeek,
-      sourceDueKey,
-      auditUser,
-    }),
+    ...bookingPayload,
     createdAt: serverTimestamp(),
     history: [
-      buildMaintenanceHistoryEntry({
-        action: "Created",
+      buildMaintenanceCreatedHistoryEntry({
+        booking: bookingPayload,
         user: auditUser,
         timestamp: nowAuditIso,
       }),
@@ -576,6 +618,7 @@ export const createMaintenanceBooking = async ({
         notes,
         completedISO,
         sourceDueDate,
+        bookingCreatedAt: nowAuditIso,
       }))
     );
   }
@@ -682,6 +725,7 @@ export const updateMaintenanceBooking = async ({
         notes,
         completedISO: payload.completedAtISO || "",
         sourceDueDate: payload.sourceDueDateISO || existingBooking.sourceDueDateISO || "",
+        bookingCreatedAt: existingBooking.createdAt || nowAuditIso,
       }))
     );
   }
@@ -791,6 +835,8 @@ export const completeMaintenanceBooking = async ({
   const batch = writeBatch(db);
   batch.update(doc(db, "maintenanceBookings", bookingId), tenantPayload(authState, {
     status: "Completed",
+    maintenanceTypeId:
+      getMaintenanceTypeId(existingBooking) || maintenanceTypeIdForCoreType(safeType),
     completedAtISO: resolvedCompletedISO,
     lastEditedBy: auditUser.email,
     lastEditedByUid: auditUser.uid,
@@ -814,6 +860,7 @@ export const completeMaintenanceBooking = async ({
       notes: existingBooking.notes || "",
       completedISO: resolvedCompletedISO,
       sourceDueDate: existingBooking.sourceDueDateISO || "",
+      bookingCreatedAt: existingBooking.createdAt || nowAuditIso,
     });
     batch.update(doc(db, "vehicles", resolvedVehicleId), tenantPayload(authState, vehiclePatch));
   }

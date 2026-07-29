@@ -8,7 +8,13 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
-import { getIsoWeekLabel } from "@/app/utils/maintenanceSchema";
+import {
+  getIsoWeekLabel,
+  normalizeVehicleOperatingStatus,
+  syncVehicleOperatingStatus,
+} from "@/app/utils/maintenanceSchema";
+import { buildVorPauseState } from "@/app/utils/vorPeriods";
+import { ensureServiceHistoryForLastService } from "@/app/utils/serviceHistory";
 import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
@@ -25,6 +31,13 @@ import {
 } from "@/app/utils/vehicleCategorySettings";
 import { ArrowLeft, Save } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import {
+  Button as UIButton,
+  FormField,
+  Input,
+  Modal,
+  Textarea,
+} from "@/app/components/ui";
 
 /* UI tokens */
 const UI = UI_TOKENS;
@@ -259,6 +272,7 @@ const isTransportLorryVehicle = (vehicle = {}) => {
 };
 const sectionHasValue = (formData, section) =>
   section.fields.some((field) => String(formData?.[field.name] || "").trim());
+const safeArr = (value) => (Array.isArray(value) ? value : []);
 
 export default function AddVehiclePage() {
   const router = useRouter();
@@ -272,6 +286,7 @@ export default function AddVehiclePage() {
   const [newCategory, setNewCategory] = useState("");
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [shownAdditionalMaintenance, setShownAdditionalMaintenance] = useState([]);
+  const [vorPrompt, setVorPrompt] = useState(null);
 
   const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
   const tradePlateExpiryWeeks = String(
@@ -364,8 +379,77 @@ export default function AddVehiclePage() {
     }));
   };
 
+  const handleOperatingStatusChange = (event) => {
+    const nextStatus = normalizeVehicleOperatingStatus(event.target.value);
+    if (nextStatus === "VOR") {
+      setVorPrompt({
+        offRoadDate: clampISODate(new Date()),
+        odometer: formData.odometer || "",
+        approvedBy: "",
+        approvedPosition: "",
+        reason: "",
+        operatorLicenceNumber: "OF0202656",
+      });
+      return;
+    }
+    setFormData((previous) => ({
+      ...syncVehicleOperatingStatus(previous, "Active"),
+      vorStartedAt: "",
+      activeVorRecordId: "",
+      vorHistory: [],
+    }));
+  };
+
+  const updateVorPrompt = (field, value) => {
+    setVorPrompt((previous) => (previous ? { ...previous, [field]: value } : previous));
+  };
+
+  const confirmNewVehicleVor = () => {
+    const required = [
+      ["offRoadDate", "date taken off the fleet"],
+      ["approvedBy", "VOR approver"],
+      ["approvedPosition", "approver position"],
+      ["reason", "reason for VOR"],
+    ];
+    const missing = required.find(([field]) => !String(vorPrompt?.[field] || "").trim());
+    if (missing) {
+      alert(`Enter the ${missing[1]} before marking this vehicle VOR.`);
+      return;
+    }
+    const startedAt = new Date().toISOString();
+    const recordId = `vor-${Date.now()}`;
+    const maintenancePause = buildVorPauseState(
+      formData,
+      vorPrompt.offRoadDate,
+      recordId
+    );
+    const record = {
+      id: recordId,
+      status: "open",
+      registration: formData.registration || "",
+      operatorLicenceNumber: String(vorPrompt.operatorLicenceNumber || "").trim(),
+      offRoadDate: vorPrompt.offRoadDate,
+      offRoadOdometer: String(vorPrompt.odometer || "").trim(),
+      approvedBy: String(vorPrompt.approvedBy || "").trim(),
+      approvedPosition: String(vorPrompt.approvedPosition || "").trim(),
+      reason: String(vorPrompt.reason || "").trim(),
+      maintenanceDueDatesAtStart: maintenancePause.dueDates,
+      startedAt,
+    };
+    setFormData((previous) => ({
+      ...syncVehicleOperatingStatus(previous, "VOR"),
+      odometer: vorPrompt.odometer || previous.odometer,
+      vorStartedAt: startedAt,
+      activeVorRecordId: record.id,
+      maintenanceCountdownPause: maintenancePause,
+      vorHistory: [record],
+    }));
+    setVorPrompt(null);
+  };
+
   // Auto-calc next dates and ISO week labels so new records match edit-page behaviour.
   useEffect(() => {
+    if (normalizeVehicleOperatingStatus(formData) === "VOR") return;
     const updates = {};
 
     if (formData.lastMOT && formData.motFreq) {
@@ -553,9 +637,16 @@ export default function AddVehiclePage() {
         registrationNumber: registration,
         category: isNumberPlateMode ? RETENTION_PLATE_CATEGORY : formData.category.trim(),
         recordType: isNumberPlateMode ? "numberPlateRetention" : "vehicle",
-        operationalStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
-        fleetStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
-        vehicleStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
+        ...syncVehicleOperatingStatus(
+          {},
+          isNumberPlateMode ? "Active" : normalizeVehicleOperatingStatus(formData)
+        ),
+        vorStartedAt: isNumberPlateMode ? "" : formData.vorStartedAt || "",
+        activeVorRecordId: isNumberPlateMode ? "" : formData.activeVorRecordId || "",
+        maintenanceCountdownPause: isNumberPlateMode
+          ? null
+          : formData.maintenanceCountdownPause || null,
+        vorHistory: isNumberPlateMode ? [] : safeArr(formData.vorHistory),
         plateType: isNumberPlateMode ? formData.plateType || "retention" : "",
         plateExpiryFreq: isNumberPlateMode && formData.plateType === "trade" ? tradePlateExpiryWeeks : formData.plateExpiryFreq || "",
 
@@ -577,7 +668,9 @@ export default function AddVehiclePage() {
         nextServiceDate: nextService,
         serviceDueDate: nextService,
         serviceISOWeek: isNumberPlateMode ? "" : formData.serviceISOWeek || getIsoWeekLabel(nextService),
-        serviceHistory: [],
+        serviceHistory: ensureServiceHistoryForLastService([], lastService, {
+          recordedAt: new Date().toISOString(),
+        }),
         serviceHistoryFiles: [],
 
         lastMOT: lastMot,
@@ -938,9 +1031,14 @@ export default function AddVehiclePage() {
 
                 <div style={col(3)}>
                   <label style={label}>Operating Status</label>
-                  <select name="operationalStatus" value={formData.operationalStatus} onChange={handleChange} style={input}>
+                  <select
+                    name="operationalStatus"
+                    value={normalizeVehicleOperatingStatus(formData)}
+                    onChange={handleOperatingStatusChange}
+                    style={input}
+                  >
                     <option value="Active">Active</option>
-                    <option value="Out of use">Out of use</option>
+                    <option value="VOR">VOR</option>
                   </select>
                 </div>
 
@@ -1197,6 +1295,102 @@ export default function AddVehiclePage() {
           </form>
         </main>
       </div>
+
+      <Modal
+        open={Boolean(vorPrompt)}
+        onClose={() => setVorPrompt(null)}
+        title="Vehicle Off-Road (VOR)"
+        description="Complete the VOR Policy & Procedure record before creating this vehicle as VOR."
+        size="lg"
+        footer={
+          <>
+            <UIButton type="button" variant="ghost" onClick={() => setVorPrompt(null)}>
+              Cancel
+            </UIButton>
+            <UIButton type="button" onClick={confirmNewVehicleVor}>
+              Confirm VOR
+            </UIButton>
+          </>
+        }
+      >
+        <div
+          style={{
+            marginBottom: 12,
+            padding: "10px 12px",
+            border: "1px solid var(--color-warning-border)",
+            borderRadius: 10,
+            background: "var(--color-warning-soft)",
+            fontSize: 12.5,
+            fontWeight: 700,
+            lineHeight: 1.45,
+          }}
+        >
+          This record must be completed on the day the vehicle is taken off the fleet.
+          Compliance schedules will remain paused while its status is VOR.
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: 12,
+          }}
+        >
+          <FormField label="Vehicle registration / identification">
+            <Input value={formData.registration || ""} readOnly />
+          </FormField>
+          <FormField label="Operator licence number" htmlFor="add-vor-operator-licence">
+            <Input
+              id="add-vor-operator-licence"
+              value={vorPrompt?.operatorLicenceNumber || ""}
+              onChange={(event) => updateVorPrompt("operatorLicenceNumber", event.target.value)}
+            />
+          </FormField>
+          <FormField label="Date taken off the fleet" htmlFor="add-vor-off-road-date">
+            <Input
+              id="add-vor-off-road-date"
+              type="date"
+              value={vorPrompt?.offRoadDate || ""}
+              onChange={(event) => updateVorPrompt("offRoadDate", event.target.value)}
+            />
+          </FormField>
+          <FormField label="Odometer when classified VOR (mi)" htmlFor="add-vor-odometer">
+            <Input
+              id="add-vor-odometer"
+              inputMode="decimal"
+              value={vorPrompt?.odometer || ""}
+              onChange={(event) => updateVorPrompt("odometer", event.target.value)}
+            />
+          </FormField>
+          <FormField label="VOR approved by" htmlFor="add-vor-approved-by">
+            <Input
+              id="add-vor-approved-by"
+              value={vorPrompt?.approvedBy || ""}
+              onChange={(event) => updateVorPrompt("approvedBy", event.target.value)}
+            />
+          </FormField>
+          <FormField label="Position" htmlFor="add-vor-approved-position">
+            <Input
+              id="add-vor-approved-position"
+              value={vorPrompt?.approvedPosition || ""}
+              onChange={(event) => updateVorPrompt("approvedPosition", event.target.value)}
+            />
+          </FormField>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <FormField
+              label="Reason for VOR classification"
+              htmlFor="add-vor-reason"
+            >
+              <Textarea
+                id="add-vor-reason"
+                rows={4}
+                value={vorPrompt?.reason || ""}
+                onChange={(event) => updateVorPrompt("reason", event.target.value)}
+                placeholder="Describe why the vehicle is being taken off the road..."
+              />
+            </FormField>
+          </div>
+        </div>
+      </Modal>
 
       <style jsx global>{`
         input:disabled, select:disabled, textarea:disabled { opacity: 0.7; cursor: not-allowed; }

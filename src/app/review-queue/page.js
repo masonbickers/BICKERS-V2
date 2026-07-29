@@ -26,6 +26,7 @@ import {
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
+import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
 
 const UI = UI_TOKENS;
 
@@ -351,6 +352,8 @@ export default function ReviewQueuePage() {
         const s = String(j.status || "").toLowerCase();
         const ready = /ready\s*to\s*invoice/.test(s);
         const completeish = s === "confirmed" || s === "complete" || s === "completed";
+        // Finance-ready jobs remain visible here as a record of the handoff
+        // while also appearing in /finance-queue.
         return ((completeish && beforeToday(j)) || ready) && !isPaid(j);
       })
       .sort((a, b) => {
@@ -434,10 +437,15 @@ export default function ReviewQueuePage() {
     if (!job?.id || savingJobId) return;
     const restoreScroll = captureScrollPositions();
     const previousBookings = bookings;
+    const vehicleStatus =
+      nextStatus === "Ready to Invoice"
+        ? buildSynchronizedVehicleStatus(job, nextStatus)
+        : job.vehicleStatus;
     const optimisticPatch = {
       status: nextStatus,
       updatedAt: new Date(),
       readyToInvoice: nextStatus === "Ready to Invoice",
+      ...(nextStatus === "Ready to Invoice" ? { vehicleStatus } : {}),
     };
 
     setSavingJobId(job.id);
@@ -451,6 +459,7 @@ export default function ReviewQueuePage() {
           status: nextStatus,
           updatedAt: serverTimestamp(),
           readyToInvoice: nextStatus === "Ready to Invoice",
+          ...(nextStatus === "Ready to Invoice" ? { vehicleStatus } : {}),
         })
       );
     } catch (error) {
@@ -526,7 +535,10 @@ export default function ReviewQueuePage() {
               const notesState = getCheckBadgeState(String(j?.generalNotes || "").trim().length > 0);
               const poState = getCheckBadgeState(String(j?.po || "").trim().length > 0);
               const quoteState = getCheckBadgeState(
-                String(j?.pdfUrl || "").trim().length > 0 ||
+                String(j?.acceptedQuoteNumber || j?.quoteNumber || "").trim().length > 0 ||
+                  (Array.isArray(j?.quoteVersions) && j.quoteVersions.length > 0) ||
+                  Boolean(j?.quote && typeof j.quote === "object") ||
+                  String(j?.pdfUrl || "").trim().length > 0 ||
                   (Array.isArray(j?.attachments) && j.attachments.length > 0)
               );
               const href = `/job-numbers/${j.id}#job-${j.id}`;
@@ -548,10 +560,13 @@ export default function ReviewQueuePage() {
                   <td className={layoutStyles.extracted21}><StatusBadge value={pretty} /></td>
                   <td className={layoutStyles.extracted22}>
                     <div className={layoutStyles.extracted23}>
-                      {["Ready to Invoice", "Needs Action", "Complete"].map((option) => {
-                        const nextStatus = option === "Needs Action" ? "Action Required" : option;
+                      {["Ready for invoicing", "Needs Action"].map((option) => {
+                        const nextStatus =
+                          option === "Ready for invoicing"
+                            ? "Ready to Invoice"
+                            : "Action Required";
                         const currentStatus = prettifyStatus(j.status);
-                        const isActive = currentStatus === option || currentStatus === nextStatus;
+                        const isActive = currentStatus === nextStatus;
 
                         return (
                           <button
@@ -593,6 +608,9 @@ export default function ReviewQueuePage() {
         <div className={layoutStyles.extracted24}>
           <div>
             <h1 style={h1}>Review Queue</h1>
+            <div style={{ color: UI.muted, fontSize: 13 }}>
+              Complete the operational review, then send the job to Finance with “Ready for invoicing”.
+            </div>
           </div>
           <div className={layoutStyles.extracted25}>
             <Link href="/job-home" style={btn()}>

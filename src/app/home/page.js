@@ -283,8 +283,17 @@ export default function HomePage() {
           console.log("[home] loaded", { collectionName, count: snap.size });
           return { ok: true, rows: mapDocs(snap) };
         } catch (error) {
-          handleFirestoreAccessError(error, { collectionName, operation: "read home data" });
-          console.error("[home] collection failed", { collectionName, code: error?.code, message: error?.message });
+          const accessError = handleFirestoreAccessError(error, {
+            collectionName,
+            operation: "read home data",
+          });
+          if (!accessError) {
+            console.error("[home] collection failed", {
+              collectionName,
+              code: error?.code,
+              message: error?.message,
+            });
+          }
           return { ok: false, rows: [] };
         }
       };

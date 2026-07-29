@@ -1,11 +1,13 @@
 "use client";
 
-import layoutStyles from "./ProtectedLayout.styles.module.css";
 import { useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
+import BrandedLoader from "./BrandedLoader";
 import {
   isAdminPath,
+  isFinanceHandoffPath,
   isModuleEnabledForPath,
   isPathAllowedForAccess,
   normalizePlatformRole,
@@ -13,11 +15,11 @@ import {
 } from "@/app/utils/accessControl";
 
 const PUBLIC_PATHS = ["/", "/login"];
-const MFA_PATHS = ["/setup-mfa", "/verify-mfa"];
 
 export default function ProtectedLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { isLoaded: clerkLoaded, isSignedIn } = useUser();
   const {
     user,
     loading,
@@ -26,31 +28,27 @@ export default function ProtectedLayout({ children }) {
     employeeAccess,
     featureFlags,
     userDoc,
-    phoneReady,
-    mfaReady,
-    mfaPassed,
     logout,
   } = useAuth() || {};
 
   const isPublic = PUBLIC_PATHS.some(
     (path) => pathname === path || String(pathname || "").startsWith(`${path}/`)
   );
-  const isMfaPath = MFA_PATHS.some(
-    (path) => pathname === path || String(pathname || "").startsWith(`${path}/`)
-  );
   const role = normalizePlatformRole(userDoc?.role);
+  const moduleEnabled = isModuleEnabledForPath(pathname, featureFlags);
+  const financeHandoffPath = isFinanceHandoffPath(pathname);
   const pathAllowed =
     Boolean(employeeAccess) &&
     isPathAllowedForAccess(pathname, employeeAccess) &&
-    isModuleEnabledForPath(pathname, featureFlags) &&
+    (financeHandoffPath || ["admin", "platformAdmin"].includes(role) || moduleEnabled) &&
     (!isAdminPath(pathname) || ["admin", "platformAdmin"].includes(role)) &&
     (!String(pathname || "").startsWith("/platform-admin") || role === "platformAdmin");
 
   useEffect(() => {
-    if (loading || (user && !accessReady)) return;
+    if (!clerkLoaded || loading || (isSignedIn && (!user || !accessReady))) return;
 
-    if (!user) {
-      if (!isPublic) router.push("/login");
+    if (!isSignedIn || !user) {
+      if (!isPublic) router.replace("/login");
       return;
     }
 
@@ -60,41 +58,37 @@ export default function ProtectedLayout({ children }) {
       logout?.();
       return;
     }
-    if (!isMfaPath && (!phoneReady || !mfaReady)) {
-      router.replace("/setup-mfa");
-      return;
-    }
-    if (!isMfaPath && !mfaPassed) {
-      router.replace("/verify-mfa");
-      return;
-    }
-    if (!isMfaPath && !pathAllowed) {
+    if (!pathAllowed) {
       const landing = selectLandingRoute(employeeAccess);
       if (pathname !== landing) router.replace(`${landing}?access=denied`);
     }
   }, [
     loading,
+    clerkLoaded,
+    isSignedIn,
     user,
     isPublic,
     isEnabled,
     accessReady,
     employeeAccess,
-    phoneReady,
-    mfaReady,
-    mfaPassed,
-    isMfaPath,
     pathAllowed,
     logout,
     pathname,
     router,
   ]);
 
-  if (loading || (!isPublic && (!user || !accessReady))) {
-    return <div className={layoutStyles.extracted1}>Loading...</div>;
+  if (!clerkLoaded || loading || (!isPublic && (!isSignedIn || !user || !accessReady))) {
+    const isPreparingWorkspace = pathname === "/auth/complete";
+    return (
+      <BrandedLoader
+        label={isPreparingWorkspace ? "Preparing your workspace…" : "Loading…"}
+        compact={isPreparingWorkspace}
+      />
+    );
   }
 
-  if (!isPublic && (isEnabled === false || (!isMfaPath && (!phoneReady || !mfaReady || !mfaPassed || !pathAllowed)))) {
-    return <div className={layoutStyles.extracted1}>Checking access...</div>;
+  if (!isPublic && (isEnabled === false || !pathAllowed)) {
+    return <BrandedLoader label="Checking access…" />;
   }
 
   return <>{children}</>;

@@ -6,11 +6,12 @@ service cloud.firestore {
     }
 
     function hasLegacyMobileAccess() {
-      return isSignedIn();
+      return activeUserDocExists() && hasUserAccess();
     }
 
     function userDocExists() {
-      return isSignedIn();
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function isNotDisabled() {
@@ -18,7 +19,20 @@ service cloud.firestore {
     }
 
     function activeUserDocExists() {
-      return isSignedIn();
+      return userDocExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled == true
+        && (
+          !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["active"])
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active != false
+        )
+        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["disabled"])
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.disabled != true)
+        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["appDisabled"])
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appDisabled != true)
+        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["archived"])
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.archived != true)
+        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["isArchived"])
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isArchived != true);
     }
 
     function currentUserCompanyId() {
@@ -26,20 +40,32 @@ service cloud.firestore {
     }
 
     function existingDocBelongsToCurrentCompany() {
-      return activeUserDocExists();
+      return isPlatformAdmin()
+        || (
+          activeUserDocExists()
+          && currentUserCompanyId() is string
+          && currentUserCompanyId().size() > 0
+          && resource.data.companyId == currentUserCompanyId()
+        );
     }
 
     function incomingDocBelongsToCurrentCompany() {
-      return activeUserDocExists();
+      return isPlatformAdmin()
+        || (
+          activeUserDocExists()
+          && currentUserCompanyId() is string
+          && currentUserCompanyId().size() > 0
+          && request.resource.data.companyId == currentUserCompanyId()
+        );
     }
 
     // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
     function canEmergencyReadBickersBusinessData() {
-      return activeUserDocExists();
+      return canReadTenantBusinessDoc();
     }
 
     function canReadTenantBusinessDoc() {
-      return activeUserDocExists();
+      return existingDocBelongsToCurrentCompany();
     }
 
     function currentUserAppAccessEnabled(workspace) {
@@ -92,47 +118,47 @@ service cloud.firestore {
     }
 
     function canManageTenantData() {
-      return activeUserDocExists();
+      return activeUserDocExists() && (hasUserAccess() || hasServiceAccess());
     }
 
     function canUseSoftware() {
-      return activeUserDocExists();
+      return activeUserDocExists() && (hasUserAccess() || hasServiceAccess());
     }
 
     function canReadUserTenantDoc() {
-      return canUseSoftware() && canReadTenantBusinessDoc();
+      return hasUserAccess() && canReadTenantBusinessDoc();
     }
 
     function canCreateUserTenantDoc() {
-      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
+      return hasUserAccess() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateUserTenantDoc() {
-      return canUseSoftware()
+      return hasUserAccess()
         && existingDocBelongsToCurrentCompany()
         && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteUserTenantDoc() {
-      return canUseSoftware() && existingDocBelongsToCurrentCompany();
+      return hasUserAccess() && existingDocBelongsToCurrentCompany();
     }
 
     function canReadServiceTenantDoc() {
-      return canUseSoftware() && canReadTenantBusinessDoc();
+      return hasServiceAccess() && canReadTenantBusinessDoc();
     }
 
     function canCreateServiceTenantDoc() {
-      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
+      return hasServiceAccess() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateServiceTenantDoc() {
-      return canUseSoftware()
+      return hasServiceAccess()
         && existingDocBelongsToCurrentCompany()
         && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteServiceTenantDoc() {
-      return canUseSoftware() && existingDocBelongsToCurrentCompany();
+      return hasServiceAccess() && existingDocBelongsToCurrentCompany();
     }
 
     function canReadAnyWorkspaceTenantDoc() {
@@ -153,6 +179,32 @@ service cloud.firestore {
       return canUseSoftware() && existingDocBelongsToCurrentCompany();
     }
 
+    function contactFinanceValue(data, key) {
+      return data.keys().hasAny(["financeProfile"])
+        && data.financeProfile is map
+        && data.financeProfile.keys().hasAny([key])
+        ? data.financeProfile[key]
+        : null;
+    }
+
+    function incomingContactHasNoSageMapping() {
+      return contactFinanceValue(request.resource.data, "sageCustomerId") in [null, ""]
+        && contactFinanceValue(request.resource.data, "sageCustomerMappingStatus") in [null, "", "unmapped"]
+        && contactFinanceValue(request.resource.data, "sageCustomerMappedAt") == null
+        && contactFinanceValue(request.resource.data, "sageCustomerMappedBy") in [null, ""];
+    }
+
+    function contactSageMappingUnchanged() {
+      return contactFinanceValue(request.resource.data, "sageCustomerId")
+          == contactFinanceValue(resource.data, "sageCustomerId")
+        && contactFinanceValue(request.resource.data, "sageCustomerMappingStatus")
+          == contactFinanceValue(resource.data, "sageCustomerMappingStatus")
+        && contactFinanceValue(request.resource.data, "sageCustomerMappedAt")
+          == contactFinanceValue(resource.data, "sageCustomerMappedAt")
+        && contactFinanceValue(request.resource.data, "sageCustomerMappedBy")
+          == contactFinanceValue(resource.data, "sageCustomerMappedBy");
+    }
+
     function canUseCalendar() {
       return canUseSoftware();
     }
@@ -164,11 +216,19 @@ service cloud.firestore {
     }
 
     function hasUserAccess() {
-      return activeUserDocExists();
+      return activeUserDocExists()
+        && (
+          currentUserAppAccessEnabled("user")
+          || currentUserRoleIn(["admin", "Admin", "companyAdmin", "companyadmin", "company admin", "Company Admin", "platformAdmin", "platformadmin", "platform admin", "Platform Admin", "superAdmin", "superadmin", "super admin", "Super Admin"])
+        );
     }
 
     function hasServiceAccess() {
-      return activeUserDocExists();
+      return activeUserDocExists()
+        && (
+          currentUserAppAccessEnabled("service")
+          || currentUserRoleIn(["admin", "Admin", "companyAdmin", "companyadmin", "company admin", "Company Admin", "platformAdmin", "platformadmin", "platform admin", "Platform Admin", "superAdmin", "superadmin", "super admin", "Super Admin"])
+        );
     }
 
     function isOwnUserDoc(uid) {
@@ -311,12 +371,7 @@ service cloud.firestore {
         "updatedAt",
         "phoneVerified",
         "phoneVerifiedAt",
-        "mfaMethod",
-        "mfaEnabled",
-        "mfaPhoneNumber",
-        "mfaSecret",
-        "mfaEnrolledAt",
-        "mfaResetRequired"
+        "mfaPhoneNumber"
       ]);
     }
 
@@ -334,6 +389,23 @@ service cloud.firestore {
     match /adminAuditLogs/{logId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // Sage 50 connector credentials and machine metadata are server-only.
+    // Administrators use protected API routes which return a redacted view.
+    match /sage50Connectors/{connectorId} {
+      allow read, write: if false;
+    }
+
+    // Export payloads, leases and connector results are accessible only through
+    // authenticated server routes. Browser clients receive redacted status.
+    match /sage50ExportJobs/{jobId} {
+      allow read, write: if false;
+    }
+
+    // Read-only Sage customer lookup payloads and leases are server-only.
+    match /sage50CustomerLookupJobs/{lookupJobId} {
+      allow read, write: if false;
     }
 
     // Served only through authenticated APIs so audience-specific finance
@@ -369,9 +441,9 @@ service cloud.firestore {
 
     match /employees/{employeeId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if activeUserDocExists();
-      allow update: if activeUserDocExists();
-      allow delete: if activeUserDocExists();
+      allow create: if isAdmin() && incomingDocBelongsToCurrentCompany();
+      allow update: if isAdmin() && existingDocBelongsToCurrentCompany() && incomingDocBelongsToCurrentCompany();
+      allow delete: if isAdmin() && existingDocBelongsToCurrentCompany();
     }
 
     match /bookings/{bookingId} {
@@ -390,8 +462,8 @@ service cloud.firestore {
 
     match /contacts/{contactId} {
       allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc();
+      allow create: if canCreateUserTenantDoc() && incomingContactHasNoSageMapping();
+      allow update: if canUpdateUserTenantDoc() && contactSageMappingUnchanged();
       allow delete: if canDeleteUserTenantDoc();
     }
 
@@ -444,14 +516,14 @@ service cloud.firestore {
     match /timesheets/{timesheetId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();
-      allow update: if activeUserDocExists();
+      allow update: if canUpdateUserTenantDoc();
       allow delete: if canDeleteUserTenantDoc();
     }
 
     match /timesheetQueries/{queryId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();
-      allow update: if activeUserDocExists();
+      allow update: if canUpdateUserTenantDoc();
       allow delete: if canDeleteUserTenantDoc();
     }
 
@@ -482,9 +554,9 @@ service cloud.firestore {
 
     match /invoiceQueue/{docId} {
       allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc();
-      allow delete: if canDeleteUserTenantDoc();
+      // Authoritative invoice creation and lifecycle writes are server-only.
+      // The protected service-account route bypasses client Firestore rules.
+      allow create, update, delete: if false;
     }
 
     match /vehicles/{vehicleId} {

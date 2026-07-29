@@ -17,10 +17,12 @@ import {
 import { useSessionScroll, useSessionState } from "../utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
+import { loadBookingFormReferenceData } from "@/app/utils/bookingFormReferenceData";
 
 const UI = UI_TOKENS;
 
 const pageWrap = {
+  padding: "10px 12px 24px",
   minHeight: "100vh",
   background: UI.bg,
   color: UI.text,
@@ -29,118 +31,113 @@ const pageWrap = {
 const headerBar = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
-  gap: 12,
-  padding: "12px 14px 8px",
+  alignItems: "flex-start",
+  gap: 8,
+  marginBottom: 8,
+  flexWrap: "wrap",
 };
 
 const h1 = {
   margin: 0,
-  fontSize: 24,
-  fontWeight: 900,
+  fontSize: 20,
+  lineHeight: 1.08,
+  fontWeight: 750,
   letterSpacing: 0,
   color: UI.text,
 };
 
 const surface = {
-  margin: "0 10px 10px",
   background: UI.panel,
-  border: `1px solid ${UI.border}`,
-  borderRadius: 8,
-  boxShadow: "0 8px 22px rgba(15, 23, 42, 0.05)",
+  border: UI.border,
+  borderRadius: UI.radius,
+  boxShadow: UI.shadowSm,
 };
 
 const toolbar = {
   ...surface,
   display: "grid",
-  gridTemplateColumns: "minmax(260px, 1fr) minmax(170px, 240px) auto",
+  gridTemplateColumns: "minmax(240px, 1fr) minmax(150px, 1fr) auto",
   alignItems: "center",
-  gap: 8,
-  padding: 10,
+  gap: 5,
+  padding: 6,
+  marginBottom: 8,
 };
 
 const inputStyle = {
   width: "100%",
-  height: 36,
-  borderRadius: 8,
-  border: `1px solid ${UI.border}`,
+  height: 28,
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   background: "var(--color-surface)",
   color: UI.text,
-  fontSize: 13,
-  fontWeight: 700,
-  padding: "0 12px",
+  fontSize: 12,
+  padding: "3px 7px",
   outline: "none",
+  boxSizing: "border-box",
 };
 
 const btn = {
-  height: 36,
+  minHeight: 28,
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 6,
-  borderRadius: 8,
-  border: `1px solid ${UI.border}`,
+  borderRadius: UI.radiusSm,
+  border: `1px solid ${UI.brandBorder}`,
   background: "var(--color-surface)",
   color: UI.text,
-  fontSize: 13,
-  fontWeight: 900,
+  fontSize: 12,
+  fontWeight: 850,
   textDecoration: "none",
-  padding: "0 12px",
+  padding: "4px 8px",
   cursor: "pointer",
   whiteSpace: "nowrap",
 };
 
-const primaryBtn = {
-  ...btn,
-  background: UI.brand,
-  borderColor: UI.brand,
-  color: "var(--color-white)",
-};
-
 const chip = {
-  minHeight: 30,
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 6,
+  gap: 5,
   borderRadius: 999,
-  border: `1px solid ${UI.border}`,
+  border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
-  color: UI.brand,
-  fontSize: 12,
-  fontWeight: 900,
-  padding: "0 10px",
+  color: UI.text,
+  fontSize: 11.5,
+  fontWeight: 800,
+  padding: "3px 8px",
   whiteSpace: "nowrap",
 };
 
 const tableWrap = {
-  overflowX: "auto",
-  borderTop: `1px solid ${UI.borderSoft}`,
+  ...surface,
+  overflow: "auto",
 };
 
 const tableEl = {
   width: "100%",
   minWidth: 1020,
-  borderCollapse: "collapse",
+  borderCollapse: "separate",
+  borderSpacing: 0,
+  fontSize: 12.5,
   tableLayout: "fixed",
 };
 
 const th = {
-  padding: "7px 10px",
+  padding: "5px 8px",
   textAlign: "left",
   color: "var(--color-text-muted)",
-  fontSize: 11,
+  fontSize: 10.5,
   fontWeight: 900,
   textTransform: "uppercase",
-  borderBottom: `1px solid ${UI.borderSoft}`,
+  borderBottom: "1px solid var(--color-border)",
   background: "var(--color-surface-subtle)",
 };
 
 const td = {
-  padding: "6px 10px",
-  borderBottom: `1px solid ${UI.borderSoft}`,
-  fontSize: 13,
-  fontWeight: 700,
+  padding: "5px 8px",
+  borderBottom: "1px solid var(--color-surface-hover)",
+  fontSize: 12.5,
   color: UI.text,
   verticalAlign: "middle",
 };
@@ -280,6 +277,8 @@ function isPaid(job) {
 function isReadyToInvoice(job) {
   const status = String(job?.status || "");
   const financeStatus = String(job?.invoiceStatus || job?.financeStatus || "");
+  if (/^(issued|invoiced|part[_\s-]*paid|paid|settled)$/i.test(financeStatus.trim())) return false;
+  if (/^(issued|invoiced|paid|settled)$/i.test(status.trim())) return false;
   return Boolean(
     job?.readyToInvoice ||
       /ready\s*to\s*invoice/i.test(status) ||
@@ -292,6 +291,7 @@ function prettifyStatus(status) {
   const normalised = raw.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
   const known = {
     "ready to invoice": "Ready to Invoice",
+    issued: "Issued",
     invoiced: "Invoiced",
     paid: "Paid",
     complete: "Complete",
@@ -359,30 +359,47 @@ function crewInitials(job) {
   return names.map(initialsFromName).filter(Boolean).join(", ");
 }
 
-function vehiclesList(job) {
-  const sources = [
+function vehiclesList(job, vehicleLookup = {}) {
+  const vehicleSources = [
     ...(Array.isArray(job?.vehicles) ? job.vehicles : []),
-    ...(Array.isArray(job?.equipment) ? job.equipment : []),
     ...(Array.isArray(job?.selectedVehicles) ? job.selectedVehicles : []),
+  ];
+  const equipmentSources = [
+    ...(Array.isArray(job?.equipment) ? job.equipment : []),
     ...(Array.isArray(job?.selectedEquipment) ? job.selectedEquipment : []),
   ];
 
-  const names = sources
-    .map((item) => item?.name || item?.vehicleName || item?.equipmentName || item?.registration || item)
+  const vehicleNames = vehicleSources
+    .map((item) => {
+      const raw = item && typeof item === "object"
+        ? String(item.id || item.vehicleId || item.registration || item.reg || "").trim()
+        : String(item || "").trim();
+      const resolved =
+        vehicleLookup.byId?.[raw] ||
+        vehicleLookup.byReg?.[raw.toUpperCase()] ||
+        vehicleLookup.byName?.[raw.toLowerCase()] ||
+        (item && typeof item === "object" ? item : null);
+      if (!resolved) return raw;
+      const name = String(resolved.name || resolved.vehicleName || resolved.label || "").trim();
+      const registration = String(resolved.registration || resolved.reg || "").trim().toUpperCase();
+      return name && registration ? `${name} (${registration})` : name || registration || raw;
+    })
     .filter(Boolean);
+  const equipmentNames = equipmentSources
+    .map((item) => item?.name || item?.equipmentName || item?.label || item)
+    .filter(Boolean);
+  const names = [...vehicleNames, ...equipmentNames];
 
   if (!names.length) return "TBC";
   return Array.from(new Set(names)).join(", ");
 }
 
-function SectionTable({ title, jobs }) {
+function SectionTable({ title, jobs, vehicleLookup }) {
   return (
-    <section style={surface}>
-      <div
-        className={layoutStyles.extracted1}
-      >
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: UI.text }}>{title}</h2>
-        <span style={chip}>{jobs.length}</span>
+    <section>
+      <div className={layoutStyles.extracted1}>
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: UI.text }}>{title}</h2>
+        <span style={chip}>{jobs.length} job{jobs.length !== 1 ? "s" : ""}</span>
       </div>
       <div style={tableWrap}>
         <table className={layoutStyles.extracted2}>
@@ -417,16 +434,8 @@ function SectionTable({ title, jobs }) {
                     <Link
                       href={`/job-numbers/${job.id}`}
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        maxWidth: "100%",
-                        borderRadius: 999,
-                        border: `1px solid ${UI.border}`,
-                        background: UI.brandSoft,
-                        color: UI.brand,
-                        fontSize: 12,
+                        color: UI.text,
                         fontWeight: 900,
-                        padding: "4px 8px",
                         textDecoration: "none",
                       }}
                     >
@@ -439,7 +448,7 @@ function SectionTable({ title, jobs }) {
                   </td>
                   <td style={{ ...td, ...nowrap }}>{dateRangeLabel(dates)}</td>
                   <td style={{ ...td, ...nowrap, color: UI.muted }}>{crewInitials(job)}</td>
-                  <td style={{ ...td, ...nowrap, color: UI.muted }}>{vehiclesList(job)}</td>
+                  <td style={{ ...td, ...nowrap, color: UI.muted }}>{vehiclesList(job, vehicleLookup)}</td>
                   <td style={td}>
                     <StatusBadge status={job.invoiceStatus || job.financeStatus || job.status} />
                   </td>
@@ -448,8 +457,10 @@ function SectionTable({ title, jobs }) {
                       href={`/job-summary/${job.id}`}
                       style={{
                         ...btn,
-                        height: 30,
-                        padding: "0 10px",
+                        minHeight: 24,
+                        padding: "3px 7px",
+                        fontSize: 11,
+                        boxShadow: "none",
                         color: UI.brand,
                         justifyContent: "space-between",
                       }}
@@ -472,6 +483,7 @@ export default function FinanceQueuePage() {
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
+  const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useSessionState("finance-queue:search", "");
   const [clientFilter, setClientFilter] = useSessionState("finance-queue:clientFilter", "all");
@@ -501,6 +513,20 @@ export default function FinanceQueuePage() {
     );
 
     return () => unsubscribe();
+  }, [accessKey, dataAccessState]);
+
+  useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking || !gate.allowed) return;
+    let active = true;
+    loadBookingFormReferenceData(db, { accessState: dataAccessState })
+      .then((referenceData) => {
+        if (active) setVehicleLookup(referenceData.vehicleLookup || { byId: {}, byReg: {}, byName: {} });
+      })
+      .catch((error) => console.warn("Finance queue could not resolve vehicle names", error));
+    return () => {
+      active = false;
+    };
   }, [accessKey, dataAccessState]);
 
   const financeJobs = useMemo(() => {
@@ -593,12 +619,15 @@ export default function FinanceQueuePage() {
         <header className={`finance-header ${layoutStyles.extracted10}`} >
           <div>
             <h1 style={h1}>Finance Queue</h1>
+            <div style={{ color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 }}>
+              Review finance-ready jobs, confirm the accepted quote and prepare the invoice.
+            </div>
           </div>
           <div
             className={`finance-actions ${layoutStyles.extracted11}`}
 
           >
-            <Link href="/job-home" style={primaryBtn}>
+            <Link href="/job-home" style={btn}>
               <Home size={14} />
               Jobs Home
             </Link>
@@ -612,8 +641,8 @@ export default function FinanceQueuePage() {
         <section className="finance-toolbar" style={toolbar}>
           <label className={layoutStyles.extracted12}>
             <Search
-              size={16}
-              style={{ position: "absolute", left: 12, top: 10, color: UI.muted, pointerEvents: "none" }}
+              size={14}
+              style={{ position: "absolute", left: 9, top: 7, color: UI.muted, pointerEvents: "none" }}
             />
             <input
               ref={searchRef}
@@ -621,7 +650,7 @@ export default function FinanceQueuePage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by job #, client, location or notes..."
-              style={{ ...inputStyle, paddingLeft: 36 }}
+              style={{ ...inputStyle, paddingLeft: 29 }}
             />
           </label>
           <select
@@ -649,7 +678,7 @@ export default function FinanceQueuePage() {
           </section>
         ) : groupedJobs.length ? (
           groupedJobs.map((section) => (
-            <SectionTable key={section.title} title={section.title} jobs={section.jobs} />
+            <SectionTable key={section.title} title={section.title} jobs={section.jobs} vehicleLookup={vehicleLookup} />
           ))
         ) : (
           <section style={{ ...surface, padding: 14, fontWeight: 900, color: UI.muted }}>

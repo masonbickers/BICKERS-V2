@@ -4,8 +4,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  margin: 8px 0 5px;
+  flex-wrap: wrap;
 }
 
 .extracted2 {
@@ -45,17 +46,17 @@
 
 .extracted10 {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px 8px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .extracted11 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .extracted12 {

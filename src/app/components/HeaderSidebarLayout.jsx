@@ -13,10 +13,10 @@ import {
   getStoredActiveWorkspace,
   getWorkspaceForPath,
   isAdminPath,
+  isModuleEnabledForPath,
   normalizePlatformRole,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
-import { hasAuthenticatorMfa, isPhoneVerified } from "@/app/utils/authSecurity";
 import {
   clearPagePermissionDenied,
   PAGE_PERMISSION_CLEAR_EVENT,
@@ -172,6 +172,7 @@ export default function HeaderSidebarLayout({
     realUser,
     userDoc,
     employeeAccess,
+    featureFlags,
     isAdmin,
     isEnabled,
     accessReady,
@@ -367,7 +368,11 @@ export default function HeaderSidebarLayout({
   /* -------------------------------------------
      NAV DEFINITIONS
   -------------------------------------------- */
-  const featureVisible = (path) => (path === "/settings" ? canSeeAdmin : true);
+  const featureVisible = (path) => {
+    if (path === "/settings") return canSeeAdmin;
+    if (canSeeAdmin) return true;
+    return isModuleEnabledForPath(path, featureFlags);
+  };
 
   const userHeaderLinks = [
     ...(canSeeAdmin ? [{ label: contentLabel("navigation.admin"), path: "/admin" }] : []),
@@ -459,20 +464,13 @@ export default function HeaderSidebarLayout({
 
   const accountSetup = useMemo(() => {
     const emailReady = user?.emailVerified === true;
-    const phoneReady = isPhoneVerified(userDoc || {});
-    const mfaReady = hasAuthenticatorMfa(userDoc || {});
-    const complete = emailReady && phoneReady && mfaReady;
 
     return {
-      complete,
-      label: complete ? "Verified" : "Setup incomplete",
-      detail: complete
-        ? "Email, phone, and authenticator are active"
-        : [emailReady ? null : "Email", phoneReady ? null : "Phone", mfaReady ? null : "Authenticator"]
-            .filter(Boolean)
-            .join(" / "),
+      complete: emailReady,
+      label: emailReady ? "Verified" : "Setup incomplete",
+      detail: emailReady ? "Email is verified" : "Email verification is required",
     };
-  }, [user?.emailVerified, userDoc]);
+  }, [user?.emailVerified]);
 
   const accountBadge = useMemo(() => {
     return {

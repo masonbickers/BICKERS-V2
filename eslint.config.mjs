@@ -14,6 +14,7 @@ const eslintConfig = [
     ignores: [
       ".next/**",
       ".next-dev/**",
+      "**/.expo/**",
       ".codex-*/**",
       "node_modules/**",
       "public/workbox-*.js",

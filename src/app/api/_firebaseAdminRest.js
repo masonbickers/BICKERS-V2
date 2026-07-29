@@ -1,3 +1,5 @@
+import "server-only";
+
 import crypto from "node:crypto";
 
 const FIREBASE_PROJECT_ID =
@@ -17,6 +19,11 @@ const SERVICE_ACCOUNT_PRIVATE_KEY = (
 ).replace(/\\n/g, "\n");
 
 const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+const FIRESTORE_DOCUMENT_ROOT = `projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+const FIREBASE_STORAGE_BUCKET =
+  process.env.FIREBASE_STORAGE_BUCKET ||
+  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+  `${FIREBASE_PROJECT_ID}.firebasestorage.app`;
 
 let cachedToken = null;
 
@@ -43,7 +50,8 @@ function createServiceAccountJwt() {
   const header = { alg: "RS256", typ: "JWT" };
   const claim = {
     iss: SERVICE_ACCOUNT_CLIENT_EMAIL,
-    scope: "https://www.googleapis.com/auth/datastore",
+    scope:
+      "https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/devstorage.full_control",
     aud: "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now,
@@ -179,6 +187,25 @@ export async function adminReadDocument(collection, documentId) {
   return firestoreFieldsToJs(data.fields || {});
 }
 
+export async function adminReadDocumentWithMetadata(collection, documentId) {
+  const token = await getFirebaseAdminAccessToken();
+  const res = await fetch(
+    `${FIRESTORE_BASE_URL}/${collection}/${encodeURIComponent(documentId)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    }
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Admin Firestore read failed: ${res.status} ${await res.text()}`);
+  const document = await res.json();
+  return {
+    data: firestoreFieldsToJs(document.fields || {}),
+    createTime: document.createTime || null,
+    updateTime: document.updateTime || null,
+  };
+}
+
 export async function adminPatchDocument(collection, documentId, patch, options = {}) {
   const token = await getFirebaseAdminAccessToken();
   const deleteFields = options.deleteFields || [];
@@ -188,8 +215,13 @@ export async function adminPatchDocument(collection, documentId, patch, options 
     return acc;
   }, {});
 
+  const params = new URLSearchParams(updateMask(fieldPaths));
+  if (options.preconditionUpdateTime) {
+    params.set("currentDocument.updateTime", String(options.preconditionUpdateTime));
+  }
+  if (options.mustNotExist === true) params.set("currentDocument.exists", "false");
   const res = await fetch(
-    `${FIRESTORE_BASE_URL}/${collection}/${encodeURIComponent(documentId)}?${updateMask(fieldPaths)}`,
+    `${FIRESTORE_BASE_URL}/${collection}/${encodeURIComponent(documentId)}?${params.toString()}`,
     {
       method: "PATCH",
       headers: {
@@ -201,6 +233,34 @@ export async function adminPatchDocument(collection, documentId, patch, options 
   );
 
   if (!res.ok) throw new Error(`Admin Firestore update failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+export async function adminCommitDocumentPatches(writes = []) {
+  const token = await getFirebaseAdminAccessToken();
+  const commitWrites = writes.map(({ collection, documentId, patch, updateTime }) => ({
+    update: {
+      name: `${FIRESTORE_DOCUMENT_ROOT}/${collection}/${documentId}`,
+      fields: Object.entries(patch).reduce((acc, [key, value]) => {
+        acc[key] = jsToFirestoreValue(value);
+        return acc;
+      }, {}),
+    },
+    updateMask: { fieldPaths: Object.keys(patch) },
+    currentDocument: { updateTime },
+  }));
+  const res = await fetch(`${FIRESTORE_BASE_URL}:commit`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ writes: commitWrites }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Admin Firestore commit failed: ${res.status} ${await res.text()}`);
+  }
   return res.json();
 }
 
@@ -270,4 +330,65 @@ export async function adminListDocuments(collection, options = {}) {
   } while (pageToken && docs.length < maxDocuments);
 
   return docs.slice(0, maxDocuments);
+}
+
+function storageObjectUrl(objectPath, suffix = "") {
+  return `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(
+    FIREBASE_STORAGE_BUCKET
+  )}/o/${encodeURIComponent(objectPath)}${suffix}`;
+}
+
+export async function adminReadStorageObjectMetadata(objectPath) {
+  const token = await getFirebaseAdminAccessToken();
+  const res = await fetch(storageObjectUrl(objectPath), {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Admin Storage metadata read failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+export async function adminDownloadStorageObject(objectPath) {
+  const token = await getFirebaseAdminAccessToken();
+  const res = await fetch(storageObjectUrl(objectPath, "?alt=media"), {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Admin Storage download failed: ${res.status} ${await res.text()}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+export async function adminUploadStorageObject(
+  objectPath,
+  body,
+  { contentType = "application/octet-stream", mustNotExist = false } = {}
+) {
+  const token = await getFirebaseAdminAccessToken();
+  const params = new URLSearchParams({
+    uploadType: "media",
+    name: objectPath,
+  });
+  if (mustNotExist) params.set("ifGenerationMatch", "0");
+  const res = await fetch(
+    `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(
+      FIREBASE_STORAGE_BUCKET
+    )}/o?${params.toString()}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": contentType,
+      },
+      body,
+      cache: "no-store",
+    }
+  );
+  if (!res.ok) {
+    const error = new Error(`Admin Storage upload failed: ${res.status} ${await res.text()}`);
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
 }

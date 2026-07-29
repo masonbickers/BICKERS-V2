@@ -29,13 +29,19 @@ import {
   loadBookingAvailabilityForDates,
   loadVehicleChecksForVehicles,
 } from "@/app/utils/bookingAvailability";
-import { getCanonicalDueDate, ymd as toYmd } from "@/app/utils/maintenanceSchema";
+import {
+  getCanonicalDueDate,
+  isVehicleOutOfUse,
+  ymd as toYmd,
+} from "@/app/utils/maintenanceSchema";
 import {
   buildBookingDerivedFields,
   buildInitialLifecycle,
   buildInitialStatusHistory,
   buildNextLifecycle,
   buildNextStatusHistory,
+  buildSynchronizedVehicleStatus,
+  isInactiveBookingStatus,
 } from "@/app/utils/bookingLifecycle";
 import {
   dataAccessKey,
@@ -67,8 +73,6 @@ const DatePicker = dynamic(() => import("react-multi-date-picker"), {
   ssr: false,
   loading: () => <div style={{ ...field.input, color: UI.muted }}>Loading dates...</div>,
 });
-
-const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", "availabilityStatus", "fleetStatus"];
 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles (MATCH CREATE)
@@ -122,7 +126,7 @@ const headerChecksBox = {
   padding: SPACE.md,
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: UI.bg,
+  background: UI.card,
   boxShadow: UI.shadow,
 };
 
@@ -134,7 +138,7 @@ const sectionGrid = {
 };
 
 const card = {
-  background: UI.bg,
+  background: UI.card,
   borderRadius: UI.radius,
   border: UI.border,
   boxShadow: UI.shadow,
@@ -290,7 +294,7 @@ const btnDanger = {
 
 const summaryCard = {
   ...subCard,
-  background: UI.bg,
+  background: UI.card,
   color: UI.text,
   border: UI.border,
   boxShadow: UI.shadow,
@@ -2127,13 +2131,11 @@ export default function EditBookingPage() {
       if (!id) return;
 
       const taxStatus = String(vehicle?.taxStatus || "").trim().toLowerCase();
-      const offRoadStatus = OFF_ROAD_STATUS_FIELDS
-        .map((field) => String(vehicle?.[field] || "").trim().toLowerCase())
-        .find((value) => value.includes("off road") || value.includes("off-road"));
+      const offRoadStatus = isVehicleOutOfUse(vehicle);
 
       if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax" || offRoadStatus) {
         ids.add(id);
-        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "Off road";
+        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "VOR";
         return;
       }
 
@@ -2438,10 +2440,15 @@ export default function EditBookingPage() {
       ? customEmployee.split(",").map((n) => n.trim()).filter(Boolean)
       : [];
 
-    const cleanedEmployees = uniqEmpObjects([
+    const selectedEmployees = uniqEmpObjects([
       ...employees.filter((e) => e?.name && e.name !== "Other"),
       ...customNames.map((n) => ({ role: "Precision Driver", name: n })),
     ]);
+    const inactiveBooking = isInactiveBookingStatus(status);
+    const cleanedEmployees = inactiveBooking ? [] : selectedEmployees;
+    const vehicleStatusForSave = inactiveBooking
+      ? buildSynchronizedVehicleStatus({ vehicles, vehicleStatus }, status)
+      : vehicleStatus;
 
     const bookingDates = dateEntryEnabled ? selectedDates : [];
     let availabilityForSave = null;
@@ -2468,7 +2475,7 @@ export default function EditBookingPage() {
       : null;
     const vehicleConflicts = selectedVehicleConflictLabels(
       vehicles,
-      vehicleStatus,
+      vehicleStatusForSave,
       freshVehicleBlocking?.blockingStatusesById || vehicleBlockingStatusesById,
       freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
     );
@@ -2690,7 +2697,7 @@ export default function EditBookingPage() {
     const req = Number(requiredCrewCount);
     const allocatedAtSave = cleanedEmployees.length;
 
-    const manualCrewed = Boolean(isCrewed);
+    const manualCrewed = inactiveBooking ? false : Boolean(isCrewed);
 
     //  Hotel payload
     const hotelPaidByClean = hasHotel ? String(hotelPaidBy || "").trim() : "";
@@ -2751,9 +2758,18 @@ export default function EditBookingPage() {
       employees: cleanedEmployees,
       employeesByDate: employeesByDatePayload,
       employeeCodes,
+      ...(inactiveBooking && {
+        crew: [],
+        crewMembers: [],
+        staff: [],
+        assignedEmployeeCodes: [],
+        employeeAssignmentsByDate: {},
+        employeeCodesByDate: {},
+        assignedEmployeeCodesByDate: {},
+      }),
 
       vehicles,
-      vehicleStatus,
+      vehicleStatus: vehicleStatusForSave,
       equipment,
 
       isSecondPencil,

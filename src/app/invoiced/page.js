@@ -14,6 +14,8 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { formatVehicleList } from "@/app/utils/vehicleDisplay";
+import { useVehicleLookup } from "@/app/utils/useVehicleLookup";
 
 /* ───────────────────────────────────────────
    Mini design system (matching your page)
@@ -225,14 +227,6 @@ const crewInitials = (employees) =>
         .filter(Boolean)
         .join(", ") || "—"
     : "—";
-const vehiclesList = (vehicles) =>
-  Array.isArray(vehicles)
-    ? vehicles
-        .map((v) => (typeof v === "string" ? v : v?.name || v?.registration || ""))
-        .filter(Boolean)
-        .join(", ") || "—"
-    : "—";
-
 /* ───────────────────────────────────────────
    Week helpers
 ─────────────────────────────────────────── */
@@ -259,6 +253,7 @@ function formatWeekRange(monday) {
 ─────────────────────────────────────────── */
 export default function InvoicedTablePage() {
   const dataAccessState = useDataAccessState();
+  const vehicleLookup = useVehicleLookup(dataAccessState);
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -388,8 +383,8 @@ const Table = ({ jobs }) => (
               {crewInitials(job.employees)}
             </td>
 
-            <td className={layoutStyles.extracted16} title={vehiclesList(job.vehicles) === "—" ? "" : vehiclesList(job.vehicles)}>
-              {vehiclesList(job.vehicles)}
+            <td className={layoutStyles.extracted16} title={formatVehicleList(job.vehicles, vehicleLookup)}>
+              {formatVehicleList(job.vehicles, vehicleLookup) || "—"}
             </td>
 
             <td className={layoutStyles.extracted17}>

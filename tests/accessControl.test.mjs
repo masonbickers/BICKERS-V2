@@ -5,6 +5,7 @@ import {
   getWorkspaceForPath,
   inferAccessFromLegacyFields,
   isAdminPath,
+  isFinanceHandoffPath,
   isPathAllowedForAccess,
   normalizeAppAccess,
   normalizePlatformRole,
@@ -146,4 +147,13 @@ test("allows user-workspace accounts to open fleet hub pages", () => {
   ].forEach((path) => {
     assert.equal(isPathAllowedForAccess(path, access), true, path);
   });
+});
+
+test("identifies the operational quote-to-invoice handoff routes", () => {
+  assert.equal(isFinanceHandoffPath("/finance-queue"), true);
+  assert.equal(isFinanceHandoffPath("/invoice/booking-123"), true);
+  assert.equal(isFinanceHandoffPath("/invoice-view/booking-123"), true);
+  assert.equal(isFinanceHandoffPath("/invoiced"), true);
+  assert.equal(isFinanceHandoffPath("/paid"), true);
+  assert.equal(isFinanceHandoffPath("/finance-home"), false);
 });

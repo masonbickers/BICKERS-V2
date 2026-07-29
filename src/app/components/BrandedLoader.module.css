@@ -1,0 +1,68 @@
+.loader {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: clamp(18px, 3vw, 28px);
+  padding: 32px;
+  overflow: hidden;
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 50% 43%, rgba(248, 26, 35, .1), transparent 34%),
+    #050505;
+}
+
+.logo {
+  position: relative;
+  width: min(62vw, 280px);
+  aspect-ratio: 910 / 634;
+  filter: drop-shadow(0 12px 30px rgba(0, 0, 0, .35));
+}
+
+.logoCompact {
+  width: min(38vw, 140px);
+}
+
+.layer {
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+.visible {
+  opacity: 1;
+  animation: line-arrival 220ms ease-out both;
+}
+
+.label {
+  color: rgba(248, 250, 252, .72);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+@keyframes line-arrival {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .loader {
+    padding: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    opacity: 1;
+    transition: none;
+    animation: none;
+  }
+}

@@ -10,7 +10,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   dataAccessKey,
@@ -21,6 +21,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { normaliseCustomerFinanceProfile } from "../utils/accountingMappings.js";
 
 const UI = UI_TOKENS;
 
@@ -42,6 +43,7 @@ const emptyDraft = {
   email: "",
   phone: "",
   department: "",
+  financeProfile: normaliseCustomerFinanceProfile(),
 };
 
 const norm = (value = "") => String(value || "").trim().toLowerCase();
@@ -54,6 +56,10 @@ export default function SavedContactsPage() {
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [saving, setSaving] = useState(false);
+  const [sageQuery, setSageQuery] = useState("");
+  const [sageLookup, setSageLookup] = useState(null);
+  const [sageLookupError, setSageLookupError] = useState("");
+  const [sageLookupBusy, setSageLookupBusy] = useState(false);
 
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
@@ -101,12 +107,24 @@ export default function SavedContactsPage() {
       email: String(contact?.email || ""),
       phone: String(contact?.phone || contact?.number || ""),
       department: String(contact?.department || ""),
+      financeProfile: normaliseCustomerFinanceProfile(contact),
     });
+    setSageQuery(
+      String(
+        contact.financeProfile?.billingLegalName ||
+        contact.name ||
+        ""
+      )
+    );
+    setSageLookup(null);
+    setSageLookupError("");
   };
 
   const cancelEdit = () => {
     setEditingId("");
     setDraft(emptyDraft);
+    setSageLookup(null);
+    setSageLookupError("");
   };
 
   const saveEdit = async () => {
@@ -119,11 +137,106 @@ export default function SavedContactsPage() {
         phone: draft.phone.trim(),
         number: draft.phone.trim(),
         department: draft.department.trim(),
+        financeProfile: {
+          ...draft.financeProfile,
+        },
         updatedAt: serverTimestamp(),
       }));
       cancelEdit();
     } finally {
       setSaving(false);
+    }
+  };
+
+  const authenticatedRequest = async (url, options = {}) => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Sign in again before searching Sage.");
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Sage customer lookup failed.");
+    return body;
+  };
+
+  const pollSageLookup = async (lookupJobId) => {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const body = await authenticatedRequest(
+        `/api/integrations/sage50/customer-lookups?lookupJobId=${encodeURIComponent(lookupJobId)}`
+      );
+      setSageLookup(body.lookup);
+      if (["succeeded", "failed", "expired", "cancelled"].includes(body.lookup?.status)) {
+        return body.lookup;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    }
+    throw new Error("Sage lookup is still processing. Try refreshing the search.");
+  };
+
+  const searchSageCustomers = async () => {
+    if (!draft.id || sageLookupBusy) return;
+    setSageLookupBusy(true);
+    setSageLookupError("");
+    setSageLookup(null);
+    try {
+      const body = await authenticatedRequest(
+        "/api/integrations/sage50/customer-lookups",
+        {
+          method: "POST",
+          body: JSON.stringify({ contactId: draft.id, query: sageQuery }),
+        }
+      );
+      setSageLookup(body.lookup);
+      await pollSageLookup(body.lookup.lookupJobId);
+    } catch (error) {
+      setSageLookupError(error?.message || String(error));
+    } finally {
+      setSageLookupBusy(false);
+    }
+  };
+
+  const confirmSageMapping = async (result) => {
+    if (!sageLookup?.lookupJobId || sageLookupBusy) return;
+    if (!window.confirm(`Map ${result.accountReference} · ${result.name} to ${draft.name}?`)) return;
+    setSageLookupBusy(true);
+    setSageLookupError("");
+    try {
+      await authenticatedRequest(
+        `/api/integrations/sage50/customer-lookups/${encodeURIComponent(sageLookup.lookupJobId)}/confirm`,
+        {
+          method: "POST",
+          body: JSON.stringify({ sageCustomerId: result.sageCustomerId }),
+        }
+      );
+      setDraft((current) => ({
+        ...current,
+        financeProfile: {
+          ...current.financeProfile,
+          sageCustomerId: result.sageCustomerId,
+          sageCustomerMappingStatus: "mapped",
+          sageCustomerMappedAt: new Date().toISOString(),
+          sageCustomerMappedBy:
+            auth.currentUser?.email || auth.currentUser?.uid || "Authenticated finance user",
+        },
+      }));
+      setSageLookup((current) => ({
+        ...current,
+        confirmedResult: {
+          sageCustomerId: result.sageCustomerId,
+          accountReference: result.accountReference,
+          name: result.name,
+        },
+      }));
+    } catch (error) {
+      setSageLookupError(error?.message || String(error));
+    } finally {
+      setSageLookupBusy(false);
     }
   };
 
@@ -212,6 +325,150 @@ export default function SavedContactsPage() {
                       borderBottom: "1px solid var(--color-brand-soft)",
                     }}
                   >
+                    {isEditing ? (
+                      <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, paddingBottom: 8 }}>
+                        {[
+                          ["billingLegalName", "Billing legal name"],
+                          ["billingTradingName", "Trading name"],
+                          ["accountsPayableContact", "Accounts payable contact"],
+                          ["accountsPayableEmail", "Accounts payable email"],
+                          ["companyRegistrationNumber", "Company registration no."],
+                          ["vatNumber", "VAT number"],
+                          ["billingCountry", "Billing country"],
+                          ["defaultCurrency", "Currency"],
+                          ["defaultPaymentTerms", "Payment terms (days)"],
+                          ["poRequirement", "PO requirement"],
+                        ].map(([field, label]) => (
+                          <label key={field} style={{ display: "grid", gap: 4, color: UI.muted, fontSize: 10, fontWeight: 800 }}>
+                            {label}
+                            <input
+                              value={draft.financeProfile?.[field] ?? ""}
+                              type={field === "defaultPaymentTerms" ? "number" : "text"}
+                              onChange={(event) => setDraft((previous) => ({
+                                ...previous,
+                                financeProfile: {
+                                  ...previous.financeProfile,
+                                  [field]: field === "defaultPaymentTerms" ? Number(event.target.value) : event.target.value,
+                                },
+                              }))}
+                              className={layoutStyles.extracted4}
+                            />
+                          </label>
+                        ))}
+                        <label style={{ display: "grid", gap: 4, gridColumn: "span 2", color: UI.muted, fontSize: 10, fontWeight: 800 }}>
+                          Billing address
+                          <input
+                            value={draft.financeProfile?.billingAddress?.line1 || ""}
+                            onChange={(event) => setDraft((previous) => ({
+                              ...previous,
+                              financeProfile: {
+                                ...previous.financeProfile,
+                                billingAddress: { ...previous.financeProfile.billingAddress, line1: event.target.value },
+                              },
+                            }))}
+                            className={layoutStyles.extracted4}
+                          />
+                        </label>
+                        <div
+                          style={{
+                            gridColumn: "1 / -1",
+                            display: "grid",
+                            gap: 8,
+                            padding: 10,
+                            border: "1px solid var(--color-border)",
+                            borderRadius: UI.radiusSm,
+                            background: "var(--color-surface-subtle)",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                            <div>
+                              <strong style={{ color: UI.text, fontSize: 12 }}>Sage 50 customer mapping</strong>
+                              <div style={{ color: UI.muted, fontSize: 11, marginTop: 2 }}>
+                                {draft.financeProfile?.sageCustomerId
+                                  ? `Mapped to ${draft.financeProfile.sageCustomerId}`
+                                  : "Not mapped"}
+                              </div>
+                            </div>
+                            <span style={chip}>
+                              {draft.financeProfile?.sageCustomerMappingStatus || "unmapped"}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input
+                              value={sageQuery}
+                              onChange={(event) => setSageQuery(event.target.value)}
+                              placeholder="Search Sage account reference or customer name"
+                              className={layoutStyles.extracted4}
+                              style={{ flex: 1 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={searchSageCustomers}
+                              disabled={sageLookupBusy || sageQuery.trim().length < 2}
+                            >
+                              {sageLookupBusy ? "Searching..." : "Search Sage"}
+                            </button>
+                          </div>
+                          {sageLookup?.status && sageLookup.status !== "succeeded" ? (
+                            <div style={{ color: UI.muted, fontSize: 11 }}>
+                              Lookup status: {String(sageLookup.status).replace(/_/g, " ")}
+                            </div>
+                          ) : null}
+                          {sageLookupError ? (
+                            <div style={{ color: "var(--color-danger)", fontSize: 11 }}>
+                              {sageLookupError}
+                            </div>
+                          ) : null}
+                          {sageLookup?.status === "succeeded" ? (
+                            sageLookup.results?.length ? (
+                              <div style={{ display: "grid", gap: 6 }}>
+                                {sageLookup.results.map((result) => (
+                                  <div
+                                    key={result.sageCustomerId}
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns: "120px minmax(180px, 1fr) minmax(140px, 1fr) auto",
+                                      gap: 8,
+                                      alignItems: "center",
+                                      padding: 8,
+                                      border: "1px solid var(--color-border)",
+                                      borderRadius: UI.radiusSm,
+                                      background: "var(--color-surface)",
+                                      fontSize: 11,
+                                    }}
+                                  >
+                                    <strong>{result.accountReference}</strong>
+                                    <span>{result.name}</span>
+                                    <span style={{ color: UI.muted }}>
+                                      {[result.postcode, result.email].filter(Boolean).join(" · ") || "No contact details"}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        sageLookupBusy ||
+                                        !result.isActive ||
+                                        sageLookup.confirmedResult
+                                      }
+                                      onClick={() => confirmSageMapping(result)}
+                                    >
+                                      {!result.isActive
+                                        ? "Inactive"
+                                        : sageLookup.confirmedResult?.sageCustomerId === result.sageCustomerId
+                                        ? "Mapped"
+                                        : "Confirm mapping"}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={{ color: UI.muted, fontSize: 11 }}>
+                                No matching Sage customer accounts found.
+                              </div>
+                            )
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                     <div>
                       {isEditing ? (
                         <input
@@ -220,7 +477,14 @@ export default function SavedContactsPage() {
                           className={layoutStyles.extracted4}
                         />
                       ) : (
-                        <div style={{ fontWeight: 800, fontSize: 13, color: UI.text }}>{contact.name || "-"}</div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 13, color: UI.text }}>{contact.name || "-"}</div>
+                          {contact.financeProfile?.sageCustomerId ? (
+                            <div style={{ color: UI.muted, fontSize: 10, marginTop: 2 }}>
+                              Sage: {contact.financeProfile.sageCustomerId}
+                            </div>
+                          ) : null}
+                        </div>
                       )}
                     </div>
 

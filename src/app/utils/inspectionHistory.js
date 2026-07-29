@@ -13,6 +13,7 @@ export function mergeMaintenanceHistory(existing = [], entry = null) {
 
   const base = Array.isArray(existing) ? existing.filter(Boolean) : [];
   const normalizedEntry = {
+    maintenanceTypeId: String(entry.maintenanceTypeId || "").trim().toLowerCase(),
     completedDate: String(entry.completedDate || "").trim(),
     bookingId: String(entry.bookingId || "").trim(),
     provider: String(entry.provider || "").trim(),

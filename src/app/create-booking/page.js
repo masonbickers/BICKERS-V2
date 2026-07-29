@@ -23,11 +23,17 @@ import {
   loadBookingAvailabilityForDates,
   loadVehicleChecksForVehicles,
 } from "@/app/utils/bookingAvailability";
-import { getCanonicalDueDate, ymd as toYmd } from "@/app/utils/maintenanceSchema";
+import {
+  getCanonicalDueDate,
+  isVehicleOutOfUse,
+  ymd as toYmd,
+} from "@/app/utils/maintenanceSchema";
 import {
   buildBookingDerivedFields,
   buildInitialLifecycle,
   buildInitialStatusHistory,
+  buildSynchronizedVehicleStatus,
+  isInactiveBookingStatus,
 } from "@/app/utils/bookingLifecycle";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
@@ -55,8 +61,6 @@ import {
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
-const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", "availabilityStatus", "fleetStatus"];
-
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles
 ──────────────────────────────────────────────────────────────────────────── */
@@ -615,7 +619,7 @@ const toJsDate = (raw) => {
 /* ────────────────────────────────────────────────────────────────────────────
    Create Booking Page
 ──────────────────────────────────────────────────────────────────────────── */
-export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) {
+function CreateBookingForm({ initialStatus }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const authAccess = useAuth() || {};
@@ -1457,13 +1461,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       if (!id) return;
 
       const taxStatus = String(vehicle?.taxStatus || "").trim().toLowerCase();
-      const offRoadStatus = OFF_ROAD_STATUS_FIELDS
-        .map((field) => String(vehicle?.[field] || "").trim().toLowerCase())
-        .find((value) => value.includes("off road") || value.includes("off-road"));
+      const offRoadStatus = isVehicleOutOfUse(vehicle);
 
       if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax" || offRoadStatus) {
         ids.add(id);
-        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "Off road";
+        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "VOR";
         return;
       }
 
@@ -1814,10 +1816,15 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       ? customEmployee.split(",").map((n) => n.trim()).filter(Boolean)
       : [];
 
-    const cleanedEmployees = uniqEmpObjects([
+    const selectedEmployees = uniqEmpObjects([
       ...employees.filter((e) => e?.name && e.name !== "Other"),
       ...customNames.map((n) => ({ role: "Precision Driver", name: n })),
     ]);
+    const inactiveBooking = isInactiveBookingStatus(status);
+    const cleanedEmployees = inactiveBooking ? [] : selectedEmployees;
+    const vehicleStatusForSave = inactiveBooking
+      ? buildSynchronizedVehicleStatus({ vehicles, vehicleStatus }, status)
+      : vehicleStatus;
 
     const bookingDates = dateEntryEnabled ? selectedDates : [];
     let availabilityForSave = null;
@@ -1841,7 +1848,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       : null;
     const vehicleConflicts = selectedVehicleConflictLabels(
       vehicles,
-      vehicleStatus,
+      vehicleStatusForSave,
       freshVehicleBlocking?.blockingStatusesById || vehicleBlockingStatusesById,
       freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
     );
@@ -2094,13 +2101,22 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       employees: cleanedEmployees,
       employeesByDate: employeesByDatePayload,
       employeeCodes,
+      ...(inactiveBooking && {
+        crew: [],
+        crewMembers: [],
+        staff: [],
+        assignedEmployeeCodes: [],
+        employeeAssignmentsByDate: {},
+        employeeCodesByDate: {},
+        assignedEmployeeCodesByDate: {},
+      }),
 
       vehicles,
-      vehicleStatus,
+      vehicleStatus: vehicleStatusForSave,
       equipment,
 
       isSecondPencil,
-      isCrewed: Boolean(isCrewed),
+      isCrewed: inactiveBooking ? false : Boolean(isCrewed),
       hasHS,
       hasRiskAssessment,
       offRoadTracking,
@@ -3373,4 +3389,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       </div>
     </HeaderSidebarLayout>
   );
+}
+
+export default function CreateBookingPage() {
+  return <CreateBookingForm initialStatus="Confirmed" />;
 }

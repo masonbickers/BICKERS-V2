@@ -10,47 +10,75 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
     }
 
+    function userDocExists() {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
     function userData() {
-      return userDoc().data;
+      return userDocExists() ? userDoc().data : null;
     }
 
-    function isNotDisabled() {
-      return isSignedIn();
+    function isActiveUserData(data) {
+      return data != null
+        && data.get("isEnabled", false) == true
+        && data.get("active", true) != false
+        && data.get("disabled", false) != true
+        && data.get("appDisabled", false) != true
+        && data.get("archived", false) != true
+        && data.get("isArchived", false) != true;
     }
 
-    function roleValue() {
-      return userData() != null && userData().keys().hasAny(["role"])
-        ? userData().role
-        : "";
+    function isPlatformAdminData(data) {
+      return data.get("role", "") in [
+        "platformAdmin",
+        "platformadmin",
+        "platform admin",
+        "Platform Admin",
+        "superAdmin",
+        "superadmin",
+        "super admin",
+        "Super Admin"
+      ];
     }
 
-    function isPlatformAdmin() {
-      return isNotDisabled()
-        && roleValue() in [
-          "platformAdmin",
-          "platformadmin",
-          "platform admin",
-          "Platform Admin",
-          "superAdmin",
-          "superadmin",
-          "super admin",
-          "Super Admin"
+    function isAdminData(data) {
+      return isPlatformAdminData(data)
+        || data.get("role", "") in [
+          "admin",
+          "Admin",
+          "companyAdmin",
+          "companyadmin",
+          "company admin",
+          "Company Admin"
         ];
     }
 
-    function isAdmin() {
-      return isPlatformAdmin()
+    function hasWorkspaceAccessData(data, workspace) {
+      let access = data.get("appAccess", {});
+      return isAdminData(data)
         || (
-          isNotDisabled()
-          && roleValue() in [
-            "admin",
-            "Admin",
-            "companyAdmin",
-            "companyadmin",
-            "company admin",
-            "Company Admin"
-          ]
+          access is map
+          && access.get(workspace, false) == true
         );
+    }
+
+    function isNotDisabled() {
+      return isSignedIn() && isActiveUserData(userData());
+    }
+
+    function isPlatformAdmin() {
+      let data = userData();
+      return isSignedIn()
+        && isActiveUserData(data)
+        && isPlatformAdminData(data);
+    }
+
+    function isAdmin() {
+      let data = userData();
+      return isSignedIn()
+        && isActiveUserData(data)
+        && isAdminData(data);
     }
 
     function canUseSoftware() {
@@ -58,41 +86,31 @@ service firebase.storage {
     }
 
     function canAccessCompany(companyId) {
-      return canUseSoftware();
-    }
-
-    function appAccessEnabled(workspace) {
-      return userData() != null
-        && userData().keys().hasAny(["appAccess"])
-        && userData().appAccess is map
-        && userData().appAccess.keys().hasAny([workspace])
-        && userData().appAccess[workspace] == true;
-    }
-
-    function defaultWorkspaceIs(workspace) {
-      return userData() != null
-        && userData().keys().hasAny(["defaultWorkspace"])
-        && userData().defaultWorkspace == workspace;
-    }
-
-    function roleIn(roles) {
-      return userData() != null
-        && userData().keys().hasAny(["role"])
-        && userData().role in roles;
-    }
-
-    function isServiceUser() {
-      return userData() != null
-        && userData().keys().hasAny(["isService"])
-        && userData().isService == true;
+      let data = userData();
+      return isSignedIn()
+        && isActiveUserData(data)
+        && (
+          isPlatformAdminData(data)
+          || (
+            data.get("companyId", "") is string
+            && data.get("companyId", "").size() > 0
+            && data.get("companyId", "") == companyId
+          )
+        );
     }
 
     function hasUserAccess() {
-      return canUseSoftware();
+      let data = userData();
+      return isSignedIn()
+        && isActiveUserData(data)
+        && hasWorkspaceAccessData(data, "user");
     }
 
     function hasServiceAccess() {
-      return canUseSoftware();
+      let data = userData();
+      return isSignedIn()
+        && isActiveUserData(data)
+        && hasWorkspaceAccessData(data, "service");
     }
 
     function isSafeFileSize(maxBytes) {
@@ -105,8 +123,8 @@ service firebase.storage {
     }
 
     match /profilePhotos/{uid}/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn()
+      allow read: if canUseSoftware();
+      allow write: if canUseSoftware()
         && (request.auth.uid == uid || isAdmin())
         && isSafeFileSize(10 * 1024 * 1024)
         && isSafeMimeType('image/.*');
@@ -126,6 +144,12 @@ service firebase.storage {
         && hasUserAccess()
         && isSafeFileSize(25 * 1024 * 1024)
         && isSafeMimeType('application/pdf');
+    }
+
+    // Final issued invoices are written and read only by trusted server routes.
+    // Browser access is deliberately denied so immutable objects cannot be replaced.
+    match /companies/{companyId}/issued-invoices/{invoiceId}/{allPaths=**} {
+      allow read, write: if false;
     }
 
     match /companies/{companyId}/quotes/{allPaths=**} {
