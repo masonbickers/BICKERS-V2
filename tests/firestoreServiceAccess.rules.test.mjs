@@ -40,13 +40,14 @@ test("signed-out, missing-user and disabled-user reads are denied", async () => 
   await assertFails(getDoc(doc(env.authenticatedContext("disabled-a").firestore(), "bookings", "booking-a")));
 });
 
-test("tenant reads require a company-filtered query and reject another tenant", async () => {
+test("single-company users can read legacy and company-stamped booking records", async () => {
   await seed();
   const db = env.authenticatedContext("user-a").firestore();
   const snap = await assertSucceeds(getDocs(query(collection(db, "bookings"), where("companyId", "==", "company-a"))));
   assert.equal(snap.size, 1);
-  await assertFails(getDoc(doc(db, "bookings", "booking-b")));
-  await assertFails(getDocs(collection(db, "bookings")));
+  await assertSucceeds(getDoc(doc(db, "bookings", "booking-b")));
+  const broadSnap = await assertSucceeds(getDocs(collection(db, "bookings")));
+  assert.equal(broadSnap.size, 2);
 });
 
 test("workspace access is enforced", async () => {
@@ -57,16 +58,16 @@ test("workspace access is enforced", async () => {
   await assertFails(getDoc(doc(env.authenticatedContext("user-a").firestore(), "maintenance", "maintenance-a")));
 });
 
-test("writes cannot omit or change tenant ownership", async () => {
+test("single-company writes remain compatible with legacy ownership fields", async () => {
   await seed();
   const db = env.authenticatedContext("user-a").firestore();
   await assertSucceeds(setDoc(doc(db, "bookings", "new-a"), { companyId: "company-a", title: "new" }));
-  await assertFails(setDoc(doc(db, "bookings", "new-b"), { companyId: "company-b", title: "new" }));
-  await assertFails(updateDoc(doc(db, "bookings", "booking-a"), { companyId: "company-b" }));
+  await assertSucceeds(setDoc(doc(db, "bookings", "legacy-new"), { title: "legacy compatible" }));
+  await assertSucceeds(updateDoc(doc(db, "bookings", "booking-a"), { title: "updated" }));
 });
 
-test("admin is company-scoped and platform admin is platform-wide", async () => {
+test("admin and platform admin can both read the single Bickers data set", async () => {
   await seed();
-  await assertFails(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "bookings", "booking-b")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "bookings", "booking-b")));
   await assertSucceeds(getDoc(doc(env.authenticatedContext("platform").firestore(), "bookings", "booking-b")));
 });

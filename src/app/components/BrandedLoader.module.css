@@ -19,10 +19,6 @@
   filter: drop-shadow(0 12px 30px rgba(0, 0, 0, .35));
 }
 
-.logoCompact {
-  width: min(38vw, 140px);
-}
-
 .layer {
   object-fit: contain;
   opacity: 0;

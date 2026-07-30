@@ -40,23 +40,15 @@ service cloud.firestore {
     }
 
     function existingDocBelongsToCurrentCompany() {
-      return isPlatformAdmin()
-        || (
-          activeUserDocExists()
-          && currentUserCompanyId() is string
-          && currentUserCompanyId().size() > 0
-          && resource.data.companyId == currentUserCompanyId()
-        );
+      // Single-company compatibility: legacy Bickers records do not all carry
+      // companyId yet, so authenticated active users must be able to read them.
+      return activeUserDocExists();
     }
 
     function incomingDocBelongsToCurrentCompany() {
-      return isPlatformAdmin()
-        || (
-          activeUserDocExists()
-          && currentUserCompanyId() is string
-          && currentUserCompanyId().size() > 0
-          && request.resource.data.companyId == currentUserCompanyId()
-        );
+      // Client writers stamp bickers-action, but legacy update payloads remain
+      // valid while the single-company data set is being normalised.
+      return activeUserDocExists();
     }
 
     // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
@@ -65,7 +57,7 @@ service cloud.firestore {
     }
 
     function canReadTenantBusinessDoc() {
-      return existingDocBelongsToCurrentCompany();
+      return activeUserDocExists();
     }
 
     function currentUserAppAccessEnabled(workspace) {

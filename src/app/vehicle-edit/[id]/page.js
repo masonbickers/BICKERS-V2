@@ -2114,58 +2114,66 @@ export default function EditVehiclePage() {
             </div>
           ) : (
             <div className={layoutStyles.extracted23}>
-              {activeVehicleBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  style={{
-                    border: UI.border,
-                    borderRadius: UI.radius,
-                    padding: 10,
-                    background: "var(--color-surface)",
-                  }}
-                >
-                  <div className={layoutStyles.extracted24}>
-                    <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
-                      {bookingTypeLabel(booking)}
+              {activeVehicleBookings.map((booking) => {
+                const bookingDetails = [
+                  { label: "Provider", value: booking.provider },
+                  { label: "Ref", value: booking.bookingRef },
+                  { label: "Location", value: booking.location },
+                ].filter(({ value }) => {
+                  const normalizedValue = String(value || "").trim();
+                  return normalizedValue && normalizedValue !== "-";
+                });
+
+                return (
+                  <div key={booking.id} className={layoutStyles.openWorkCard}>
+                    <div className={layoutStyles.openWorkHeader}>
+                      <div className={layoutStyles.openWorkTitleLine}>
+                        <span>{bookingTypeLabel(booking)}</span>
+                        <span aria-hidden="true">–</span>
+                        <span className={layoutStyles.openWorkDate}>
+                          {bookingDateLabel(booking)}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 800,
+                          color: UI.text,
+                          border: UI.border,
+                          borderRadius: 999,
+                          padding: "4px 8px",
+                          background: "var(--color-surface-subtle)",
+                        }}
+                      >
+                        {booking.status || "Booked"}
+                      </div>
                     </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 800,
-                        color: UI.text,
-                        border: UI.border,
-                        borderRadius: 999,
-                        padding: "4px 8px",
-                        background: "var(--color-surface-subtle)",
-                      }}
-                    >
-                      {booking.status || "Booked"}
+
+                    {bookingDetails.length ? (
+                      <div className={layoutStyles.openWorkDetails}>
+                        {bookingDetails.map(({ label, value }) => (
+                          <span key={label} className={layoutStyles.openWorkDetail}>
+                            <strong>{label}:</strong> {value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <div className={`${layoutStyles.extracted25} ${layoutStyles.openWorkActions}`}>
+                      <button type="button" style={btn("ghost")} onClick={() => setEditBookingId(booking.id)}>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        style={btn("danger")}
+                        onClick={() => deleteMaintenanceBooking(booking.id)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
-                  <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text, fontWeight: 800 }}>
-                    {bookingDateLabel(booking)}
-                  </div>
-                  <div style={{ marginTop: 5, fontSize: 12.5, color: UI.muted, lineHeight: 1.4 }}>
-                    {booking.provider ? `Provider: ${booking.provider}` : "Provider: -"}
-                    <br />
-                    {booking.bookingRef ? `Ref: ${booking.bookingRef}` : "Ref: -"}
-                    <br />
-                    {booking.location ? `Location: ${booking.location}` : "Location: -"}
-                  </div>
-                  <div className={layoutStyles.extracted25}>
-                    <button type="button" style={btn("ghost")} onClick={() => setEditBookingId(booking.id)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      style={btn("danger")}
-                      onClick={() => deleteMaintenanceBooking(booking.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -2524,8 +2532,9 @@ export default function EditVehiclePage() {
             marginTop: UI.gap,
           }}
         >
-          {/* LEFT: Main form */}
-          <div className="vehicle-edit-left" style={sectionStack}>
+          <div className="vehicle-edit-left-column" style={{ ...sectionStack, minWidth: 0 }}>
+            {/* LEFT: Main form */}
+            <div className="vehicle-edit-left" style={sectionStack}>
             {/* Main Information */}
             <div className="vehicle-edit-main">
               <h2 style={{ ...sectionTitle, margin: "0 0 8px 2px" }}>Main Information</h2>
@@ -2631,16 +2640,9 @@ export default function EditVehiclePage() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
 
-          <div
-            className="vehicle-edit-sidebar vehicle-edit-notes-sidebar"
-            style={{ ...sidebarStack, position: "static" }}
-          >
-            {notesAndOpenWorkPanels}
-          </div>
-
-          <div className="vehicle-edit-left vehicle-edit-left-rest" style={sectionStack}>
+            <div className="vehicle-edit-left vehicle-edit-left-rest" style={sectionStack}>
             {/* Due Dates & Intervals */}
             <div className="vehicle-edit-core">
               <h2 style={{ ...sectionTitle, margin: "0 0 0 2px" }}>Core Due Dates</h2>
@@ -2921,10 +2923,22 @@ export default function EditVehiclePage() {
             </div>
 
             {/* (rest of your page continues as before...) */}
+            </div>
           </div>
 
           {/* RIGHT: Notes and current work */}
-          <div className="vehicle-edit-sidebar vehicle-edit-history-sidebar" style={sidebarStack}>
+          <div className="vehicle-edit-right-column" style={{ ...sectionStack, minWidth: 0 }}>
+            <div
+              className="vehicle-edit-sidebar vehicle-edit-notes-sidebar"
+              style={{ ...sidebarStack, position: "static", width: "100%" }}
+            >
+              {notesAndOpenWorkPanels}
+            </div>
+
+            <div
+              className="vehicle-edit-sidebar vehicle-edit-history-sidebar"
+              style={{ ...sidebarStack, width: "100%" }}
+            >
             {false ? (
               <>
             <div className="vehicle-edit-notes" style={panel}>
@@ -3288,6 +3302,7 @@ export default function EditVehiclePage() {
               </div>
             </div>
 
+            </div>
           </div>
         </div>
 

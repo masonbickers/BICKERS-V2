@@ -16,6 +16,14 @@ export const ADDITIONAL_MAINTENANCE_WORKFLOWS = Object.freeze([
   { key: "loler", maintenanceTypeId: "loler", label: "LOLER", dueKey: "loler", lastField: "lastLoler", nextField: "nextLoler", frequencyField: "lolerFreq", isoWeekField: "lolerISOWeek", historyField: "lolerHistory", documentsField: "lolerDocuments" },
 ]);
 
+// The main diary historically surfaced only these register-derived reminders.
+// Other maintenance workflows remain available in the maintenance system, but
+// must not be presented as booked calendar appointments.
+export const CALENDAR_REMINDER_WORKFLOW_KEYS = Object.freeze([
+  "brake_test",
+  "pmi",
+]);
+
 export const CORE_MAINTENANCE_TYPE_IDS = Object.freeze({
   MOT: "mot",
   SERVICE: "service",

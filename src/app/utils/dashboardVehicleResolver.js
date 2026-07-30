@@ -93,3 +93,25 @@ export const resolveDashboardVehicles = (references, register) => {
 
   return resolved;
 };
+
+export const resolveDashboardVehicleDisplays = (references, register) =>
+  (Array.isArray(references) ? references : []).flatMap((reference) => {
+    const resolved = resolveDashboardVehicle(reference, register);
+    if (!resolved) return [];
+    if (!reference || typeof reference !== "object") return [resolved];
+
+    const sourceName = text(reference.name || reference.vehicleName || reference.label);
+    const sourceRegistration = upper(
+      reference.registration || reference.reg || reference.registrationNumber
+    );
+    const sourceManufacturer = text(reference.manufacturer);
+    const sourceModel = text(reference.model);
+
+    return [{
+      ...resolved,
+      ...(sourceName ? { name: sourceName } : {}),
+      ...(sourceRegistration ? { registration: sourceRegistration } : {}),
+      ...(sourceManufacturer ? { manufacturer: sourceManufacturer } : {}),
+      ...(sourceModel ? { model: sourceModel } : {}),
+    }];
+  });

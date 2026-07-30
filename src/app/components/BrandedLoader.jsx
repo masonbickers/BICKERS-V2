@@ -9,7 +9,7 @@ const FRAME_DURATION_MS = 360;
 const FULL_LOGO_HOLD_TICKS = 2;
 const CYCLE_TICKS = FRAME_COUNT + FULL_LOGO_HOLD_TICKS;
 
-export default function BrandedLoader({ label = "Loading…", compact = false, showLabel = false }) {
+export default function BrandedLoader({ label = "Loading…", showLabel = false }) {
   const [cycleTick, setCycleTick] = useState(1);
   const visibleLines = Math.min(cycleTick, FRAME_COUNT);
 
@@ -23,7 +23,7 @@ export default function BrandedLoader({ label = "Loading…", compact = false, s
 
   return (
     <div className={styles.loader} role="status" aria-live="polite" aria-label={label}>
-      <div className={`${styles.logo} ${compact ? styles.logoCompact : ""}`} aria-hidden="true">
+      <div className={styles.logo} aria-hidden="true">
         {Array.from({ length: FRAME_COUNT }, (_, index) => (
           <Image
             key={index}

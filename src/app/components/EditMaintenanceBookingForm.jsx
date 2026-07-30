@@ -499,8 +499,7 @@ export default function EditMaintenanceBookingForm({
     );
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const persistBooking = async (nextStatus, failureMessage) => {
     if (!canSubmit) return;
 
     const start = bookingDates.start;
@@ -517,7 +516,7 @@ export default function EditMaintenanceBookingForm({
         vehicle,
         vehicleLabel,
         type: safeType,
-        status,
+        status: nextStatus,
         useCustomDates,
         isMultiDay,
         appointmentDate,
@@ -528,7 +527,7 @@ export default function EditMaintenanceBookingForm({
         provider,
         bookingRef,
         location,
-        cost,
+        cost: safeType === "SERVICE" ? "" : cost,
         notes,
         equipment: selectedEquipment,
         authState: dataAccessState,
@@ -538,10 +537,26 @@ export default function EditMaintenanceBookingForm({
       else if (typeof onClose === "function") onClose();
     } catch (err) {
       console.error("[EditMaintenanceBookingForm] save error:", err);
-      setFormError("Failed to update maintenance booking. Please try again.");
+      setFormError(failureMessage);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await persistBooking(status, "Failed to update maintenance booking. Please try again.");
+  };
+
+  const handleComplete = async () => {
+    if (!canSubmit) return;
+    if (!confirm(`Mark this ${typeLabel.toLowerCase()} booking as completed?`)) return;
+
+    setStatus("Completed");
+    await persistBooking(
+      "Completed",
+      "Could not mark this maintenance booking as completed. Please try again."
+    );
   };
 
   const handleCancel = async () => {
@@ -650,7 +665,17 @@ export default function EditMaintenanceBookingForm({
             {/* Type */}
             <div className={layoutStyles.extracted13}>
               <label htmlFor={`${fieldPrefix}-type`} className={layoutStyles.extracted14}>Maintenance type</label>
-              <input id={`${fieldPrefix}-type`} className={layoutStyles.extracted15} value={typeLabel} readOnly />
+              <select
+                id={`${fieldPrefix}-type`}
+                className={layoutStyles.extracted18}
+                value={safeType}
+                onChange={(e) => setType(e.target.value)}
+              >
+                <option value="MOT">MOT</option>
+                <option value="SERVICE">Service</option>
+                <option value="INSPECTION">8 Week Inspection</option>
+                <option value="WORK">Work / Maintenance</option>
+              </select>
             </div>
 
             {/* Status */}
@@ -853,15 +878,21 @@ export default function EditMaintenanceBookingForm({
               <input id={`${fieldPrefix}-booking-ref`} value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} className={layoutStyles.extracted50} />
             </div>
 
-            <div className={layoutStyles.extracted51}>
+            <div
+              className={`${layoutStyles.extracted51} ${
+                safeType === "SERVICE" ? layoutStyles.serviceLocationField : ""
+              }`}
+            >
               <label htmlFor={`${fieldPrefix}-location`} className={layoutStyles.extracted52}>Location</label>
               <input id={`${fieldPrefix}-location`} value={location} onChange={(e) => setLocation(e.target.value)} className={layoutStyles.extracted53} />
             </div>
 
-            <div className={layoutStyles.extracted54}>
-              <label htmlFor={`${fieldPrefix}-cost`} className={layoutStyles.extracted55}>Cost (optional)</label>
-              <input id={`${fieldPrefix}-cost`} value={cost} onChange={(e) => setCost(e.target.value)} className={layoutStyles.extracted56} />
-            </div>
+            {safeType !== "SERVICE" ? (
+              <div className={layoutStyles.extracted54}>
+                <label htmlFor={`${fieldPrefix}-cost`} className={layoutStyles.extracted55}>Cost (optional)</label>
+                <input id={`${fieldPrefix}-cost`} value={cost} onChange={(e) => setCost(e.target.value)} className={layoutStyles.extracted56} />
+              </div>
+            ) : null}
 
             <div className={layoutStyles.extracted57}>
               <label htmlFor={`${fieldPrefix}-equipment-search`} className={layoutStyles.extracted58}>Book equipment off</label>
@@ -954,54 +985,71 @@ export default function EditMaintenanceBookingForm({
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              style={{
-                ...fullWidth,
-                ...primaryBtn,
-                opacity: canSubmit ? 1 : 0.55,
-                cursor: canSubmit ? "pointer" : "not-allowed",
-              }}
-            >
-              {saving ? "Saving..." : "Save changes"}
-            </button>
+            <div className={layoutStyles.bookingActionGrid}>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                style={{
+                  ...primaryBtn,
+                  opacity: canSubmit ? 1 : 0.55,
+                  cursor: canSubmit ? "pointer" : "not-allowed",
+                }}
+              >
+                {saving ? "Saving..." : "Save changes"}
+              </button>
 
-            {/* Cancel */}
-            <button
-              type="button"
-              onClick={handleCancel}
-              style={{
-                ...fullWidth,
-                ...dangerBtn,
-                opacity: saving ? 0.65 : 1,
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
-              disabled={saving}
-            >
-              Mark as Cancelled
-            </button>
+              {status !== "Completed" && status !== "Cancelled" ? (
+                <button
+                  type="button"
+                  onClick={handleComplete}
+                  style={{
+                    ...successBtn,
+                    opacity: canSubmit ? 1 : 0.55,
+                    cursor: canSubmit ? "pointer" : "not-allowed",
+                  }}
+                  disabled={!canSubmit}
+                >
+                  {saving ? "Completing..." : "Mark as Completed"}
+                </button>
+              ) : null}
 
-            {/* Delete */}
-            <button
-              type="button"
-              onClick={handleDelete}
-              style={{
-                ...fullWidth,
-                ...dangerBtn,
-                border: "1px solid rgba(239,68,68,0.85)",
-                background: "linear-gradient(180deg, var(--color-danger) 0%, var(--color-danger) 100%)",
-                opacity: saving ? 0.65 : 1,
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
-              disabled={saving}
-            >
-              Delete booking permanently
-            </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                style={{
+                  ...dangerBtn,
+                  opacity: saving ? 0.65 : 1,
+                  cursor: saving ? "not-allowed" : "pointer",
+                }}
+                disabled={saving}
+              >
+                Mark as Cancelled
+              </button>
 
-            <button type="button" onClick={handleClose} className={layoutStyles.extracted75} disabled={saving}>
-              Close
-            </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                style={{
+                  ...dangerBtn,
+                  border: "1px solid rgba(239,68,68,0.85)",
+                  background: "linear-gradient(180deg, var(--color-danger) 0%, var(--color-danger) 100%)",
+                  opacity: saving ? 0.65 : 1,
+                  cursor: saving ? "not-allowed" : "pointer",
+                }}
+                disabled={saving}
+              >
+                Delete booking permanently
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClose}
+                className={`${layoutStyles.extracted75} ${layoutStyles.bookingActionClose}`}
+                disabled={saving}
+              >
+                Close
+              </button>
+            </div>
 
             <div className={layoutStyles.extracted76}>
               Updates <b>maintenanceBookings</b> and keeps the linked fields on the vehicle document in sync.
@@ -1121,10 +1169,6 @@ const formGrid = {
 
 const fieldBlock = {
   minWidth: 0,
-};
-
-const fullWidth = {
-  gridColumn: "1 / -1",
 };
 
 const equipmentSearchShell = {
@@ -1251,6 +1295,18 @@ const primaryBtn = {
   fontWeight: 900,
   fontSize: 14,
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
+};
+
+const successBtn = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1px solid var(--color-success)",
+  background: "var(--color-success)",
+  color: "var(--color-white)",
+  fontWeight: 900,
+  fontSize: 14,
+  boxShadow: "0 6px 12px rgba(22,101,52,0.14)",
 };
 
 const dangerBtn = {

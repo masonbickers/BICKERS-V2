@@ -452,6 +452,10 @@
   min-width: 0;
 }
 
+.serviceLocationField {
+  grid-column: span 2;
+}
+
 .extracted52 {
   display: block;
   font-size: 11.5px;
@@ -682,4 +686,29 @@
   font-size: 12px;
   color: var(--color-text-muted);
   line-height: 1.4;
+}
+
+.bookingActionGrid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bookingActionClose {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 620px) {
+  .serviceLocationField {
+    grid-column: auto;
+  }
+
+  .bookingActionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .bookingActionClose {
+    grid-column: auto;
+  }
 }

@@ -3,6 +3,7 @@
 
 import layoutStyles from "./ViewBookingModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
   doc,
@@ -316,8 +317,13 @@ export default function ViewBookingModal({
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editProgress, setEditProgress] = useState(0);
+  const [portalReady, setPortalReady] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   const handleEdit = () => {
     if (editLoading) return;
@@ -331,15 +337,25 @@ export default function ViewBookingModal({
 
       setTimeout(() => {
         try {
+          let editHref = "";
           if (typeof onEdit === "function") {
-            onEdit(bookingForCache);
-            return;
+            editHref = onEdit(bookingForCache);
+            if (
+              typeof editHref !== "string" ||
+              !editHref.startsWith("/") ||
+              editHref.startsWith("//")
+            ) {
+              throw new Error("Edit destination was not provided.");
+            }
+          } else {
+            const returnTo =
+              typeof window !== "undefined"
+                ? `${pathname || "/dashboard"}${window.location.search || ""}`
+                : pathname || "/dashboard";
+            editHref = `/edit-booking/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(returnTo)}`;
           }
-          const returnTo =
-            typeof window !== "undefined"
-              ? `${pathname || "/dashboard"}${window.location.search || ""}`
-              : pathname || "/dashboard";
-          router.push(`/edit-booking/${id}?returnTo=${encodeURIComponent(returnTo)}`);
+
+          window.location.assign(editHref);
         } catch (error) {
           console.error("Open edit booking failed:", error);
           setEditLoading(false);
@@ -602,7 +618,7 @@ export default function ViewBookingModal({
     }
   };
 
-  if (!booking) return null;
+  if (!booking || !portalReady) return null;
 
   const employeesPrettyText = prettyEmployees(booking.employees || []);
   const quoteStatus = quoteStatusSummary(booking);
@@ -625,6 +641,9 @@ export default function ViewBookingModal({
   const additionalContacts = Array.isArray(booking.additionalContacts)
     ? booking.additionalContacts
     : [];
+  const hasDayNotes =
+    booking.notesByDate &&
+    Object.keys(booking.notesByDate).some((key) => /^\d{4}-\d{2}-\d{2}$/.test(key));
   const historyTrail = Array.isArray(booking.history)
     ? [...booking.history]
         .map((entry, index) => ({
@@ -650,12 +669,17 @@ export default function ViewBookingModal({
     ? historyTrail
     : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
-  return (
+  return createPortal(
     <div
       className={layoutStyles.extracted1}
       onClick={(e) => e.target === e.currentTarget && !editLoading && onClose?.()}
     >
-      <div className={layoutStyles.extracted2}>
+      <div
+        className={layoutStyles.extracted2}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Booking details for ${booking.client || booking.production || "this job"}`}
+      >
         {/* Header */}
         <div className={layoutStyles.extracted3}>
           <div>
@@ -824,12 +848,26 @@ export default function ViewBookingModal({
 
         {/*  REST OF CONTENT full width below */}
         <div className={layoutStyles.extracted34}>
-          {hasEmployeesByDate && dayKeys.length > 0 && (
-            <Section title="Employees by Day">
-              <div className={layoutStyles.extracted35}>
+          {(hasEmployeesByDate || hasDayNotes) && dayKeys.length > 0 && (
+            <Section title="Employees & Day Notes" full>
+              <div className={layoutStyles.extracted85}>
+                <div className={layoutStyles.extracted86} aria-hidden="true">
+                  <span>Date</span>
+                  <span>Employees</span>
+                  <span>Day note</span>
+                </div>
                 {dayKeys.map((date) => {
                   const list = employeesByDate?.[date] || [];
                   const grouped = groupEmployeesByRole(list);
+                  const note = booking.notesByDate?.[date] || "";
+                  const other = booking.notesByDate?.[`${date}-other`];
+                  const mins = booking.notesByDate?.[`${date}-travelMins`];
+                  const finalNote =
+                    note === "Other" && other
+                      ? `${note} - ${other}`
+                      : note === "Travel Time" && mins
+                      ? `Travel Time - ${mins} mins`
+                      : note;
                   const d = toDateSafe(date);
                   const pretty = d
                     ? d.toLocaleDateString("en-GB", {
@@ -840,21 +878,29 @@ export default function ViewBookingModal({
                     : date;
 
                   return (
-                    <div key={date} className={layoutStyles.extracted36}>
-                      <div className={layoutStyles.extracted37}>{pretty}</div>
-
-                      {Object.keys(grouped).length ? (
-                        <div className={layoutStyles.extracted38}>
-                          {Object.entries(grouped).map(([role, names]) => (
-                            <div key={role} className={layoutStyles.extracted39}>
-                              <div className={layoutStyles.extracted40}>{role}</div>
-                              <div className={layoutStyles.extracted41}>{names.join(", ")}</div>
-                            </div>
-                          ))}
+                    <div key={date} className={layoutStyles.extracted87}>
+                      <div className={layoutStyles.extracted88}>{pretty}</div>
+                      <div className={layoutStyles.extracted89}>
+                        <span className={layoutStyles.extracted90}>Employees</span>
+                        <div className={layoutStyles.extracted93}>
+                          {Object.keys(grouped).length ? (
+                            Object.entries(grouped).map(([role, names]) => (
+                              <div key={role} className={layoutStyles.extracted91}>
+                                <strong>{role}</strong>
+                                <span>{names.join(", ")}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className={layoutStyles.extracted94}>No one assigned</span>
+                          )}
                         </div>
-                      ) : (
-                        <div className={layoutStyles.extracted42}>No one assigned.</div>
-                      )}
+                      </div>
+                      <div className={layoutStyles.extracted92}>
+                        <span className={layoutStyles.extracted90}>Day note</span>
+                        <span className={!finalNote ? layoutStyles.extracted94 : undefined}>
+                          {finalNote || "No note"}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -883,46 +929,6 @@ export default function ViewBookingModal({
               </div>
             </Section>
           )}
-
-          {booking.notesByDate &&
-            Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length >
-              0 && (
-              <Section title="Day Notes">
-                <div className={layoutStyles.extracted47}>
-                  {Object.keys(booking.notesByDate)
-                    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
-                    .sort((a, b) => new Date(a) - new Date(b))
-                    .map((date) => {
-                      const note = booking.notesByDate[date] || "-";
-                      const other = booking.notesByDate[`${date}-other`];
-                      const mins = booking.notesByDate[`${date}-travelMins`];
-
-                      const final =
-                        note === "Other" && other
-                          ? `${note} - ${other}`
-                          : note === "Travel Time" && mins
-                          ? `Travel Time - ${mins} mins`
-                          : note;
-
-                      const d = toDateSafe(date);
-                      const pretty = d
-                        ? d.toLocaleDateString("en-GB", {
-                            weekday: "short",
-                            day: "2-digit",
-                            month: "short",
-                          })
-                        : date;
-
-                      return (
-                        <div key={date} className={layoutStyles.extracted48}>
-                          <div className={layoutStyles.extracted49}>{pretty}</div>
-                          <div className={layoutStyles.extracted50}>{final}</div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </Section>
-            )}
 
           {booking.notes && (
             <Section title="Notes">
@@ -1151,7 +1157,8 @@ export default function ViewBookingModal({
           hint="Preparing booking details..."
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 

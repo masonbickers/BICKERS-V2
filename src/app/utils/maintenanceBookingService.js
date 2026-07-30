@@ -656,6 +656,7 @@ export const updateMaintenanceBooking = async ({
   const resolvedVehicleId = vehicleId || existingBooking.vehicleId || "";
   const vehicleSnapshot = await resolveVehicleSnapshot(resolvedVehicleId, vehicle);
   const safeType = normalizeMaintenanceType(type || existingBooking.type);
+  const previousSafeType = normalizeMaintenanceType(existingBooking.type);
   const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
   const nowAuditIso = new Date().toISOString();
   const dateInfo = normalizeBookingDateInput({
@@ -708,25 +709,34 @@ export const updateMaintenanceBooking = async ({
   batch.update(doc(db, "maintenanceBookings", bookingId), scopedPayload);
 
   if (resolvedVehicleId && vehicleSnapshot) {
+    const typeChangeClears =
+      previousSafeType !== safeType
+        ? buildClearVehicleMaintenanceSummaryUpdates({
+            vehicle: vehicleSnapshot,
+            bookingId,
+          })
+        : {};
+    const vehicleUpdates = buildVehicleMaintenanceSummaryUpdates({
+      type: safeType,
+      vehicle: vehicleSnapshot,
+      bookingId,
+      status,
+      isMultiDay: dateInfo.effectiveIsMultiDay,
+      appointmentDate: dateInfo.appointmentDateISO || dateInfo.firstSelectedDate,
+      appointmentTime,
+      startDate: dateInfo.firstSelectedDate,
+      endDate: dateInfo.lastSelectedDate,
+      provider,
+      bookingRef,
+      notes,
+      completedISO: payload.completedAtISO || "",
+      sourceDueDate: payload.sourceDueDateISO || existingBooking.sourceDueDateISO || "",
+      bookingCreatedAt: existingBooking.createdAt || nowAuditIso,
+    });
+
     batch.update(
       doc(db, "vehicles", resolvedVehicleId),
-      tenantPayload(authState, buildVehicleMaintenanceSummaryUpdates({
-        type: safeType,
-        vehicle: vehicleSnapshot,
-        bookingId,
-        status,
-        isMultiDay: dateInfo.effectiveIsMultiDay,
-        appointmentDate: dateInfo.appointmentDateISO || dateInfo.firstSelectedDate,
-        appointmentTime,
-        startDate: dateInfo.firstSelectedDate,
-        endDate: dateInfo.lastSelectedDate,
-        provider,
-        bookingRef,
-        notes,
-        completedISO: payload.completedAtISO || "",
-        sourceDueDate: payload.sourceDueDateISO || existingBooking.sourceDueDateISO || "",
-        bookingCreatedAt: existingBooking.createdAt || nowAuditIso,
-      }))
+      tenantPayload(authState, { ...typeChangeClears, ...vehicleUpdates })
     );
   }
 

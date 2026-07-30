@@ -2,8 +2,10 @@
 
 import {
   ADDITIONAL_MAINTENANCE_WORKFLOWS,
+  CALENDAR_REMINDER_WORKFLOW_KEYS,
   buildAssetLabel,
   getCanonicalDueDate,
+  getIsoWeekLabel,
   getMaintenanceTypeId,
   isVehicleOutOfUse,
 } from "./maintenanceSchema.js";
@@ -92,6 +94,95 @@ export const isOpenMaintenanceBooking = (booking = {}, now = new Date()) => {
   const bookingEnd = startOfLocalDay(end);
 
   return !today || !bookingEnd || bookingEnd.getTime() >= today.getTime();
+};
+
+const maintenanceBookingDateKeys = (booking = {}) => {
+  if (Array.isArray(booking.bookingDates) && booking.bookingDates.length) {
+    return booking.bookingDates
+      .map((value) => toYmdDate(value))
+      .filter(Boolean)
+      .sort();
+  }
+
+  const appointment = toYmdDate(
+    booking.appointmentDateISO || booking.appointmentDate || booking.date
+  );
+  if (appointment) return [appointment];
+
+  const start = startOfLocalDay(booking.startDateISO || booking.startDate);
+  const end = startOfLocalDay(
+    booking.endDateISO || booking.endDate || booking.startDateISO || booking.startDate
+  );
+  if (!start || !end) return [];
+
+  const keys = [];
+  let cursor = start;
+  while (cursor.getTime() <= end.getTime()) {
+    keys.push(toYmdDate(cursor));
+    cursor = addDaysToDate(cursor, 1);
+  }
+  return keys;
+};
+
+export const buildActiveInspectionMetaByVehicle = (
+  maintenanceBookings,
+  now = new Date()
+) => {
+  const map = {};
+
+  for (const booking of maintenanceBookings || []) {
+    if (!isOpenMaintenanceBooking(booking, now)) continue;
+    if (String(booking?.type || "").trim().toUpperCase() !== "INSPECTION") continue;
+
+    const vehicleId = String(booking?.vehicleId || "").trim();
+    if (!vehicleId) continue;
+
+    if (!map[vehicleId]) {
+      map[vehicleId] = {
+        sourceDueKeys: new Set(),
+        sourceDueWeeks: new Set(),
+        bookedWeeks: new Set(),
+        bookings: [],
+      };
+    }
+
+    const meta = map[vehicleId];
+    const sourceDueKey = String(booking.sourceDueKey || "").trim();
+    const sourceDueWeek = String(booking.sourceDueIsoWeek || "").trim();
+    if (sourceDueKey) meta.sourceDueKeys.add(sourceDueKey);
+    if (sourceDueWeek) meta.sourceDueWeeks.add(sourceDueWeek);
+
+    const dateKeys = maintenanceBookingDateKeys(booking);
+    dateKeys.forEach((key) => meta.bookedWeeks.add(getIsoWeekLabel(key)));
+    const firstDateKey = dateKeys[0] || "";
+    meta.bookings.push({
+      id: booking.id,
+      firstDateKey,
+      firstDate: firstDateKey ? startOfLocalDay(firstDateKey) : null,
+    });
+  }
+
+  return map;
+};
+
+export const isMaintenanceCalendarEventDraggable = (event = {}) => {
+  const bookingStatus = String(event.bookingStatus || event.status || "")
+    .trim()
+    .toLowerCase();
+  const isClosed =
+    CLOSED_MAINTENANCE_BOOKING_STATUSES.has(bookingStatus) ||
+    bookingStatus.includes("cancel") ||
+    bookingStatus.includes("declin");
+
+  if (event.__collection === "maintenanceBookings") {
+    return Boolean(event.__parentId || event.id) && !isClosed;
+  }
+
+  if (event.kind === "MAINTENANCE_APPOINTMENT") {
+    return Boolean(event.vehicleId) && !isClosed;
+  }
+
+  return false;
 };
 
 export const isActiveMaintenanceJob = (status) =>
@@ -311,12 +402,12 @@ export const buildMaintenanceJobEvents = (maintenanceJobs, options = {}) => {
     .filter(Boolean);
 };
 
-export const buildBookedMetaByVehicle = (maintenanceBookings) => {
+export const buildBookedMetaByVehicle = (maintenanceBookings, now = new Date()) => {
   const map = {};
 
   for (const booking of maintenanceBookings || []) {
     const vehicleId = String(booking?.vehicleId || "").trim();
-    if (!vehicleId || isInactiveMaintenanceBooking(booking.status)) continue;
+    if (!vehicleId || !isOpenMaintenanceBooking(booking, now)) continue;
 
     const typeRaw = String(booking.type || "").toUpperCase();
     const type = typeRaw === "SERVICE" ? "service" : typeRaw === "MOT" ? "mot" : "";
@@ -359,10 +450,12 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
     const bookedMeta = bookedMetaByVehicle[vehicleId] || null;
     const motDue = getCanonicalDueDate(vehicle, "mot");
     const serviceDue = getCanonicalDueDate(vehicle, "service");
-    const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
-      ...workflow,
-      due: getCanonicalDueDate(vehicle, workflow.dueKey),
-    }));
+    const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS
+      .filter((workflow) => CALENDAR_REMINDER_WORKFLOW_KEYS.includes(workflow.key))
+      .map((workflow) => ({
+        ...workflow,
+        due: getCanonicalDueDate(vehicle, workflow.dueKey),
+      }));
 
     const items = [
       {

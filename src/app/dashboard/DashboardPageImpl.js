@@ -46,6 +46,7 @@ const DraggableBigCalendar = dynamic(
 import { localizer } from "../utils/localizer";
 import {
   ADDITIONAL_MAINTENANCE_WORKFLOWS,
+  CALENDAR_REMINDER_WORKFLOW_KEYS,
   buildAssetLabel,
   getCanonicalDueDate,
   getIsoWeekLabel,
@@ -53,11 +54,13 @@ import {
   ymd,
 } from "../utils/maintenanceSchema";
 import {
+  buildActiveInspectionMetaByVehicle,
   buildBookedMetaByVehicle,
   buildMaintenanceBookingEvents,
   buildMaintenanceJobEvents,
   getMaintenanceBookingKind,
   getMaintenanceDisplayType,
+  isMaintenanceCalendarEventDraggable,
   reconcileMaintenanceEventVehicle,
 } from "../utils/maintenanceCalendar";
 import {
@@ -122,6 +125,7 @@ import { Button, Input } from "@/app/components/ui";
 import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   buildDashboardVehicleRegister,
+  resolveDashboardVehicleDisplays,
   resolveDashboardVehicles,
 } from "@/app/utils/dashboardVehicleResolver";
 
@@ -189,7 +193,6 @@ const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
 const DELETED_ON_CALENDAR_EMAILS = new Set(["mason@bickers.co.uk", "paul@bickers.co.uk"]);
 const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "lost"]);
 const DASHBOARD_HIDE_PREFS_KEY = "dashboard:hide-prefs";
-const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
 const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
 
 const normalizeUCraneText = (value) => String(value || "").trim().toLowerCase();
@@ -445,11 +448,6 @@ const mapNoteDocsToCalendarEvents = (docSnaps) => {
   });
 
   return Array.from(grouped.values());
-};
-
-const isInactiveMaintenanceBooking = (status = "") => {
-  const s = String(status || "").trim().toLowerCase();
-  return INACTIVE_MAINTENANCE_STATUSES.some((x) => s.includes(x));
 };
 
 const dueTone = (dueDate) => {
@@ -1342,11 +1340,7 @@ function CalendarEvent({ event, onViewQuote }) {
                 "";
 
               const norm = (s) => String(s || "").trim();
-              const bookingControlsVehicleStatus =
-                bookingStatus === "ready to invoice";
-              const itemStatus = bookingControlsVehicleStatus
-                ? bookingStatus
-                : norm(itemStatusRaw) || bookingStatus;
+              const itemStatus = norm(itemStatusRaw) || bookingStatus;
               const different = itemStatus && itemStatus !== bookingStatus;
 
               if (different) {
@@ -2017,13 +2011,35 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const useAdminDashboardData = false;
   const dataAccessState = useMemo(
     () => ({
-      user: authAccess.user,
-      userDoc: authAccess.userDoc,
+      user: authAccess.user?.uid ? { uid: authAccess.user.uid } : null,
+      userDoc: authAccess.userDoc?.uid
+        ? {
+            uid: authAccess.userDoc.uid,
+            role: authAccess.userDoc.role,
+            companyId: authAccess.userDoc.companyId,
+            isEnabled: authAccess.userDoc.isEnabled,
+            disabled: authAccess.userDoc.disabled,
+            archived: authAccess.userDoc.archived,
+            isArchived: authAccess.userDoc.isArchived,
+          }
+        : null,
       isEnabled: authAccess.isEnabled,
       loading: authAccess.loading,
       accessReady: authAccess.accessReady,
     }),
-    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc]
+    [
+      authAccess.accessReady,
+      authAccess.isEnabled,
+      authAccess.loading,
+      authAccess.user?.uid,
+      authAccess.userDoc?.uid,
+      authAccess.userDoc?.role,
+      authAccess.userDoc?.companyId,
+      authAccess.userDoc?.isEnabled,
+      authAccess.userDoc?.disabled,
+      authAccess.userDoc?.archived,
+      authAccess.userDoc?.isArchived,
+    ]
   );
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
@@ -2330,23 +2346,21 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     }, 80);
   }, [createBookingOpening, createEnquiryOpening, isRestricted, router]);
 
-  const goToEditBooking = useCallback(
+  const getEditBookingUrl = useCallback(
     (bookingOrId) => {
-      if (isRestricted) return;
+      if (isRestricted) return "";
       const booking =
         bookingOrId && typeof bookingOrId === "object"
           ? bookingOrId
           : bookings.find((item) => item.id === bookingOrId);
       const id = booking?.id || bookingOrId;
-      if (!id) return;
+      if (!id) return "";
       if (booking) cacheBookingForEdit(booking);
-      router.push(
-        isUCraneMode
-          ? `/u-crane-edit/${encodeURIComponent(id)}`
-          : buildEditBookingUrl(id, currentDate, calendarView)
-      );
+      return isUCraneMode
+        ? `/u-crane-edit/${encodeURIComponent(id)}`
+        : buildEditBookingUrl(id, currentDate, calendarView);
     },
-    [bookings, calendarView, currentDate, isRestricted, isUCraneMode, router]
+    [bookings, calendarView, currentDate, isRestricted, isUCraneMode]
   );
 
   const goToCreateMaintenance = useCallback(
@@ -2545,6 +2559,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   // normaliser/risk
   const normalizeVehicles = useCallback(
     (list) => resolveDashboardVehicles(list, dashboardVehicleRegister),
+    [dashboardVehicleRegister]
+  );
+  const normalizeVehicleDisplays = useCallback(
+    (list) => resolveDashboardVehicleDisplays(list, dashboardVehicleRegister),
     [dashboardVehicleRegister]
   );
 
@@ -2812,83 +2830,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   );
 
   const activeInspectionMetaByVehicle = useMemo(() => {
-    const map = {};
-
-    const bookingToDateKeys = (booking = {}) => {
-      if (Array.isArray(booking.bookingDates) && booking.bookingDates.length) {
-        return booking.bookingDates
-          .map((value) => String(value || "").slice(0, 10))
-          .filter(Boolean);
-      }
-
-      const appointmentISO = String(booking.appointmentDateISO || "").slice(0, 10);
-      if (appointmentISO) return [appointmentISO];
-
-      const startISO = String(booking.startDateISO || "").slice(0, 10);
-      const endISO = String(booking.endDateISO || "").slice(0, 10);
-      if (startISO && endISO) {
-        const out = [];
-        let cursor = parseLocalDate(startISO);
-        const end = parseLocalDate(endISO);
-        while (cursor && end && cursor.getTime() <= end.getTime()) {
-          out.push(ymd(cursor));
-          cursor = addDays(cursor, 1);
-        }
-        return out;
-      }
-
-      const start = parseLocalDate(booking.startDate || booking.appointmentDate || booking.date);
-      const end = parseLocalDate(
-        booking.endDate || booking.startDate || booking.appointmentDate || booking.date
-      );
-      if (!start || !end) return [];
-
-      const out = [];
-      let cursor = startOfLocalDay(start);
-      const endDay = startOfLocalDay(end);
-      while (cursor.getTime() <= endDay.getTime()) {
-        out.push(ymd(cursor));
-        cursor = addDays(cursor, 1);
-      }
-      return out;
-    };
-
-    (maintenanceBookings || []).forEach((booking) => {
-      if (isInactiveMaintenanceBooking(booking.status)) return;
-      if (String(booking.type || "").trim().toUpperCase() !== "INSPECTION") return;
-
-      const vehicleId = String(booking.vehicleId || "").trim();
-      if (!vehicleId) return;
-
-      if (!map[vehicleId]) {
-        map[vehicleId] = {
-          sourceDueKeys: new Set(),
-          sourceDueWeeks: new Set(),
-          bookedWeeks: new Set(),
-          bookings: [],
-        };
-      }
-
-      const meta = map[vehicleId];
-      const sourceDueKey = String(booking.sourceDueKey || "").trim();
-      const sourceDueWeek = String(booking.sourceDueIsoWeek || "").trim();
-      if (sourceDueKey) meta.sourceDueKeys.add(sourceDueKey);
-      if (sourceDueWeek) meta.sourceDueWeeks.add(sourceDueWeek);
-
-      bookingToDateKeys(booking).forEach((key) => {
-        if (!key) return;
-        meta.bookedWeeks.add(getIsoWeekLabel(key));
-      });
-
-      const firstKey = bookingToDateKeys(booking)[0] || "";
-      meta.bookings.push({
-        id: booking.id,
-        firstDateKey: firstKey,
-        firstDate: firstKey ? parseLocalDate(firstKey) : null,
-      });
-    });
-
-    return map;
+    return buildActiveInspectionMetaByVehicle(maintenanceBookings);
   }, [maintenanceBookings]);
 
   const inspectionRolloverSyncKey = useMemo(
@@ -2931,10 +2873,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const label = buildAssetLabel(v) || vehicleId;
       const motDue = getCanonicalDueDate(v, "mot");
       const serviceDue = getCanonicalDueDate(v, "service");
-      const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
-        ...workflow,
-        due: getCanonicalDueDate(v, workflow.dueKey),
-      }));
+      const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS
+        .filter((workflow) =>
+          CALENDAR_REMINDER_WORKFLOW_KEYS.includes(workflow.key)
+        )
+        .map((workflow) => ({
+          ...workflow,
+          due: getCanonicalDueDate(v, workflow.dueKey),
+        }));
       const bookedMeta = maintenanceBookedMetaByVehicle[vehicleId] || null;
 
       if (motDue) {
@@ -3172,6 +3118,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const allEvents = useMemo(() => {
     return allEventsRaw.map((ev) => {
       const normalizedVehicles = normalizeVehicles(ev.vehicles);
+      const displayVehicles = normalizeVehicleDisplays(ev.vehicles);
       const shouldShowRisk = isCurrentOrFutureJobEvent(ev);
       const risk = shouldShowRisk
         ? getVehicleRisk(normalizedVehicles, {
@@ -3182,7 +3129,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
       return {
         ...ev,
-        vehicles: normalizedVehicles,
+        vehicles: displayVehicles,
         isRisky: risk.risky,
         riskReasons: risk.reasons,
         hasRecce: !!recce,
@@ -3197,7 +3144,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         callTime: normaliseCallTime(ev.callTime || ev.calltime || ev.call_time),
       };
     });
-  }, [allEventsRaw, getVehicleRisk, normalizeVehicles, reccesByBooking]);
+  }, [allEventsRaw, getVehicleRisk, normalizeVehicleDisplays, normalizeVehicles, reccesByBooking]);
 
   //  NEW: quick lookup for bank holiday day highlighting
   const bankHolidaySet = useMemo(() => {
@@ -3326,16 +3273,21 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, [allEvents, motServiceDueEvents, vehiclesData]);
 
   const maintenanceDraggableAccessor = useCallback(
-    (event) =>
-      (event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id)) ||
-      (event?.kind === "MAINTENANCE_APPOINTMENT" &&
-        event?.vehicleId &&
-        !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase())),
+    (event) => isMaintenanceCalendarEventDraggable(event),
     []
   );
 
   const handleMaintenanceEventDrop = useCallback(
     async ({ event, start }) => {
+      if (
+        (event?.__collection === "maintenanceBookings" ||
+          event?.kind === "MAINTENANCE_APPOINTMENT") &&
+        !isMaintenanceCalendarEventDraggable(event)
+      ) {
+        alert("Completed or inactive maintenance records cannot be moved.");
+        return;
+      }
+
       if (event?.kind === "MAINTENANCE_APPOINTMENT") {
         const vehicleId = String(event?.vehicleId || "").trim();
         const dropChange = buildVehicleMaintenanceAppointmentDropUpdates(event, start);
@@ -4443,7 +4395,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             deletedId={selectedDeletedId}
             initialBooking={selectedBooking}
             initialVehicles={vehiclesData}
-            onEdit={goToEditBooking}
+            onEdit={getEditBookingUrl}
             onClose={handleCloseBookingModal}
           />
         )

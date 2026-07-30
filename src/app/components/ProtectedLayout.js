@@ -78,11 +78,9 @@ export default function ProtectedLayout({ children }) {
   ]);
 
   if (!clerkLoaded || loading || (!isPublic && (!isSignedIn || !user || !accessReady))) {
-    const isPreparingWorkspace = pathname === "/auth/complete";
     return (
       <BrandedLoader
-        label={isPreparingWorkspace ? "Preparing your workspace…" : "Loading…"}
-        compact={isPreparingWorkspace}
+        label={pathname === "/auth/complete" ? "Preparing your workspace…" : "Loading…"}
       />
     );
   }

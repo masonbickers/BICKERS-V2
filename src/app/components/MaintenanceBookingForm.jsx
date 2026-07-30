@@ -60,6 +60,9 @@ export default function MaintenanceBookingForm({
   const [vehicle, setVehicle] = useState(null);
 
   // form fields
+  const [maintenanceType, setMaintenanceType] = useState(() =>
+    normalizeMaintenanceType(type)
+  );
   const [status, setStatus] = useState("Booked");
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [useCustomDates, setUseCustomDates] = useState(false);
@@ -137,7 +140,7 @@ export default function MaintenanceBookingForm({
     });
   };
 
-  const safeType = normalizeMaintenanceType(type);
+  const safeType = normalizeMaintenanceType(maintenanceType);
   const title =
     safeType === "MOT"
       ? "Book MOT"
@@ -421,7 +424,7 @@ export default function MaintenanceBookingForm({
         provider,
         bookingRef,
         location,
-        cost,
+        cost: safeType === "SERVICE" ? "" : cost,
         notes,
         equipment: selectedEquipment,
         sourceDueDate,
@@ -471,20 +474,17 @@ export default function MaintenanceBookingForm({
           {/* Type */}
           <div className={layoutStyles.extracted10}>
             <label htmlFor={`${fieldPrefix}-type`} className={layoutStyles.extracted11}>Maintenance type</label>
-            <input
+            <select
               id={`${fieldPrefix}-type`}
-              className={layoutStyles.extracted12}
-              value={
-                safeType === "MOT"
-                  ? "MOT"
-                  : safeType === "SERVICE"
-                  ? "Service"
-                  : safeType === "INSPECTION"
-                  ? "8 Week Inspection"
-                  : "Work"
-              }
-              readOnly
-            />
+              className={layoutStyles.extracted15}
+              value={safeType}
+              onChange={(e) => setMaintenanceType(e.target.value)}
+            >
+              <option value="MOT">MOT</option>
+              <option value="SERVICE">Service</option>
+              <option value="INSPECTION">8 Week Inspection</option>
+              <option value="WORK">Work / Maintenance</option>
+            </select>
           </div>
 
           {/* Status */}
@@ -686,10 +686,12 @@ export default function MaintenanceBookingForm({
             <input id={`${fieldPrefix}-location`} value={location} onChange={(e) => setLocation(e.target.value)} className={layoutStyles.extracted44} />
           </div>
 
-          <div className={layoutStyles.extracted42}>
-            <label htmlFor={`${fieldPrefix}-cost`} className={layoutStyles.extracted43}>Cost (optional)</label>
-            <input id={`${fieldPrefix}-cost`} value={cost} onChange={(e) => setCost(e.target.value)} className={layoutStyles.extracted44} />
-          </div>
+          {safeType !== "SERVICE" ? (
+            <div className={layoutStyles.extracted42}>
+              <label htmlFor={`${fieldPrefix}-cost`} className={layoutStyles.extracted43}>Cost (optional)</label>
+              <input id={`${fieldPrefix}-cost`} value={cost} onChange={(e) => setCost(e.target.value)} className={layoutStyles.extracted44} />
+            </div>
+          ) : null}
 
           <div className={layoutStyles.extracted45}>
             <label htmlFor={`${fieldPrefix}-equipment-search`} className={layoutStyles.extracted46}>Book equipment off</label>

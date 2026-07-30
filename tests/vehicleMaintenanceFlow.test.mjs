@@ -221,7 +221,7 @@ test("timeline records both boundaries and the full VOR period", () => {
   assert.ok(events[1].details.includes("First-use PMI: 15/07/2026"));
 });
 
-test("timeline and maintenance-history reads remain tenant-scoped", async () => {
+test("timeline and maintenance-history reads use the single-company compatibility query", async () => {
   const [accessSource, timelineSource, historySource] = await Promise.all([
     readFile(new URL("../src/app/utils/firestoreAccess.js", import.meta.url), "utf8"),
     readFile(
@@ -237,7 +237,8 @@ test("timeline and maintenance-history reads remain tenant-scoped", async () => 
     ),
   ]);
 
-  assert.match(accessSource, /where\("companyId",\s*"==",\s*gate\.companyId\)/);
+  assert.doesNotMatch(accessSource, /where\("companyId",\s*"==",\s*gate\.companyId\)/);
+  assert.match(accessSource, /companyId:\s*gate\.companyId\s*\|\|\s*SINGLE_COMPANY_ID/);
   assert.doesNotMatch(timelineSource, /getDoc\(doc\(db,\s*"vehicles"/);
   assert.doesNotMatch(historySource, /getDoc\(doc\(db,\s*"vehicles"/);
   assert.ok(
