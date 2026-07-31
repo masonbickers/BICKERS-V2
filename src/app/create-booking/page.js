@@ -46,6 +46,12 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import {
+  buildUCraneArmFittedForSave,
+  isUCraneArmFitted,
+  isUCraneVehicle,
+  normalizeUCraneArmFitted,
+} from "@/app/utils/uCraneBookingConfiguration";
+import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -698,6 +704,7 @@ function CreateBookingForm({ initialStatus }) {
   // Vehicles
   const [vehicles, setVehicles] = useState([]); // vehicleIds
   const [vehicleStatus, setVehicleStatus] = useState({}); // {vehicleId: status}
+  const [uCraneArmFitted, setUCraneArmFitted] = useState({});
 
   // Equipment
   const [equipment, setEquipment] = useState([]);
@@ -833,6 +840,7 @@ function CreateBookingForm({ initialStatus }) {
       customEmployee,
       vehicles,
       vehicleStatus,
+      uCraneArmFitted,
       equipment,
       additionalContacts,
     }),
@@ -879,6 +887,7 @@ function CreateBookingForm({ initialStatus }) {
       customEmployee,
       vehicles,
       vehicleStatus,
+      uCraneArmFitted,
       equipment,
       additionalContacts,
     ]
@@ -1222,6 +1231,7 @@ function CreateBookingForm({ initialStatus }) {
     setCustomEmployee(saved.customEmployee || "");
     setVehicles(Array.isArray(saved.vehicles) ? saved.vehicles : []);
     setVehicleStatus(saved.vehicleStatus && typeof saved.vehicleStatus === "object" ? saved.vehicleStatus : {});
+    setUCraneArmFitted(normalizeUCraneArmFitted(saved.uCraneArmFitted));
     setEquipment(Array.isArray(saved.equipment) ? saved.equipment : []);
     setAdditionalContacts(Array.isArray(saved.additionalContacts) ? saved.additionalContacts : []);
     hydratedDraftRef.current = true;
@@ -1763,6 +1773,13 @@ function CreateBookingForm({ initialStatus }) {
       }
       return next;
     });
+    if (!checked) {
+      setUCraneArmFitted((prev) => {
+        const next = { ...prev };
+        delete next[vehicleId];
+        return next;
+      });
+    }
   };
 
   /* ────────────────────────────────────────────────────────────
@@ -1825,6 +1842,11 @@ function CreateBookingForm({ initialStatus }) {
     const vehicleStatusForSave = inactiveBooking
       ? buildSynchronizedVehicleStatus({ vehicles, vehicleStatus }, status)
       : vehicleStatus;
+    const uCraneArmFittedForSave = buildUCraneArmFittedForSave({
+      vehicleIds: vehicles,
+      vehicleLookup,
+      configuration: uCraneArmFitted,
+    });
 
     const bookingDates = dateEntryEnabled ? selectedDates : [];
     let availabilityForSave = null;
@@ -2113,6 +2135,7 @@ function CreateBookingForm({ initialStatus }) {
 
       vehicles,
       vehicleStatus: vehicleStatusForSave,
+      uCraneArmFitted: uCraneArmFittedForSave,
       equipment,
 
       isSecondPencil,
@@ -3019,6 +3042,7 @@ function CreateBookingForm({ initialStatus }) {
                                   style={{
                                     display: "flex",
                                     alignItems: "center",
+                                    flexWrap: "wrap",
                                     gap: 8,
                                     marginBottom: 8,
                                     opacity: disabled ? 0.55 : 1,
@@ -3037,7 +3061,7 @@ function CreateBookingForm({ initialStatus }) {
                                   }
                                 >
                                   <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
-                                  <span style={{ flex: 1, color: disabled ? "var(--color-text-muted)" : UI.text }}>
+                                  <span style={{ flex: "1 1 180px", color: disabled ? "var(--color-text-muted)" : UI.text }}>
                                     {vehicle.name}
                                     {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                     {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
@@ -3046,6 +3070,24 @@ function CreateBookingForm({ initialStatus }) {
                                     {isBooked && ` (${blockedStatus || "Blocked"})`}
                                     {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                   </span>
+
+                                  {isSelected && isUCraneVehicle(vehicle) && (
+                                    <select
+                                      value={isUCraneArmFitted(uCraneArmFitted, key) ? "fitted" : "not-fitted"}
+                                      onChange={(e) =>
+                                        setUCraneArmFitted((prev) => ({
+                                          ...prev,
+                                          [key]: e.target.value === "fitted",
+                                        }))
+                                      }
+                                      className={layoutStyles.extracted52}
+                                      aria-label={`${vehicle.name || "U-Crane vehicle"} arm setup`}
+                                      title="Choose whether the U-Crane arm is fitted for this booking"
+                                    >
+                                      <option value="fitted">Arm fitted</option>
+                                      <option value="not-fitted">Vehicle only — no arm</option>
+                                    </select>
+                                  )}
 
                                   {isSelected && (
                                     <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} className={layoutStyles.extracted52} title="Vehicle status">

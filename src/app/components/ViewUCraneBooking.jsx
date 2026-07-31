@@ -23,6 +23,10 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import {
+  isUCraneArmFitted,
+  isUCraneVehicle,
+} from "@/app/utils/uCraneBookingConfiguration";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -175,13 +179,6 @@ const groupEmployeesByRole = (list) => {
     map[k] = Array.from(new Set(map[k])).sort((a, b) => a.localeCompare(b));
   });
   return map;
-};
-
-/* ---------- vehicles helpers (u-crane focused) ---------- */
-const isUCraneVehicle = (v) => {
-  const cat = String(v?.category || "").toLowerCase();
-  const name = String(v?.name || "").toLowerCase();
-  return cat.includes("u-crane") || name.includes("u-crane");
 };
 
 export default function ViewUCraneBookingModal({
@@ -342,9 +339,10 @@ export default function ViewUCraneBookingModal({
       const name =
         v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(vid || "");
       const plate = v?.registration ? String(v.registration).toUpperCase() : "";
-      return { id: vid || `${name}-${plate}`, name, plate, status };
+      const armFitted = isUCraneArmFitted(booking?.uCraneArmFitted, vid);
+      return { id: vid || `${name}-${plate}`, name, plate, status, armFitted };
     });
-  }, [normalizedVehicles, vehicleStatusById, booking?.status]);
+  }, [normalizedVehicles, vehicleStatusById, booking?.status, booking?.uCraneArmFitted]);
 
   const dayKeys = useMemo(() => listBookingDaysYMD(booking), [booking]);
 
@@ -577,6 +575,7 @@ export default function ViewUCraneBookingModal({
                       <span key={`${v.id}-${i}`} style={tagPill}>
                         {v.name}
                         {v.plate && <span className={layoutStyles.extracted12}>{v.plate}</span>}
+                        {v.armFitted === false && <span style={tagNoArm}>No arm fitted</span>}
                         {v.status && <span style={tagStatus}>{v.status}</span>}
                       </span>
                     ))}
@@ -938,6 +937,16 @@ const tagStatus = {
   background: "var(--color-surface)",
   fontSize: 11,
   fontWeight: 800,
+};
+const tagNoArm = {
+  marginLeft: 4,
+  padding: "2px 6px",
+  borderRadius: 999,
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
+  fontSize: 11,
+  fontWeight: 850,
 };
 
 const chip = {

@@ -25,6 +25,10 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import {
+  isUCraneArmFitted,
+  isUCraneVehicle,
+} from "@/app/utils/uCraneBookingConfiguration";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -509,9 +513,12 @@ export default function ViewBookingModal({
       const name =
         v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(vid || "");
       const plate = v?.registration ? String(v.registration).toUpperCase() : "";
-      return { id: vid || `${name}-${plate}`, name, plate, status };
+      const armFitted = isUCraneVehicle(v)
+        ? isUCraneArmFitted(booking?.uCraneArmFitted, vid)
+        : null;
+      return { id: vid || `${name}-${plate}`, name, plate, status, armFitted };
     });
-  }, [normalizedVehicles, vehicleStatusById, booking?.status]);
+  }, [normalizedVehicles, vehicleStatusById, booking?.status, booking?.uCraneArmFitted]);
 
   const dayKeys = useMemo(() => listBookingDaysYMD(booking), [booking]);
 
@@ -816,6 +823,9 @@ export default function ViewBookingModal({
                         <span key={`${v.id}-${i}`} className={layoutStyles.extracted29}>
                           {v.name}
                           {v.plate && <span className={layoutStyles.extracted30}>{v.plate}</span>}
+                          {v.armFitted === false && (
+                            <span className={layoutStyles.uCraneNoArmBadge}>No arm fitted</span>
+                          )}
                           {v.status && <span className={layoutStyles.extracted31}>{v.status}</span>}
                         </span>
                       ))}

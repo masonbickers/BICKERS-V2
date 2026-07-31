@@ -52,6 +52,12 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import {
+  buildUCraneArmFittedForSave,
+  isUCraneArmFitted,
+  isUCraneVehicle,
+  normalizeUCraneArmFitted,
+} from "@/app/utils/uCraneBookingConfiguration";
+import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -912,6 +918,7 @@ const buildEditBookingPrefillState = (bookingData) => {
         : {},
     vehicles: vehicleIds,
     vehicleStatus,
+    uCraneArmFitted: normalizeUCraneArmFitted(booking.uCraneArmFitted),
     equipment,
     additionalContacts: (Array.isArray(booking.additionalContacts) ? booking.additionalContacts : []).map(
       (contact) => ({
@@ -974,6 +981,7 @@ const AUDIT_FIELDS = [
   "employeesByDate",
   "vehicles",
   "vehicleStatus",
+  "uCraneArmFitted",
   "equipment",
   "notes",
   "notesByDate",
@@ -1013,6 +1021,7 @@ const AUDIT_LABELS = {
   employeesByDate: "Employees by day",
   vehicles: "Vehicles",
   vehicleStatus: "Vehicle statuses",
+  uCraneArmFitted: "U-Crane arm setup",
   equipment: "Equipment",
   notes: "Notes",
   notesByDate: "Day notes",
@@ -1324,6 +1333,7 @@ export default function EditBookingPage() {
   // Vehicles
   const [vehicles, setVehicles] = useState(prefill.vehicles); // vehicleIds
   const [vehicleStatus, setVehicleStatus] = useState(prefill.vehicleStatus); // {vehicleId: status}
+  const [uCraneArmFitted, setUCraneArmFitted] = useState(prefill.uCraneArmFitted);
 
   // Equipment
   const [equipment, setEquipment] = useState(prefill.equipment);
@@ -1730,6 +1740,7 @@ export default function EditBookingPage() {
         if (!vsFixed[vid]) vsFixed[vid] = bookingData.status || "Confirmed";
       });
       setVehicleStatus(vsFixed);
+      setUCraneArmFitted(normalizeUCraneArmFitted(bookingData.uCraneArmFitted));
 
       // equipment
       const rawEquip = Array.isArray(bookingData.equipment)
@@ -2378,6 +2389,13 @@ export default function EditBookingPage() {
       }
       return next;
     });
+    if (!checked) {
+      setUCraneArmFitted((prev) => {
+        const next = { ...prev };
+        delete next[vehicleId];
+        return next;
+      });
+    }
   };
 
   /* ────────────────────────────────────────────────────────────
@@ -2449,6 +2467,11 @@ export default function EditBookingPage() {
     const vehicleStatusForSave = inactiveBooking
       ? buildSynchronizedVehicleStatus({ vehicles, vehicleStatus }, status)
       : vehicleStatus;
+    const uCraneArmFittedForSave = buildUCraneArmFittedForSave({
+      vehicleIds: vehicles,
+      vehicleLookup,
+      configuration: uCraneArmFitted,
+    });
 
     const bookingDates = dateEntryEnabled ? selectedDates : [];
     let availabilityForSave = null;
@@ -2770,6 +2793,7 @@ export default function EditBookingPage() {
 
       vehicles,
       vehicleStatus: vehicleStatusForSave,
+      uCraneArmFitted: uCraneArmFittedForSave,
       equipment,
 
       isSecondPencil,
@@ -4175,6 +4199,7 @@ export default function EditBookingPage() {
                                 style={{
                                   display: "flex",
                                   alignItems: "center",
+                                  flexWrap: "wrap",
                                   gap: 8,
                                   marginBottom: 8,
                                   opacity: disabled ? 0.55 : 1,
@@ -4198,7 +4223,7 @@ export default function EditBookingPage() {
                                   disabled={disabled}
                                   onChange={(e) => toggleVehicle(key, e.target.checked)}
                                 />
-                                <span style={{ flex: 1, color: disabled ? "var(--color-text-muted)" : UI.text }}>
+                                <span style={{ flex: "1 1 180px", color: disabled ? "var(--color-text-muted)" : UI.text }}>
                                   {vehicle.name}
                                   {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                   {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
@@ -4207,6 +4232,24 @@ export default function EditBookingPage() {
                                   {isBooked && ` (${blockedStatus || "Blocked"})`}
                                   {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                 </span>
+
+                                {isSelected && isUCraneVehicle(vehicle) && (
+                                  <select
+                                    value={isUCraneArmFitted(uCraneArmFitted, key) ? "fitted" : "not-fitted"}
+                                    onChange={(e) =>
+                                      setUCraneArmFitted((prev) => ({
+                                        ...prev,
+                                        [key]: e.target.value === "fitted",
+                                      }))
+                                    }
+                                    className={layoutStyles.extracted52}
+                                    aria-label={`${vehicle.name || "U-Crane vehicle"} arm setup`}
+                                    title="Choose whether the U-Crane arm is fitted for this booking"
+                                  >
+                                    <option value="fitted">Arm fitted</option>
+                                    <option value="not-fitted">Vehicle only — no arm</option>
+                                  </select>
+                                )}
 
                                 {isSelected && (
                                   <select
