@@ -25,7 +25,6 @@ import {
 } from "@/app/utils/bookingAvailability";
 import {
   getCanonicalDueDate,
-  isVehicleOutOfUse,
   ymd as toYmd,
 } from "@/app/utils/maintenanceSchema";
 import {
@@ -504,6 +503,11 @@ const expandMaintenanceBookingDates = (b) => {
   if (s && e) return enumerateDaysYMD_UTC(s, e);
   return [];
 };
+
+const isActiveMaintenanceBooking = (booking = {}) =>
+  !["completed", "complete", "cancelled", "canceled", "failed", "archived"].includes(
+    String(booking.status || booking.bookingStatus || "booked").trim().toLowerCase()
+  );
 
 const anyDateOverlap = (datesA, datesB) => {
   if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
@@ -1403,7 +1407,7 @@ function CreateBookingForm({ initialStatus }) {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -1443,7 +1447,7 @@ function CreateBookingForm({ initialStatus }) {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -1471,21 +1475,17 @@ function CreateBookingForm({ initialStatus }) {
       if (!id) return;
 
       const taxStatus = String(vehicle?.taxStatus || "").trim().toLowerCase();
-      const offRoadStatus = isVehicleOutOfUse(vehicle);
-
-      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax" || offRoadStatus) {
+      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax") {
         ids.add(id);
-        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "VOR";
+        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : taxStatus.toUpperCase();
         return;
       }
 
       const motDue = getCanonicalDueDate(vehicle, "mot");
       const serviceDue = getCanonicalDueDate(vehicle, "service");
-      const inspectionDue = getCanonicalDueDate(vehicle, "inspection");
       const overdueMatch = [
         ["MOT overdue", motDue],
         ["Service overdue", serviceDue],
-        ["Inspection overdue", inspectionDue],
       ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < refDate);
 
       if (overdueMatch) {
@@ -1800,7 +1800,7 @@ function CreateBookingForm({ initialStatus }) {
       )
       .map((vehicleId) => {
         const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
-        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
+        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || "Unknown vehicle";
         const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
         return `${label} (${existingStatus})`;
       });
@@ -1868,6 +1868,48 @@ function CreateBookingForm({ initialStatus }) {
     const freshVehicleBlocking = availabilityForSave
       ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
       : null;
+
+    if (!isMaintenance && vehicles.length) {
+      let freshVehicles = [];
+      try {
+        const vehicleSnapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
+        freshVehicles = vehicleSnapshot.docs.map((vehicleDoc) => ({ id: vehicleDoc.id, ...vehicleDoc.data() }));
+      } catch (err) {
+        console.error("Failed checking vehicle compliance before save:", err);
+        return alert("Could not confirm the selected vehicles are available. Please try saving again.");
+      }
+
+      const selectedIds = new Set(normalizeVehicleKeysListForLookup(vehicles, vehicleLookup));
+      const blockingReasons = [];
+      const freshMaintenance = (availabilityForSave?.maintenanceBookings || maintenanceBookings)
+        .filter(isActiveMaintenanceBooking);
+      freshMaintenance.forEach((maintenanceBooking) => {
+        if (!anyDateOverlap(expandMaintenanceBookingDates(maintenanceBooking), bookingDates)) return;
+        const candidates = Array.isArray(maintenanceBooking.vehicles) && maintenanceBooking.vehicles.length
+          ? maintenanceBooking.vehicles
+          : [maintenanceBooking.vehicleId, maintenanceBooking.vehicle, maintenanceBooking.registration];
+        normalizeVehicleKeysListForLookup(candidates, vehicleLookup).forEach((id) => {
+          if (selectedIds.has(id)) blockingReasons.push(`${vehicleLookup.byId?.[id]?.name || id}: confirmed maintenance`);
+        });
+      });
+
+      const referenceDate = new Date(`${bookingWindowEnd}T00:00:00`);
+      freshVehicles.filter((vehicle) => selectedIds.has(vehicle.id)).forEach((vehicle) => {
+        const taxStatus = String(vehicle.taxStatus || "").trim().toLowerCase();
+        if (["sorn", "untaxed", "no tax"].includes(taxStatus)) blockingReasons.push(`${vehicle.name || vehicle.registration || "Unknown vehicle"}: ${taxStatus.toUpperCase()}`);
+        else {
+          const overdue = [
+            ["MOT overdue", getCanonicalDueDate(vehicle, "mot")],
+            ["Service overdue", getCanonicalDueDate(vehicle, "service")],
+          ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < referenceDate);
+          if (overdue) blockingReasons.push(`${vehicle.name || vehicle.registration || "Unknown vehicle"}: ${overdue[0]}`);
+        }
+      });
+
+      if (blockingReasons.length) {
+        return alert(`This booking cannot be saved because the following vehicle(s) are unavailable:\n\n${Array.from(new Set(blockingReasons)).join("\n")}`);
+      }
+    }
     const vehicleConflicts = selectedVehicleConflictLabels(
       vehicles,
       vehicleStatusForSave,
@@ -3034,7 +3076,7 @@ function CreateBookingForm({ initialStatus }) {
                               const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                               const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                               const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                              const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
+                              const disabled = (hasBookingConflict || isMaintBlocked || isComplianceBlocked || isDefectBlocked) && !isSelected;
 
                               return (
                                 <div
@@ -3052,6 +3094,8 @@ function CreateBookingForm({ initialStatus }) {
                                     disabled
                                       ? isMaintBlocked
                                         ? `Vehicle is out for ${maintReason} during selected date(s)`
+                                        : isComplianceBlocked
+                                        ? `Vehicle is blocked: ${complianceReason}`
                                         : isDefectBlocked
                                         ? `Vehicle is blocked: ${defectReason}`
                                         : status === SECOND_PENCIL_STATUS

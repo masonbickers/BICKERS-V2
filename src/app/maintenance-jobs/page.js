@@ -28,14 +28,17 @@ import {
   Wrench,
 } from "lucide-react";
 import {
-  addDoc,
-  collection,
   getDocs,
   onSnapshot,
   doc,
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  completeMaintenanceBooking,
+  createMaintenanceWorkBooking,
+  updateMaintenanceWorkBooking,
+} from "../utils/maintenanceBookingService";
 import {
   isInactiveMaintenanceBooking,
   toDateLike,
@@ -433,21 +436,6 @@ export default function MaintenanceJobsPage() {
         return bt - at;
       });
       setJobs(rows);
-      setJobDrafts((prev) => {
-        const next = { ...prev };
-        const rowIds = new Set(rows.map((row) => row.id));
-
-        rows.forEach((row) => {
-          const baseDraft = buildJobDraft(row);
-          next[row.id] = prev[row.id] ? { ...baseDraft, ...prev[row.id] } : baseDraft;
-        });
-
-        Object.keys(next).forEach((id) => {
-          if (!rowIds.has(id)) delete next[id];
-        });
-
-        return next;
-      });
     }, (error) => {
       if (!handleFirestoreAccessError(error, { collectionName: "maintenanceJobs", operation: "listen maintenance jobs" })) {
         console.error("Failed loading maintenance jobs:", error);
@@ -520,9 +508,68 @@ export default function MaintenanceJobsPage() {
     [vehicles]
   );
 
+  const canonicalWorkshopJobs = useMemo(
+    () => maintenanceBookings
+      .filter((booking) =>
+        String(booking.origin?.source || booking.origin || "").trim().toLowerCase() === "workshop" ||
+        String(booking.type || "").trim().toUpperCase() === "WORK"
+      )
+      .map((booking) => {
+        const workshop = booking.workshop && typeof booking.workshop === "object"
+          ? booking.workshop
+          : {};
+        const canonicalStatus = String(booking.status || "").trim().toLowerCase();
+        const compatibleStatus = workshop.status || (
+          canonicalStatus === "requested"
+            ? "planned"
+            : canonicalStatus === "in progress"
+            ? "in_progress"
+            : canonicalStatus
+        );
+        return {
+          ...workshop,
+          id: booking.id,
+          __collection: "maintenanceBookings",
+          canonicalRecord: booking,
+          assetId: workshop.assetId || booking.vehicleId || "",
+          assetLabel: workshop.assetLabel || booking.vehicleLabel || "",
+          type: workshop.type || booking.maintenanceTypeId || "repair",
+          title: workshop.title || booking.title || "Maintenance work",
+          notes: workshop.notes || booking.notes || "",
+          status: compatibleStatus || "planned",
+          createdAt: booking.createdAt,
+          updatedAt: booking.updatedAt,
+          updatedAtServer: booking.updatedAtServer,
+        };
+      }),
+    [maintenanceBookings]
+  );
+  const allJobs = useMemo(
+    () => [
+      ...jobs.map((job) => ({ ...job, __collection: "maintenanceJobs" })),
+      ...canonicalWorkshopJobs,
+    ],
+    [canonicalWorkshopJobs, jobs]
+  );
+
+  useEffect(() => {
+    setJobDrafts((previous) => {
+      const next = { ...previous };
+      const rowIds = new Set(allJobs.map((row) => row.id));
+      allJobs.forEach((row) => {
+        const baseDraft = buildJobDraft(row);
+        next[row.id] = previous[row.id] ? { ...baseDraft, ...previous[row.id] } : baseDraft;
+      });
+      Object.keys(next).forEach((id) => {
+        if (!rowIds.has(id)) delete next[id];
+      });
+      return next;
+    });
+  }, [allJobs]);
+
   const visibleJobs = useMemo(() => {
     const q = String(search || "").trim().toLowerCase();
-    return jobs.filter((j) => {
+    return allJobs.filter((j) => {
       const stage = normalizeWorkflowStageCompat(j.status);
       if (statusFilter !== "all" && stage !== statusFilter) return false;
       if (!q) return true;
@@ -545,7 +592,7 @@ export default function MaintenanceJobsPage() {
         .toLowerCase();
       return blob.includes(q);
     });
-  }, [jobs, search, statusFilter]);
+  }, [allJobs, search, statusFilter]);
 
   useEffect(() => {
     const jobId = String(searchParams.get("jobId") || "").trim();
@@ -575,14 +622,14 @@ export default function MaintenanceJobsPage() {
 
   const jobStats = useMemo(() => {
     const counts = {
-      total: jobs.length,
+      total: allJobs.length,
       planned: 0,
       active: 0,
       closed: 0,
       commercial: 0,
     };
 
-    jobs.forEach((job) => {
+    allJobs.forEach((job) => {
       const stage = normalizeWorkflowStageCompat(job.status);
       if (stage === "planned") counts.planned += 1;
       if (stage === "booked" || stage === "in_progress") counts.active += 1;
@@ -591,7 +638,7 @@ export default function MaintenanceJobsPage() {
     });
 
     return counts;
-  }, [jobs]);
+  }, [allJobs]);
 
   const activity = useMemo(() => {
     const vehicleById = new Map(vehicles.map((v) => [String(v.id), v]));
@@ -698,7 +745,11 @@ export default function MaintenanceJobsPage() {
         activityDate: record.updatedAt || record.createdAt,
       })),
       ...maintenanceBookings
-        .filter((booking) => !isInactiveMaintenanceBooking(booking.status))
+        .filter((booking) =>
+          !isInactiveMaintenanceBooking(booking.status) &&
+          String(booking.origin?.source || booking.origin || "").trim().toLowerCase() !== "workshop" &&
+          String(booking.type || "").trim().toUpperCase() !== "WORK"
+        )
         .map((booking) => ({
           activityId: `maintenanceBookings:${booking.id}`,
           sourceCollection: "maintenanceBookings",
@@ -714,9 +765,9 @@ export default function MaintenanceJobsPage() {
           status: booking.status || "booked",
           activityDate: booking.appointmentDate || booking.startDateISO || booking.startDate || booking.updatedAt || booking.createdAt,
         })),
-      ...jobs.map((job) => ({
-        activityId: `maintenanceJobs:${job.id}`,
-        sourceCollection: "maintenanceJobs",
+      ...allJobs.map((job) => ({
+        activityId: `${job.__collection || "maintenanceJobs"}:${job.id}`,
+        sourceCollection: job.__collection || "maintenanceJobs",
         sourceId: job.id,
         type: "job",
         maintenanceKind: String(job.type || "").toLowerCase(),
@@ -736,7 +787,7 @@ export default function MaintenanceJobsPage() {
       .filter((row) => !row.sourceId || !serviceRecordIds.has(String(row.sourceId)));
 
     return [...rows, ...legacyRows].sort((a, b) => getTimeValue(b.activityDate) - getTimeValue(a.activityDate));
-  }, [checkDocs, defectReports, jobs, maintenanceBookings, motPreChecks, serviceRecords, vehicleIssueDocs, vehiclePrepRecords, vehicles]);
+  }, [allJobs, checkDocs, defectReports, maintenanceBookings, motPreChecks, serviceRecords, vehicleIssueDocs, vehiclePrepRecords, vehicles]);
 
   const overviewStats = useMemo(() => {
     const openDefects = activity.filter((item) => isDefectLike(item) && String(item.status || "").toLowerCase() === "open").length;
@@ -813,9 +864,12 @@ export default function MaintenanceJobsPage() {
         setSaving(false);
         return;
       }
-      const docRef = await addDoc(collection(db, "maintenanceJobs"), tenantPayload(dataAccessState, nextPayload));
+      const createdRecord = await createMaintenanceWorkBooking({
+        job: nextPayload,
+        authState: dataAccessState,
+      });
       setForm((prev) => ({ ...prev, title: "", notes: "" }));
-      setFocusedJobId(docRef.id);
+      setFocusedJobId(createdRecord.id);
       setCreateMessage(`Job card created for ${createdTitle || "this asset"}. The new row is highlighted below.`);
     } catch (error) {
       console.error("Failed creating maintenance job:", error);
@@ -850,6 +904,13 @@ export default function MaintenanceJobsPage() {
 
   const saveJobDetails = async (job) => {
     if (!job?.id || savingJobId) return;
+    if (job.__collection === "maintenanceJobs") {
+      setJobErrors((previous) => ({
+        ...previous,
+        [job.id]: "Legacy maintenance job history is read-only. Create a canonical follow-up job for new work.",
+      }));
+      return;
+    }
 
     const patch = {
       ...buildWorkflowPatch(job.id),
@@ -860,7 +921,11 @@ export default function MaintenanceJobsPage() {
 
     setSavingJobId(job.id);
     try {
-      await updateDoc(doc(db, "maintenanceJobs", job.id), tenantPayload(dataAccessState, patch));
+      if (job.__collection === "maintenanceBookings") {
+        await updateMaintenanceWorkBooking({ bookingId: job.id, patch, authState: dataAccessState });
+      } else {
+        await updateDoc(doc(db, "maintenanceJobs", job.id), tenantPayload(dataAccessState, patch));
+      }
       setJobErrors((prev) => {
         const next = { ...prev };
         delete next[job.id];
@@ -879,6 +944,13 @@ export default function MaintenanceJobsPage() {
 
   const setJobStatus = async (job, nextRawStatus) => {
     if (!job?.id || savingJobId) return;
+    if (job.__collection === "maintenanceJobs") {
+      setJobErrors((previous) => ({
+        ...previous,
+        [job.id]: "Legacy maintenance job history is read-only. Create a canonical follow-up job for new work.",
+      }));
+      return;
+    }
 
     try {
       const currentStatus = normalizeWorkflowStageCompat(job?.status);
@@ -915,7 +987,24 @@ export default function MaintenanceJobsPage() {
       }
 
       setSavingJobId(job.id);
-      await updateDoc(doc(db, "maintenanceJobs", job.id), tenantPayload(dataAccessState, patch));
+      if (job.__collection === "maintenanceBookings") {
+        if (nextStatus === "completed") {
+          await updateMaintenanceWorkBooking({
+            bookingId: job.id,
+            patch: { ...patch, status: currentStatus },
+            authState: dataAccessState,
+          });
+          await completeMaintenanceBooking({
+            bookingId: job.id,
+            vehicleId: job.assetId || "",
+            authState: dataAccessState,
+          });
+        } else {
+          await updateMaintenanceWorkBooking({ bookingId: job.id, patch, authState: dataAccessState });
+        }
+      } else {
+        await updateDoc(doc(db, "maintenanceJobs", job.id), tenantPayload(dataAccessState, patch));
+      }
       setJobErrors((prev) => {
         const next = { ...prev };
         delete next[job.id];
@@ -1112,7 +1201,7 @@ export default function MaintenanceJobsPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                Showing {visibleJobs.length} / {jobs.length}
+                Showing {visibleJobs.length} / {allJobs.length}
               </span>
             </div>
           </div>

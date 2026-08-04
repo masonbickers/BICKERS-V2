@@ -7,41 +7,12 @@ import layoutStyles from "./DashboardPageImpl.styles.module.css";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { auth, db } from "@/app/utils/firebaseClient";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
+import { Calendar as BigCalendar } from "react-big-calendar";
+import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop/index.js";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
-const BigCalendar = dynamic(
-  () => import("react-big-calendar").then((m) => m.Calendar),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className={layoutStyles.extracted1}
-      >
-        Loading calendar...
-      </div>
-    ),
-  }
-);
-
-const DraggableBigCalendar = dynamic(
-  () =>
-    Promise.all([
-      import("react-big-calendar"),
-      import("react-big-calendar/lib/addons/dragAndDrop"),
-    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className={layoutStyles.extracted2}
-      >
-        Loading calendar...
-      </div>
-    ),
-  }
-);
+const DraggableBigCalendar = withDragAndDrop(BigCalendar);
 
 import { localizer } from "../utils/localizer";
 import {
@@ -57,24 +28,29 @@ import {
   buildActiveInspectionMetaByVehicle,
   buildBookedMetaByVehicle,
   buildMaintenanceBookingEvents,
-  buildMaintenanceJobEvents,
+  buildMaintenanceBookingDraftFromDueEvent,
+  dedupeMaintenanceCalendarEvents,
   getMaintenanceBookingKind,
   getMaintenanceDisplayType,
   isMaintenanceCalendarEventDraggable,
+  isMaintenanceMoveOutsideDueWeek,
   reconcileMaintenanceEventVehicle,
+  shouldExcludeFromWorkDiary,
 } from "../utils/maintenanceCalendar";
 import {
   buildHolidayCalendarTitle,
   buildHolidayEmployeeLabel,
 } from "../utils/dashboardHolidayLabels";
-import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
+import { isHgvComplianceVehicle } from "../utils/hgvCompliance";
+import {
+  rescheduleMaintenanceBooking,
+} from "../utils/maintenanceBookingService";
 import {
   collection,
   onSnapshot,
   addDoc,
   getDocs,
   doc,
-  updateDoc,
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
@@ -128,6 +104,12 @@ import {
   resolveDashboardVehicleDisplays,
   resolveDashboardVehicles,
 } from "@/app/utils/dashboardVehicleResolver";
+import {
+  buildSynchronizedVehicleStatus,
+  canonicalBookingStatus,
+  isInactiveBookingStatus,
+} from "@/app/utils/bookingLifecycle";
+import { buildBookingVehicleWarnings } from "@/app/utils/bookingVehicleWarnings";
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -338,42 +320,6 @@ const sameVehicleSnapshotRows = (left = [], right = []) => {
   }
   return true;
 };
-
-const buildInspectionRolloverSyncKey = (vehicles = [], maintenanceBookings = []) =>
-  stableCompareString({
-    vehicles: vehicles.map((vehicle) => ({
-      id: vehicle?.id || "",
-      lastMOT: vehicle?.lastMOT || "",
-      nextMOT: vehicle?.nextMOT || "",
-      motFreq: vehicle?.motFreq || "",
-      lastService: vehicle?.lastService || "",
-      nextService: vehicle?.nextService || "",
-      serviceFreq: vehicle?.serviceFreq || "",
-      eightWeekInspectionStart: vehicle?.eightWeekInspectionStart || "",
-      nextEightWeekInspection: vehicle?.nextEightWeekInspection || "",
-      eightWeekInspectionISOWeek: vehicle?.eightWeekInspectionISOWeek || "",
-      motHistory: vehicle?.motHistory || [],
-      serviceHistory: vehicle?.serviceHistory || [],
-      eightWeekInspectionHistory: vehicle?.eightWeekInspectionHistory || [],
-    })),
-    maintenanceBookings: maintenanceBookings.map((booking) => ({
-      id: booking?.id || "",
-      vehicleId: booking?.vehicleId || "",
-      type: booking?.type || "",
-      status: booking?.status || "",
-      provider: booking?.provider || "",
-      bookingRef: booking?.bookingRef || "",
-      notes: booking?.notes || "",
-      appointmentDateISO: booking?.appointmentDateISO || "",
-      startDateISO: booking?.startDateISO || "",
-      completedAtISO: booking?.completedAtISO || "",
-      sourceDueDateISO: booking?.sourceDueDateISO || "",
-      appointmentDate: booking?.appointmentDate || "",
-      startDate: booking?.startDate || "",
-      updatedAt: booking?.updatedAt || "",
-      createdAt: booking?.createdAt || "",
-    })),
-  });
 
 const sameCalendarDate = (a, b) => {
   const da = a instanceof Date ? a : new Date(a);
@@ -690,36 +636,6 @@ const buildMaintenanceBookingDropUpdates = (booking, event, nextStart) => {
   }
 
   return { updates, movedDateKeys, movedNextDateKeys };
-};
-
-const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
-  const targetStart = startOfLocalDay(nextStart);
-  if (!targetStart || Number.isNaN(targetStart.getTime())) return null;
-
-  const currentStart = startOfLocalDay(event?.appointmentDateISO || event?.start);
-  if (!currentStart || Number.isNaN(currentStart.getTime())) return null;
-
-  const dateKey = ymd(targetStart);
-  const currentDateKey = event?.appointmentDateISO || ymd(event?.start);
-  if (!dateKey || dateKey === currentDateKey) return null;
-
-  const maintenanceTypeIds = Array.isArray(event?.maintenanceTypeIds)
-    ? event.maintenanceTypeIds.map((item) => String(item || "").trim().toLowerCase())
-    : event?.maintenanceTypeId
-    ? [String(event.maintenanceTypeId).trim().toLowerCase()]
-    : [];
-
-  const updates = { updatedAt: serverTimestamp() };
-  const matchedWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.filter(
-    (workflow) => maintenanceTypeIds.includes(workflow.maintenanceTypeId)
-  );
-  matchedWorkflows.forEach((workflow) => {
-    updates[workflow.nextField] = dateKey;
-    updates[workflow.isoWeekField] = getIsoWeekLabel(dateKey);
-  });
-
-  if (!matchedWorkflows.length) return null;
-  return { updates, movedDateKeys: new Set([currentDateKey]), movedNextDateKeys: [dateKey] };
 };
 
 //  Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)
@@ -1176,7 +1092,7 @@ function CalendarEvent({ event, onViewQuote }) {
             <div className={layoutStyles.extracted12}>
               <div className={layoutStyles.extracted13}>
                 <span className={layoutStyles.extracted14}>
-                  {event.status}
+                  {isMaintenance ? event.bookingStatus || "Maintenance" : event.status}
                 </span>
 
                 {/*  UPDATED: if crewed, show "CREWED" only (no crew needed counts) */}
@@ -1229,7 +1145,7 @@ function CalendarEvent({ event, onViewQuote }) {
           {!isMaintenance && <span>{getBookingProductionLabel(event)}</span>}
           {isMaintenance && (
             <span className={layoutStyles.extracted18}>
-              {event.maintenanceTypeLabel || "MAINTENANCE"}
+              {event.title || event.maintenanceTypeLabel || "Maintenance"}
             </span>
           )}
 
@@ -1283,18 +1199,12 @@ function CalendarEvent({ event, onViewQuote }) {
 
               const bookingStatus = String(event.status || "").trim().toLowerCase();
               const isConfirmed = bookingStatus === "confirmed";
+              const bookingStatusLabel = canonicalBookingStatus(event.status);
+              const shouldUseJobStatusForVehicle =
+                isInactiveBookingStatus(bookingStatusLabel) ||
+                bookingStatusLabel === "Complete";
 
-              const isCancelled = [
-                "cancelled",
-                "canceled",
-                "complete",
-                "completed",
-                "cancel",
-                "postponed",
-                "dnh",
-              ].includes(bookingStatus);
-
-              if (isCancelled) {
+              if (shouldUseJobStatusForVehicle) {
                 return (
                   <span key={i}>
                     {name}
@@ -1587,6 +1497,8 @@ function maintenanceEventPropGetter(event) {
     bookingStatus === "complete" ||
     workflowStatus === "completed" ||
     workflowStatus === "complete";
+  const outsideLegalWeek =
+    isBookingBlock && isMaintenanceMoveOutsideDueWeek(event, event?.start);
 
   // Operational maintenance colours are fixed to the live palette from
   // 0e5b608; decorative global styling must not change their meaning.
@@ -1635,9 +1547,9 @@ function maintenanceEventPropGetter(event) {
       text = "#3b0764";
     }
   } else if (kind === "INSPECTION_BOOKING") {
-    bg = "#ede9fe";
-    border = "#7c3aed";
-    text = "#321064";
+    bg = "#f0fdfa";
+    border = "#14b8a6";
+    text = "#134e4a";
   } else if (kind === "MAINTENANCE_APPOINTMENT") {
     bg = "#f0fdfa";
     border = "#14b8a6";
@@ -1671,6 +1583,10 @@ function maintenanceEventPropGetter(event) {
     bg = "#d1fae5";
     border = "#86efac";
     text = "#065f46";
+  } else if (outsideLegalWeek) {
+    bg = "#fff7ed";
+    border = "#f97316";
+    text = "#7c2d12";
   }
 
   return {
@@ -1700,6 +1616,8 @@ function MaintenanceCalendarEvent({ event }) {
     bookingStatus === "complete" ||
     workflowStatus === "completed" ||
     workflowStatus === "complete";
+  const outsideLegalWeek =
+    !isCompleted && isMaintenanceMoveOutsideDueWeek(event, event?.start);
   const vehicleText = Array.isArray(event?.vehicles)
     ? event.vehicles
         .map((vehicle) => {
@@ -1738,7 +1656,7 @@ function MaintenanceCalendarEvent({ event }) {
       : kind === "PMI"
       ? "PMI inspection due"
       : kind === "INSPECTION_BOOKING"
-      ? "Inspection appointment"
+      ? `${event?.maintenanceTypeLabel || displayType} appointment`
       : kind === "MAINTENANCE_APPOINTMENT"
       ? event?.maintenanceTypeLabel || `${displayType} appointment`
       : kind === "MAINTENANCE_BOOKING"
@@ -1780,9 +1698,11 @@ function MaintenanceCalendarEvent({ event }) {
       : "";
   const cleanTitle = (() => {
     const title = String(event?.title || "Maintenance").trim();
-    if (kind === "MAINTENANCE_APPOINTMENT") {
+    if (kind === "MAINTENANCE_APPOINTMENT" || kind === "INSPECTION_BOOKING") {
       const suffix = ` - ${String(event?.maintenanceTypeLabel || "").trim()}`;
-      return suffix.trim() && title.endsWith(suffix) ? title.slice(0, -suffix.length) : title;
+      return suffix.trim() && title.toLowerCase().endsWith(suffix.toLowerCase())
+        ? title.slice(0, -suffix.length)
+        : title;
     }
     if (!isDueBlock) return title;
     return title
@@ -1819,7 +1739,11 @@ function MaintenanceCalendarEvent({ event }) {
       ? `Next Service Due: ${new Date(event.nextService).toLocaleDateString("en-GB")}`
       : "";
   const subline = isBookingBlock
-    ? event?.bookingStatus
+    ? outsideLegalWeek
+      ? "Warning — outside legal ISO week"
+      : kind === "INSPECTION_BOOKING" && bookingStatus === "booked"
+      ? "Appointment"
+      : event?.bookingStatus
       ? String(event.bookingStatus).replace(/^booked$/i, "Booked")
       : "Booked"
     : event?.booked && isDueBlock
@@ -2065,11 +1989,12 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [quoteViewer, setQuoteViewer] = useState(null);
 
   const [allMaintenanceBookings, setMaintenanceBookings] = useState([]);
-  const [allMaintenanceJobs, setMaintenanceJobs] = useState([]);
+  const [, setMaintenanceJobs] = useState([]);
   const [allVehiclesData, setVehiclesData] = useState([]);
   const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
   const [pendingMaintenanceDrop, setPendingMaintenanceDrop] = useState(null);
+  const [maintenanceDropDraft, setMaintenanceDropDraft] = useState(null);
   const [showCreateMaintenancePicker, setShowCreateMaintenancePicker] = useState(false);
   const [createMaintenanceVehicleId, setCreateMaintenanceVehicleId] = useState("");
   const [createMaintenanceType, setCreateMaintenanceType] = useState("WORK");
@@ -2107,12 +2032,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       ? allMaintenanceBookings.filter((item) => maintenanceIsUCrane(item, uCraneVehicleKeys))
       : allMaintenanceBookings,
     [allMaintenanceBookings, isUCraneMode, uCraneVehicleKeys]
-  );
-  const maintenanceJobs = useMemo(
-    () => isUCraneMode
-      ? allMaintenanceJobs.filter((item) => maintenanceIsUCrane(item, uCraneVehicleKeys))
-      : allMaintenanceJobs,
-    [allMaintenanceJobs, isUCraneMode, uCraneVehicleKeys]
   );
   const enquiryCount = useMemo(
     () => bookings.filter((booking) => String(booking.status || "").trim().toLowerCase() === "enquiry").length,
@@ -2193,7 +2112,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const authReady = !authAccess.loading && !!authAccess.user;
   const userEmail = authEmail || null;
   const userUid = authAccess.user?.uid || null;
-  const rolloverSyncRef = useRef({ key: "", inFlight: false });
   const adminDashboardFallbackRef = useRef({ inFlight: false, loaded: false });
 
   useEffect(() => {
@@ -2819,11 +2737,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     }
   };
 
-  const maintenanceJobEvents = useMemo(
-    () => buildMaintenanceJobEvents(maintenanceJobs),
-    [maintenanceJobs]
-  );
-
   const maintenanceBookedMetaByVehicle = useMemo(
     () => buildBookedMetaByVehicle(maintenanceBookings),
     [maintenanceBookings]
@@ -2832,30 +2745,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const activeInspectionMetaByVehicle = useMemo(() => {
     return buildActiveInspectionMetaByVehicle(maintenanceBookings);
   }, [maintenanceBookings]);
-
-  const inspectionRolloverSyncKey = useMemo(
-    () => buildInspectionRolloverSyncKey(vehiclesData, maintenanceBookings),
-    [vehiclesData, maintenanceBookings]
-  );
-
-  useEffect(() => {
-    if (!vehiclesData.length || !maintenanceBookings.length) return;
-    const syncState = rolloverSyncRef.current;
-    if (syncState.inFlight || syncState.key === inspectionRolloverSyncKey) return;
-
-    syncState.inFlight = true;
-    syncEightWeekInspectionRollovers({
-      db,
-      vehicles: vehiclesData,
-      maintenanceBookings,
-      loggerPrefix: "[dashboard] inspection rollover",
-    })
-      .catch(() => {})
-      .finally(() => {
-        rolloverSyncRef.current.key = inspectionRolloverSyncKey;
-        rolloverSyncRef.current.inFlight = false;
-      });
-  }, [inspectionRolloverSyncKey, maintenanceBookings, vehiclesData]);
 
   const motServiceDueEvents = useMemo(() => {
     if (!Array.isArray(vehiclesData) || !vehiclesData.length) return [];
@@ -2870,7 +2759,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const vehicleId = String(v.id || "").trim();
       if (!vehicleId) return;
 
-      const label = buildAssetLabel(v) || vehicleId;
+      const label = buildAssetLabel(v) || "Unknown vehicle";
       const motDue = getCanonicalDueDate(v, "mot");
       const serviceDue = getCanonicalDueDate(v, "service");
       const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS
@@ -2881,6 +2770,30 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           ...workflow,
           due: getCanonicalDueDate(v, workflow.dueKey),
         }));
+      const vehicleCreationAppointments = maintenanceWorkflows.flatMap((workflow) => {
+        const history = Array.isArray(v[workflow.historyField]) ? v[workflow.historyField] : [];
+        const explicitCompletionDates = new Set(
+          history
+            .filter(
+              (entry) =>
+                String(entry?.source || "").trim().toLowerCase() !== "vehicle_creation"
+            )
+            .map((entry) => ymd(entry?.completedDate))
+            .filter(Boolean)
+        );
+        return history
+          .filter(
+            (entry) =>
+              String(entry?.source || "").trim().toLowerCase() === "vehicle_creation"
+          )
+          .map((entry) => ymd(entry?.completedDate))
+          .filter((dateKey) => dateKey && !explicitCompletionDates.has(dateKey))
+          .map((dateKey) => ({
+            ...workflow,
+            due: dateKey,
+            source: "vehicle_creation",
+          }));
+      });
       const bookedMeta = maintenanceBookedMetaByVehicle[vehicleId] || null;
 
       if (motDue) {
@@ -2907,6 +2820,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             : "",
           maintenanceTypeLabel: "MOT",
           maintenanceTypeId: "mot",
+          canonicalItems: [{
+            maintenanceTypeId: "mot",
+            legalDueDateISO: ymd(motDue),
+            legalDueIsoWeek: getIsoWeekLabel(motDue),
+          }],
         });
       }
 
@@ -2927,20 +2845,45 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           bookingStatus: serviceBooked ? "Booked" : "",
           maintenanceTypeLabel: "SERVICE",
           maintenanceTypeId: "service",
+          canonicalItems: [{
+            maintenanceTypeId: "service",
+            legalDueDateISO: ymd(serviceDue),
+            legalDueIsoWeek: getIsoWeekLabel(serviceDue),
+          }],
         });
       }
 
-      const additionalAppointmentsByDate = maintenanceWorkflows.reduce((acc, item) => {
+      const additionalAppointmentsByDate = [
+        ...maintenanceWorkflows,
+        ...vehicleCreationAppointments,
+      ].reduce((acc, item) => {
         const dateKey = ymd(item.due);
         if (!dateKey) return acc;
-        if (!acc[dateKey]) acc[dateKey] = [];
-        acc[dateKey].push(item);
+        const combineByWeek = ["pmi", "brake_test"].includes(item.maintenanceTypeId);
+        const isoWeek = getIsoWeekLabel(dateKey);
+        const groupKey = combineByWeek ? `iso:${isoWeek}` : `date:${dateKey}`;
+        if (!acc[groupKey]) {
+          acc[groupKey] = { dateKey, isoWeek, items: [] };
+        }
+        if (dateKey < acc[groupKey].dateKey) acc[groupKey].dateKey = dateKey;
+        if (!acc[groupKey].items.some((existing) => existing.key === item.key)) {
+          acc[groupKey].items.push(item);
+        }
         return acc;
       }, {});
 
-      Object.entries(additionalAppointmentsByDate).forEach(([dateKey, items]) => {
+      Object.values(additionalAppointmentsByDate).forEach(({ dateKey, isoWeek, items }) => {
         const date = startOfLocalDay(dateKey);
         if (!date || !items.length) return;
+        const inspectionMeta = activeInspectionMetaByVehicle[vehicleId] || null;
+        const isPmiOrBrakeAppointment = items.every((item) =>
+          ["pmi", "brake_test"].includes(item.maintenanceTypeId)
+        );
+        const alreadyBookedInWeek =
+          isPmiOrBrakeAppointment &&
+          (inspectionMeta?.bookedWeeks?.has(isoWeek) ||
+            inspectionMeta?.sourceDueWeeks?.has(isoWeek));
+        if (alreadyBookedInWeek) return;
         const appointmentLabel = `${items.map((item) => item.label).join(" / ")} appointment`;
         out.push({
           id: `additional_maintenance_appointment__${vehicleId}__${dateKey}__${items
@@ -2961,29 +2904,55 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           maintenanceTypes: items.map((item) => item.label),
           maintenanceKeys: items.map((item) => item.key),
           maintenanceTypeIds: items.map((item) => item.maintenanceTypeId),
+          canonicalItems: items.map((item) => ({
+            maintenanceTypeId: item.maintenanceTypeId,
+            legalDueDateISO: ymd(item.due),
+            legalDueIsoWeek: getIsoWeekLabel(item.due),
+          })),
+          sourceDueIsoWeek: isoWeek,
           requiresMaintenanceDocuments: true,
           requiresBrakeTestDocument: items.some((item) => item.key === "brake_test"),
           requiresPmiDocument: items.some((item) => item.key === "pmi"),
         });
       });
 
-      const completedAppointmentsByDate = maintenanceWorkflows.flatMap((workflow) => [
-        {
-          key: workflow.key,
-          maintenanceTypeId: workflow.maintenanceTypeId,
-          date: v[workflow.lastField],
-          label: workflow.label,
-          completedAt: "",
-        },
-        ...(Array.isArray(v[workflow.historyField]) ? v[workflow.historyField] : []).map((item) => ({
+      const completedAppointmentsByDate = maintenanceWorkflows.flatMap((workflow) => {
+        const history = Array.isArray(v[workflow.historyField]) ? v[workflow.historyField] : [];
+        const explicitHistory = history.filter(
+          (item) => String(item?.source || "").trim().toLowerCase() !== "vehicle_creation"
+        );
+        const rows = explicitHistory.map((item) => ({
           key: workflow.key,
           maintenanceTypeId: workflow.maintenanceTypeId,
           date: item?.completedDate,
           label: workflow.label,
           completedAt: item?.completedAt || "",
           documents: Array.isArray(item?.documents) ? item.documents : [],
-        })),
-      ]).reduce((acc, item) => {
+          source: "completion_history",
+        }));
+
+        const recordedDate = ymd(v?.[workflow.lastField]);
+        const hasExplicitRecord = explicitHistory.some(
+          (item) => ymd(item?.completedDate) === recordedDate
+        );
+        const isVehicleCreationSeed = history.some(
+          (item) =>
+            String(item?.source || "").trim().toLowerCase() === "vehicle_creation" &&
+            ymd(item?.completedDate) === recordedDate
+        );
+        if (recordedDate && !hasExplicitRecord && !isVehicleCreationSeed) {
+          rows.push({
+            key: workflow.key,
+            maintenanceTypeId: workflow.maintenanceTypeId,
+            date: recordedDate,
+            label: workflow.label,
+            completedAt: recordedDate,
+            documents: [],
+            source: "vehicle_last_completed_date",
+          });
+        }
+        return rows;
+      }).reduce((acc, item) => {
         const dateKey = ymd(item.date);
         if (!dateKey) return acc;
         if (!acc[dateKey]) acc[dateKey] = [];
@@ -3038,12 +3007,23 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           hasBrakeTestDocument: brakeDocuments.length > 0,
           hasPmiDocument: pmiDocuments.length > 0,
           completedAt: items.map((item) => item.completedAt).filter(Boolean).sort().at(-1) || dateKey,
+          completionSource: items.every(
+            (item) => item.source === "vehicle_last_completed_date"
+          )
+            ? "vehicle_last_completed_date"
+            : "completion_history",
+          plannerSourceLabel: items.every(
+            (item) => item.source === "vehicle_last_completed_date"
+          )
+            ? "Recorded vehicle completion date"
+            : "Completed maintenance history",
+          disableBookingActions: true,
         });
       });
 
       const inspectionAnchor =
         parseLocalDate(v.eightWeekInspectionStart) || parseLocalDate(v.nextEightWeekInspection);
-      if (inspectionAnchor) {
+      if (inspectionAnchor && !isHgvComplianceVehicle(v)) {
         let occurrence = startOfLocalDay(inspectionAnchor);
         while (occurrence.getTime() < windowStart.getTime()) {
           occurrence = addWeeks(occurrence, 8);
@@ -3105,13 +3085,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       : bookings;
     return [
       ...eventsByJobNumber(sourceBookings, maintenanceBookings),
-      ...maintenanceJobEvents,
     ];
   }, [
     bookings,
     deletedBookings,
     maintenanceBookings,
-    maintenanceJobEvents,
     canSeeDeletedOnCalendar,
   ]);
 
@@ -3119,19 +3097,64 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     return allEventsRaw.map((ev) => {
       const normalizedVehicles = normalizeVehicles(ev.vehicles);
       const displayVehicles = normalizeVehicleDisplays(ev.vehicles);
-      const shouldShowRisk = isCurrentOrFutureJobEvent(ev);
+      const inactiveBooking = isInactiveBookingStatus(ev.status);
+      const shouldShowRisk = !inactiveBooking && isCurrentOrFutureJobEvent(ev);
       const risk = shouldShowRisk
         ? getVehicleRisk(normalizedVehicles, {
             offRoadTracking: Boolean(ev?.offRoadTracking),
           })
         : { risky: false, reasons: [] };
+      const bookingLastDay = new Date(ev.end);
+      bookingLastDay.setDate(bookingLastDay.getDate() - 1);
+      const bookingVehicleWarnings = shouldShowRisk
+        ? buildBookingVehicleWarnings(normalizedVehicles, {
+            bookingDate: bookingLastDay,
+          })
+        : [];
+      const riskReasons = [...risk.reasons, ...bookingVehicleWarnings];
       const recce = reccesByBooking[ev.id] || null;
+      const vehicleStatus = inactiveBooking
+        ? buildSynchronizedVehicleStatus(
+            { ...ev, vehicles: displayVehicles },
+            ev.status
+          )
+        : ev.vehicleStatus;
+      const inactiveCrew = inactiveBooking
+        ? {
+            employees: [],
+            employeesByDate: {},
+            employeeNames: [],
+            employeeCodes: [],
+            crew: [],
+            crewMembers: [],
+            staff: [],
+            assignedEmployeeCodes: [],
+            employeeAssignmentsByDate: {},
+            employeeCodesByDate: {},
+            assignedEmployeeCodesByDate: {},
+            crewRolesNeeded: [],
+            rolesNeeded: [],
+            requiredRoles: [],
+            crewRequirements: {},
+            isCrewed: false,
+            crewNeeded: null,
+            crewRequired: null,
+            crewCount: null,
+            numberOfCrew: null,
+            crewSize: null,
+            requiredCrewCount: null,
+            requiredCrew: null,
+            allocatedCrewCount: 0,
+          }
+        : {};
 
       return {
         ...ev,
+        ...inactiveCrew,
         vehicles: displayVehicles,
-        isRisky: risk.risky,
-        riskReasons: risk.reasons,
+        vehicleStatus,
+        isRisky: riskReasons.length > 0,
+        riskReasons,
         hasRecce: !!recce,
         recceStatus: recce?.status || null,
         recceNotes: recce?.notes || "",
@@ -3159,9 +3182,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   // Split by type for each calendar
   const workDiaryEvents = useMemo(() => {
     return allEvents.filter((e) => {
-      if (e.status === "Holiday" || e.status === "Note" || e.status === "Maintenance") {
+      if (e.status === "Holiday" || e.status === "Note") {
         return false;
       }
+
+      if (shouldExcludeFromWorkDiary(e)) return false;
 
       const statusLC = String(e.status || "").toLowerCase();
       if (!showDeletedInView && statusLC === "deleted") return false;
@@ -3269,8 +3294,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         };
       });
 
-    return [...enrichedMaintenance, ...motServiceDueEvents];
-  }, [allEvents, motServiceDueEvents, vehiclesData]);
+    return dedupeMaintenanceCalendarEvents(enrichedMaintenance);
+  }, [allEvents, vehiclesData]);
 
   const maintenanceDraggableAccessor = useCallback(
     (event) => isMaintenanceCalendarEventDraggable(event),
@@ -3288,22 +3313,26 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         return;
       }
 
-      if (event?.kind === "MAINTENANCE_APPOINTMENT") {
-        const vehicleId = String(event?.vehicleId || "").trim();
-        const dropChange = buildVehicleMaintenanceAppointmentDropUpdates(event, start);
-        if (!vehicleId || !dropChange?.updates) {
-          alert("Could not identify this vehicle appointment to move.");
+      if (event?.__collection === "vehicleDueDates") {
+        const draft = buildMaintenanceBookingDraftFromDueEvent(event, start);
+        if (!draft) {
+          alert("Could not create a maintenance booking from this due reminder.");
           return;
         }
+        setMaintenanceDropDraft(draft);
+        return;
+      }
 
-        setPendingMaintenanceDrop({
-          targetCollection: "vehicles",
-          vehicleId,
-          title: String(event?.title || event?.maintenanceTypeLabel || "this appointment").trim(),
-          fromLabel: formatDropConfirmRange([...dropChange.movedDateKeys].filter(Boolean)),
-          toLabel: formatDropConfirmRange(dropChange.movedNextDateKeys || [ymd(start)].filter(Boolean)),
-          updates: dropChange.updates,
-        });
+      const recordStatus = String(event?.recordStatus || event?.bookingStatus || "")
+        .trim()
+        .toLowerCase();
+      if (event?.__collection === "maintenanceBookings" && recordStatus === "requested") {
+        const draft = buildMaintenanceBookingDraftFromDueEvent(event, start);
+        if (!draft) {
+          alert("Could not book this maintenance requirement.");
+          return;
+        }
+        setMaintenanceDropDraft(draft);
         return;
       }
 
@@ -3337,6 +3366,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         fromLabel: formatDropConfirmRange(fromDates),
         toLabel: formatDropConfirmRange(toDates),
         updates: dropChange.updates,
+        requiresReason: isMaintenanceMoveOutsideDueWeek(event, start),
       });
     },
     [maintenanceBookings]
@@ -3349,36 +3379,16 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const confirmPendingMaintenanceDrop = useCallback(async () => {
     if (!pendingMaintenanceDrop?.updates) return;
 
-    if (pendingMaintenanceDrop.targetCollection === "vehicles") {
-      const vehicleId = String(pendingMaintenanceDrop.vehicleId || "").trim();
-      if (!vehicleId) return;
-
-      const previousVehicles = vehiclesData;
-      const optimisticUpdates = { ...pendingMaintenanceDrop.updates, updatedAt: new Date().toISOString() };
-      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
-      setVehiclesData((current) =>
-        (current || []).map((vehicle) =>
-          String(vehicle?.id || "") === vehicleId ? { ...vehicle, ...optimisticUpdates } : vehicle
-        )
-      );
-
-      try {
-        await updateDoc(doc(db, "vehicles", vehicleId), pendingMaintenanceDrop.updates);
-        setPendingMaintenanceDrop(null);
-      } catch (error) {
-        console.error("Failed to move vehicle maintenance appointment:", error);
-        setVehiclesData(previousVehicles);
-        setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
-        alert(error?.message || "Could not move this vehicle maintenance appointment.");
-      }
-      return;
-    }
-
     if (!pendingMaintenanceDrop?.bookingId) return;
 
     const { bookingId, updates } = pendingMaintenanceDrop;
+    const existingBooking = (maintenanceBookings || []).find(
+      (booking) => String(booking?.id || "") === String(bookingId)
+    ) || {};
+    const reason = String(pendingMaintenanceDrop.reason || "").trim();
+    if (pendingMaintenanceDrop.requiresReason && !reason) return;
     const previousBookings = maintenanceBookings;
-    const optimisticUpdates = { ...updates, updatedAt: new Date().toISOString() };
+    const optimisticUpdates = { ...updates, scheduleExceptionReason: reason, updatedAt: new Date().toISOString() };
     setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
     setMaintenanceBookings((current) =>
       (current || []).map((booking) =>
@@ -3387,7 +3397,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     );
 
     try {
-      await updateDoc(doc(db, "maintenanceBookings", bookingId), updates);
+      await rescheduleMaintenanceBooking({
+        bookingId,
+        booking: existingBooking,
+        updates,
+        reason,
+        authState: dataAccessState,
+      });
       setPendingMaintenanceDrop(null);
     } catch (error) {
       console.error("Failed to move maintenance booking:", error);
@@ -3395,7 +3411,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
       alert(error?.message || "Could not move this maintenance booking.");
     }
-  }, [maintenanceBookings, pendingMaintenanceDrop, vehiclesData]);
+  }, [dataAccessState, maintenanceBookings, pendingMaintenanceDrop]);
 
   const formatSearchBookingDates = (booking) => {
     const formatDate = (value) => {
@@ -3785,6 +3801,15 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   return;
                 }
 
+                if (e.status === "Maintenance") {
+                  if (e.__collection === "maintenanceJobs") {
+                    router.push(`/maintenance-jobs?jobId=${encodeURIComponent(e.id)}`);
+                    return;
+                  }
+                  setSelectedMaintenanceEvent(e);
+                  return;
+                }
+
                 const bookingId = e.__bookingId || e.id;
                 if (bookingId) {
                   if (e.__collection === "deletedBookings") {
@@ -4080,7 +4105,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
                 <div className={layoutStyles.extracted88}>
                   <div className={layoutStyles.extracted89}>
-                    You changed the date of this occurrence of{" "}
+                    Move the maintenance appointment{" "}
                     <span className={layoutStyles.extracted90}>&quot;{pendingMaintenanceDrop.title}&quot;</span>.
                   </div>
 
@@ -4098,10 +4123,25 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   </div>
 
                   <div className={layoutStyles.extracted98}>
-                    To change all dates, open the series.
+                    <label htmlFor="maintenance-drop-reason">
+                      Reason{pendingMaintenanceDrop.requiresReason ? " (required outside the legal due week)" : " (optional)"}
+                    </label>
+                    <Input
+                      id="maintenance-drop-reason"
+                      value={pendingMaintenanceDrop.reason || ""}
+                      onChange={(event) =>
+                        setPendingMaintenanceDrop((current) =>
+                          current ? { ...current, reason: event.target.value } : current
+                        )
+                      }
+                      placeholder="Why is this appointment moving?"
+                      disabled={pendingMaintenanceDrop.saving}
+                    />
                   </div>
                   <div className={layoutStyles.extracted99}>
-                    Do you want to change just this one?
+                    {pendingMaintenanceDrop.requiresReason
+                      ? "This date is outside the legal ISO due week. The legal deadline will not move."
+                      : "Move this appointment?"}
                   </div>
                 </div>
 
@@ -4114,15 +4154,18 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                     disabled={pendingMaintenanceDrop.saving}
                     className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
                   >
-                    No
+                    Cancel
                   </Button>
                   <Button bare
                     type="button"
                     onClick={confirmPendingMaintenanceDrop}
-                    disabled={pendingMaintenanceDrop.saving}
+                    disabled={
+                      pendingMaintenanceDrop.saving ||
+                      (pendingMaintenanceDrop.requiresReason && !String(pendingMaintenanceDrop.reason || "").trim())
+                    }
                     className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`}
                   >
-                    {pendingMaintenanceDrop.saving ? "Saving..." : "Yes"}
+                    {pendingMaintenanceDrop.saving ? "Saving..." : "Move appointment"}
                   </Button>
                 </div>
               </div>
@@ -4282,6 +4325,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             setCreateMaintenanceType("WORK");
             setCreateMaintenanceEquipment("");
           }}
+        />
+      )}
+
+      {maintenanceDropDraft && (
+        <MaintenanceBookingForm
+          {...maintenanceDropDraft}
+          onClose={() => setMaintenanceDropDraft(null)}
+          onSaved={() => setMaintenanceDropDraft(null)}
         />
       )}
 

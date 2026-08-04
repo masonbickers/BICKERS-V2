@@ -20,6 +20,17 @@ export function mergeMaintenanceHistory(existing = [], entry = null) {
     bookingRef: String(entry.bookingRef || "").trim(),
     notes: String(entry.notes || "").trim(),
     recordedAt: String(entry.recordedAt || "").trim(),
+    completedAt: String(entry.completedAt || entry.recordedAt || "").trim(),
+    completedBy:
+      entry.completedBy && typeof entry.completedBy === "object"
+        ? {
+            uid: String(entry.completedBy.uid || "").trim(),
+            name: String(entry.completedBy.name || entry.completedBy.email || "").trim(),
+            email: String(entry.completedBy.email || "").trim(),
+          }
+        : null,
+    source: String(entry.source || "").trim(),
+    documents: Array.isArray(entry.documents) ? entry.documents : [],
   };
 
   const withoutDuplicate = base.filter((item) => {
@@ -43,4 +54,33 @@ export function mergeMaintenanceHistory(existing = [], entry = null) {
 
 export function mergeInspectionHistory(existing = [], entry = null) {
   return mergeMaintenanceHistory(existing, entry);
+}
+
+export function isCompletedMaintenanceBooking(booking, { type = "", vehicleId = "" } = {}) {
+  if (String(booking?.status || "").trim().toLowerCase() !== "completed") return false;
+  if (type && String(booking?.type || "").trim().toUpperCase() !== String(type).trim().toUpperCase()) {
+    return false;
+  }
+  if (vehicleId && String(booking?.vehicleId || "").trim() !== String(vehicleId).trim()) {
+    return false;
+  }
+  return true;
+}
+
+export function reconcileBookingCompletionHistory(existing = [], bookings = []) {
+  const bookingsById = new Map(
+    (Array.isArray(bookings) ? bookings : [])
+      .filter((booking) => String(booking?.id || "").trim())
+      .map((booking) => [String(booking.id).trim(), booking])
+  );
+  const removed = [];
+  const history = (Array.isArray(existing) ? existing : []).filter((entry) => {
+    const bookingId = String(entry?.bookingId || "").trim();
+    if (!bookingId || !bookingsById.has(bookingId)) return true;
+    const booking = bookingsById.get(bookingId);
+    if (isCompletedMaintenanceBooking(booking)) return true;
+    removed.push(entry);
+    return false;
+  });
+  return { history, removed };
 }

@@ -109,6 +109,7 @@ export const SHARED_FLEET_PATH_PREFIXES = [
   "/edit-equipment",
   "/mot-overview",
   "/mot-history-sync",
+  "/hgv-compliance",
   "/maintenance-jobs",
   "/service-overview",
   "/usage-overview",
@@ -151,8 +152,8 @@ export const DEFAULT_FEATURE_FLAGS = {
 export const MODULE_ROUTE_PREFIXES = {
   diary: ["/dashboard", "/booking-page"],
   bookings: ["/bookings", "/create-booking", "/edit-booking", "/booking-drafts", "/book-work", "/deleted-bookings", "/dashboard", "/booking-page"],
-  workshop: ["/workshop", "/service", "/service-home", "/service-overview", "/maintenance", "/maintenance-jobs", "/mot-overview", "/mot-history-sync", "/defects", "/general", "/immediate", "/usage-overview"],
-  vehicles: ["/vehicle-home", "/vehicles", "/vehicle-edit", "/vehicle-info", "/vehicle-activity", "/vehicle-checks", "/vehicle-checkid", "/equipment", "/add-equipment", "/edit-equipment", "/mot-overview", "/mot-history-sync", "/preplist", "/preplist-dashboard"],
+  workshop: ["/workshop", "/service", "/service-home", "/service-overview", "/maintenance", "/maintenance-jobs", "/mot-overview", "/mot-history-sync", "/hgv-compliance", "/defects", "/general", "/immediate", "/usage-overview"],
+  vehicles: ["/vehicle-home", "/vehicles", "/vehicle-edit", "/vehicle-info", "/vehicle-activity", "/vehicle-checks", "/vehicle-checkid", "/equipment", "/add-equipment", "/edit-equipment", "/mot-overview", "/mot-history-sync", "/hgv-compliance", "/preplist", "/preplist-dashboard"],
   equipment: ["/equipment", "/add-equipment", "/edit-equipment"],
   hr: ["/hr", "/hr-policies", "/holiday-allowance", "/holiday-form", "/holiday-usage", "/sick-leave", "/timesheets", "/timesheet-id"],
   employees: ["/employees", "/employee-home", "/add-employee", "/edit-employee"],

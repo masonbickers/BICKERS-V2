@@ -3,7 +3,8 @@
 import layoutStyles from "./page.styles.module.css";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
+import { Calendar as BigCalendar } from "react-big-calendar";
+import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop/index.js";
 import {
   BarChart,
   Bar,
@@ -49,7 +50,6 @@ import {
   isInactiveMaintenanceBooking,
   startOfLocalDay,
 } from "../utils/maintenanceCalendar";
-import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import { calendarDayDifference } from "../utils/dateNormalization.mjs";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
@@ -71,31 +71,7 @@ import {
 import { db, auth } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
-const DraggableBigCalendar = dynamic(
-  () =>
-    Promise.all([
-      import("react-big-calendar"),
-      import("react-big-calendar/lib/addons/dragAndDrop"),
-    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        style={{
-          minHeight: 620,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: UI.muted,
-          fontSize: 14,
-          fontWeight: 700,
-        }}
-      >
-        Loading calendar...
-      </div>
-    ),
-  }
-);
+const DraggableBigCalendar = withDragAndDrop(BigCalendar);
 
 const VEHICLE_CHECK_PATH = "/vehicle-checks";
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -677,6 +653,14 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   const dateKey = ymdDate(targetStart);
   const currentDateKey = event?.appointmentDateISO || ymdDate(event?.start);
   if (!dateKey || dateKey === currentDateKey) return null;
+  const sourceIsoWeek =
+    String(event?.sourceDueIsoWeek || event?.isoWeek || "").trim() ||
+    getIsoWeekLabel(currentDateKey);
+  if (sourceIsoWeek && getIsoWeekLabel(dateKey) !== sourceIsoWeek) {
+    return {
+      error: `Move this appointment within ${sourceIsoWeek}. Moving it to another ISO week would change the compliance schedule.`,
+    };
+  }
 
   const maintenanceTypeIds = Array.isArray(event?.maintenanceTypeIds)
     ? event.maintenanceTypeIds.map((item) => String(item || "").trim().toLowerCase())
@@ -1340,7 +1324,7 @@ export default function VehiclesHomePage() {
 
       const map = {};
       for (const v of list) {
-        map[v.id] = v.assetLabel || v.id;
+        map[v.id] = v.assetLabel || "Unknown vehicle";
       }
 
       setVehiclesRaw(list);
@@ -1593,7 +1577,7 @@ export default function VehiclesHomePage() {
         getVehicleLabel: (booking) => {
           const vehicleId = booking.vehicleId || null;
           return vehicleId
-            ? vehicleNameMap[vehicleId] || booking.vehicleLabel || vehicleId
+            ? vehicleNameMap[vehicleId] || booking.vehicleLabel || booking.vehicleName || "Unknown vehicle"
             : booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle";
         },
         groupConsecutiveDates: true,
@@ -1612,7 +1596,7 @@ export default function VehiclesHomePage() {
       buildVehicleDueEvents(vehiclesRaw, {
         bookedMetaByVehicle: bookedMetaByVehicleShared,
         getVehicleLabel: (vehicle) =>
-          vehicleNameMap[vehicle.id] || buildVehicleLabelFromObject(vehicle) || vehicle.id,
+          vehicleNameMap[vehicle.id] || buildVehicleLabelFromObject(vehicle) || "Unknown vehicle",
         isApptAfterExpiry,
       }),
     [vehiclesRaw, vehicleNameMap, bookedMetaByVehicleShared]
@@ -1647,6 +1631,10 @@ export default function VehiclesHomePage() {
       if (event?.kind === "MAINTENANCE_APPOINTMENT") {
         const vehicleId = String(event?.vehicleId || "").trim();
         const dropChange = buildVehicleMaintenanceAppointmentDropUpdates(event, start);
+        if (dropChange?.error) {
+          alert(dropChange.error);
+          return;
+        }
         if (!vehicleId || !dropChange?.updates) {
           alert("Could not identify this vehicle appointment to move.");
           return;
@@ -2479,9 +2467,15 @@ export default function VehiclesHomePage() {
                 <h2 style={{ ...titleMd, fontSize: 15 }}>Fleet workspaces</h2>
                 <div style={hint}>Common vehicle actions grouped by how the workshop uses them.</div>
               </div>
-              <button type="button" style={btn("ghost")} onClick={() => router.push(VEHICLE_CHECK_PATH)}>
-                Open vehicle check
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" style={btn("primary")} onClick={() => router.push("/hgv-compliance")}>
+                  <CalendarCheck size={15} />
+                  HGV inspection planner
+                </button>
+                <button type="button" style={btn("ghost")} onClick={() => router.push(VEHICLE_CHECK_PATH)}>
+                  Open vehicle check
+                </button>
+              </div>
             </div>
 
             <div className={`vehicle-home-ops-grid ${layoutStyles.extracted14}`} >
@@ -2499,7 +2493,7 @@ export default function VehiclesHomePage() {
             </div>
           </div>
 
-          <aside style={{ display: "grid", gap: UI.gap }}>
+          <aside style={{ display: "grid", gap: UI.gap, minWidth: 0 }}>
             <RiskRing
               title="MOT Compliance"
               total={motCounts.total}
@@ -2523,31 +2517,6 @@ export default function VehiclesHomePage() {
                 <button type="button" style={btn("pill")} onClick={() => router.push(ACTIVITY_HISTORY_PATH)}>
                   View all
                 </button>
-              </div>
-              <div className={layoutStyles.extracted16}>
-                {recentActivity.slice(0, 4).map((activity) => (
-                  <button
-                    key={activity.activityId}
-                    type="button"
-                    onClick={() => activity.route && router.push(activity.route)}
-                    style={{
-                      border: "1px solid var(--color-brand-soft)",
-                      background: "var(--color-surface-subtle)",
-                      borderRadius: 8,
-                      padding: "8px 9px",
-                      textAlign: "left",
-                      cursor: activity.route ? "pointer" : "default",
-                    }}
-                  >
-                    <div style={{ fontSize: 12.5, fontWeight: 850, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {activity.vehicleName}
-                    </div>
-                    <div style={{ fontSize: 12, color: UI.muted, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {activity.title}
-                    </div>
-                  </button>
-                ))}
-                {recentActivity.length === 0 ? <div style={{ color: UI.muted, fontSize: 13 }}>No recent activity yet.</div> : null}
               </div>
             </div>
           </aside>

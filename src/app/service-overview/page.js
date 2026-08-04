@@ -698,7 +698,12 @@ export default function ServiceOverviewPage() {
                 bookedQueue.map((booking) => (
                   <QueueItem
                     key={booking.id}
-                    title={booking.vehicleLabel || booking.vehicleName || booking.vehicleId || "Vehicle"}
+                    title={
+                      serviceRows.find((vehicle) => String(vehicle.id) === String(booking.vehicleId || ""))?.name ||
+                      booking.vehicleLabel ||
+                      booking.vehicleName ||
+                      "Unknown vehicle"
+                    }
                     meta={`${bookingDateLabel(booking)}${booking.provider ? ` - ${booking.provider}` : ""}`}
                     status={booking.status || "Booked"}
                     tone="booked"

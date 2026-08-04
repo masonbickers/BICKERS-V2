@@ -196,6 +196,7 @@ export default function HeaderSidebarLayout({
 
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
+  const [maintenanceAlertCount, setMaintenanceAlertCount] = useState(0);
 
   const unsubHrRef = useRef(null);
   const contentRef = useRef(null);
@@ -338,6 +339,23 @@ export default function HeaderSidebarLayout({
   }, [accessReady, canSeeHrBadge, isEnabled, user, userDoc]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!user || !accessReady || !isEnabled) {
+      setMaintenanceAlertCount(0);
+      return undefined;
+    }
+    user.getIdToken().then((token) => fetch("/api/maintenance/alerts", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })).then((response) => response.ok ? response.json() : null).then((data) => {
+      if (!cancelled) setMaintenanceAlertCount(Number(data?.count || 0));
+    }).catch(() => {
+      if (!cancelled) setMaintenanceAlertCount(0);
+    });
+    return () => { cancelled = true; };
+  }, [accessReady, isEnabled, user]);
+
+  useEffect(() => {
     setPermissionIssue(null);
 
     const samePage = (detail = {}) => {
@@ -394,6 +412,7 @@ export default function HeaderSidebarLayout({
         { label: "HR / Timesheets", path: "/hr" },
         { label: contentLabel("navigation.employees"), path: "/employee-home" },
         { label: `${contentLabel("navigation.vehicles")} & ${contentLabel("navigation.equipment")}`, path: "/vehicle-home" },
+        { label: "Maintenance alerts", path: "/maintenance-alerts" },
       ],
     },
     {
@@ -739,6 +758,7 @@ export default function HeaderSidebarLayout({
 
                   const isHrItem = path === "/hr";
                   const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
+                  const showMaintenanceBadge = path === "/maintenance-alerts" && maintenanceAlertCount > 0;
                   return (
                     <Button bare
                       key={label}
@@ -747,6 +767,8 @@ export default function HeaderSidebarLayout({
                       title={
                         showHrBadge
                           ? `${label}: ${hrNotif.requests} holiday request(s), ${hrNotif.deletes} delete request(s)`
+                          : showMaintenanceBadge
+                            ? `${label}: ${maintenanceAlertCount} open alert(s)`
                           : label
                       }
                     >
@@ -762,6 +784,9 @@ export default function HeaderSidebarLayout({
                               {hrBadgeTotal}
                             </span>
                           )}
+                          {showMaintenanceBadge && (
+                            <span className={layoutStyles.extracted10}>{maintenanceAlertCount}</span>
+                          )}
                         </span>
                       ) : (
                         <span
@@ -775,6 +800,9 @@ export default function HeaderSidebarLayout({
                         <span
                           className={layoutStyles.extracted12}
                         />
+                      )}
+                      {isCollapsed && showMaintenanceBadge && (
+                        <span className={layoutStyles.extracted12} />
                       )}
                     </Button>
                   );

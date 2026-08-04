@@ -35,7 +35,6 @@ import {
   buildMaintenanceJobEvents,
   buildVehicleDueEvents,
 } from "../utils/maintenanceCalendar";
-import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
   AlertTriangle,
   ArrowRight,
@@ -238,7 +237,7 @@ export default function HomePage() {
     const map = new Map();
     vehicles.forEach((v) => {
       if (!v?.id) return;
-      const label = String(v.name || v.registration || v.reg || v.id).trim();
+      const label = String(v.name || v.registration || v.reg || "Unknown vehicle").trim();
       map.set(String(v.id).trim(), label);
     });
     return map;
@@ -247,7 +246,8 @@ export default function HomePage() {
   const vehicleLabel = useCallback((v) => {
     if (v && typeof v === "object") return v.name || v.registration || v.reg || "Vehicle";
     const key = String(v || "").trim();
-    return vehicleNameById.get(key) || key || "Vehicle";
+    const legacyLabel = key && (key.length < 16 || /\s/.test(key)) ? key : "Unknown vehicle";
+    return vehicleNameById.get(key) || legacyLabel || "Vehicle";
   }, [vehicleNameById]);
 
   // Fetch data
@@ -358,15 +358,6 @@ export default function HomePage() {
     });
     return () => { cancelled = true; };
   }, [accessKey, dataAccessState, reloadVersion]);
-
-  useEffect(() => {
-    syncEightWeekInspectionRollovers({
-      db,
-      vehicles,
-      maintenanceBookings,
-      loggerPrefix: "[home] inspection rollover",
-    }).catch(() => {});
-  }, [vehicles, maintenanceBookings]);
 
   /* ────────────────────────────────────────────────────────────────────────
      Derived: events + windows

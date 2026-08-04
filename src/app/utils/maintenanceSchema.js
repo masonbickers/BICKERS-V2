@@ -64,6 +64,9 @@ const OUT_OF_USE_STATUS_VALUES = new Set([
 export const ACTIVE_VEHICLE_STATUS = "Active";
 export const VOR_VEHICLE_STATUS = "VOR";
 
+export const isSelectableVehicleOperatingStatus = (value) =>
+  [ACTIVE_VEHICLE_STATUS, VOR_VEHICLE_STATUS].includes(String(value || "").trim());
+
 export const normalizeVehicleOperatingStatus = (valueOrAsset = {}) => {
   const values =
     valueOrAsset && typeof valueOrAsset === "object"

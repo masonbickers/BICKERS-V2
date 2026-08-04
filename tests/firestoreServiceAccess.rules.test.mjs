@@ -29,6 +29,19 @@ async function seed() {
       setDoc(doc(db, "bookings", "booking-b"), { companyId: "company-b", title: "B" }),
       setDoc(doc(db, "contacts", "contact-a"), { companyId: "company-a", name: "A" }),
       setDoc(doc(db, "maintenance", "maintenance-a"), { companyId: "company-a", title: "A" }),
+      setDoc(doc(db, "vehicles", "vehicle-locked"), {
+        companyId: "company-a",
+        name: "Locked HGV",
+        futurePmiHistoryCleanupLocked: true,
+        pmiHistory: [],
+        eightWeekInspectionHistory: [],
+      }),
+      setDoc(doc(db, "vehicles", "vehicle-unlocked"), {
+        companyId: "company-a",
+        name: "Unlocked HGV",
+        pmiHistory: [],
+        eightWeekInspectionHistory: [],
+      }),
     ]);
   });
 }
@@ -70,4 +83,21 @@ test("admin and platform admin can both read the single Bickers data set", async
   await seed();
   await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "bookings", "booking-b")));
   await assertSucceeds(getDoc(doc(env.authenticatedContext("platform").firestore(), "bookings", "booking-b")));
+});
+
+test("cleaned vehicles reject legacy PMI-history replay but allow canonical history and normal edits", async () => {
+  await seed();
+  const db = env.authenticatedContext("service-a").firestore();
+  await assertSucceeds(updateDoc(doc(db, "vehicles", "vehicle-locked"), {
+    pmiHistory: [{ completedDate: "2026-08-03", bookingId: "valid-completion" }],
+  }));
+  await assertSucceeds(updateDoc(doc(db, "vehicles", "vehicle-locked"), {
+    name: "Locked HGV updated",
+  }));
+  await assertFails(updateDoc(doc(db, "vehicles", "vehicle-locked"), {
+    eightWeekInspectionHistory: [{ completedDate: "2026-11-23", bookingId: "stale-replay" }],
+  }));
+  await assertSucceeds(updateDoc(doc(db, "vehicles", "vehicle-unlocked"), {
+    eightWeekInspectionHistory: [{ completedDate: "2026-07-01", bookingId: "legacy-valid" }],
+  }));
 });

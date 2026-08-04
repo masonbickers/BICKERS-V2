@@ -55,7 +55,7 @@ export default function MaintenanceBookingPickerModal({
                     ? registration
                       ? `${vehicle.name} (${registration})`
                       : vehicle.name
-                    : registration || vehicle.id;
+                    : registration || "Unknown vehicle";
 
                   return (
                     <option key={vehicle.id} value={vehicle.id}>

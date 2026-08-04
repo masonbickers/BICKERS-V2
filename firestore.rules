@@ -171,6 +171,14 @@ service cloud.firestore {
       return canUseSoftware() && existingDocBelongsToCurrentCompany();
     }
 
+    function legacyPmiHistoryWriteAllowed() {
+      return !(
+        resource.data.keys().hasAny(["futurePmiHistoryCleanupLocked"])
+        && resource.data.futurePmiHistoryCleanupLocked == true
+      ) || !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(["eightWeekInspectionHistory"]);
+    }
+
     function contactFinanceValue(data, key) {
       return data.keys().hasAny(["financeProfile"])
         && data.financeProfile is map
@@ -554,7 +562,7 @@ service cloud.firestore {
     match /vehicles/{vehicleId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
       allow create: if canCreateAnyWorkspaceTenantDoc();
-      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc() && legacyPmiHistoryWriteAllowed();
       allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 

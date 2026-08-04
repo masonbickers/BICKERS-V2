@@ -13,7 +13,7 @@ import layoutStyles from "./EditMaintenanceBookingForm.styles.module.css";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
-import { getIsoWeekLabel } from "../utils/maintenanceSchema";
+import { ADDITIONAL_MAINTENANCE_WORKFLOWS, getIsoWeekLabel } from "../utils/maintenanceSchema";
 import {
   bookingToDateKeys as serviceBookingToDateKeys,
   cancelMaintenanceBooking,
@@ -36,6 +36,12 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 
+const INSPECTION_WORK_OPTIONS = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
+  value: workflow.maintenanceTypeId,
+  label: workflow.label,
+}));
+const INSPECTION_WORK_IDS = new Set(INSPECTION_WORK_OPTIONS.map((option) => option.value));
+
 /**
  * Props:
  * - bookingId (required)  -> maintenanceBookings doc id
@@ -54,6 +60,12 @@ export default function EditMaintenanceBookingForm({
   const fieldPrefix = useId();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
+  const canArchiveRequirement = useMemo(() => {
+    const role = String(
+      dataAccessState?.userDoc?.role || dataAccessState?.userDoc?.platformRole || ""
+    ).trim().toLowerCase();
+    return ["admin", "platformadmin", "platform_admin"].includes(role);
+  }, [dataAccessState?.userDoc?.platformRole, dataAccessState?.userDoc?.role]);
   const [vehicleId, setVehicleId] = useState(vehicleIdProp || "");
   const [vehicle, setVehicle] = useState(null);
   const [booking, setBooking] = useState(null);
@@ -61,6 +73,7 @@ export default function EditMaintenanceBookingForm({
   // form fields
   const [type, setType] = useState("MOT"); // "MOT" | "SERVICE"
   const [status, setStatus] = useState("Booked");
+  const [inspectionTypeIds, setInspectionTypeIds] = useState(["pmi", "brake_test"]);
 
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [useCustomDates, setUseCustomDates] = useState(false);
@@ -75,6 +88,7 @@ export default function EditMaintenanceBookingForm({
   const [location, setLocation] = useState("");
   const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
+  const [scheduleExceptionReason, setScheduleExceptionReason] = useState("");
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentSearchOpen, setEquipmentSearchOpen] = useState(false);
@@ -163,7 +177,7 @@ export default function EditMaintenanceBookingForm({
   const typeLabel = useMemo(() => {
     if (safeType === "SERVICE") return "Service";
     if (safeType === "MOT") return "MOT";
-    if (safeType === "INSPECTION") return "8 Week Inspection";
+    if (safeType === "INSPECTION") return "Inspection / Compliance";
     if (safeType === "WORK") return "Work";
     return safeType;
   }, [safeType]);
@@ -171,8 +185,8 @@ export default function EditMaintenanceBookingForm({
   const title = `Edit ${typeLabel} booking`;
 
   const vehicleLabel = useMemo(() => {
-    if (vehicle) return vehicle.name || vehicle.registration || vehicle.reg || vehicleId || "";
-    return vehicleId || "";
+    if (vehicle) return vehicle.name || vehicle.registration || vehicle.reg || "Unknown vehicle";
+    return vehicleId ? "Unknown vehicle" : "";
   }, [vehicle, vehicleId]);
 
   const selectedDateKeys = useMemo(() => {
@@ -201,8 +215,7 @@ export default function EditMaintenanceBookingForm({
     return seed ? getIsoWeekLabel(seed) : "";
   }, [useCustomDates, customDates, isMultiDay, startDate, appointmentDate]);
 
-  const inspectionOutsideDueWeek =
-    safeType === "INSPECTION" &&
+  const outsideDueWeek =
     !!booking?.sourceDueIsoWeek &&
     !!selectedInspectionWeek &&
     selectedInspectionWeek !== booking.sourceDueIsoWeek;
@@ -325,6 +338,12 @@ export default function EditMaintenanceBookingForm({
       ).toUpperCase();
       setType(bType);
       setStatus(b.status || "Booked");
+      setScheduleExceptionReason(String(b.scheduleExceptionReason || ""));
+      setInspectionTypeIds(
+        Array.isArray(b.maintenanceTypeIds) && b.maintenanceTypeIds.length
+          ? b.maintenanceTypeIds.filter((item) => INSPECTION_WORK_IDS.has(item))
+          : ["pmi", "brake_test"]
+      );
 
       const dateKeys = serviceBookingToDateKeys(b);
       const apptISO = String(b.appointmentDateISO || "").trim();
@@ -441,6 +460,7 @@ export default function EditMaintenanceBookingForm({
     if (saving || loading) return false;
     if (!bookingId) return false;
     if (!vehicleId && selectedEquipment.length === 0) return false;
+    if (safeType === "INSPECTION" && inspectionTypeIds.length === 0) return false;
 
     if (useCustomDates) {
       if (!customDates.length) return false;
@@ -455,6 +475,7 @@ export default function EditMaintenanceBookingForm({
     }
 
     if (activeConflict) return false;
+    if (outsideDueWeek && !scheduleExceptionReason.trim()) return false;
     return true;
   }, [
     saving,
@@ -462,6 +483,8 @@ export default function EditMaintenanceBookingForm({
     bookingId,
     vehicleId,
     selectedEquipment,
+    safeType,
+    inspectionTypeIds,
     useCustomDates,
     customDates,
     isMultiDay,
@@ -469,6 +492,8 @@ export default function EditMaintenanceBookingForm({
     startDate,
     endDate,
     activeConflict,
+    outsideDueWeek,
+    scheduleExceptionReason,
   ]);
 
   const handleClose = () => {
@@ -531,6 +556,8 @@ export default function EditMaintenanceBookingForm({
         notes,
         equipment: selectedEquipment,
         authState: dataAccessState,
+        maintenanceTypeIds: safeType === "INSPECTION" ? inspectionTypeIds : [],
+        scheduleExceptionReason,
       });
 
       if (typeof onSaved === "function") onSaved(savedBooking);
@@ -548,20 +575,9 @@ export default function EditMaintenanceBookingForm({
     await persistBooking(status, "Failed to update maintenance booking. Please try again.");
   };
 
-  const handleComplete = async () => {
-    if (!canSubmit) return;
-    if (!confirm(`Mark this ${typeLabel.toLowerCase()} booking as completed?`)) return;
-
-    setStatus("Completed");
-    await persistBooking(
-      "Completed",
-      "Could not mark this maintenance booking as completed. Please try again."
-    );
-  };
-
   const handleCancel = async () => {
     if (!bookingId) return;
-    if (!confirm("Mark this booking as Cancelled?")) return;
+    if (!confirm("Cancel this appointment and return its legal requirement to Due — not booked?")) return;
 
     setFormError("");
     setSaving(true);
@@ -575,7 +591,7 @@ export default function EditMaintenanceBookingForm({
       });
 
       setBooking((prev) =>
-        prev ? { ...prev, status: "Cancelled", history: cancelledBooking.history } : prev
+        prev ? { ...prev, status: cancelledBooking.status, history: cancelledBooking.history } : prev
       );
 
       if (typeof onSaved === "function") onSaved(cancelledBooking);
@@ -588,10 +604,11 @@ export default function EditMaintenanceBookingForm({
     }
   };
 
-  //  REAL DELETE
   const handleDelete = async () => {
     if (!bookingId) return;
-    if (!confirm("Delete this maintenance booking permanently? This cannot be undone.")) return;
+    if (!confirm("Archive this maintenance booking? Its audit history will be retained.")) return;
+    const reason = window.prompt("Reason for cancelling this legal maintenance requirement:", "");
+    if (!String(reason || "").trim()) return;
 
     setFormError("");
     setSaving(true);
@@ -601,6 +618,8 @@ export default function EditMaintenanceBookingForm({
         booking,
         vehicleId,
         vehicle,
+        authState: dataAccessState,
+        reason,
       });
 
       if (typeof onSaved === "function") onSaved(deletedBooking);
@@ -608,7 +627,7 @@ export default function EditMaintenanceBookingForm({
     } catch (e) {
       console.error("[EditMaintenanceBookingForm] delete error:", e);
       setFormError(
-        "Could not delete booking. If permissions are blocking the delete, check the Firestore rules for this collection."
+        "Could not archive booking. Please check your permissions and try again."
       );
     } finally {
       setSaving(false);
@@ -673,19 +692,41 @@ export default function EditMaintenanceBookingForm({
               >
                 <option value="MOT">MOT</option>
                 <option value="SERVICE">Service</option>
-                <option value="INSPECTION">8 Week Inspection</option>
+                <option value="INSPECTION">Inspection / Compliance</option>
                 <option value="WORK">Work / Maintenance</option>
               </select>
             </div>
+
+            {safeType === "INSPECTION" ? (
+              <fieldset className={layoutStyles.extracted13} style={{ gridColumn: "1 / -1" }}>
+                <legend className={layoutStyles.extracted14}>Inspection / compliance work</legend>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 8 }}>
+                  {INSPECTION_WORK_OPTIONS.map(({ value, label }) => (
+                    <label key={value} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 800 }}>
+                      <input
+                        type="checkbox"
+                        checked={inspectionTypeIds.includes(value)}
+                        onChange={(event) =>
+                          setInspectionTypeIds((current) =>
+                            event.target.checked
+                              ? [...new Set([...current, value])]
+                              : current.filter((item) => item !== value)
+                          )
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
 
             {/* Status */}
             <div className={layoutStyles.extracted16}>
               <label htmlFor={`${fieldPrefix}-status`} className={layoutStyles.extracted17}>Status</label>
               <select id={`${fieldPrefix}-status`} value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted18}>
-                <option value="Requested">Requested</option>
                 <option value="Booked">Booked</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
+                <option value="In Progress">In Progress</option>
               </select>
             </div>
 
@@ -729,12 +770,12 @@ export default function EditMaintenanceBookingForm({
               </select>
             </div>
 
-            {safeType === "INSPECTION" ? (
+            {booking?.sourceDueIsoWeek ? (
               <div
                 style={{
                   gridColumn: "1 / -1",
-                  border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
-                  background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
+                  border: `1px solid ${outsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
+                  background: outsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
                   color: "var(--color-text)",
                   borderRadius: 8,
                   padding: "10px 12px",
@@ -743,18 +784,34 @@ export default function EditMaintenanceBookingForm({
                   fontWeight: 750,
                 }}
               >
-                Inspection cadence is currently fixed at <b>8 weeks</b> from the vehicle's inspection cycle.
+                The legal due week stays fixed when an appointment is moved.
                 {sourceDueDateObj ? (
                   <>
                     {" "}Due week: <b>{booking?.sourceDueIsoWeek || "Unknown"}</b> for{" "}
                     <b>{sourceDueDateObj.toLocaleDateString("en-GB")}</b>.
-                    {inspectionOutsideDueWeek
+                    {outsideDueWeek
                       ? " This booking sits outside the due ISO week."
                       : " This booking is inside the due ISO week."}
                   </>
                 ) : (
-                  " Change the cycle from the lorry's vehicle edit page if a different cadence is needed."
+                  " The configured vehicle maintenance frequency remains authoritative."
                 )}
+                {outsideDueWeek ? (
+                  <div style={{ marginTop: 10 }}>
+                    <label htmlFor={`${fieldPrefix}-schedule-exception-reason`}>
+                      Reason for moving outside the legal due week
+                    </label>
+                    <input
+                      id={`${fieldPrefix}-schedule-exception-reason`}
+                      value={scheduleExceptionReason}
+                      onChange={(event) => setScheduleExceptionReason(event.target.value)}
+                      placeholder="Required"
+                      required
+                      className={layoutStyles.extracted18}
+                      style={{ width: "100%", marginTop: 6 }}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -998,21 +1055,6 @@ export default function EditMaintenanceBookingForm({
                 {saving ? "Saving..." : "Save changes"}
               </button>
 
-              {status !== "Completed" && status !== "Cancelled" ? (
-                <button
-                  type="button"
-                  onClick={handleComplete}
-                  style={{
-                    ...successBtn,
-                    opacity: canSubmit ? 1 : 0.55,
-                    cursor: canSubmit ? "pointer" : "not-allowed",
-                  }}
-                  disabled={!canSubmit}
-                >
-                  {saving ? "Completing..." : "Mark as Completed"}
-                </button>
-              ) : null}
-
               <button
                 type="button"
                 onClick={handleCancel}
@@ -1023,23 +1065,25 @@ export default function EditMaintenanceBookingForm({
                 }}
                 disabled={saving}
               >
-                Mark as Cancelled
+                Cancel Appointment
               </button>
 
-              <button
-                type="button"
-                onClick={handleDelete}
-                style={{
-                  ...dangerBtn,
-                  border: "1px solid rgba(239,68,68,0.85)",
-                  background: "linear-gradient(180deg, var(--color-danger) 0%, var(--color-danger) 100%)",
-                  opacity: saving ? 0.65 : 1,
-                  cursor: saving ? "not-allowed" : "pointer",
-                }}
-                disabled={saving}
-              >
-                Delete booking permanently
-              </button>
+              {canArchiveRequirement ? (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  style={{
+                    ...dangerBtn,
+                    border: "1px solid rgba(239,68,68,0.85)",
+                    background: "linear-gradient(180deg, var(--color-danger) 0%, var(--color-danger) 100%)",
+                    opacity: saving ? 0.65 : 1,
+                    cursor: saving ? "not-allowed" : "pointer",
+                  }}
+                  disabled={saving}
+                >
+                  Archive Booking
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -1053,12 +1097,7 @@ export default function EditMaintenanceBookingForm({
 
             <div className={layoutStyles.extracted76}>
               Updates <b>maintenanceBookings</b> and keeps the linked fields on the vehicle document in sync.
-              {status === "Completed" ? (
-                <>
-                  {" "}
-                  Also updates <b>last</b> + <b>next</b> due dates automatically.
-                </>
-              ) : null}
+              Completion, evidence and next-due creation are handled from the maintenance record modal.
             </div>
           </form>
         )}

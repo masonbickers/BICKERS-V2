@@ -3,11 +3,23 @@
 import { doc, updateDoc } from "firebase/firestore";
 import { getIsoWeekLabel, isVehicleOutOfUse, ymd } from "./maintenanceSchema";
 import {
+  isCompletedMaintenanceBooking,
   mergeInspectionHistory,
   mergeMaintenanceHistory,
+  reconcileBookingCompletionHistory,
 } from "./inspectionHistory";
 import { resolveCompletedMotExpiry } from "./motExpiry";
 import { ensureServiceHistoryForLastService } from "./serviceHistory";
+import {
+  buildHgvComplianceMigrationPatch,
+  evaluateHgvCompliance,
+  isHgvComplianceVehicle,
+  syncCanonicalPmiAliases,
+} from "./hgvCompliance";
+import { startVehicleVorPeriod } from "./vorPeriods";
+import {
+  commitVehicleVorTransition,
+} from "./maintenanceBookingService";
 
 const parseLocalDate = (value) => {
   if (!value) return null;
@@ -46,15 +58,20 @@ const addWeeks = (date, weeks) => {
   return next;
 };
 
-const nextCycleAfter = (anchorDate, completedDate, weeks) => {
-  if (!anchorDate || !weeks) return null;
-  const next = addWeeks(anchorDate, weeks);
-  const completed = completedDate ? startOfLocalDay(completedDate) : null;
-  while (completed && next.getTime() <= completed.getTime()) {
-    next.setDate(next.getDate() + weeks * 7);
+const stableValue = (value) => {
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value?.toDate === "function") return value.toDate().toISOString();
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value).sort().map((key) => [key, stableValue(value[key])])
+    );
   }
-  return next;
+  return value;
 };
+
+const sameValue = (left, right) =>
+  JSON.stringify(stableValue(left)) === JSON.stringify(stableValue(right));
 
 const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
   const explicit = Number(explicitFreq || 0);
@@ -82,9 +99,10 @@ export async function syncEightWeekInspectionRollovers({
   const tasks = vehicles
     .map((vehicle) => {
       const vehicleId = String(vehicle?.id || "").trim();
-      if (!vehicleId || isVehicleOutOfUse(vehicle)) return null;
+      if (!vehicleId) return null;
       const patch = { updatedAt: new Date().toISOString() };
       let changed = false;
+      let automaticVorTransition = null;
 
       const motCompletedBookings = maintenanceBookings
         .filter((booking) => {
@@ -198,26 +216,19 @@ export async function syncEightWeekInspectionRollovers({
         }
       }
 
-      if (
-        JSON.stringify(vehicle?.motHistory || []) !== JSON.stringify(motHistory || [])
-      ) {
+      if (!sameValue(vehicle?.motHistory || [], motHistory || [])) {
         patch.motHistory = motHistory;
         changed = true;
       }
-      if (
-        JSON.stringify(vehicle?.serviceHistory || []) !== JSON.stringify(serviceHistory || [])
-      ) {
+      if (!sameValue(vehicle?.serviceHistory || [], serviceHistory || [])) {
         patch.serviceHistory = serviceHistory;
         changed = true;
       }
 
       const inspectionBookings = maintenanceBookings
-        .filter((booking) => {
-          const status = String(booking?.status || "").trim().toLowerCase();
-          if (status.includes("cancel") || status.includes("declin")) return false;
-          if (String(booking?.type || "").trim().toUpperCase() !== "INSPECTION") return false;
-          return String(booking?.vehicleId || "").trim() === vehicleId;
-        })
+        .filter((booking) =>
+          isCompletedMaintenanceBooking(booking, { type: "INSPECTION", vehicleId })
+        )
         .map((booking) => {
           const date =
             parseLocalDate(booking?.completedAtISO) ||
@@ -225,15 +236,10 @@ export async function syncEightWeekInspectionRollovers({
             parseLocalDate(booking?.startDateISO) ||
             parseLocalDate(booking?.appointmentDate) ||
             parseLocalDate(booking?.startDate);
-          const sourceDueDate =
-            parseLocalDate(booking?.sourceDueDateISO) ||
-            parseLocalDate(booking?.sourceDueDate) ||
-            null;
           return date
             ? {
                 booking,
                 completedDate: startOfLocalDay(date),
-                cycleAnchorDate: sourceDueDate ? startOfLocalDay(sourceDueDate) : startOfLocalDay(date),
               }
             : null;
         })
@@ -242,18 +248,27 @@ export async function syncEightWeekInspectionRollovers({
         .sort((a, b) => b.completedDate.getTime() - a.completedDate.getTime());
 
       const latestPastInspection = inspectionBookings[0] || null;
+      const reconciledLegacyInspection = reconcileBookingCompletionHistory(
+        vehicle?.eightWeekInspectionHistory,
+        maintenanceBookings
+      );
+      const reconciledPmi = reconcileBookingCompletionHistory(
+        vehicle?.pmiHistory,
+        maintenanceBookings
+      );
+      const reconciledBrake = reconcileBookingCompletionHistory(
+        vehicle?.brakeTestHistory,
+        maintenanceBookings
+      );
       const inspectionHistory = maintenanceBookings
-        .filter((booking) => {
-          const status = String(booking?.status || "").trim().toLowerCase();
-          if (status.includes("cancel") || status.includes("declin")) return false;
-          if (String(booking?.type || "").trim().toUpperCase() !== "INSPECTION") return false;
-          return String(booking?.vehicleId || "").trim() === vehicleId;
-        })
+        .filter((booking) =>
+          isCompletedMaintenanceBooking(booking, { type: "INSPECTION", vehicleId })
+        )
         .reduce((acc, booking) => {
           const completedDate =
             String(booking?.completedAtISO || "").trim() ||
             toIsoDateFromBooking(booking);
-          if (!completedDate) return acc;
+          if (!completedDate || String(completedDate).slice(0, 10) > ymd(today)) return acc;
           return mergeInspectionHistory(acc, {
             completedDate,
             bookingId: String(booking?.id || "").trim(),
@@ -262,22 +277,78 @@ export async function syncEightWeekInspectionRollovers({
             notes: String(booking?.notes || "").trim(),
             recordedAt: String(booking?.updatedAt || booking?.createdAt || "").trim(),
           });
-        }, Array.isArray(vehicle?.eightWeekInspectionHistory) ? vehicle.eightWeekInspectionHistory : []);
+        }, reconciledLegacyInspection.history);
+
+      if (reconciledPmi.removed.length || reconciledLegacyInspection.removed.length) {
+        const validPmiHistory = reconciledPmi.history.length
+          ? reconciledPmi.history
+          : inspectionHistory;
+        const latestValidPmi = validPmiHistory
+          .map((entry) => String(entry?.completedDate || "").slice(0, 10))
+          .filter(Boolean)
+          .sort()
+          .at(-1) || "";
+        const invalidBookingIds = new Set(
+          [...reconciledPmi.removed, ...reconciledLegacyInspection.removed]
+            .map((entry) => String(entry?.bookingId || "").trim())
+            .filter(Boolean)
+        );
+        const openDueDate = maintenanceBookings
+          .filter((booking) => invalidBookingIds.has(String(booking?.id || "").trim()))
+          .map((booking) => String(booking?.sourceDueDateISO || booking?.appointmentDateISO || "").slice(0, 10))
+          .filter(Boolean)
+          .sort()
+          .at(0) || "";
+        const nextPmi = latestValidPmi ? ymd(addWeeks(parseLocalDate(latestValidPmi), 8)) : openDueDate;
+        patch.pmiHistory = validPmiHistory;
+        patch.eightWeekInspectionHistory = inspectionHistory;
+        patch.lastPMI = latestValidPmi;
+        patch.eightWeekInspectionStart = latestValidPmi;
+        patch.nextPMI = nextPmi;
+        patch.nextEightWeekInspection = nextPmi;
+        patch.pmiISOWeek = getIsoWeekLabel(nextPmi);
+        patch.eightWeekInspectionISOWeek = getIsoWeekLabel(nextPmi);
+        changed = true;
+      }
+
+      if (reconciledBrake.removed.length) {
+        const latestValidBrake = reconciledBrake.history
+          .map((entry) => String(entry?.completedDate || "").slice(0, 10))
+          .filter(Boolean)
+          .sort()
+          .at(-1) || "";
+        const invalidBookingIds = new Set(
+          reconciledBrake.removed
+            .map((entry) => String(entry?.bookingId || "").trim())
+            .filter(Boolean)
+        );
+        const openDueDate = maintenanceBookings
+          .filter((booking) => invalidBookingIds.has(String(booking?.id || "").trim()))
+          .map((booking) => String(booking?.sourceDueDateISO || booking?.appointmentDateISO || "").slice(0, 10))
+          .filter(Boolean)
+          .sort()
+          .at(0) || "";
+        const nextBrake = latestValidBrake ? ymd(addWeeks(parseLocalDate(latestValidBrake), 8)) : openDueDate;
+        patch.brakeTestHistory = reconciledBrake.history;
+        patch.lastBrakeTest = latestValidBrake;
+        patch.nextBrakeTest = nextBrake;
+        patch.brakeISOWeek = getIsoWeekLabel(nextBrake);
+        changed = true;
+      }
 
       if (latestPastInspection || inspectionHistory.length > 0) {
-        const latestPastIso = latestPastInspection ? ymd(latestPastInspection.cycleAnchorDate) : "";
+        const latestPastIso = latestPastInspection
+          ? ymd(latestPastInspection.completedDate)
+          : "";
         const computedNext = latestPastInspection
-          ? ymd(nextCycleAfter(latestPastInspection.cycleAnchorDate, latestPastInspection.completedDate, 8))
+          ? ymd(addWeeks(latestPastInspection.completedDate, 8))
           : String(vehicle?.nextEightWeekInspection || "").trim();
         const computedWeek = latestPastInspection
           ? getIsoWeekLabel(computedNext)
           : String(vehicle?.eightWeekInspectionISOWeek || "").trim();
 
         patch.eightWeekInspectionHistory = inspectionHistory;
-        if (
-          JSON.stringify(vehicle?.eightWeekInspectionHistory || []) !==
-          JSON.stringify(inspectionHistory || [])
-        ) {
+        if (!sameValue(vehicle?.eightWeekInspectionHistory || [], inspectionHistory || [])) {
           changed = true;
         }
         if (latestPastInspection) {
@@ -293,11 +364,80 @@ export async function syncEightWeekInspectionRollovers({
           }
         }
       }
+
+      if (isHgvComplianceVehicle(vehicle)) {
+        const candidate = { ...vehicle, ...patch };
+        const migration = buildHgvComplianceMigrationPatch(candidate);
+        Object.assign(patch, migration.patch);
+        Object.assign(patch, syncCanonicalPmiAliases({ ...candidate, ...migration.patch }));
+        const compliance = evaluateHgvCompliance(
+          { ...candidate, ...migration.patch, ...patch },
+          { asOfDate: today, evaluatedAt: new Date().toISOString() }
+        );
+        const currentCompliance = vehicle?.complianceVor || {};
+        const comparableCurrentCompliance = { ...currentCompliance, lastEvaluatedAt: "" };
+        const comparableNextCompliance = { ...compliance.complianceVor, lastEvaluatedAt: "" };
+        const complianceChanged = !sameValue(
+          comparableCurrentCompliance,
+          comparableNextCompliance
+        );
+        patch.complianceVor = complianceChanged
+          ? compliance.complianceVor
+          : currentCompliance;
+        changed =
+          changed ||
+          Object.keys(migration.patch).length > 0 ||
+          complianceChanged;
+
+        if (
+          compliance.shouldStartVor &&
+          compliance.complianceVor.state !== "clear" &&
+          !isVehicleOutOfUse(vehicle)
+        ) {
+          const started = startVehicleVorPeriod(
+            { ...vehicle, ...patch },
+            {
+              offRoadDate: compliance.complianceVor.startedDate || ymd(today),
+              odometer: vehicle?.odometer,
+              approvedBy: "HGV compliance system",
+              approvedPosition: "Automated compliance control",
+              reason: `Automatic compliance VOR: ${compliance.unresolvedTypes
+                .map((item) => item.replace("_", " ").toUpperCase())
+                .join(", ")}`,
+              operatorLicenceNumber: vehicle?.operatorLicenceNumber || "OF0202656",
+            },
+            {
+              recordId: `compliance-vor-${compliance.complianceVor.startedDate || ymd(today)}`,
+              startedAt: compliance.complianceVor.triggeredAt || new Date().toISOString(),
+            }
+          );
+          Object.assign(patch, started, { complianceVor: compliance.complianceVor });
+          automaticVorTransition = {
+            offRoadDate: compliance.complianceVor.startedDate || ymd(today),
+            recordId: started.activeVorRecordId || "",
+          };
+          changed = true;
+        }
+      }
+
       if (!changed) return null;
 
-      return updateDoc(doc(db, "vehicles", vehicleId), patch).catch((error) => {
-        console.error(`${loggerPrefix} sync failed:`, error);
-      });
+      const persist = automaticVorTransition
+        ? commitVehicleVorTransition({
+            bookings: maintenanceBookings.filter(
+              (booking) => String(booking?.vehicleId || "").trim() === vehicleId
+            ),
+            vehicleId,
+            vehicle: { ...vehicle, ...patch },
+            vehiclePayload: patch,
+            offRoadDate: automaticVorTransition.offRoadDate,
+            cancellationSource: "automatic_compliance_vor",
+            sourceRecordId: automaticVorTransition.recordId,
+          })
+        : updateDoc(doc(db, "vehicles", vehicleId), patch);
+      return persist.catch((error) => {
+          console.error(`${loggerPrefix} sync failed:`, error);
+        });
     })
     .filter(Boolean);
 

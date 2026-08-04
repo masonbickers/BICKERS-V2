@@ -99,7 +99,6 @@ export const startVehicleVorPeriod = (
     startedAt = new Date().toISOString(),
   } = {}
 ) => {
-  const maintenancePause = buildVorPauseState(vehicle, offRoadDate, recordId);
   const record = {
     id: recordId,
     status: "open",
@@ -110,7 +109,8 @@ export const startVehicleVorPeriod = (
     approvedBy: text(approvedBy),
     approvedPosition: text(approvedPosition),
     reason: text(reason),
-    maintenanceDueDatesAtStart: maintenancePause.dueDates,
+    maintenanceDueDatesAtStart: captureMaintenanceCountdowns(vehicle),
+    countdownPolicy: "continues_while_vor",
     startedAt,
   };
 
@@ -118,7 +118,12 @@ export const startVehicleVorPeriod = (
     ...syncVehicleOperatingStatus(vehicle, "VOR"),
     vorStartedAt: startedAt,
     activeVorRecordId: recordId,
-    maintenanceCountdownPause: maintenancePause,
+    maintenanceCountdownPause: {
+      status: "not_paused",
+      policy: "continues_while_vor",
+      recordId,
+      startedDate: dateOnly(offRoadDate),
+    },
     vorHistory: [...(Array.isArray(vehicle.vorHistory) ? vehicle.vorHistory : []), record],
   };
 };
@@ -157,7 +162,7 @@ export const returnVehicleFromVor = (
     removedBy = "",
     removedPosition = "",
     signature = "",
-    firstUseInspectionDate,
+    firstUseInspectionDate = "",
   } = {},
   { completedAt = new Date().toISOString() } = {}
 ) => {
@@ -178,28 +183,6 @@ export const returnVehicleFromVor = (
     );
   }
   const firstUseDate = dateOnly(firstUseInspectionDate);
-  if (
-    !firstUseDate ||
-    firstUseDate < dateOnly(offRoadDate) ||
-    firstUseDate > dateOnly(returnedDate)
-  ) {
-    throw new Error(
-      "The first-use PMI must be completed during the VOR period and before the vehicle returns to active service."
-    );
-  }
-
-  const pauseSnapshot =
-    vehicle.maintenanceCountdownPause?.dueDates ||
-    activeRecord?.maintenanceDueDatesAtStart ||
-    {};
-  const resumedCountdown = applyVorCountdownResume(vehicle, {
-    offRoadDate,
-    returnedDate,
-    dueDates: pauseSnapshot,
-  });
-  const pmiFrequency = Number(vehicle.pmiFreq || 8) || 8;
-  const nextPMI = addWeeks(firstUseDate, pmiFrequency);
-  const nextEightWeekInspection = addWeeks(firstUseDate, 8);
   const updatedHistory = history.map((record) =>
     record.id === activeRecordId || (!activeRecordId && record.status === "open")
       ? {
@@ -211,7 +194,8 @@ export const returnVehicleFromVor = (
           removedPosition: text(removedPosition),
           signature: text(signature),
           firstUseInspectionDate: firstUseDate,
-          durationDays: resumedCountdown.durationDays,
+          durationDays,
+          countdownPolicy: "continues_while_vor",
           completedAt,
         }
       : record
@@ -223,67 +207,127 @@ export const returnVehicleFromVor = (
     activeVorRecordId: "",
     maintenanceCountdownPause: {
       ...(vehicle.maintenanceCountdownPause || {}),
-      status: "resumed",
+      status: "not_paused",
+      policy: "continues_while_vor",
       returnedDate: dateOnly(returnedDate),
       returnedAt: completedAt,
-      durationDays: resumedCountdown.durationDays,
-      resumedDueDates: {
-        ...resumedCountdown.updates,
-        nextPMI,
-        nextEightWeekInspection,
-      },
+      durationDays,
     },
     vorHistory: updatedHistory,
     odometer: text(odometer),
-    ...resumedCountdown.updates,
-    lastPMI: firstUseDate,
-    nextPMI,
-    pmiFreq: String(pmiFrequency),
-    pmiISOWeek: getIsoWeekLabel(nextPMI),
-    pmiHistory: [
-      {
-        maintenanceTypeId: "pmi",
-        label: "PMI inspection",
-        completedDate: firstUseDate,
-        nextDueDate: nextPMI,
-        completedAt,
-        documents: [],
-        notes: "First-use PMI completed before return from VOR.",
-        source: "vor_return",
-        vorRecordId: activeRecordId,
-      },
-      ...(Array.isArray(vehicle.pmiHistory) ? vehicle.pmiHistory : []).filter(
-        (entry) =>
-          !(
-            entry?.source === "vor_return" &&
-            entry?.vorRecordId === activeRecordId
-          )
-      ),
-    ],
-    eightWeekInspectionStart: firstUseDate,
-    nextEightWeekInspection,
-    eightWeekInspectionISOWeek: getIsoWeekLabel(nextEightWeekInspection),
-    eightWeekInspectionHistory: [
-      {
-        maintenanceTypeId: "eight_week_inspection",
-        completedDate: firstUseDate,
-        nextDueDate: nextEightWeekInspection,
-        completedAt,
-        notes: "First-use safety inspection completed before return from VOR.",
-        source: "vor_return",
-        vorRecordId: activeRecordId,
-      },
-      ...(Array.isArray(vehicle.eightWeekInspectionHistory)
-        ? vehicle.eightWeekInspectionHistory
-        : []
-      ).filter(
-        (entry) =>
-          !(
-            entry?.source === "vor_return" &&
-            entry?.vorRecordId === activeRecordId
-          )
-      ),
-    ],
+    pendingReturnInspection: null,
+  };
+};
+
+export const scheduleVehicleReturnInspection = (
+  vehicle = {},
+  {
+    inspectionDate,
+    odometer = "",
+    removedBy = "",
+    removedPosition = "",
+    signature = "",
+  } = {},
+  { requestedAt = new Date().toISOString() } = {}
+) => {
+  const normalizedInspectionDate = dateOnly(inspectionDate);
+  const history = Array.isArray(vehicle.vorHistory) ? vehicle.vorHistory : [];
+  const activeRecord =
+    history.find(
+      (record) =>
+        record.id === vehicle.activeVorRecordId ||
+        (!vehicle.activeVorRecordId && record.status === "open")
+    ) || null;
+  const activeRecordId = vehicle.activeVorRecordId || activeRecord?.id || "";
+  const offRoadDate =
+    activeRecord?.offRoadDate || vehicle.maintenanceCountdownPause?.startedDate;
+  if (calculateVorDurationDays(offRoadDate, normalizedInspectionDate) === null) {
+    throw new Error(
+      "The return inspection date must be on or after the date the vehicle was taken off the fleet."
+    );
+  }
+
+  const declaration = {
+    inspectionDate: normalizedInspectionDate,
+    odometer: text(odometer),
+    removedBy: text(removedBy),
+    removedPosition: text(removedPosition),
+    signature: text(signature),
+    requestedAt,
+  };
+  const updatedHistory = history.map((record) =>
+    record.id === activeRecordId || (!activeRecordId && record.status === "open")
+      ? {
+          ...record,
+          plannedReturnInspectionDate: normalizedInspectionDate,
+          returnOdometer: declaration.odometer,
+          removedBy: declaration.removedBy,
+          removedPosition: declaration.removedPosition,
+          signature: declaration.signature,
+          returnInspectionRequestedAt: requestedAt,
+        }
+      : record
+  );
+
+  return {
+    ...syncVehicleOperatingStatus(vehicle, "VOR"),
+    nextPMI: normalizedInspectionDate,
+    nextEightWeekInspection: normalizedInspectionDate,
+    pmiISOWeek: getIsoWeekLabel(normalizedInspectionDate),
+    eightWeekInspectionISOWeek: getIsoWeekLabel(normalizedInspectionDate),
+    nextBrakeTest: normalizedInspectionDate,
+    brakeISOWeek: getIsoWeekLabel(normalizedInspectionDate),
+    pendingReturnInspection: {
+      status: "inspection_required",
+      ...declaration,
+    },
+    vorHistory: updatedHistory,
+  };
+};
+
+export const buildReturnInspectionCompletionPatch = (
+  vehicle = {},
+  { completedDate, bookingId = "" } = {},
+  { completedAt = new Date().toISOString() } = {}
+) => {
+  const pending = vehicle?.pendingReturnInspection || null;
+  const normalizedCompletedDate = dateOnly(completedDate);
+  if (
+    !pending ||
+    text(pending.status).toLowerCase() !== "inspection_required" ||
+    !normalizedCompletedDate
+  ) {
+    return null;
+  }
+
+  const expectedBookingId = text(pending.bookingId);
+  const expectedDate = dateOnly(pending.inspectionDate);
+  const isExpectedInspection = expectedBookingId
+    ? expectedBookingId === text(bookingId)
+    : expectedDate === normalizedCompletedDate;
+  if (!isExpectedInspection) return null;
+
+  const returned = returnVehicleFromVor(
+    vehicle,
+    {
+      returnedDate: normalizedCompletedDate,
+      odometer: pending.odometer,
+      removedBy: pending.removedBy,
+      removedPosition: pending.removedPosition,
+      signature: pending.signature,
+      firstUseInspectionDate: normalizedCompletedDate,
+    },
+    { completedAt }
+  );
+
+  return {
+    ...syncVehicleOperatingStatus({}, "Active"),
+    vorEndedAt: returned.vorEndedAt,
+    activeVorRecordId: returned.activeVorRecordId,
+    maintenanceCountdownPause: returned.maintenanceCountdownPause,
+    vorHistory: returned.vorHistory,
+    odometer: returned.odometer,
+    pendingReturnInspection: null,
   };
 };
 

@@ -150,7 +150,7 @@
 
 .extracted23 {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   margin-top: 0;
 }
 
@@ -170,34 +170,32 @@
 }
 
 .openWorkCard {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 12px;
-  row-gap: 8px;
-  align-items: end;
-  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 7px 6px 9px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
 
-.openWorkHeader {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+.openWorkSummary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .openWorkTitleLine {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
   color: var(--color-text);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 800;
+  line-height: 1.2;
 }
 
 .openWorkDate {
@@ -206,17 +204,14 @@
 
 .openWorkDetails {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
   flex-wrap: wrap;
-  grid-column: 1;
-  gap: 2px;
+  gap: 2px 9px;
 }
 
 .openWorkDetail {
   color: var(--color-text-muted);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 10.5px;
+  line-height: 1.25;
 }
 
 .openWorkDetail strong {
@@ -224,10 +219,46 @@
   font-weight: 800;
 }
 
+.openWorkControls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.openWorkStatus {
+  padding: 3px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 .openWorkActions {
-  grid-column: 2;
   justify-content: flex-end;
   margin-top: 0;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.openWorkActions button {
+  padding: 4px 7px !important;
+  font-size: 11px !important;
+}
+
+@media (max-width: 520px) {
+  .openWorkCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .openWorkControls {
+    justify-content: space-between;
+    width: 100%;
+  }
 }
 
 .extracted26 {
@@ -654,6 +685,18 @@
   font-size: 10px;
   font-weight: 850;
   line-height: 1;
+}
+
+.sourceBadge[data-tone="danger"] {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.sourceBadge[data-tone="warning"] {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .dvsaSummaryHeader {

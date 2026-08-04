@@ -1,0 +1,15 @@
+.git
+.vercel
+.codex*
+.next
+.next-dev
+node_modules
+tmp
+outputs
+docs
+tests
+firestore-debug.log
+*.log
+*.tsbuildinfo
+.env*
+!.env.example

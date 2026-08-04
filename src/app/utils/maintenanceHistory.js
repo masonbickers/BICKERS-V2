@@ -2,6 +2,35 @@ import { normalizeMaintenanceDocumentList } from "./maintenanceDocuments.js";
 import { getMaintenanceTypeId } from "./maintenanceSchema.js";
 
 const safeArr = (value) => (Array.isArray(value) ? value : []);
+const isArchivedHistoryStatus = (value) =>
+  ["archive", "archived"].includes(String(value || "").trim().toLowerCase());
+const isCompletedHistoryStatus = (value) =>
+  ["complete", "completed"].includes(String(value || "").trim().toLowerCase());
+const maintenanceDocumentKey = (document = {}) =>
+  String(
+    document.id ||
+      document.storagePath ||
+      document.url ||
+      `${document.name || "document"}|${document.uploadedAt || ""}`
+  ).trim();
+const mergeMaintenanceDocuments = (...lists) => {
+  const seen = new Set();
+  return lists.flatMap(safeArr).filter((document) => {
+    const key = maintenanceDocumentKey(document);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+const bookingMaintenanceTypeIds = (booking = {}) => new Set(
+  [
+    getMaintenanceTypeId(booking),
+    ...safeArr(booking.maintenanceTypeIds),
+    ...safeArr(booking.items).map((item) => item?.maintenanceTypeId),
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean)
+);
 
 export const maintenanceDateOnly = (value) => {
   if (!value) return "";
@@ -31,9 +60,11 @@ export const buildMaintenanceHistoryRows = ({
   workflow,
 } = {}) => {
   if (!workflow) return [];
+  const safeVehicle = vehicle && typeof vehicle === "object" ? vehicle : {};
   const typeId = workflow.maintenanceTypeId;
-  const rows = safeArr(vehicle[workflow.historyField]).map((item, index) => ({
+  const rows = safeArr(safeVehicle[workflow.historyField]).map((item, index) => ({
     id: `stored-${index}`,
+    bookingId: String(item.bookingId || item.sourceRecordId || "").trim(),
     maintenanceTypeId: typeId,
     date: item.completedDate || item.date || item.completedAt,
     nextDueDate: item.nextDueDate || item.nextDate || "",
@@ -51,11 +82,12 @@ export const buildMaintenanceHistoryRows = ({
     source: "Vehicle inspection history",
   }));
 
-  bookings
-    .filter((booking) => getMaintenanceTypeId(booking) === typeId)
+  safeArr(bookings)
+    .filter((booking) => bookingMaintenanceTypeIds(booking).has(typeId))
     .forEach((booking) => {
       rows.push({
         id: `booking-${booking.id}`,
+        bookingId: String(booking.id || "").trim(),
         maintenanceTypeId: typeId,
         date: maintenanceBookingDate(booking),
         nextDueDate: booking.nextDueDate || "",
@@ -82,18 +114,18 @@ export const buildMaintenanceHistoryRows = ({
     });
 
   if (
-    vehicle[workflow.lastField] &&
+    safeVehicle[workflow.lastField] &&
     !rows.some(
       (row) =>
         maintenanceDateOnly(row.date) ===
-        maintenanceDateOnly(vehicle[workflow.lastField])
+        maintenanceDateOnly(safeVehicle[workflow.lastField])
     )
   ) {
     rows.push({
       id: "current-recorded-date",
       maintenanceTypeId: typeId,
-      date: vehicle[workflow.lastField],
-      nextDueDate: vehicle[workflow.nextField],
+      date: safeVehicle[workflow.lastField],
+      nextDueDate: safeVehicle[workflow.nextField],
       status: "Recorded",
       provider: "",
       bookingRef: "",
@@ -104,11 +136,42 @@ export const buildMaintenanceHistoryRows = ({
     });
   }
 
-  return rows
-    .filter((row) => maintenanceDateOnly(row.date))
+  const visibleRows = rows
+    .filter(
+      (row) =>
+        maintenanceDateOnly(row.date) &&
+        !isArchivedHistoryStatus(row.status)
+    );
+  const mergedRows = visibleRows.reduce((result, row) => {
+    if (!isCompletedHistoryStatus(row.status)) {
+      result.push(row);
+      return result;
+    }
+    const rowDate = maintenanceDateOnly(row.date);
+    const existing = result.find(
+      (candidate) =>
+        isCompletedHistoryStatus(candidate.status) &&
+        ((row.bookingId && candidate.bookingId === row.bookingId) ||
+          maintenanceDateOnly(candidate.date) === rowDate)
+    );
+    if (!existing) {
+      result.push(row);
+      return result;
+    }
+    existing.bookingId = existing.bookingId || row.bookingId;
+    existing.nextDueDate = existing.nextDueDate || row.nextDueDate;
+    existing.provider = existing.provider || row.provider;
+    existing.bookingRef = existing.bookingRef || row.bookingRef;
+    existing.odometer = existing.odometer || row.odometer;
+    existing.notes = existing.notes || row.notes;
+    existing.documents = mergeMaintenanceDocuments(existing.documents, row.documents);
+    return result;
+  }, []);
+
+  return mergedRows
     .sort((left, right) =>
-      maintenanceDateOnly(right.date).localeCompare(
-        maintenanceDateOnly(left.date)
+      maintenanceDateOnly(left.date).localeCompare(
+        maintenanceDateOnly(right.date)
       )
     );
 };

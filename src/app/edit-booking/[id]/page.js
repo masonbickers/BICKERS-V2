@@ -31,7 +31,6 @@ import {
 } from "@/app/utils/bookingAvailability";
 import {
   getCanonicalDueDate,
-  isVehicleOutOfUse,
   ymd as toYmd,
 } from "@/app/utils/maintenanceSchema";
 import {
@@ -526,6 +525,11 @@ const expandMaintenanceBookingDates = (b) => {
   if (s && e) return enumerateDaysYMD_UTC(s, e);
   return [];
 };
+
+const isActiveMaintenanceBooking = (booking = {}) =>
+  !["completed", "complete", "cancelled", "canceled", "failed", "archived"].includes(
+    String(booking.status || booking.bookingStatus || "booked").trim().toLowerCase()
+  );
 
 const anyDateOverlap = (datesA, datesB) => {
   if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
@@ -1103,7 +1107,28 @@ function normalizeAuditValue(key, value) {
   }
 }
 
-function summarizeAuditValue(key, value) {
+function auditVehicleLabel(value, lookup = {}) {
+  const rawKey = String(
+    value && typeof value === "object"
+      ? value.id || value.vehicleId || value.registration || value.reg || value.name || ""
+      : value || ""
+  ).trim();
+  const vehicle =
+    lookup?.byId?.[rawKey] ||
+    lookup?.byReg?.[rawKey.toUpperCase()] ||
+    lookup?.byName?.[rawKey.toLowerCase()] ||
+    (value && typeof value === "object" ? value : null) ||
+    {};
+  return String(
+    vehicle.name ||
+      [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ") ||
+      vehicle.registration ||
+      vehicle.reg ||
+      "Unknown vehicle"
+  ).trim();
+}
+
+function summarizeAuditValue(key, value, vehicleLookup = {}) {
   if (
     value === null ||
     typeof value === "undefined" ||
@@ -1123,9 +1148,12 @@ function summarizeAuditValue(key, value) {
     case "employeesByDate":
       return Object.keys(value || {})
         .sort()
-        .map((date) => `${formatAuditDate(date)} (${summarizeAuditValue("employees", value?.[date])})`)
+        .map((date) => `${formatAuditDate(date)} (${summarizeAuditValue("employees", value?.[date], vehicleLookup)})`)
         .join("; ") || "None";
     case "vehicles":
+      return (Array.isArray(value) ? value : [])
+        .map((item) => auditVehicleLabel(item, vehicleLookup))
+        .join(", ") || "None";
     case "equipment":
     case "bookingDates":
     case "statusReasons":
@@ -1136,6 +1164,10 @@ function summarizeAuditValue(key, value) {
         )
         .join(", ") || "None";
     case "vehicleStatus":
+      return Object.keys(value || {})
+        .sort()
+        .map((vehicleId) => `${auditVehicleLabel(vehicleId, vehicleLookup)}: ${String(value[vehicleId] ?? "").trim() || "None"}`)
+        .join("; ") || "None";
     case "callTimesByDate":
     case "notesByDate":
       return Object.keys(value || {})
@@ -1167,16 +1199,17 @@ function summarizeAuditValue(key, value) {
   }
 }
 
-function buildBookingChangeList(before = {}, after = {}) {
+function buildBookingChangeList(before = {}, after = {}, vehicleLookup = {}) {
   return AUDIT_FIELDS.reduce((changes, key) => {
     const beforeNorm = normalizeAuditValue(key, before?.[key]);
     const afterNorm = normalizeAuditValue(key, after?.[key]);
     if (JSON.stringify(beforeNorm) === JSON.stringify(afterNorm)) return changes;
 
     changes.push(
-      `${AUDIT_LABELS[key] || key}: ${summarizeAuditValue(key, before?.[key])} -> ${summarizeAuditValue(
+      `${AUDIT_LABELS[key] || key}: ${summarizeAuditValue(key, before?.[key], vehicleLookup)} -> ${summarizeAuditValue(
         key,
-        after?.[key]
+        after?.[key],
+        vehicleLookup
       )}`
     );
     return changes;
@@ -2074,7 +2107,7 @@ export default function EditBookingPage() {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -2114,7 +2147,7 @@ export default function EditBookingPage() {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -2142,21 +2175,17 @@ export default function EditBookingPage() {
       if (!id) return;
 
       const taxStatus = String(vehicle?.taxStatus || "").trim().toLowerCase();
-      const offRoadStatus = isVehicleOutOfUse(vehicle);
-
-      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax" || offRoadStatus) {
+      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax") {
         ids.add(id);
-        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "VOR";
+        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : taxStatus.toUpperCase();
         return;
       }
 
       const motDue = getCanonicalDueDate(vehicle, "mot");
       const serviceDue = getCanonicalDueDate(vehicle, "service");
-      const inspectionDue = getCanonicalDueDate(vehicle, "inspection");
       const overdueMatch = [
         ["MOT overdue", motDue],
         ["Service overdue", serviceDue],
-        ["Inspection overdue", inspectionDue],
       ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < refDate);
 
       if (overdueMatch) {
@@ -2423,7 +2452,7 @@ export default function EditBookingPage() {
       )
       .map((vehicleId) => {
         const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
-        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
+        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || "Unknown vehicle";
         const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
         return `${label} (${existingStatus})`;
       });
@@ -2496,6 +2525,50 @@ export default function EditBookingPage() {
     const freshVehicleBlocking = availabilityForSave
       ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
       : null;
+
+    if (!isMaintenance && vehicles.length) {
+      let freshVehicles = [];
+      try {
+        freshVehicles = await Promise.all(vehicles.map(async (vehicleId) => {
+          const vehicleSnapshot = await getDoc(doc(db, "vehicles", vehicleId));
+          return vehicleSnapshot.exists() ? { id: vehicleSnapshot.id, ...vehicleSnapshot.data() } : { id: vehicleId };
+        }));
+      } catch (err) {
+        console.error("Failed checking vehicle compliance before update:", err);
+        return alert("Could not confirm the selected vehicles are available. Please try saving again.");
+      }
+
+      const selectedIds = new Set(normalizeVehicleKeysListForLookup(vehicles, vehicleLookup));
+      const blockingReasons = [];
+      (availabilityForSave?.maintenanceBookings || maintenanceBookings)
+        .filter(isActiveMaintenanceBooking)
+        .forEach((maintenanceBooking) => {
+          if (!anyDateOverlap(expandMaintenanceBookingDates(maintenanceBooking), bookingDates)) return;
+          const candidates = Array.isArray(maintenanceBooking.vehicles) && maintenanceBooking.vehicles.length
+            ? maintenanceBooking.vehicles
+            : [maintenanceBooking.vehicleId, maintenanceBooking.vehicle, maintenanceBooking.registration];
+          normalizeVehicleKeysListForLookup(candidates, vehicleLookup).forEach((id) => {
+            if (selectedIds.has(id)) blockingReasons.push(`${vehicleLookup.byId?.[id]?.name || id}: confirmed maintenance`);
+          });
+        });
+
+      const referenceDate = new Date(`${bookingWindowEnd}T00:00:00`);
+      freshVehicles.forEach((vehicle) => {
+        const taxStatus = String(vehicle.taxStatus || "").trim().toLowerCase();
+        if (["sorn", "untaxed", "no tax"].includes(taxStatus)) blockingReasons.push(`${vehicle.name || vehicle.registration || "Unknown vehicle"}: ${taxStatus.toUpperCase()}`);
+        else {
+          const overdue = [
+            ["MOT overdue", getCanonicalDueDate(vehicle, "mot")],
+            ["Service overdue", getCanonicalDueDate(vehicle, "service")],
+          ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < referenceDate);
+          if (overdue) blockingReasons.push(`${vehicle.name || vehicle.registration || "Unknown vehicle"}: ${overdue[0]}`);
+        }
+      });
+
+      if (blockingReasons.length) {
+        return alert(`This booking cannot be saved because the following vehicle(s) are unavailable:\n\n${Array.from(new Set(blockingReasons)).join("\n")}`);
+      }
+    }
     const vehicleConflicts = selectedVehicleConflictLabels(
       vehicles,
       vehicleStatusForSave,
@@ -2876,7 +2949,7 @@ export default function EditBookingPage() {
     payload.endDateISO = payload.endDate ? String(payload.endDate).slice(0, 10) : "";
     payload.dateISO = payload.date ? String(payload.date).slice(0, 10) : "";
 
-    const changeLines = buildBookingChangeList(originalBookingData || {}, payload);
+    const changeLines = buildBookingChangeList(originalBookingData || {}, payload, vehicleLookup);
 
     payload.history = [
       ...(Array.isArray(existingHistory) ? existingHistory : []),
@@ -3135,7 +3208,7 @@ export default function EditBookingPage() {
             </div>
           )}
 
-          <div className={layoutStyles.extracted3}>
+          <div className={`edit-booking-grid ${layoutStyles.extracted3}`}>
             {!isBickersJob && (
               <div style={headerChecksBox}>
                 <span style={iconBox(hasHS && hasRiskAssessment ? UI.green : UI.amber, hasHS && hasRiskAssessment ? UI.greenSoft : UI.amberSoft, hasHS && hasRiskAssessment ? UI.greenBorder : UI.amberBorder)}>
@@ -3172,6 +3245,27 @@ export default function EditBookingPage() {
                   {offRoadEligibility.reason || "Skips tax/SORN compliance only. Insurance is still required."}
                 </div>
               </div>
+            </div>
+            <div style={headerChecksBox}>
+              <span style={iconBox()}>
+                <FileText size={17} />
+              </span>
+              <div className={layoutStyles.extracted5}>
+                <strong style={{ fontSize: 13.5 }}>Quote</strong>
+                <div style={{ fontSize: 12, color: UI.muted }}>
+                  {quoteCards.length
+                    ? `${quoteCards.length} quote${quoteCards.length === 1 ? "" : "s"} on this booking`
+                    : "Create a quote for this booking."}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(quoteCards.length ? addAnotherQuoteHref : `/quote/${bookingId}`)}
+                style={{ ...btnPrimary, alignSelf: "center", marginLeft: "auto", flexShrink: 0 }}
+              >
+                <FileText size={14} />
+                {quoteCards.length ? "Add another quote" : "Create Quote"}
+              </button>
             </div>
           </div>
 
@@ -4191,7 +4285,7 @@ export default function EditBookingPage() {
                             const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                             const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                             const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                            const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
+                            const disabled = (hasBookingConflict || isMaintBlocked || isComplianceBlocked || isDefectBlocked) && !isSelected;
 
                             return (
                               <div
@@ -4371,30 +4465,20 @@ export default function EditBookingPage() {
               </div>
             </div>
 
-            <div style={card}>
+            {quoteCards.length ? (
+              <div style={card}>
               <div className={layoutStyles.extracted58}>
                 <div className={layoutStyles.extracted59}>
                   <span style={iconBox()}><FileText size={17} /></span>
                   <div>
-                    <h3 style={cardTitle}>Quote</h3>
-                <div style={{ color: UI.muted, fontSize: 12.5, marginTop: SPACE.xs }}>
-                      {quoteCards.length
-                        ? `${quoteCards.length} quote${quoteCards.length === 1 ? "" : "s"} on this booking`
-                        : "Create or edit the quote on its own page in the Bickers quote format."}
+                    <h3 style={cardTitle}>Quotes on this booking</h3>
+                    <div style={{ color: UI.muted, fontSize: 12.5, marginTop: SPACE.xs }}>
+                      Open, preview, print, download or remove an existing quote.
                     </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => router.push(quoteCards.length ? addAnotherQuoteHref : `/quote/${bookingId}`)}
-                  style={btnPrimary}
-                >
-                  <FileText size={14} />
-                  {quoteCards.length ? "Add another quote" : "Create Quote"}
-                </button>
               </div>
-              {quoteCards.length ? (
-                <div className={layoutStyles.extracted60}>
+              <div className={layoutStyles.extracted60}>
                   {quoteCards.map((quoteCard) => (
                     <div
                       key={quoteCard.quoteNumber}
@@ -4623,9 +4707,9 @@ export default function EditBookingPage() {
                       )}
                     </div>
                   ) : null}
-                </div>
-              ) : null}
+              </div>
             </div>
+            ) : null}
 
             {/* Files & Notes */}
             <div className={`edit-booking-two ${layoutStyles.extracted74}`} >

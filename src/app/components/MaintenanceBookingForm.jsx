@@ -11,7 +11,7 @@ import layoutStyles from "./MaintenanceBookingForm.styles.module.css";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
-import { getIsoWeekLabel } from "../utils/maintenanceSchema";
+import { ADDITIONAL_MAINTENANCE_WORKFLOWS, getIsoWeekLabel } from "../utils/maintenanceSchema";
 import {
   bookingToDateKeys as serviceBookingToDateKeys,
   createMaintenanceBooking,
@@ -33,6 +33,12 @@ import {
   normalizeEquipmentSelection,
 } from "@/app/utils/maintenanceBookingFormState";
 
+const INSPECTION_WORK_OPTIONS = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
+  value: workflow.maintenanceTypeId,
+  label: workflow.label,
+}));
+const INSPECTION_WORK_IDS = new Set(INSPECTION_WORK_OPTIONS.map((option) => option.value));
+
 /**
  * Props:
  * - vehicleId (optional)
@@ -49,6 +55,8 @@ export default function MaintenanceBookingForm({
   sourceDueDate = "",
   sourceDueIsoWeek = "",
   sourceDueKey = "",
+  requestedRecordId = "",
+  defaultMaintenanceTypeIds = ["pmi", "brake_test"],
   onClose,
   onSaved,
 }) {
@@ -64,6 +72,12 @@ export default function MaintenanceBookingForm({
     normalizeMaintenanceType(type)
   );
   const [status, setStatus] = useState("Booked");
+  const [inspectionTypeIds, setInspectionTypeIds] = useState(() => {
+    const selected = Array.isArray(defaultMaintenanceTypeIds)
+      ? defaultMaintenanceTypeIds.filter((item) => INSPECTION_WORK_IDS.has(item))
+      : [];
+    return selected.length ? selected : ["pmi", "brake_test"];
+  });
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [useCustomDates, setUseCustomDates] = useState(false);
 
@@ -78,6 +92,7 @@ export default function MaintenanceBookingForm({
   const [location, setLocation] = useState("");
   const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
+  const [scheduleExceptionReason, setScheduleExceptionReason] = useState("");
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentSearchOpen, setEquipmentSearchOpen] = useState(false);
@@ -147,7 +162,7 @@ export default function MaintenanceBookingForm({
       : safeType === "SERVICE"
       ? "Book Service"
       : safeType === "INSPECTION"
-      ? "Book 8 Week Inspection"
+      ? "Book Inspection / Compliance Work"
       : "Book Work";
   const sourceDueDateObj = useMemo(() => ymdToDate(String(sourceDueDate || "").slice(0, 10)), [sourceDueDate]);
   const selectedInspectionWeek = useMemo(() => {
@@ -158,15 +173,14 @@ export default function MaintenanceBookingForm({
       : appointmentDate || "";
     return seed ? getIsoWeekLabel(seed) : "";
   }, [useCustomDates, customDates, isMultiDay, startDate, appointmentDate]);
-  const inspectionOutsideDueWeek =
-    safeType === "INSPECTION" &&
+  const outsideDueWeek =
     !!sourceDueIsoWeek &&
     !!selectedInspectionWeek &&
     selectedInspectionWeek !== sourceDueIsoWeek;
 
   const vehicleLabel = useMemo(() => {
     const v = vehicle || {};
-    return v.name || v.registration || v.reg || vehicleId || "";
+    return v.name || v.registration || v.reg || (vehicleId ? "Unknown vehicle" : "");
   }, [vehicle, vehicleId]);
 
   const selectedDateKeys = useMemo(() => {
@@ -352,6 +366,7 @@ export default function MaintenanceBookingForm({
   const canSubmit = useMemo(() => {
     if (saving) return false;
     if (!vehicleId && selectedEquipment.length === 0) return false;
+    if (safeType === "INSPECTION" && inspectionTypeIds.length === 0) return false;
 
     if (useCustomDates) {
       if (!customDates.length) return false;
@@ -366,8 +381,9 @@ export default function MaintenanceBookingForm({
     }
 
     if (activeConflict) return false;
+    if (outsideDueWeek && !scheduleExceptionReason.trim()) return false;
     return true;
-  }, [saving, vehicleId, selectedEquipment, useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
+  }, [saving, vehicleId, selectedEquipment, safeType, inspectionTypeIds, useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate, activeConflict, outsideDueWeek, scheduleExceptionReason]);
 
   const handleClose = () => {
     if (typeof onClose === "function") onClose();
@@ -431,6 +447,9 @@ export default function MaintenanceBookingForm({
         sourceDueIsoWeek,
         sourceDueKey,
         authState: dataAccessState,
+        maintenanceTypeIds: safeType === "INSPECTION" ? inspectionTypeIds : [],
+        requestedRecordId,
+        scheduleExceptionReason,
       });
 
       if (typeof onSaved === "function") onSaved(savedBooking);
@@ -482,10 +501,39 @@ export default function MaintenanceBookingForm({
             >
               <option value="MOT">MOT</option>
               <option value="SERVICE">Service</option>
-              <option value="INSPECTION">8 Week Inspection</option>
+              <option value="INSPECTION">Inspection / Compliance</option>
               <option value="WORK">Work / Maintenance</option>
             </select>
           </div>
+
+          {safeType === "INSPECTION" ? (
+            <fieldset className={layoutStyles.extracted10} style={{ gridColumn: "1 / -1" }}>
+              <legend className={layoutStyles.extracted11}>Inspection / compliance work</legend>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 8 }}>
+                {INSPECTION_WORK_OPTIONS.map(({ value, label }) => (
+                  <label key={value} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 800 }}>
+                    <input
+                      type="checkbox"
+                      checked={inspectionTypeIds.includes(value)}
+                      onChange={(event) =>
+                        setInspectionTypeIds((current) =>
+                          event.target.checked
+                            ? [...new Set([...current, value])]
+                            : current.filter((item) => item !== value)
+                        )
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {inspectionTypeIds.length === 0 ? (
+                <div style={{ color: "var(--color-danger)", marginTop: 7, fontSize: 12 }}>
+                  Select at least one inspection or compliance item.
+                </div>
+              ) : null}
+            </fieldset>
+          ) : null}
 
           {/* Status */}
           <div className={layoutStyles.extracted13}>
@@ -542,12 +590,12 @@ export default function MaintenanceBookingForm({
             </select>
           </div>
 
-          {safeType === "INSPECTION" && sourceDueDateObj ? (
+          {sourceDueDateObj ? (
             <div
               style={{
                 gridColumn: "1 / -1",
-                border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
-                background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
+                border: `1px solid ${outsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
+                background: outsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
                 color: "var(--color-text)",
                 borderRadius: 12,
                 padding: "10px 12px",
@@ -557,7 +605,21 @@ export default function MaintenanceBookingForm({
             >
               Due week: <b>{sourceDueIsoWeek || "Unknown"}</b> for{" "}
               <b>{sourceDueDateObj.toLocaleDateString("en-GB")}</b>.
-              {inspectionOutsideDueWeek ? " This booking sits outside the due ISO week." : " This booking is inside the due ISO week."}
+              {outsideDueWeek ? " This booking sits outside the legal ISO week and requires a reason." : " This booking is inside the legal ISO week."}
+              {outsideDueWeek ? (
+                <div style={{ marginTop: 8 }}>
+                  <label htmlFor={`${fieldPrefix}-schedule-exception-reason`} style={{ display: "block", fontWeight: 800, marginBottom: 5 }}>
+                    Reason for booking outside the due week
+                  </label>
+                  <input
+                    id={`${fieldPrefix}-schedule-exception-reason`}
+                    value={scheduleExceptionReason}
+                    onChange={(event) => setScheduleExceptionReason(event.target.value)}
+                    placeholder="Required for the compliance audit trail"
+                    className={layoutStyles.extracted15}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
 
