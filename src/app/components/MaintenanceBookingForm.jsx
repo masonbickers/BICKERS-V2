@@ -46,6 +46,7 @@ const INSPECTION_WORK_IDS = new Set(INSPECTION_WORK_OPTIONS.map((option) => opti
  * - defaultDate: "YYYY-MM-DD" (optional)
  * - onClose() (optional)
  * - onSaved(payload) (optional)
+ * - saveBooking(payload) (optional test/integration seam; defaults to trusted mutation client)
  */
 export default function MaintenanceBookingForm({
   vehicleId,
@@ -59,6 +60,7 @@ export default function MaintenanceBookingForm({
   defaultMaintenanceTypeIds = ["pmi", "brake_test"],
   onClose,
   onSaved,
+  saveBooking = createMaintenanceBooking,
 }) {
   const dialogRef = useRef(null);
   const dialogTitleId = useId();
@@ -424,7 +426,7 @@ export default function MaintenanceBookingForm({
     setSaving(true);
     setFormError("");
     try {
-      const savedBooking = await createMaintenanceBooking({
+      const savedBooking = await saveBooking({
         vehicleId,
         vehicleLabel,
         vehicle,
@@ -864,12 +866,6 @@ export default function MaintenanceBookingForm({
           <div className={layoutStyles.extracted64}>
             Saves to <b>maintenanceBookings</b>
             {vehicleId ? " and links it back to the vehicle document." : " as an equipment-only booking."}
-            {status === "Completed" ? (
-              <>
-                {" "}
-                Also updates <b>last</b> + <b>next</b> due dates automatically.
-              </>
-            ) : null}
           </div>
         </form>
       </div>

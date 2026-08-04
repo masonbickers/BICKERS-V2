@@ -157,6 +157,15 @@ service cloud.firestore {
       return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
+    function canReadStrictTenantDoc() {
+      return canUseSoftware()
+        && (
+          isPlatformAdmin()
+          || !resource.data.keys().hasAny(["companyId"])
+          || resource.data.companyId == currentUserCompanyId()
+        );
+    }
+
     function canCreateAnyWorkspaceTenantDoc() {
       return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
@@ -604,7 +613,7 @@ service cloud.firestore {
     }
 
     match /maintenanceBookings/{bookingId} {
-      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow read: if canReadStrictTenantDoc();
       // Legal maintenance state transitions are executed only by the authenticated
       // server mutation service. Admin SDK/REST service-account writes bypass rules;
       // browser clients cannot manufacture completed, cancelled or archived records.
@@ -612,7 +621,7 @@ service cloud.firestore {
     }
 
     match /maintenanceReconciliationJobs/{jobId} {
-      allow read: if canReadServiceTenantDoc();
+      allow read: if hasServiceAccess() && canReadStrictTenantDoc();
       allow create, update, delete: if false;
     }
 

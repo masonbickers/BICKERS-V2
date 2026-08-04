@@ -1,6 +1,7 @@
 import "server-only";
 
 import crypto from "node:crypto";
+import { buildFirestoreCommitWrites } from "@/app/utils/firestoreCommitPlanning";
 
 const FIREBASE_PROJECT_ID =
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
@@ -238,21 +239,15 @@ export async function adminPatchDocument(collection, documentId, patch, options 
 
 export async function adminCommitDocumentPatches(writes = []) {
   const token = await getFirebaseAdminAccessToken();
-  const commitWrites = writes.map(({ collection, documentId, patch, updateTime, exists }) => {
-    const write = {
-      update: {
-        name: `${FIRESTORE_DOCUMENT_ROOT}/${collection}/${documentId}`,
-        fields: Object.entries(patch).reduce((acc, [key, value]) => {
-          acc[key] = jsToFirestoreValue(value);
-          return acc;
-        }, {}),
-      },
-      updateMask: { fieldPaths: Object.keys(patch) },
-    };
-    if (updateTime) write.currentDocument = { updateTime };
-    else if (typeof exists === "boolean") write.currentDocument = { exists };
-    return write;
-  });
+  const commitWrites = buildFirestoreCommitWrites(
+    writes.map((write) => ({
+      ...write,
+      patch: Object.fromEntries(
+        Object.entries(write.patch).map(([key, value]) => [key, jsToFirestoreValue(value)])
+      ),
+    })),
+    FIRESTORE_DOCUMENT_ROOT
+  );
   const res = await fetch(`${FIRESTORE_BASE_URL}:commit`, {
     method: "POST",
     headers: {
@@ -328,6 +323,8 @@ export async function adminListDocuments(collection, options = {}) {
       docs.push({
         id: String(doc.name || "").split("/").pop(),
         data: firestoreFieldsToJs(doc.fields || {}),
+        createTime: doc.createTime || null,
+        updateTime: doc.updateTime || null,
       });
     });
     pageToken = data.nextPageToken || "";

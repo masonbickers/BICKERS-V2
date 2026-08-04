@@ -4,7 +4,12 @@ import {
   adminListDocuments,
   adminPatchDocument,
 } from "@/app/api/_firebaseAdminRest";
-import { isDvsaResultForCompletion } from "@/app/utils/maintenanceMutationPolicy";
+import {
+  buildMotConfirmationFields,
+  isDvsaCronAuthorized,
+  runMotSyncBatch,
+  withBoundedRetry,
+} from "@/app/utils/motSyncExecution";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -22,20 +27,7 @@ const DVSA_MAX_ATTEMPTS = 3;
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
 
-const retryableStatus = (status) => !status || status === 408 || status === 429 || status >= 500;
-const withBoundedRetry = async (operation) => {
-  let lastError;
-  for (let attempt = 1; attempt <= DVSA_MAX_ATTEMPTS; attempt += 1) {
-    try {
-      return await operation(attempt);
-    } catch (error) {
-      lastError = error;
-      if (attempt >= DVSA_MAX_ATTEMPTS || !retryableStatus(Number(error?.response?.status || 0))) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 250 * (2 ** (attempt - 1))));
-    }
-  }
-  throw lastError;
-};
+const retryDvsa = (operation) => withBoundedRetry(operation, { maxAttempts: DVSA_MAX_ATTEMPTS });
 
 const cleanRegistration = (value) => String(value || "").replace(/\s+/g, "").toUpperCase();
 const norm = (value) => String(value || "").trim().toLowerCase();
@@ -139,7 +131,7 @@ async function getAccessToken() {
     scope: MOT_HISTORY_SCOPE,
   });
 
-  const tokenRes = await withBoundedRetry(() => axios.post(MOT_HISTORY_TOKEN_URL, body, {
+  const tokenRes = await retryDvsa(() => axios.post(MOT_HISTORY_TOKEN_URL, body, {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     timeout: DVSA_TIMEOUT_MS,
   }));
@@ -158,7 +150,7 @@ async function getAccessToken() {
 }
 
 async function fetchMotHistory(vrm, token) {
-  const motRes = await withBoundedRetry(() => axios.get(
+  const motRes = await retryDvsa(() => axios.get(
     `${MOT_HISTORY_BASE_URL}/v1/trade/vehicles/registration/${encodeURIComponent(vrm)}`,
     {
       headers: {
@@ -328,9 +320,8 @@ function buildVehiclePatch(vehicle, motHistory) {
   const lastMOT = motHistory.lastMOT;
   const nextMOT = motHistory.nextMOT;
   const latestPassedMot = motHistory.latestPassedMot;
-  const awaitingCompletionDate = dateOnly(vehicle.motAwaitingDvsaCompletionDate);
-  const latestPassedDate = dateOnly(latestPassedMot?.completedDate);
-  const confirmsNewMot = !awaitingCompletionDate || isDvsaResultForCompletion(latestPassedDate, awaitingCompletionDate);
+  const { confirmsNewMot, patch: confirmationPatch } = buildMotConfirmationFields(vehicle, motHistory);
+  Object.assign(patch, confirmationPatch);
 
   if (
     confirmsNewMot && lastMOT &&
@@ -376,19 +367,6 @@ function buildVehiclePatch(vehicle, motHistory) {
     patch.motHistoryLatestTestNumber = latestPassedMot?.motTestNumber || "";
   }
 
-  if (awaitingCompletionDate) {
-    if (confirmsNewMot && nextMOT) {
-      patch.motAwaitingDvsaConfirmation = false;
-      patch.motAwaitingDvsaCompletionDate = "";
-      patch.motAwaitingDvsaBookingId = "";
-      patch.motDvsaConfirmationStatus = "confirmed";
-      patch.motDvsaConfirmedAt = new Date().toISOString();
-    } else {
-      patch.motAwaitingDvsaConfirmation = true;
-      patch.motDvsaConfirmationStatus = "awaiting";
-    }
-  }
-
   if (motHistory.storedMotTests?.length) {
     const latestMot = motHistory.latestMot || motHistory.storedMotTests[0];
     const latestDefects = getMotDefects(latestMot);
@@ -414,58 +392,17 @@ function buildVehiclePatch(vehicle, motHistory) {
 }
 
 async function runMotHistorySync() {
-  const startedAtMs = Date.now();
-  const startedAt = new Date(startedAtMs).toISOString();
   const documents = await adminListDocuments("vehicles");
   const vehicles = documents.map((vehicleDoc) => ({ id: vehicleDoc.id, ...(vehicleDoc.data || {}) }));
-  const token = await getAccessToken();
-
-  const results = {
-    checked: 0,
-    updated: 0,
-    skipped: 0,
-    failed: 0,
-    failures: [],
-    unchanged: 0,
-    updatedVehicles: [],
-    startedAt,
-    finishedAt: "",
-    durationMs: 0,
-  };
-
-  for (const vehicle of vehicles) {
-    const vrm = cleanRegistration(vehicle.registration || vehicle.reg || vehicle.registrationNumber);
-    if (!isVehicleWorthSyncing(vehicle)) {
-      results.skipped += 1;
-      continue;
-    }
-
-    results.checked += 1;
-
-    try {
-      const motHistory = await fetchMotHistory(vrm, token);
-      const patch = buildVehiclePatch(vehicle, motHistory);
-      if (!Object.keys(patch).length) {
-        results.unchanged += 1;
-        continue;
-      }
-
-      await adminPatchDocument("vehicles", vehicle.id, patch);
-      results.updated += 1;
-      results.updatedVehicles.push({ vehicleId: vehicle.id, vrm, changedFields: Object.keys(patch) });
-    } catch (err) {
-      results.failed += 1;
-      results.failures.push({
-        vehicleId: vehicle.id,
-        vrm,
-        status: err.response?.status || null,
-        message: err.response?.data?.message || err.message,
-      });
-    }
-  }
-  results.finishedAt = new Date().toISOString();
-  results.durationMs = Date.now() - startedAtMs;
-  return results;
+  return runMotSyncBatch({
+    vehicles,
+    getAccessToken,
+    shouldSync: isVehicleWorthSyncing,
+    registrationFor: (vehicle) => cleanRegistration(vehicle.registration || vehicle.reg || vehicle.registrationNumber),
+    fetchHistory: fetchMotHistory,
+    buildPatch: buildVehiclePatch,
+    updateVehicle: (vehicle, patch) => adminPatchDocument("vehicles", vehicle.id, patch),
+  });
 }
 
 const recordAdminSyncMetadata = async (results, source, error = "") => {
@@ -557,7 +494,7 @@ async function runMotHistorySyncWithUserToken(idToken) {
 
 export async function GET(request) {
   const authHeader = request.headers.get("authorization") || "";
-  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (!isDvsaCronAuthorized(authHeader, CRON_SECRET)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

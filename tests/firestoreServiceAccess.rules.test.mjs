@@ -24,6 +24,7 @@ async function seed() {
       setDoc(doc(db, "users", "service-a"), { uid: "service-a", isEnabled: true, companyId: "company-a", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "disabled-a"), { uid: "disabled-a", isEnabled: false, companyId: "company-a", role: "user", appAccess: { user: true, service: true } }),
       setDoc(doc(db, "users", "admin-a"), { uid: "admin-a", isEnabled: true, companyId: "company-a", role: "admin", appAccess: { user: true, service: true } }),
+      setDoc(doc(db, "users", "service-b"), { uid: "service-b", isEnabled: true, companyId: "company-b", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "platform"), { uid: "platform", isEnabled: true, role: "platformAdmin", appAccess: { user: true, service: true } }),
       setDoc(doc(db, "bookings", "booking-a"), { companyId: "company-a", title: "A" }),
       setDoc(doc(db, "bookings", "booking-b"), { companyId: "company-b", title: "B" }),
@@ -33,6 +34,11 @@ async function seed() {
         companyId: "company-a",
         status: "Booked",
         maintenanceTypeIds: ["pmi"],
+      }),
+      setDoc(doc(db, "maintenanceBookings", "maintenance-booking-b"), {
+        companyId: "company-b",
+        status: "Booked",
+        maintenanceTypeIds: ["service"],
       }),
       setDoc(doc(db, "vehicles", "vehicle-locked"), {
         companyId: "company-a",
@@ -105,6 +111,16 @@ test("browser clients cannot manufacture or transition legal maintenance records
       completedAtISO: "2026-08-04",
     }));
   }
+});
+
+test("maintenance permissions distinguish ordinary, service, admin and cross-company users", async () => {
+  await seed();
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("user-a").firestore(), "maintenanceBookings", "maintenance-booking-a")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("service-a").firestore(), "maintenanceBookings", "maintenance-booking-a")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "maintenanceBookings", "maintenance-booking-a")));
+  await assertFails(getDoc(doc(env.authenticatedContext("service-b").firestore(), "maintenanceBookings", "maintenance-booking-a")));
+  await assertFails(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "maintenanceBookings", "maintenance-booking-b")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("platform").firestore(), "maintenanceBookings", "maintenance-booking-b")));
 });
 
 test("vehicle clients cannot write legal completion history but may edit ordinary fields", async () => {

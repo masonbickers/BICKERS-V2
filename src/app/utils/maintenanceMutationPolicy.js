@@ -39,3 +39,29 @@ export const isDvsaResultForCompletion = (testCompletedDate, maintenanceComplete
   const completedDate = maintenanceDateOnly(maintenanceCompletedDate);
   return Boolean(testDate && completedDate && testDate >= completedDate);
 };
+
+export const buildAtomicRescheduleWriteSet = ({
+  bookingId,
+  bookingPatch,
+  bookingUpdateTime,
+  vehicleId,
+  vehiclePatch,
+}) => {
+  const dates = Array.isArray(bookingPatch?.bookingDates) ? bookingPatch.bookingDates : [];
+  const summaryAppointment = Object.entries(vehiclePatch || {}).find(
+    ([key, value]) => /(AppointmentDate|BookingDate)$/.test(key) && value
+  )?.[1];
+  if (dates.length === 1 && summaryAppointment && summaryAppointment !== dates[0]) {
+    throw new Error("Booking and vehicle summary appointment dates must match.");
+  }
+  return [{
+    collection: "maintenanceBookings",
+    documentId: bookingId,
+    patch: bookingPatch,
+    updateTime: bookingUpdateTime,
+  },
+  ...(vehicleId && vehiclePatch
+    ? [{ collection: "vehicles", documentId: vehicleId, patch: vehiclePatch, exists: true }]
+    : []),
+  ];
+};

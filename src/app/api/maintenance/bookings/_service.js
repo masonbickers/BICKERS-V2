@@ -6,6 +6,7 @@ import {
   adminCommitDocumentPatches,
   adminListDocuments,
   adminReadDocument,
+  adminReadDocumentWithMetadata,
 } from "@/app/api/_firebaseAdminRest";
 import { ADDITIONAL_MAINTENANCE_WORKFLOWS } from "@/app/utils/maintenanceSchema";
 import { buildAdditionalMaintenanceCompletionPatch } from "@/app/utils/additionalMaintenanceCompletion";
@@ -32,6 +33,7 @@ import {
 import {
   assertInitialMaintenanceStatus,
   assertMaintenanceTransition,
+  buildAtomicRescheduleWriteSet,
   rescheduleCrossesLegalIsoWeek,
 } from "@/app/utils/maintenanceMutationPolicy";
 
@@ -114,17 +116,22 @@ const assertTenant = (record, companyId) => {
 };
 
 const readContext = async (bookingId, companyId) => {
-  const booking = await adminReadDocument("maintenanceBookings", bookingId);
-  if (!booking) {
+  const bookingSnapshot = await adminReadDocumentWithMetadata("maintenanceBookings", bookingId);
+  if (!bookingSnapshot) {
     const error = new Error("Maintenance booking not found.");
     error.status = 404;
     throw error;
   }
+  const booking = bookingSnapshot.data;
   assertTenant(booking, companyId);
   const vehicleId = text(booking.vehicleId);
   const vehicle = vehicleId ? await adminReadDocument("vehicles", vehicleId) : null;
   if (vehicle) assertTenant(vehicle, companyId);
-  return { booking: { id: bookingId, ...booking }, vehicle: vehicle ? { id: vehicleId, ...vehicle } : null };
+  return {
+    booking: { id: bookingId, ...booking },
+    bookingUpdateTime: bookingSnapshot.updateTime,
+    vehicle: vehicle ? { id: vehicleId, ...vehicle } : null,
+  };
 };
 
 const clearSummary = (vehicle = {}, bookingId = "") => {
@@ -179,7 +186,8 @@ const createMutation = async ({ payload, actor, companyId }) => {
   const dueDate = maintenanceDateOnly(payload.sourceDueDate || payload.sourceDueDateISO);
   const dueWeek = text(payload.sourceDueIsoWeek) || maintenanceIsoWeekLabel(dueDate);
   const id = text(payload.requestedRecordId) || maintenanceRequirementDocumentId(text(payload.sourceDueKey)) || crypto.randomUUID();
-  const existing = await adminReadDocument("maintenanceBookings", id);
+  const existingSnapshot = await adminReadDocumentWithMetadata("maintenanceBookings", id);
+  const existing = existingSnapshot?.data || null;
   if (existing) {
     assertTenant(existing, companyId);
     const existingStatus = normalizeMaintenanceRecord(existing, { id }).status;
@@ -213,7 +221,12 @@ const createMutation = async ({ payload, actor, companyId }) => {
     lastEditedBy: actor.email, lastEditedByUid: actor.uid, updatedAt: timestamp,
     history: [...safeArray(existing?.history), historyEntry(existing ? "Booked" : "Created", actor, [`Status: ${titleStatus(status)}`], timestamp)],
   };
-  const writes = [{ collection: "maintenanceBookings", documentId: id, patch: record, exists: existing ? true : false }];
+  const writes = [{
+    collection: "maintenanceBookings",
+    documentId: id,
+    patch: record,
+    ...(existingSnapshot?.updateTime ? { updateTime: existingSnapshot.updateTime } : { exists: false }),
+  }];
   const vehicle = record.vehicleId ? await adminReadDocument("vehicles", record.vehicleId) : null;
   if (vehicle) {
     assertTenant(vehicle, companyId);
@@ -225,7 +238,7 @@ const createMutation = async ({ payload, actor, companyId }) => {
 };
 
 const rescheduleMutation = async ({ payload, actor, companyId }) => {
-  const { booking, vehicle } = await readContext(text(payload.bookingId), companyId);
+  const { booking, bookingUpdateTime, vehicle } = await readContext(text(payload.bookingId), companyId);
   const canonical = normalizeMaintenanceRecord(booking, { id: booking.id });
   if (!["booked", "in_progress", "deferred"].includes(canonical.status)) throw new Error("Only an active booked appointment can be rescheduled.");
   const dates = bookingDates(payload.updates || {});
@@ -248,8 +261,16 @@ const rescheduleMutation = async ({ payload, actor, companyId }) => {
       reason ? `Reason: ${reason}` : "",
     ], timestamp)],
   };
-  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch, exists: true }];
-  if (vehicle) writes.push({ collection: "vehicles", documentId: vehicle.id, patch: { ...bookingSummaryPatch(booking, dates, canonical.status), updatedAt: timestamp }, exists: true });
+  const vehiclePatch = vehicle
+    ? { ...bookingSummaryPatch(booking, dates, canonical.status), updatedAt: timestamp }
+    : null;
+  const writes = buildAtomicRescheduleWriteSet({
+    bookingId: booking.id,
+    bookingPatch: patch,
+    bookingUpdateTime,
+    vehicleId: vehicle?.id,
+    vehiclePatch,
+  });
   await adminCommitDocumentPatches(writes);
   return { id: booking.id, ...booking, ...patch, vehiclePatch: writes[1]?.patch || null };
 };
@@ -287,7 +308,7 @@ const completionVehiclePatch = ({ booking, vehicle, typeIds, completedDate, docu
 };
 
 const completeMutation = async ({ payload, actor, companyId, selectedOnly }) => {
-  const { booking, vehicle } = await readContext(text(payload.bookingId), companyId);
+  const { booking, bookingUpdateTime, vehicle } = await readContext(text(payload.bookingId), companyId);
   const completedDate = maintenanceDateOnly(payload.completedISO);
   if (!completedDate) throw new Error("Enter the actual completion date.");
   const canonical = normalizeMaintenanceRecord(booking, { id: booking.id });
@@ -308,7 +329,7 @@ const completeMutation = async ({ payload, actor, companyId, selectedOnly }) => 
     ], timestamp)],
   };
   const vehiclePatch = completionVehiclePatch({ booking, vehicle, typeIds: available, completedDate, documentsByType: payload.documentsByType || {}, actor, allCompleted: completed.allCompleted });
-  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch: bookingPatch, exists: true }];
+  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch: bookingPatch, updateTime: bookingUpdateTime }];
   if (vehiclePatch) writes.push({ collection: "vehicles", documentId: vehicle.id, patch: vehiclePatch, exists: true });
 
   const recurrence = buildNextRequestedMaintenanceRecords({ canonicalRecord: canonical, completedTypeIds: available, completionDateISO: completedDate, vehicle: { ...vehicle, ...vehiclePatch } });
@@ -379,7 +400,7 @@ const terminalMutation = async ({ payload, actor, companyId, archive }) => {
     error.status = 403;
     throw error;
   }
-  const { booking, vehicle } = await readContext(text(payload.bookingId), companyId);
+  const { booking, bookingUpdateTime, vehicle } = await readContext(text(payload.bookingId), companyId);
   const canonical = normalizeMaintenanceRecord(booking, { id: booking.id });
   if (["completed", "cancelled", "archived"].includes(canonical.status)) throw new Error(`Cannot ${archive ? "archive" : "cancel"} a terminal maintenance record.`);
   const reason = text(payload.reason || payload.cancellationReason);
@@ -394,7 +415,7 @@ const terminalMutation = async ({ payload, actor, companyId, archive }) => {
     lastEditedBy: actor.email, lastEditedByUid: actor.uid, updatedAt: timestamp,
     history: [...safeArray(booking.history), historyEntry(archive ? "Archived" : "Cancelled", actor, [`Status: ${booking.status} -> ${titleStatus(status)}`, reason ? `Reason: ${reason}` : ""], timestamp)],
   };
-  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch, exists: true }];
+  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch, updateTime: bookingUpdateTime }];
   const vehiclePatch = vehicle ? { ...clearSummary(vehicle, booking.id), updatedAt: timestamp } : null;
   if (vehiclePatch) writes.push({ collection: "vehicles", documentId: vehicle.id, patch: vehiclePatch, exists: true });
   await adminCommitDocumentPatches(writes);
@@ -402,7 +423,7 @@ const terminalMutation = async ({ payload, actor, companyId, archive }) => {
 };
 
 const editMutation = async ({ payload, actor, companyId }) => {
-  const { booking } = await readContext(text(payload.bookingId), companyId);
+  const { booking, bookingUpdateTime } = await readContext(text(payload.bookingId), companyId);
   const current = normalizeMaintenanceRecord(booking, { id: booking.id }).status;
   const next = normalizeMaintenanceRecordStatus(payload.status || booking.status);
   if (["completed", "cancelled", "archived"].includes(next)) throw new Error("Use the dedicated completion, cancellation or archive operation.");
@@ -416,7 +437,7 @@ const editMutation = async ({ payload, actor, companyId }) => {
     lastEditedBy: actor.email, lastEditedByUid: actor.uid, updatedAt: timestamp,
     history: [...safeArray(booking.history), historyEntry("Edited", actor, [`Status: ${booking.status} -> ${titleStatus(next)}`], timestamp)],
   };
-  await adminCommitDocumentPatches([{ collection: "maintenanceBookings", documentId: booking.id, patch, exists: true }]);
+  await adminCommitDocumentPatches([{ collection: "maintenanceBookings", documentId: booking.id, patch, updateTime: bookingUpdateTime }]);
   return { id: booking.id, ...booking, ...patch };
 };
 
@@ -444,7 +465,7 @@ const createWorkMutation = ({ payload, actor, companyId }) => {
 };
 
 const updateWorkMutation = async ({ payload, actor, companyId }) => {
-  const { booking, vehicle } = await readContext(text(payload.bookingId), companyId);
+  const { booking, bookingUpdateTime, vehicle } = await readContext(text(payload.bookingId), companyId);
   const input = payload.patch || {};
   const currentWorkshop = booking.workshop && typeof booking.workshop === "object" ? booking.workshop : {};
   const workshop = { ...currentWorkshop, ...input };
@@ -476,7 +497,7 @@ const updateWorkMutation = async ({ payload, actor, companyId }) => {
     lastEditedBy: actor.email, lastEditedByUid: actor.uid, updatedAt: timestamp,
     history: [...safeArray(booking.history), historyEntry("Workshop job updated", actor, [`Status: ${booking.status} -> ${titleStatus(nextStatus)}`], timestamp)],
   };
-  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch, exists: true }];
+  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch, updateTime: bookingUpdateTime }];
   const vehiclePatch = vehicle && dates.length ? { ...bookingSummaryPatch(booking, dates, nextStatus), updatedAt: timestamp } : null;
   if (vehiclePatch) writes.push({ collection: "vehicles", documentId: vehicle.id, patch: vehiclePatch, exists: true });
   await adminCommitDocumentPatches(writes);
@@ -484,7 +505,7 @@ const updateWorkMutation = async ({ payload, actor, companyId }) => {
 };
 
 const updateDocumentsMutation = async ({ payload, actor, companyId }) => {
-  const { booking, vehicle } = await readContext(text(payload.bookingId), companyId);
+  const { booking, bookingUpdateTime, vehicle } = await readContext(text(payload.bookingId), companyId);
   const allowedTypeIds = new Set(normalizeMaintenanceRecord(booking, { id: booking.id }).items.map((item) => item.maintenanceTypeId));
   const suppliedItems = safeArray(payload.items);
   const items = safeArray(booking.items).map((existingItem) => {
@@ -502,7 +523,7 @@ const updateDocumentsMutation = async ({ payload, actor, companyId }) => {
     updatedAt: timestamp,
     history: [...safeArray(booking.history), historyEntry("Evidence updated", actor, ["Maintenance evidence attachments changed"], timestamp)],
   };
-  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch: bookingPatch, exists: true }];
+  const writes = [{ collection: "maintenanceBookings", documentId: booking.id, patch: bookingPatch, updateTime: bookingUpdateTime }];
   let vehiclePatch = null;
   if (vehicle && payload.vehiclePatch && typeof payload.vehiclePatch === "object") {
     const allowedFields = new Set(ADDITIONAL_MAINTENANCE_WORKFLOWS.flatMap((workflow) => [workflow.documentsField, workflow.historyField]));
@@ -519,12 +540,12 @@ const vorTransitionMutation = async ({ payload, actor, companyId }) => {
   if (!vehicle) throw new Error("Vehicle not found.");
   assertTenant(vehicle, companyId);
   const all = await adminListDocuments("maintenanceBookings");
-  const candidates = getVorInspectionCancellationCandidates(all.map((entry) => ({ id: entry.id, ...entry.data })).filter((booking) => text(booking.vehicleId) === vehicleId), { vehicle: { id: vehicleId, ...vehicle, ...payload.vehiclePayload }, offRoadDate: payload.offRoadDate });
+  const candidates = getVorInspectionCancellationCandidates(all.map((entry) => ({ id: entry.id, ...entry.data, __updateTime: entry.updateTime })).filter((booking) => text(booking.vehicleId) === vehicleId), { vehicle: { id: vehicleId, ...vehicle, ...payload.vehiclePayload }, offRoadDate: payload.offRoadDate });
   const timestamp = nowISO();
   let vehiclePatch = { ...(payload.vehiclePayload || {}), updatedAt: timestamp };
   const writes = candidates.map((booking) => {
     Object.assign(vehiclePatch, clearSummary({ ...vehicle, ...vehiclePatch }, booking.id));
-    return { collection: "maintenanceBookings", documentId: booking.id, patch: buildVorInspectionCancellationPatch(booking, { cancelledAt: timestamp, cancelledBy: actor, cancellationSource: payload.cancellationSource, sourceRecordId: payload.sourceRecordId }), exists: true };
+    return { collection: "maintenanceBookings", documentId: booking.id, patch: buildVorInspectionCancellationPatch(booking, { cancelledAt: timestamp, cancelledBy: actor, cancellationSource: payload.cancellationSource, sourceRecordId: payload.sourceRecordId }), updateTime: booking.__updateTime };
   });
   writes.push({ collection: "vehicles", documentId: vehicleId, patch: vehiclePatch, exists: true });
   await adminCommitDocumentPatches(writes);
@@ -537,7 +558,7 @@ const forecastMutation = async ({ payload, actor, companyId }) => {
   assertTenant(vehicle, companyId);
   const year = Number(payload.year);
   const all = await adminListDocuments("maintenanceBookings");
-  const existing = all.map((entry) => ({ id: entry.id, ...entry.data })).filter((booking) => text(booking.vehicleId) === vehicle.id);
+  const existing = all.map((entry) => ({ id: entry.id, ...entry.data, __updateTime: entry.updateTime })).filter((booking) => text(booking.vehicleId) === vehicle.id);
   const forecast = buildAnnualMaintenanceForecast({ vehicle, year, companyId, includedTypeIds: payload.includedTypeIds });
   const reconciliation = reconcileAnnualMaintenanceForecast({ forecast, existingBookings: existing, vehicleId: vehicle.id, year, todayISO: maintenanceDateOnly(payload.today || new Date()), includedTypeIds: payload.includedTypeIds });
   const timestamp = nowISO();
@@ -549,7 +570,7 @@ const forecastMutation = async ({ payload, actor, companyId }) => {
     writes.push({ collection: "maintenanceBookings", documentId: id, patch: { ...buildAnnualMaintenancePersistencePayload(record, { createdBy: actor.email, nowISO: timestamp }), createdAt: timestamp, updatedAt: timestamp }, exists: false });
     createdIds.push(id);
   }
-  reconciliation.supersede.forEach((record) => writes.push({ collection: "maintenanceBookings", documentId: record.id, patch: { status: "Archived", archiveReason: "Schedule changed; replaced by canonical forecast.", archivedAtISO: timestamp, updatedAt: timestamp, history: [...safeArray(record.history), historyEntry("Superseded by schedule", actor, ["Automatic appointment replaced."], timestamp)] }, exists: true }));
+  reconciliation.supersede.forEach((record) => writes.push({ collection: "maintenanceBookings", documentId: record.id, patch: { status: "Archived", archiveReason: "Schedule changed; replaced by canonical forecast.", archivedAtISO: timestamp, updatedAt: timestamp, history: [...safeArray(record.history), historyEntry("Superseded by schedule", actor, ["Automatic appointment replaced."], timestamp)] }, updateTime: record.__updateTime }));
   if (writes.length) await adminCommitDocumentPatches(writes);
   return { createdIds, supersededIds: reconciliation.supersede.map((record) => record.id), preservedIds: reconciliation.preserve.map((record) => record.id).filter(Boolean) };
 };

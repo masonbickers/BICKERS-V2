@@ -8,9 +8,8 @@ Current release readiness target: controlled pilot use before final business rol
 
 Green checks required before rollout:
 
-- `npm.cmd run lint`
-- `npm.cmd run test:access`
-- `npm.cmd run build`
+- `npm.cmd run verify:production`
+- `npm.cmd run verify:clean-checkout` from a fresh checkout for a release candidate
 - Manual pilot checklist in `docs/finalisation-checklist.md`
 
 ## Local Setup
@@ -28,7 +27,14 @@ PowerShell may block `npm.ps1` on some Windows machines. Use `npm.cmd` for all c
 - `npm.cmd run build` creates a production build.
 - `npm.cmd run lint` runs ESLint through the supported CLI.
 - `npm.cmd run test:access` runs access-control unit tests.
+- `npm.cmd run test:unit` runs every non-emulator Node regression test.
+- `npm.cmd run test:rules` selects JDK 21 and runs the Firestore and Storage emulator suites.
+- `npm.cmd run test:browser` runs the Playwright MOT, service and PMI/brake workflows.
+- `npm.cmd run verify:production` runs unit tests, both rules suites, lint, typecheck, production build and browser tests.
+- `npm.cmd run verify:clean-checkout` installs locked dependencies and executes the full production gate; it refuses a dirty checkout.
 - `npm.cmd run migrate:employee-access` migrates employee access fields when needed.
+
+Firebase emulator verification requires JDK 21. The verification wrapper detects common OpenJDK 21 install locations or uses a JDK 21 `JAVA_HOME`; it fails rather than silently running the rules gate on another Java version. Install Playwright's Chromium runtime once with `npx playwright install chromium`.
 
 ## Access Model
 

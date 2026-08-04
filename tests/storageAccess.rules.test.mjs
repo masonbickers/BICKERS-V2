@@ -26,6 +26,9 @@ async function seedUsers() {
     await Promise.all([
       setDoc(doc(db, "users", "user-a"), { uid: "user-a", isEnabled: true, companyId: "company-a", role: "user", appAccess: { user: true, service: false } }),
       setDoc(doc(db, "users", "service-a"), { uid: "service-a", isEnabled: true, companyId: "company-a", role: "user", appAccess: { user: false, service: true } }),
+      setDoc(doc(db, "users", "admin-a"), { uid: "admin-a", isEnabled: true, companyId: "company-a", role: "admin", appAccess: { user: true, service: true } }),
+      setDoc(doc(db, "users", "service-b"), { uid: "service-b", isEnabled: true, companyId: "company-b", role: "user", appAccess: { user: false, service: true } }),
+      setDoc(doc(db, "users", "platform"), { uid: "platform", isEnabled: true, role: "platformAdmin", appAccess: { user: true, service: true } }),
       setDoc(doc(db, "users", "disabled-a"), { uid: "disabled-a", isEnabled: false, companyId: "company-a", role: "user", appAccess: { user: true, service: true } }),
     ]);
   });
@@ -47,4 +50,14 @@ test("company and workspace checks protect scoped files", async () => {
   await assertFails(uploadBytes(ref(env.authenticatedContext("user-a").storage(), "companies/company-b/quotes/test.pdf"), pdf, { contentType: "application/pdf" }));
   await assertFails(uploadBytes(ref(env.authenticatedContext("service-a").storage(), "companies/company-a/quotes/test.pdf"), pdf, { contentType: "application/pdf" }));
   await assertSucceeds(uploadBytes(ref(env.authenticatedContext("service-a").storage(), "companies/company-a/maintenance-quotes/test.pdf"), pdf, { contentType: "application/pdf" }));
+});
+
+test("maintenance evidence permissions distinguish ordinary, service, admin and cross-company users", async () => {
+  await seedUsers();
+  const path = "companies/company-a/maintenance-quotes/inspection.pdf";
+  await assertFails(uploadBytes(ref(env.authenticatedContext("user-a").storage(), path), pdf, { contentType: "application/pdf" }));
+  await assertSucceeds(uploadBytes(ref(env.authenticatedContext("service-a").storage(), path), pdf, { contentType: "application/pdf" }));
+  await assertSucceeds(uploadBytes(ref(env.authenticatedContext("admin-a").storage(), path), pdf, { contentType: "application/pdf" }));
+  await assertFails(uploadBytes(ref(env.authenticatedContext("service-b").storage(), path), pdf, { contentType: "application/pdf" }));
+  await assertSucceeds(uploadBytes(ref(env.authenticatedContext("platform").storage(), path), pdf, { contentType: "application/pdf" }));
 });

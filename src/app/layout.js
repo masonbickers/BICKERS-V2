@@ -21,6 +21,13 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  if (process.env.NODE_ENV !== "production" && process.env.MAINTENANCE_E2E_HARNESS === "1") {
+    return (
+      <html lang="en" className={inter.variable} suppressHydrationWarning>
+        <body suppressHydrationWarning>{children}</body>
+      </html>
+    );
+  }
   return (
    <html
      lang="en"
