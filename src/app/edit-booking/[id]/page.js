@@ -2526,49 +2526,6 @@ export default function EditBookingPage() {
       ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
       : null;
 
-    if (!isMaintenance && vehicles.length) {
-      let freshVehicles = [];
-      try {
-        freshVehicles = await Promise.all(vehicles.map(async (vehicleId) => {
-          const vehicleSnapshot = await getDoc(doc(db, "vehicles", vehicleId));
-          return vehicleSnapshot.exists() ? { id: vehicleSnapshot.id, ...vehicleSnapshot.data() } : { id: vehicleId };
-        }));
-      } catch (err) {
-        console.error("Failed checking vehicle compliance before update:", err);
-        return alert("Could not confirm the selected vehicles are available. Please try saving again.");
-      }
-
-      const selectedIds = new Set(normalizeVehicleKeysListForLookup(vehicles, vehicleLookup));
-      const blockingReasons = [];
-      (availabilityForSave?.maintenanceBookings || maintenanceBookings)
-        .filter(isActiveMaintenanceBooking)
-        .forEach((maintenanceBooking) => {
-          if (!anyDateOverlap(expandMaintenanceBookingDates(maintenanceBooking), bookingDates)) return;
-          const candidates = Array.isArray(maintenanceBooking.vehicles) && maintenanceBooking.vehicles.length
-            ? maintenanceBooking.vehicles
-            : [maintenanceBooking.vehicleId, maintenanceBooking.vehicle, maintenanceBooking.registration];
-          normalizeVehicleKeysListForLookup(candidates, vehicleLookup).forEach((id) => {
-            if (selectedIds.has(id)) blockingReasons.push(`${vehicleLookup.byId?.[id]?.name || id}: confirmed maintenance`);
-          });
-        });
-
-      const referenceDate = new Date(`${bookingWindowEnd}T00:00:00`);
-      freshVehicles.forEach((vehicle) => {
-        const taxStatus = String(vehicle.taxStatus || "").trim().toLowerCase();
-        if (["sorn", "untaxed", "no tax"].includes(taxStatus)) blockingReasons.push(`${vehicle.name || vehicle.registration || "Unknown vehicle"}: ${taxStatus.toUpperCase()}`);
-        else {
-          const overdue = [
-            ["MOT overdue", getCanonicalDueDate(vehicle, "mot")],
-            ["Service overdue", getCanonicalDueDate(vehicle, "service")],
-          ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < referenceDate);
-          if (overdue) blockingReasons.push(`${vehicle.name || vehicle.registration || "Unknown vehicle"}: ${overdue[0]}`);
-        }
-      });
-
-      if (blockingReasons.length) {
-        return alert(`This booking cannot be saved because the following vehicle(s) are unavailable:\n\n${Array.from(new Set(blockingReasons)).join("\n")}`);
-      }
-    }
     const vehicleConflicts = selectedVehicleConflictLabels(
       vehicles,
       vehicleStatusForSave,
@@ -4285,7 +4242,9 @@ export default function EditBookingPage() {
                             const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                             const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                             const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                            const disabled = (hasBookingConflict || isMaintBlocked || isComplianceBlocked || isDefectBlocked) && !isSelected;
+                            // Maintenance, inspection/compliance and defect states remain visible as
+                            // warnings. Only the existing booking pencil/status rules prevent selection.
+                            const disabled = hasBookingConflict && !isSelected;
 
                             return (
                               <div
@@ -4301,14 +4260,14 @@ export default function EditBookingPage() {
                                 }}
                                 title={
                                   disabled
-                                    ? isMaintBlocked
-                                      ? `Vehicle is already booked for ${maintReason} on overlapping date(s)`
-                                      : isDefectBlocked
-                                      ? `Vehicle is blocked: ${defectReason}`
-                                      : status === SECOND_PENCIL_STATUS
+                                    ? status === SECOND_PENCIL_STATUS
                                       ? "Vehicle already has a Second Pencil booking on overlapping date(s)"
                                       : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s). Use Second Pencil to add a softer hold.`
-                                    : ""
+                                    : [
+                                        isMaintBlocked ? `${maintReason} overlaps the selected date(s)` : "",
+                                        isComplianceBlocked ? complianceReason : "",
+                                        isDefectBlocked ? defectReason : "",
+                                      ].filter(Boolean).join("; ")
                                 }
                               >
                                 <input
