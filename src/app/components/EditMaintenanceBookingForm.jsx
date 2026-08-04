@@ -16,11 +16,14 @@ import { db } from "../../../firebaseConfig";
 import { ADDITIONAL_MAINTENANCE_WORKFLOWS, getIsoWeekLabel } from "../utils/maintenanceSchema";
 import {
   bookingToDateKeys as serviceBookingToDateKeys,
+  normalizeMaintenanceType,
+} from "../utils/maintenanceBookingPresentation";
+import {
   cancelMaintenanceBooking,
   deleteMaintenanceBooking,
-  normalizeMaintenanceType,
+  rescheduleMaintenanceBooking,
   updateMaintenanceBooking,
-} from "../utils/maintenanceBookingService";
+} from "../utils/maintenanceMutationClient";
 import {
   doc,
   getDoc,
@@ -534,6 +537,22 @@ export default function EditMaintenanceBookingForm({
     setFormError("");
     setSaving(true);
     try {
+      const previousDateKeys = serviceBookingToDateKeys(booking);
+      const datesChanged = previousDateKeys.join("|") !== bookingDates.keys.join("|");
+      if (datesChanged) {
+        await rescheduleMaintenanceBooking({
+          bookingId,
+          updates: {
+            dateKeys: bookingDates.keys,
+            bookingDates: bookingDates.keys,
+            appointmentDateISO: bookingDates.keys.length === 1 ? bookingDates.keys[0] : "",
+            appointmentTime,
+            startDateISO: bookingDates.keys.length > 1 ? bookingDates.keys[0] : "",
+            endDateISO: bookingDates.keys.length > 1 ? bookingDates.keys.at(-1) : "",
+          },
+          reason: scheduleExceptionReason,
+        });
+      }
       const savedBooking = await updateMaintenanceBooking({
         bookingId,
         booking,

@@ -238,17 +238,21 @@ export async function adminPatchDocument(collection, documentId, patch, options 
 
 export async function adminCommitDocumentPatches(writes = []) {
   const token = await getFirebaseAdminAccessToken();
-  const commitWrites = writes.map(({ collection, documentId, patch, updateTime }) => ({
-    update: {
-      name: `${FIRESTORE_DOCUMENT_ROOT}/${collection}/${documentId}`,
-      fields: Object.entries(patch).reduce((acc, [key, value]) => {
-        acc[key] = jsToFirestoreValue(value);
-        return acc;
-      }, {}),
-    },
-    updateMask: { fieldPaths: Object.keys(patch) },
-    currentDocument: { updateTime },
-  }));
+  const commitWrites = writes.map(({ collection, documentId, patch, updateTime, exists }) => {
+    const write = {
+      update: {
+        name: `${FIRESTORE_DOCUMENT_ROOT}/${collection}/${documentId}`,
+        fields: Object.entries(patch).reduce((acc, [key, value]) => {
+          acc[key] = jsToFirestoreValue(value);
+          return acc;
+        }, {}),
+      },
+      updateMask: { fieldPaths: Object.keys(patch) },
+    };
+    if (updateTime) write.currentDocument = { updateTime };
+    else if (typeof exists === "boolean") write.currentDocument = { exists };
+    return write;
+  });
   const res = await fetch(`${FIRESTORE_BASE_URL}:commit`, {
     method: "POST",
     headers: {

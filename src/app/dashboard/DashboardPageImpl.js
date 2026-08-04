@@ -44,7 +44,7 @@ import {
 import { isHgvComplianceVehicle } from "../utils/hgvCompliance";
 import {
   rescheduleMaintenanceBooking,
-} from "../utils/maintenanceBookingService";
+} from "../utils/maintenanceMutationClient";
 import {
   collection,
   onSnapshot,

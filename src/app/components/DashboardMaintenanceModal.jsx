@@ -12,7 +12,8 @@ import {
   completeMaintenanceBooking,
   completeMaintenanceBookingItems,
   deleteMaintenanceBooking,
-} from "../utils/maintenanceBookingService";
+  updateMaintenanceDocuments,
+} from "../utils/maintenanceMutationClient";
 import {
   MAINTENANCE_JOB_WORKFLOW_STAGES,
   MAINTENANCE_STAGE_LABELS,
@@ -138,6 +139,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [deleting, setDeleting] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
   const [completingBooking, setCompletingBooking] = useState(false);
+  const [actualCompletionDate, setActualCompletionDate] = useState("");
   const [completingAppointment, setCompletingAppointment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [jobType, setJobType] = useState("");
@@ -527,15 +529,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             evidenceStatus: "attached",
           };
         });
-        await updateDoc(
-          doc(db, "maintenanceBookings", bookingId),
-          tenantPayload(dataAccessState, { items: nextItems, updatedAt: serverTimestamp() })
-        );
+        await updateMaintenanceDocuments({ bookingId, items: nextItems, vehiclePatch: patch });
         setBooking((previous) => ({ ...(previous || {}), items: nextItems }));
+        setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
+      } else {
+        await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, patch));
+        setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
       }
-
-      await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, patch));
-      setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
       setMaintenanceDocumentFiles({});
       setMaintenanceDocumentInputVersion((previous) => previous + 1);
       setBookingActionMessage("Maintenance document saved.");
@@ -573,10 +573,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       setDeletingDocumentUrl(url || name);
       setBookingActionError("");
       try {
-        await updateDoc(
-          doc(db, "maintenanceBookings", bookingId),
-          tenantPayload(dataAccessState, { items: nextItems, updatedAt: serverTimestamp() })
-        );
+        await updateMaintenanceDocuments({ bookingId, items: nextItems });
         setBooking((previous) => ({ ...(previous || {}), items: nextItems }));
         if (file?.storagePath || url) {
           try {
@@ -697,14 +694,16 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
   const handleMarkBookingComplete = async () => {
     if (!canQuickCompleteBooking || completingBooking || !bookingId) return;
+    if (!actualCompletionDate) {
+      setBookingActionError("Enter the actual completion date.");
+      return;
+    }
 
     setCompletingBooking(true);
     setBookingActionError("");
     setBookingActionMessage("");
     try {
-      const completedDate =
-        ymd(booking?.appointmentDateISO || booking?.endDateISO || booking?.startDateISO || event?.start) ||
-        new Date().toISOString().slice(0, 10);
+      const completedDate = actualCompletionDate;
       const uploadedEntries = await Promise.all(
         activeGeneratedWorkflows.map(async (workflow) => [
           workflow.maintenanceTypeId,
@@ -724,6 +723,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         vehicleId,
         vehicle,
         authState: dataAccessState,
+        completedISO: completedDate,
         documentsByType,
       });
       if (completedBooking.vehiclePatch) {
@@ -740,7 +740,11 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             }
           : prev
       );
-      setBookingActionMessage("Booking marked as completed.");
+      setBookingActionMessage(
+        completedBooking.recurrenceStatus === "partial_failure"
+          ? "Booking completed. Follow-up scheduling is queued for reconciliation."
+          : "Booking marked as completed."
+      );
       setMaintenanceDocumentFiles({});
       setMaintenanceDocumentInputVersion((previous) => previous + 1);
     } catch (error) {
@@ -753,6 +757,10 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
   const handleMarkBookingItemComplete = async (maintenanceTypeId) => {
     if (!canQuickCompleteBooking || completingBooking || !bookingId) return;
+    if (!actualCompletionDate) {
+      setBookingActionError("Enter the actual completion date.");
+      return;
+    }
     const workflow = activeGeneratedWorkflows.find(
       (item) => item.maintenanceTypeId === maintenanceTypeId
     );
@@ -760,9 +768,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     setBookingActionError("");
     setBookingActionMessage("");
     try {
-      const completedDate =
-        ymd(booking?.appointmentDateISO || booking?.endDateISO || booking?.startDateISO || event?.start) ||
-        new Date().toISOString().slice(0, 10);
+      const completedDate = actualCompletionDate;
       const document = workflow
         ? await uploadAppointmentDocument(
             maintenanceDocumentFiles[workflow.key],
@@ -777,6 +783,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         vehicle,
         authState: dataAccessState,
         maintenanceTypeIds: [maintenanceTypeId],
+        completedISO: completedDate,
         documentsByType: { [maintenanceTypeId]: document ? [document] : [] },
       });
       if (completedBooking.vehiclePatch) {
@@ -789,7 +796,11 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         ...previous,
         ...(workflow ? { [workflow.key]: null } : {}),
       }));
-      setBookingActionMessage(`${workflow?.label || maintenanceTypeId} marked complete.`);
+      setBookingActionMessage(
+        completedBooking.recurrenceStatus === "partial_failure"
+          ? `${workflow?.label || maintenanceTypeId} completed; follow-up scheduling is queued for reconciliation.`
+          : `${workflow?.label || maintenanceTypeId} marked complete.`
+      );
     } catch (error) {
       console.error("[DashboardMaintenanceModal] item completion failed:", error);
       setBookingActionError(error?.message || "Could not complete this maintenance item.");
@@ -1207,11 +1218,24 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           )}
 
           {canQuickCompleteBooking && (
+            <label style={{ display: "grid", gap: 4, minWidth: 170 }}>
+              <span style={{ fontSize: 11, fontWeight: 900 }}>Actual completion date</span>
+              <input
+                type="date"
+                value={actualCompletionDate}
+                onChange={(event) => setActualCompletionDate(event.target.value)}
+                required
+                disabled={completingBooking}
+              />
+            </label>
+          )}
+
+          {canQuickCompleteBooking && (
             <button
               type="button"
               className={layoutStyles.extracted36}
               onClick={handleMarkBookingComplete}
-              disabled={completingBooking}
+              disabled={completingBooking || !actualCompletionDate}
             >
               {completingBooking ? "Saving..." : "Mark Complete"}
             </button>
@@ -1232,7 +1256,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                     type="button"
                     className={layoutStyles.extracted36}
                     onClick={() => handleMarkBookingItemComplete(workflow.maintenanceTypeId)}
-                    disabled={completingBooking}
+                    disabled={completingBooking || !actualCompletionDate}
                   >
                     {completingBooking ? "Saving..." : `Complete ${workflow.label}`}
                   </button>

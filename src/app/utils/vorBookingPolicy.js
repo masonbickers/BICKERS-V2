@@ -45,22 +45,25 @@ export const isVorAffectedMaintenanceBooking = (
   if (["completed", "complete", "cancelled", "canceled", "declined", "deleted", "closed"].includes(status)) {
     return false;
   }
-  const typeIds = Array.isArray(booking.maintenanceTypeIds)
-    ? booking.maintenanceTypeIds.map((item) => text(item).toLowerCase())
-    : [];
-  const type = text(
-    booking.type || booking.maintenanceType || booking.category || booking.title
-  ).toLowerCase();
-  const isPmiOrBrake =
-    typeIds.some((item) => ["pmi", "eight_week_inspection", "brake_test"].includes(item)) ||
-    type.includes("inspection") ||
-    type.includes("pmi") ||
-    type.includes("brake");
+  const typeIds = [
+    ...safeExplicitTypeIds(booking.maintenanceTypeIds),
+    ...safeExplicitTypeIds([booking.maintenanceTypeId]),
+    ...(Array.isArray(booking.items)
+      ? booking.items.map((item) => text(item?.maintenanceTypeId).toLowerCase()).filter(Boolean)
+      : []),
+  ];
+  const isPmiOrBrake = typeIds.some((item) => ["pmi", "brake_test"].includes(item));
   if (!isPmiOrBrake) return false;
   const dates = bookingDates(booking);
   const start = dateOnly(offRoadDate);
   return start ? dates.some((date) => date >= start) : dates.length > 0;
 };
+
+function safeExplicitTypeIds(values) {
+  return Array.isArray(values)
+    ? values.map((item) => text(item).toLowerCase()).filter(Boolean)
+    : [];
+}
 
 export const getVehicleVorStartDate = (vehicle = {}) => {
   const history = Array.isArray(vehicle.vorHistory) ? vehicle.vorHistory : [];
@@ -116,6 +119,11 @@ export const buildVorInspectionCancellationPatch = (
   } = {}
 ) => {
   const canonical = normalizeMaintenanceRecord(booking, { id: booking.id });
+  const affectedTypeIds = new Set(["pmi", "brake_test"]);
+  const hasUnaffectedItems = canonical.items.some(
+    (item) => !affectedTypeIds.has(text(item.maintenanceTypeId).toLowerCase())
+  );
+  const nextStatus = hasUnaffectedItems ? "Booked" : "Cancelled";
   const actor =
     text(cancelledBy?.email || cancelledBy?.name || cancelledBy?.uid || cancelledBy) || "system";
   const historyEntry = {
@@ -124,14 +132,21 @@ export const buildVorInspectionCancellationPatch = (
     timestamp: cancelledAt,
     source: cancellationSource,
     changes: [
-      `Status: ${text(booking.status) || canonical.status || "Blank"} -> Cancelled`,
-      `Reason: ${reason}`,
+      `Status: ${text(booking.status) || canonical.status || "Blank"} -> ${nextStatus}`,
+      hasUnaffectedItems
+        ? `PMI/brake items cancelled; unrelated appointment items preserved`
+        : `Reason: ${reason}`,
     ],
   };
   return {
-    status: "Cancelled",
+    status: nextStatus,
     schemaVersion: MAINTENANCE_RECORD_SCHEMA_VERSION,
-    items: canonical.items.map((item) => ({ ...item, status: "cancelled" })),
+    items: canonical.items.map((item) => ({
+      ...item,
+      status: affectedTypeIds.has(text(item.maintenanceTypeId).toLowerCase())
+        ? "cancelled"
+        : item.status,
+    })),
     cancellationReason: reason,
     cancellationSource,
     cancellationSourceRecordId: text(sourceRecordId),

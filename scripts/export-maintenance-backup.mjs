@@ -5,6 +5,7 @@ import path from "node:path";
 const COLLECTIONS = Object.freeze([
   "maintenanceBookings",
   "maintenanceJobs",
+  "maintenanceReconciliationJobs",
   "workBookings",
   "vehicleChecks",
   "vehicleIssues",

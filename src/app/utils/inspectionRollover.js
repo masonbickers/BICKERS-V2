@@ -19,7 +19,7 @@ import {
 import { startVehicleVorPeriod } from "./vorPeriods";
 import {
   commitVehicleVorTransition,
-} from "./maintenanceBookingService";
+} from "./maintenanceMutationClient";
 
 const parseLocalDate = (value) => {
   if (!value) return null;
@@ -178,6 +178,7 @@ export async function syncEightWeekInspectionRollovers({
         const nextMotIso = resolveCompletedMotExpiry({
           vehicle,
           fallbackExpiry: calculatedMotExpiry,
+          completedDate: latestMot.completedDate,
         });
         if (String(vehicle?.lastMOT || "").trim() !== latestMot.completedDate) {
           patch.lastMOT = latestMot.completedDate;

@@ -25,7 +25,7 @@
     "test:storage-rules": "firebase emulators:exec --only firestore,storage --project demo-bickers-storage-access-rules \"node --test tests/storageAccess.rules.test.mjs\"",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
     "test:dates": "node --test tests/dateNormalization.test.mjs",
-    "test:vehicle-maintenance-flow": "node --test tests/vehicleMaintenanceFlow.test.mjs tests/maintenanceRecord.test.mjs tests/maintenanceDataAudit.test.mjs tests/maintenanceAlerts.test.mjs",
+    "test:vehicle-maintenance-flow": "node --test tests/vehicleMaintenanceFlow.test.mjs tests/maintenanceRecord.test.mjs tests/maintenanceMutationPolicy.test.mjs tests/maintenanceDataAudit.test.mjs tests/maintenanceAlerts.test.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },
   "dependencies": {

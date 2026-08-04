@@ -37,8 +37,9 @@ import {
 import {
   completeMaintenanceBooking,
   createMaintenanceWorkBooking,
+  rescheduleMaintenanceBooking,
   updateMaintenanceWorkBooking,
-} from "../utils/maintenanceBookingService";
+} from "../utils/maintenanceMutationClient";
 import {
   isInactiveMaintenanceBooking,
   toDateLike,
@@ -922,7 +923,20 @@ export default function MaintenanceJobsPage() {
     setSavingJobId(job.id);
     try {
       if (job.__collection === "maintenanceBookings") {
-        await updateMaintenanceWorkBooking({ bookingId: job.id, patch, authState: dataAccessState });
+        const nextBookedDate = String(patch.bookedDate || "").slice(0, 10);
+        const currentBookedDate = String(job.bookedDate || job.plannedDate || job.appointmentDateISO || "").slice(0, 10);
+        if (nextBookedDate && nextBookedDate !== currentBookedDate) {
+          const reason = window.prompt("Reason for rescheduling this maintenance job:", "");
+          if (!String(reason || "").trim()) throw new Error("A rescheduling reason is required.");
+          await rescheduleMaintenanceBooking({
+            bookingId: job.id,
+            updates: { appointmentDate: nextBookedDate },
+            reason,
+          });
+        }
+        const detailsPatch = { ...patch };
+        delete detailsPatch.bookedDate;
+        await updateMaintenanceWorkBooking({ bookingId: job.id, patch: detailsPatch, authState: dataAccessState });
       } else {
         await updateDoc(doc(db, "maintenanceJobs", job.id), tenantPayload(dataAccessState, patch));
       }
@@ -989,6 +1003,11 @@ export default function MaintenanceJobsPage() {
       setSavingJobId(job.id);
       if (job.__collection === "maintenanceBookings") {
         if (nextStatus === "completed") {
+          const completedISO = window.prompt(
+            "Actual completion date (YYYY-MM-DD)",
+            new Date().toISOString().slice(0, 10)
+          );
+          if (!completedISO) return;
           await updateMaintenanceWorkBooking({
             bookingId: job.id,
             patch: { ...patch, status: currentStatus },
@@ -997,6 +1016,7 @@ export default function MaintenanceJobsPage() {
           await completeMaintenanceBooking({
             bookingId: job.id,
             vehicleId: job.assetId || "",
+            completedISO,
             authState: dataAccessState,
           });
         } else {

@@ -54,7 +54,7 @@ import {
   commitVehicleVorTransition,
   deleteMaintenanceBooking as deleteMaintenanceBookingRecord,
   syncVehicleAnnualMaintenanceForecast,
-} from "@/app/utils/maintenanceBookingService";
+} from "@/app/utils/maintenanceMutationClient";
 import { isOpenMaintenanceBooking } from "@/app/utils/maintenanceCalendar";
 import {
   ADDITIONAL_MAINTENANCE_WORKFLOWS,
@@ -1833,6 +1833,23 @@ export default function EditVehiclePage() {
     }
   };
 
+  const handleArchiveMaintenanceBooking = async (bookingId) => {
+    if (!bookingId || !window.confirm("Archive this maintenance booking? Its audit history will be retained.")) return;
+    const reason = window.prompt("Reason for archiving this legal maintenance requirement:", "");
+    if (!String(reason || "").trim()) return;
+    try {
+      await deleteMaintenanceBooking({ bookingId, reason });
+      setVehicleBookings((previous) =>
+        previous.map((booking) =>
+          booking.id === bookingId ? { ...booking, status: "Archived", archiveReason: reason } : booking
+        )
+      );
+    } catch (error) {
+      console.error("Could not archive maintenance booking:", error);
+      window.alert(error?.message || "Could not archive maintenance booking.");
+    }
+  };
+
   const handleDelete = async () => {
     const ok = window.confirm("Are you sure you want to delete this vehicle?");
     if (!ok) return;
@@ -2377,7 +2394,7 @@ export default function EditVehiclePage() {
                         <button
                           type="button"
                           style={btn("danger")}
-                          onClick={() => deleteMaintenanceBooking(booking.id)}
+                          onClick={() => handleArchiveMaintenanceBooking(booking.id)}
                         >
                           Archive
                         </button>
@@ -2920,7 +2937,9 @@ export default function EditVehiclePage() {
               <div style={{ ...panel, padding: 10 }}>
                 <div className={layoutStyles.extracted11}>
                 <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
-                  {dvsaMotSyncLabel || "MOT dates can be pulled from DVSA; frequency remains as a manual fallback."}
+                  {vehicle.motAwaitingDvsaConfirmation
+                    ? `Awaiting DVSA confirmation for the MOT completed ${formatDisplayDate(vehicle.motAwaitingDvsaCompletionDate)}. No previous expiry is being shown as the new result.`
+                    : dvsaMotSyncLabel || "MOT dates can be pulled from DVSA; frequency remains as a manual fallback."}
                 </div>
                 <button
                   type="button"
@@ -2973,6 +2992,7 @@ export default function EditVehiclePage() {
                   onToggleOverride={() =>
                     setDateOverrides((current) => ({ ...current, mot: !current.mot }))
                   }
+                  meta={vehicle.motAwaitingDvsaConfirmation ? "Awaiting DVSA confirmation" : undefined}
                 />
                 {advancedDatesOpen ? (
                   <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} disabled={isMotNotApplicable(vehicle)} readOnly source="Calculated" />
@@ -3328,7 +3348,7 @@ export default function EditVehiclePage() {
                         <button
                           type="button"
                           style={btn("danger")}
-                          onClick={() => deleteMaintenanceBooking(b.id)}
+                          onClick={() => handleArchiveMaintenanceBooking(b.id)}
                         >
                           Archive
                         </button>

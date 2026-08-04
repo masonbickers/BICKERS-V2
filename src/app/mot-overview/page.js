@@ -205,8 +205,9 @@ export default function MOTOverviewPage() {
           const next = parseDateAny(vehicle.nextMOT);
           const diffDays = next ? daysDiff(next, today) : null;
 
-          const status =
-            diffDays === null ? "unknown" : statusFromDays(diffDays);
+          const status = vehicle.motAwaitingDvsaConfirmation
+            ? "awaiting_dvsa"
+            : diffDays === null ? "unknown" : statusFromDays(diffDays);
 
           return {
             ...vehicle,
@@ -215,7 +216,7 @@ export default function MOTOverviewPage() {
             reg: vehicle.reg || vehicle.registration || "-",
             category: vehicle.category || "-",
             nextMOTRaw: next,
-            nextMOTDate: fmtShort(next),
+            nextMOTDate: vehicle.motAwaitingDvsaConfirmation ? "Awaiting DVSA confirmation" : fmtShort(next),
             daysUntilMOT: diffDays,
             status,
           };
@@ -247,7 +248,9 @@ export default function MOTOverviewPage() {
 
         const next = parseDateAny(vehicle.nextMOT);
         const diffDays = next ? daysDiff(next, today) : null;
-        const status = diffDays === null ? "unknown" : statusFromDays(diffDays);
+        const status = vehicle.motAwaitingDvsaConfirmation
+          ? "awaiting_dvsa"
+          : diffDays === null ? "unknown" : statusFromDays(diffDays);
 
         return {
           ...vehicle,
@@ -256,7 +259,7 @@ export default function MOTOverviewPage() {
           reg: vehicle.reg || vehicle.registration || "-",
           category: vehicle.category || "-",
           nextMOTRaw: next,
-          nextMOTDate: fmtShort(next),
+          nextMOTDate: vehicle.motAwaitingDvsaConfirmation ? "Awaiting DVSA confirmation" : fmtShort(next),
           daysUntilMOT: diffDays,
           status,
         };
@@ -504,7 +507,9 @@ export default function MOTOverviewPage() {
                         <td className={layoutStyles.extracted11}>{v.nextMOTDate}</td>
 
                         <td className={layoutStyles.extracted12}>
-                          {status === "unknown" ? (
+                          {status === "awaiting_dvsa" ? (
+                            <span style={pill("var(--color-warning-soft)", "var(--color-warning-text)")}>Awaiting DVSA</span>
+                          ) : status === "unknown" ? (
                             <span style={pill("var(--color-surface-hover)", UI.text)}>Missing date</span>
                           ) : (
                             <span style={statusPill(status)}>

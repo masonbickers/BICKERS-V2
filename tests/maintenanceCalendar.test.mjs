@@ -96,11 +96,11 @@ test("completed inspection labels reflect only items recorded as completed", () 
 
 test("whole-booking completion updates only the canonical items selected for completion", async () => {
   const serviceSource = await import("node:fs/promises").then(({ readFile }) =>
-    readFile(new URL("../src/app/utils/maintenanceBookingService.js", import.meta.url), "utf8")
+    readFile(new URL("../src/app/api/maintenance/bookings/_service.js", import.meta.url), "utf8")
   );
   assert.match(
     serviceSource,
-    /buildVehicleMaintenanceSummaryUpdates\(\{[\s\S]*?maintenanceTypeIds: selectedTypeIds,[\s\S]*?\}\);/
+    /completionVehiclePatch\(\{ booking, vehicle, typeIds: available,[\s\S]*?allCompleted: completed\.allCompleted \}\)/
   );
 });
 

@@ -1,7 +1,10 @@
 import axios from "axios";
-import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
-import { db } from "../../../../../../firebaseConfig";
 import { requireAdminFromRequest } from "@/app/api/admin/_lib";
+import {
+  adminListDocuments,
+  adminPatchDocument,
+} from "@/app/api/_firebaseAdminRest";
+import { isDvsaResultForCompletion } from "@/app/utils/maintenanceMutationPolicy";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -13,9 +16,26 @@ const MOT_HISTORY_CLIENT_SECRET = process.env.DVSA_MOT_HISTORY_CLIENT_SECRET;
 const MOT_HISTORY_API_KEY = process.env.DVSA_MOT_HISTORY_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "bickers-booking";
+const DVSA_TIMEOUT_MS = 12_000;
+const DVSA_MAX_ATTEMPTS = 3;
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
+
+const retryableStatus = (status) => !status || status === 408 || status === 429 || status >= 500;
+const withBoundedRetry = async (operation) => {
+  let lastError;
+  for (let attempt = 1; attempt <= DVSA_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= DVSA_MAX_ATTEMPTS || !retryableStatus(Number(error?.response?.status || 0))) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250 * (2 ** (attempt - 1))));
+    }
+  }
+  throw lastError;
+};
 
 const cleanRegistration = (value) => String(value || "").replace(/\s+/g, "").toUpperCase();
 const norm = (value) => String(value || "").trim().toLowerCase();
@@ -119,9 +139,10 @@ async function getAccessToken() {
     scope: MOT_HISTORY_SCOPE,
   });
 
-  const tokenRes = await axios.post(MOT_HISTORY_TOKEN_URL, body, {
+  const tokenRes = await withBoundedRetry(() => axios.post(MOT_HISTORY_TOKEN_URL, body, {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+    timeout: DVSA_TIMEOUT_MS,
+  }));
 
   const accessToken = tokenRes.data?.access_token;
   const expiresInSeconds = Number(tokenRes.data?.expires_in || 0);
@@ -137,7 +158,7 @@ async function getAccessToken() {
 }
 
 async function fetchMotHistory(vrm, token) {
-  const motRes = await axios.get(
+  const motRes = await withBoundedRetry(() => axios.get(
     `${MOT_HISTORY_BASE_URL}/v1/trade/vehicles/registration/${encodeURIComponent(vrm)}`,
     {
       headers: {
@@ -145,8 +166,9 @@ async function fetchMotHistory(vrm, token) {
         "X-API-Key": MOT_HISTORY_API_KEY,
         Accept: "application/json",
       },
+      timeout: DVSA_TIMEOUT_MS,
     }
-  );
+  ));
 
   const vehicle = Array.isArray(motRes.data) ? motRes.data[0] : motRes.data;
   const motTests = sortMotTestsNewestFirst(vehicle?.motTests);
@@ -306,9 +328,12 @@ function buildVehiclePatch(vehicle, motHistory) {
   const lastMOT = motHistory.lastMOT;
   const nextMOT = motHistory.nextMOT;
   const latestPassedMot = motHistory.latestPassedMot;
+  const awaitingCompletionDate = dateOnly(vehicle.motAwaitingDvsaCompletionDate);
+  const latestPassedDate = dateOnly(latestPassedMot?.completedDate);
+  const confirmsNewMot = !awaitingCompletionDate || isDvsaResultForCompletion(latestPassedDate, awaitingCompletionDate);
 
   if (
-    lastMOT &&
+    confirmsNewMot && lastMOT &&
     (dateOnly(vehicle.lastMOT) !== lastMOT ||
       dateOnly(vehicle.lastMot) !== lastMOT ||
       dateOnly(vehicle.lastMotDate) !== lastMOT)
@@ -319,7 +344,7 @@ function buildVehiclePatch(vehicle, motHistory) {
   }
 
   if (
-    nextMOT &&
+    confirmsNewMot && nextMOT &&
     (dateOnly(vehicle.nextMOT) !== nextMOT ||
       dateOnly(vehicle.nextMot) !== nextMOT ||
       dateOnly(vehicle.nextMotDate) !== nextMOT ||
@@ -351,6 +376,19 @@ function buildVehiclePatch(vehicle, motHistory) {
     patch.motHistoryLatestTestNumber = latestPassedMot?.motTestNumber || "";
   }
 
+  if (awaitingCompletionDate) {
+    if (confirmsNewMot && nextMOT) {
+      patch.motAwaitingDvsaConfirmation = false;
+      patch.motAwaitingDvsaCompletionDate = "";
+      patch.motAwaitingDvsaBookingId = "";
+      patch.motDvsaConfirmationStatus = "confirmed";
+      patch.motDvsaConfirmedAt = new Date().toISOString();
+    } else {
+      patch.motAwaitingDvsaConfirmation = true;
+      patch.motDvsaConfirmationStatus = "awaiting";
+    }
+  }
+
   if (motHistory.storedMotTests?.length) {
     const latestMot = motHistory.latestMot || motHistory.storedMotTests[0];
     const latestDefects = getMotDefects(latestMot);
@@ -376,11 +414,10 @@ function buildVehiclePatch(vehicle, motHistory) {
 }
 
 async function runMotHistorySync() {
-  const snapshot = await getDocs(collection(db, "vehicles"));
-  const vehicles = snapshot.docs.map((vehicleDoc) => ({
-    id: vehicleDoc.id,
-    ...(vehicleDoc.data() || {}),
-  }));
+  const startedAtMs = Date.now();
+  const startedAt = new Date(startedAtMs).toISOString();
+  const documents = await adminListDocuments("vehicles");
+  const vehicles = documents.map((vehicleDoc) => ({ id: vehicleDoc.id, ...(vehicleDoc.data || {}) }));
   const token = await getAccessToken();
 
   const results = {
@@ -389,6 +426,11 @@ async function runMotHistorySync() {
     skipped: 0,
     failed: 0,
     failures: [],
+    unchanged: 0,
+    updatedVehicles: [],
+    startedAt,
+    finishedAt: "",
+    durationMs: 0,
   };
 
   for (const vehicle of vehicles) {
@@ -403,10 +445,14 @@ async function runMotHistorySync() {
     try {
       const motHistory = await fetchMotHistory(vrm, token);
       const patch = buildVehiclePatch(vehicle, motHistory);
-      if (!Object.keys(patch).length) continue;
+      if (!Object.keys(patch).length) {
+        results.unchanged += 1;
+        continue;
+      }
 
-      await updateDoc(doc(db, "vehicles", vehicle.id), patch);
+      await adminPatchDocument("vehicles", vehicle.id, patch);
       results.updated += 1;
+      results.updatedVehicles.push({ vehicleId: vehicle.id, vrm, changedFields: Object.keys(patch) });
     } catch (err) {
       results.failed += 1;
       results.failures.push({
@@ -417,9 +463,33 @@ async function runMotHistorySync() {
       });
     }
   }
-
+  results.finishedAt = new Date().toISOString();
+  results.durationMs = Date.now() - startedAtMs;
   return results;
 }
+
+const recordAdminSyncMetadata = async (results, source, error = "") => {
+  const successful = !error && Number(results.failed || 0) === 0;
+  await adminPatchDocument("settings", "motHistorySync", {
+    lastAllFetchStartedAt: results.startedAt || nowISO(),
+    lastAllFetchFinishedAt: results.finishedAt || nowISO(),
+    lastAllFetchDurationMs: Number(results.durationMs || 0),
+    lastAllFetchSource: source,
+    lastAllFetchChecked: Number(results.checked || 0),
+    lastAllFetchUpdated: Number(results.updated || 0),
+    lastAllFetchUnchanged: Number(results.unchanged || 0),
+    lastAllFetchSkipped: Number(results.skipped || 0),
+    lastAllFetchFailed: Number(results.failed || 0),
+    lastAllFetchFailures: safeFailures(results.failures),
+    lastAllFetchUpdatedVehicles: (results.updatedVehicles || []).slice(0, 50),
+    lastAllFetchError: error,
+    lastAllFetchStatus: successful ? "success" : error ? "failed" : "partial_failure",
+    ...(successful ? { lastSuccessfulSyncAt: results.finishedAt || nowISO() } : {}),
+  });
+};
+
+const nowISO = () => new Date().toISOString();
+const safeFailures = (failures) => (Array.isArray(failures) ? failures.slice(0, 50) : []);
 
 async function runMotHistorySyncWithUserToken(idToken) {
   const startedAtMs = Date.now();
@@ -491,10 +561,17 @@ export async function GET(request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const requestStartedAt = nowISO();
   try {
-    return Response.json(await runMotHistorySync(), { status: 200 });
+    const results = await runMotHistorySync();
+    await recordAdminSyncMetadata(results, "cron");
+    return Response.json(results, { status: results.failed ? 207 : 200 });
   } catch (err) {
     console.error("Weekly MOT History sync failed:", err.response?.status, err.message);
+    const finishedAt = nowISO();
+    await recordAdminSyncMetadata({ startedAt: requestStartedAt, finishedAt, failed: 1, failures: [{ message: err.message }] }, "cron", err.message).catch((metadataError) => {
+      console.error("Could not record failed MOT cron metadata:", metadataError);
+    });
     return Response.json(
       {
         error: "Weekly MOT History sync failed",

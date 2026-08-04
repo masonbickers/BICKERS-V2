@@ -14,9 +14,9 @@ import { db } from "../../../firebaseConfig";
 import { ADDITIONAL_MAINTENANCE_WORKFLOWS, getIsoWeekLabel } from "../utils/maintenanceSchema";
 import {
   bookingToDateKeys as serviceBookingToDateKeys,
-  createMaintenanceBooking,
   normalizeMaintenanceType,
-} from "../utils/maintenanceBookingService";
+} from "../utils/maintenanceBookingPresentation";
+import { createMaintenanceBooking } from "../utils/maintenanceMutationClient";
 import { doc, getDoc, getDocs, where } from "firebase/firestore";
 import {
   dataAccessKey,
@@ -541,8 +541,6 @@ export default function MaintenanceBookingForm({
             <select id={`${fieldPrefix}-status`} value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted15}>
               <option value="Requested">Requested</option>
               <option value="Booked">Booked</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
 

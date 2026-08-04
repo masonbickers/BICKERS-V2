@@ -29,6 +29,11 @@ async function seed() {
       setDoc(doc(db, "bookings", "booking-b"), { companyId: "company-b", title: "B" }),
       setDoc(doc(db, "contacts", "contact-a"), { companyId: "company-a", name: "A" }),
       setDoc(doc(db, "maintenance", "maintenance-a"), { companyId: "company-a", title: "A" }),
+      setDoc(doc(db, "maintenanceBookings", "maintenance-booking-a"), {
+        companyId: "company-a",
+        status: "Booked",
+        maintenanceTypeIds: ["pmi"],
+      }),
       setDoc(doc(db, "vehicles", "vehicle-locked"), {
         companyId: "company-a",
         name: "Locked HGV",
@@ -85,10 +90,27 @@ test("admin and platform admin can both read the single Bickers data set", async
   await assertSucceeds(getDoc(doc(env.authenticatedContext("platform").firestore(), "bookings", "booking-b")));
 });
 
-test("cleaned vehicles reject legacy PMI-history replay but allow canonical history and normal edits", async () => {
+test("browser clients cannot manufacture or transition legal maintenance records", async () => {
+  await seed();
+  for (const uid of ["service-a", "admin-a", "platform"]) {
+    const db = env.authenticatedContext(uid).firestore();
+    await assertFails(setDoc(doc(db, "maintenanceBookings", `direct-${uid}`), {
+      companyId: "company-a",
+      status: "Completed",
+      completedAtISO: "2026-08-04",
+      maintenanceTypeIds: ["pmi"],
+    }));
+    await assertFails(updateDoc(doc(db, "maintenanceBookings", "maintenance-booking-a"), {
+      status: "Completed",
+      completedAtISO: "2026-08-04",
+    }));
+  }
+});
+
+test("vehicle clients cannot write legal completion history but may edit ordinary fields", async () => {
   await seed();
   const db = env.authenticatedContext("service-a").firestore();
-  await assertSucceeds(updateDoc(doc(db, "vehicles", "vehicle-locked"), {
+  await assertFails(updateDoc(doc(db, "vehicles", "vehicle-locked"), {
     pmiHistory: [{ completedDate: "2026-08-03", bookingId: "valid-completion" }],
   }));
   await assertSucceeds(updateDoc(doc(db, "vehicles", "vehicle-locked"), {
@@ -97,7 +119,11 @@ test("cleaned vehicles reject legacy PMI-history replay but allow canonical hist
   await assertFails(updateDoc(doc(db, "vehicles", "vehicle-locked"), {
     eightWeekInspectionHistory: [{ completedDate: "2026-11-23", bookingId: "stale-replay" }],
   }));
-  await assertSucceeds(updateDoc(doc(db, "vehicles", "vehicle-unlocked"), {
+  await assertFails(updateDoc(doc(db, "vehicles", "vehicle-unlocked"), {
     eightWeekInspectionHistory: [{ completedDate: "2026-07-01", bookingId: "legacy-valid" }],
+  }));
+  await assertFails(updateDoc(doc(db, "vehicles", "vehicle-unlocked"), {
+    lastMOT: "2026-08-04",
+    motHistory: [{ completedDate: "2026-08-04" }],
   }));
 });

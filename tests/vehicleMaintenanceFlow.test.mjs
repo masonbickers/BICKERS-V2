@@ -128,7 +128,7 @@ test("VOR cancels only future open PMI and brake bookings", () => {
   const policy = { offRoadDate: "2026-08-02" };
   assert.equal(
     isVorAffectedMaintenanceBooking(
-      { type: "INSPECTION", status: "Booked", appointmentDateISO: "2026-08-10" },
+      { type: "INSPECTION", maintenanceTypeIds: ["pmi"], status: "Booked", appointmentDateISO: "2026-08-10" },
       policy
     ),
     true
@@ -153,6 +153,28 @@ test("VOR cancels only future open PMI and brake bookings", () => {
       policy
     ),
     false
+  );
+  for (const maintenanceTypeId of ["tacho_inspection", "tacho_download", "tail_lift", "loler"]) {
+    assert.equal(
+      isVorAffectedMaintenanceBooking({
+        type: "INSPECTION",
+        maintenanceTypeIds: [maintenanceTypeId],
+        status: "Booked",
+        appointmentDateISO: "2026-08-10",
+      }, policy),
+      false,
+      `${maintenanceTypeId} must not be inferred as PMI or brake work`
+    );
+  }
+  assert.equal(
+    isVorAffectedMaintenanceBooking({
+      type: "INSPECTION",
+      maintenanceTypeIds: ["tacho_inspection", "pmi"],
+      status: "Booked",
+      appointmentDateISO: "2026-08-10",
+    }, policy),
+    true,
+    "mixed appointments are affected only when an exact PMI/brake id is present"
   );
 });
 
@@ -212,6 +234,14 @@ test("VOR terminally cancels every invalid future inspection plan but preserves 
   assert.ok(patch.items.every((item) => item.status === "cancelled"));
   assert.equal(patch.cancellationSource, "vehicle_vor_transition");
   assert.equal(patch.cancellationSourceRecordId, "vor-1");
+
+  const mixedPatch = buildVorInspectionCancellationPatch(bookings[1], {
+    cancelledAt: "2026-08-04T12:00:00.000Z",
+    cancelledBy: { uid: "user-1", email: "fleet@example.com" },
+  });
+  assert.equal(mixedPatch.status, "Booked");
+  assert.equal(mixedPatch.items.find((item) => item.maintenanceTypeId === "brake_test").status, "cancelled");
+  assert.notEqual(mixedPatch.items.find((item) => item.maintenanceTypeId === "repair").status, "cancelled");
 });
 
 test("a completed inspection creates exactly eight active ISO weeks", () => {

@@ -70,6 +70,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { rescheduleMaintenanceBooking } from "@/app/utils/maintenanceMutationClient";
 
 const DraggableBigCalendar = withDragAndDrop(BigCalendar);
 
@@ -1619,35 +1620,14 @@ export default function VehiclesHomePage() {
 
   const maintenanceDraggableAccessor = useCallback(
     (event) =>
-      (event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id)) ||
-      (event?.kind === "MAINTENANCE_APPOINTMENT" &&
-        event?.vehicleId &&
-        !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase())),
+      event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id),
     []
   );
 
   const handleMaintenanceEventDrop = useCallback(
     async ({ event, start }) => {
       if (event?.kind === "MAINTENANCE_APPOINTMENT") {
-        const vehicleId = String(event?.vehicleId || "").trim();
-        const dropChange = buildVehicleMaintenanceAppointmentDropUpdates(event, start);
-        if (dropChange?.error) {
-          alert(dropChange.error);
-          return;
-        }
-        if (!vehicleId || !dropChange?.updates) {
-          alert("Could not identify this vehicle appointment to move.");
-          return;
-        }
-
-        setPendingMaintenanceDrop({
-          targetCollection: "vehicles",
-          vehicleId,
-          title: String(event?.title || event?.maintenanceTypeLabel || "this appointment").trim(),
-          fromLabel: formatDropConfirmRange([...dropChange.movedDateKeys].filter(Boolean)),
-          toLabel: formatDropConfirmRange(dropChange.movedNextDateKeys || [ymdDate(start)].filter(Boolean)),
-          updates: dropChange.updates,
-        });
+        alert("Book this reminder before moving it. Only saved appointments can be rescheduled.");
         return;
       }
 
@@ -1681,6 +1661,7 @@ export default function VehiclesHomePage() {
         fromLabel: formatDropConfirmRange(fromDates),
         toLabel: formatDropConfirmRange(toDates),
         updates: dropChange.updates,
+        reason: "",
       });
     },
     [maintenanceBookingsRaw]
@@ -1692,33 +1673,6 @@ export default function VehiclesHomePage() {
 
   const confirmPendingMaintenanceDrop = useCallback(async () => {
     if (!pendingMaintenanceDrop?.updates) return;
-
-    if (pendingMaintenanceDrop.targetCollection === "vehicles") {
-      const vehicleId = String(pendingMaintenanceDrop.vehicleId || "").trim();
-      if (!vehicleId) return;
-
-      const previousVehicles = vehiclesRaw;
-      const optimisticUpdates = { ...pendingMaintenanceDrop.updates, updatedAt: new Date().toISOString() };
-      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
-      setVehiclesRaw((current) =>
-        (current || []).map((vehicle) =>
-          String(vehicle?.id || "") === vehicleId ? { ...vehicle, ...optimisticUpdates } : vehicle
-        )
-      );
-
-      try {
-        await updateDoc(doc(db, "vehicles", vehicleId), pendingMaintenanceDrop.updates);
-        setPendingMaintenanceDrop(null);
-      } catch (error) {
-        setVehiclesRaw(previousVehicles);
-        if (!handlePageFirestoreError(error, { collectionName: "vehicles", operation: "move vehicle maintenance appointment" })) {
-          console.error("[vehicle-home] vehicle maintenance appointment move failed:", error);
-        }
-        alert("Could not move this maintenance appointment. Please try again.");
-        setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
-      }
-      return;
-    }
 
     if (!pendingMaintenanceDrop?.bookingId) return;
 
@@ -1733,7 +1687,11 @@ export default function VehiclesHomePage() {
     );
 
     try {
-      await updateDoc(doc(db, "maintenanceBookings", bookingId), updates);
+      await rescheduleMaintenanceBooking({
+        bookingId,
+        updates,
+        reason: pendingMaintenanceDrop.reason,
+      });
       setPendingMaintenanceDrop(null);
     } catch (error) {
       setMaintenanceBookingsRaw(previousBookings);
@@ -1743,7 +1701,7 @@ export default function VehiclesHomePage() {
       alert("Could not move this maintenance booking. Please try again.");
       setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
     }
-  }, [maintenanceBookingsRaw, pendingMaintenanceDrop, vehiclesRaw]);
+  }, [maintenanceBookingsRaw, pendingMaintenanceDrop]);
 
   // Load submitted checks + app-reported vehicle issues for the review queue
   useEffect(() => {
@@ -2892,6 +2850,15 @@ export default function VehiclesHomePage() {
                 <div style={{ marginTop: 10, fontSize: 14, color: UI.text, fontWeight: 900 }}>
                   Do you want to change just this one?
                 </div>
+                <label style={{ display: "grid", gap: 5, marginTop: 12 }}>
+                  <span style={{ fontSize: 12, fontWeight: 900 }}>Reason for move</span>
+                  <input
+                    value={pendingMaintenanceDrop.reason || ""}
+                    onChange={(event) => setPendingMaintenanceDrop((current) => current ? { ...current, reason: event.target.value } : current)}
+                    placeholder="Required when crossing the legal ISO week"
+                    disabled={pendingMaintenanceDrop.saving}
+                  />
+                </label>
               </div>
 
               <div
