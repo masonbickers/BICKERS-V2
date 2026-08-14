@@ -4,7 +4,6 @@ import layoutStyles from "./HeaderSidebarLayout.styles.module.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useState, useEffect, useRef, useMemo } from "react";
-import { Inter } from "next/font/google";
 import { BUILD_INFO } from "@/app/generated/buildInfo";
 import { getDocs, limit, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/app/utils/firebaseClient";
@@ -71,11 +70,6 @@ import {
   getUnsavedChangesState,
   shouldBypassUnsavedChanges,
 } from "@/app/utils/unsavedChanges";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
@@ -1270,7 +1264,7 @@ function HeaderSidebarLayoutInner({
 
   return (
     <PersistentShellContext.Provider value={true}>
-      <div className={`${inter.variable} ${layoutStyles.shellRoot} app-shell-root`}>
+      <div className={`${layoutStyles.shellRoot} app-shell-root`}>
       {mobileNavOpen ? (
         <button
           type="button"

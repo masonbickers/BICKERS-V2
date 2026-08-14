@@ -1,5 +1,4 @@
 // src/app/layout.js
-import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./theme.css";
 import "./globals.css";
@@ -9,12 +8,6 @@ import ProtectedLayout from "./components/ProtectedLayout";
 import GlobalThemeProvider from "./components/GlobalThemeProvider";
 import ContentLabelsProvider from "./components/ContentLabelsProvider";
 import SystemNotificationHost from "./components/SystemNotificationHost";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata = {
   title: "Bickers Booking System",
@@ -41,17 +34,13 @@ export const viewport = {
 export default function RootLayout({ children }) {
   if (process.env.NODE_ENV !== "production" && process.env.MAINTENANCE_E2E_HARNESS === "1") {
     return (
-      <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <html lang="en" suppressHydrationWarning>
         <body suppressHydrationWarning>{children}</body>
       </html>
     );
   }
   return (
-   <html
-     lang="en"
-     className={inter.variable}
-     suppressHydrationWarning
-   >
+   <html lang="en" suppressHydrationWarning>
      <body suppressHydrationWarning>
         <ClerkProvider signInUrl="/login" signUpUrl="/login">
           <AuthProvider>

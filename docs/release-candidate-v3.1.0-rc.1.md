@@ -38,8 +38,8 @@ from a fresh temporary checkout before the draft PR is published.
   utility files in the Node test runner. Tests still execute and pass.
 - Clerk reports that middleware `createRouteMatcher` is deprecated. Migration to
   resource-level authorization belongs in a separately reviewed security change.
-- In restricted local networks, Next.js falls back when Google Fonts cannot be
-  downloaded. The build and browser workflows continue successfully.
+- Application typography uses a bundled system-font stack so production builds
+  do not depend on downloading Google Fonts.
 - The OneDrive-backed local checkout can produce Git `mmap` timeouts. Commits are
   created with index preloading disabled; the clean-checkout gate runs from a
   temporary local directory.
