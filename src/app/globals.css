@@ -1,6 +1,9 @@
 html,body{max-width:100vw;min-height:100%;overflow-x:hidden}
 html{background:var(--color-canvas)}
 body{margin:0;color:var(--color-text);background:var(--color-canvas);font:var(--font-size-md)/var(--line-height-normal) var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+/* Scale only the signed-in shell; inverse dimensions keep its visual canvas exactly viewport-sized. */
+html[data-interface-scale=compact] .app-shell-root{zoom:.8;width:125vw;height:125dvh;min-height:125dvh}
+html[data-interface-scale=large] .app-shell-root{zoom:1.15;width:86.956522vw;height:86.956522dvh;min-height:86.956522dvh}
 *,*::before,*::after{box-sizing:border-box}
 button,input,select,textarea{font:inherit}
 input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea{color:var(--color-text);background-color:var(--color-surface);border-color:var(--color-border)}
@@ -13,6 +16,108 @@ a{color:inherit;text-decoration:none}
 img,svg{max-width:100%}
 .app-shell-content{min-width:0;background:transparent}
 .app-shell-content>*{width:100%;max-width:100%;min-height:100%}
+/* Keep every primary sidebar destination on the same title baseline and content rhythm. */
+.app-shell-content [data-sidebar-page]{padding:var(--page-padding-y) var(--page-padding-x) var(--space-8)!important;background:var(--color-canvas)!important;min-height:100%!important}
+.app-shell-content [data-sidebar-page-header]{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:var(--space-4)!important;margin:0 0 var(--space-4)!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;flex-wrap:wrap!important}
+.app-shell-content [data-sidebar-page-header] h1{margin:0!important;color:var(--color-text)!important;font-size:var(--font-size-xl)!important;font-weight:800!important;line-height:var(--line-height-tight)!important;letter-spacing:0!important}
+
+/*
+ * Application-wide page contract
+ *
+ * Older workflow routes pre-date the shared Page/PageHeader components.  Keep
+ * them on the same visual baseline while they are migrated incrementally.  The
+ * selectors intentionally cover structure and typography only; operational
+ * colours and compact calendar controls remain owned by their workflows.
+ */
+.app-shell-content{
+  --app-page-content-gap:var(--space-4);
+  --app-page-section-gap:var(--space-3);
+  color:var(--color-text);
+  font-family:var(--font-sans);
+}
+.app-shell-content>:not(style):not(script):not([data-sidebar-page]):not([data-route-loading-overlay]):not(.quote-print-page){
+  width:100%;
+  min-height:100%;
+  padding:var(--page-padding-y) var(--page-padding-x) var(--space-8)!important;
+  color:var(--color-text);
+  background:var(--color-canvas);
+}
+.app-shell-content :where(h1):not(.quote-print-page h1){
+  margin:0!important;
+  color:var(--color-text)!important;
+  font-family:var(--font-sans)!important;
+  font-size:var(--font-size-xl)!important;
+  font-weight:800!important;
+  line-height:var(--line-height-tight)!important;
+  letter-spacing:0!important;
+}
+.app-shell-content :where(h1+p):not(.quote-print-page p),
+.app-shell-content :where(h1+div):not(.quote-print-page div){
+  margin-top:var(--space-1)!important;
+  color:var(--color-text-muted)!important;
+  font-size:var(--font-size-sm)!important;
+  line-height:var(--line-height-normal)!important;
+}
+.app-shell-content :where(header,section,div):has(>:where(div,section):first-child>h1:first-child):not([data-sidebar-page-header]){
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:var(--space-4)!important;
+  margin-bottom:var(--app-page-content-gap)!important;
+  flex-wrap:wrap;
+}
+.app-shell-content :where(header,section,div):has(>:where(div,section):first-child>h1:first-child)>:first-child{
+  min-width:0;
+}
+.app-shell-content :where(header,section,div):has(>:where(div,section):first-child>h1:first-child)>:last-child:not(:first-child){
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:var(--space-2)!important;
+  flex-wrap:wrap;
+}
+.app-shell-content :where(header,section,div):has(>:where(div,section):first-child>h1:first-child)>:last-child:not(:first-child) :where(button,a[role=button]){
+  min-height:var(--control-height-md)!important;
+  border-radius:var(--radius-md)!important;
+  padding-inline:var(--space-3)!important;
+  font-family:var(--font-sans)!important;
+  font-size:var(--font-size-sm)!important;
+  font-weight:var(--font-weight-button)!important;
+  line-height:1!important;
+}
+.app-shell-content :where(h2,h3):not(.quote-print-page :where(h2,h3)){
+  color:var(--color-text);
+  font-family:var(--font-sans);
+  line-height:var(--line-height-tight);
+}
+.app-shell-content :where(label):not(.quote-print-page label){
+  font-family:var(--font-sans);
+}
+.app-shell-content :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea):not(.quote-print-page *){
+  min-height:var(--input-height);
+  border-radius:var(--radius-md)!important;
+  font-family:var(--font-sans)!important;
+}
+.app-shell-content :where(table):not(.quote-print-page table){
+  color:var(--color-text);
+  font-family:var(--font-sans);
+  font-size:var(--font-size-sm);
+}
+.app-shell-content :where(table):not(.quote-print-page table) :where(th){
+  color:var(--color-text-muted);
+  font-size:var(--font-size-xs);
+  font-weight:800;
+}
+.app-shell-content :where(dialog,[role=dialog]) :where(h1,h2,h3){
+  font-family:var(--font-sans);
+}
 @media(max-width:900px){:root{--page-padding-x:var(--space-3);--page-padding-y:var(--space-3)}.app-shell-content>*{min-height:auto}}
-@media(max-width:600px){input,select,textarea{font-size:16px}}
+@media(max-width:600px){
+  body{overscroll-behavior:none}
+  input,select,textarea{font-size:16px}
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select{min-height:44px}
+  .app-shell-content [data-sidebar-page],
+  .app-shell-content>:not(style):not(script):not([data-sidebar-page]):not([data-route-loading-overlay]):not(.quote-print-page){padding-bottom:max(var(--space-8),env(safe-area-inset-bottom))!important}
+}
+@media(max-width:600px){html[data-interface-scale] .app-shell-root{zoom:1;width:100vw;height:100dvh;min-height:100dvh}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

@@ -143,7 +143,7 @@ const calculateDuration = (startValue, endValue = new Date()) => {
 };
 
 export const buildVorTimelineEvents = (vehicle = {}, now = new Date()) =>
-  safeArr(vehicle.vorHistory).flatMap((record, index) => {
+  safeArr(vehicle.vorHistory).filter((record) => !isArchivedTimelineRecord(record)).flatMap((record, index) => {
     const startDate = dateOnly(record.offRoadDate || record.startedAt);
     if (!startDate) return [];
     const endDate = dateOnly(record.returnedDate || record.completedAt);
@@ -156,6 +156,7 @@ export const buildVorTimelineEvents = (vehicle = {}, now = new Date()) =>
     const events = [
       {
         id: `vor-start-${record.id || index}`,
+        sourceRecordId: record.id || "",
         type: "status",
         date: startDate,
         title: "Status changed: Active → VOR",
@@ -177,6 +178,7 @@ export const buildVorTimelineEvents = (vehicle = {}, now = new Date()) =>
     if (endDate) {
       events.push({
         id: `vor-return-${record.id || index}`,
+        sourceRecordId: record.id || "",
         type: "status",
         date: endDate,
         title: "Status changed: VOR → Active",

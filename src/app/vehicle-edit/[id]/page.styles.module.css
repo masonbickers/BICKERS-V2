@@ -249,6 +249,27 @@
   font-size: 11px !important;
 }
 
+.motAppointmentHistory {
+  display: grid;
+  gap: 5px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.motAppointmentHistoryHeader {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.compactHistoryButton {
+  padding: 4px 7px !important;
+  font-size: 11px !important;
+}
+
 @media (max-width: 520px) {
   .openWorkCard {
     align-items: flex-start;
@@ -550,9 +571,9 @@
 }
 
 .attentionOverdue {
-  border-color: var(--color-danger-border);
-  border-left-color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger-soft) 55%, var(--color-surface));
+  border-color: var(--color-warning-border);
+  border-left-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning-soft) 55%, var(--color-surface));
 }
 
 .attentionMissing {
@@ -597,7 +618,7 @@
 }
 
 .attentionOverdue .attentionStatus {
-  color: var(--color-danger);
+  color: var(--color-warning);
 }
 
 .attentionMissing .attentionStatus,
@@ -611,24 +632,6 @@
   align-items: center;
   gap: 8px;
   margin-top: 4px;
-}
-
-.dueGroupHeader {
-  grid-column: 1 / -1;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  color: var(--color-text);
-  font-size: 13px;
-  font-weight: 850;
-  cursor: pointer;
-}
-
-.dueGroupHeaderSeparate {
-  margin-top: 2px;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-border);
 }
 
 .extracted12 .fieldMetaRow,
@@ -874,24 +877,153 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  width: fit-content;
+  max-width: min(100%, 620px);
+  margin-left: auto;
   margin-top: 16px;
-  padding: 12px;
+  padding: 8px 10px;
   border: 1px solid var(--color-danger-border);
-  border-radius: 12px;
-  background: var(--color-danger-soft);
+  border-radius: 9px;
+  background: var(--color-surface);
 }
 
 .dangerZone h2 {
   margin: 0;
   color: var(--color-danger);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .dangerZone p {
-  margin: 3px 0 0;
+  margin: 2px 0 0;
   color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.mainInformationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 2px 8px;
+  flex-wrap: wrap;
+}
+
+.coreDueHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 2px 8px;
+  flex-wrap: wrap;
+}
+
+.coreDueHeaderActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.coreDueOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.coreDueDivider {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.saveNotice {
+  position: fixed;
+  top: 76px;
+  right: 22px;
+  z-index: 120;
+  width: min(410px, calc(100vw - 32px));
+  min-height: 0 !important;
+  height: fit-content;
+  max-height: calc(100dvh - 96px);
+  box-sizing: border-box;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  padding: 13px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.22);
+}
+
+.saveNotice_success {
+  border-color: var(--color-success-border);
+  background: var(--color-success-soft);
+}
+
+.saveNotice_warning {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+}
+
+.saveNotice_error {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+}
+
+.saveNoticeIcon {
+  display: inline-flex;
+  color: var(--color-success);
+}
+
+.saveNotice_warning .saveNoticeIcon {
+  color: var(--color-warning);
+}
+
+.saveNotice_error .saveNoticeIcon {
+  color: var(--color-danger);
+}
+
+.saveNoticeCopy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.saveNoticeCopy strong {
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+
+.saveNoticeCopy span {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.saveNoticeClose {
+  display: inline-flex;
+  padding: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
 }
 
 @media (max-width: 760px) {

@@ -12,6 +12,11 @@ import {
   readColorModePreference,
   writeColorModePreference,
 } from "@/app/utils/globalTheme";
+import {
+  applyInterfaceScale,
+  readInterfaceScalePreference,
+  writeInterfaceScalePreference,
+} from "@/app/utils/interfaceScale";
 
 export const GLOBAL_THEME_UPDATED_EVENT = "bickers:global-theme-updated";
 export const APPEARANCE_UPDATED_EVENT = "bickers:appearance-updated";
@@ -23,9 +28,11 @@ const AppearanceContext = createContext({
   labels: DEFAULT_CONTENT_LABELS,
   themeVersion: 0,
   labelsVersion: 0,
-  modePreference: "system",
-  resolvedMode: "light",
+  modePreference: "normal",
+  resolvedMode: "normal",
   setModePreference: () => {},
+  interfaceScale: "standard",
+  setInterfaceScale: () => {},
   loading: true,
   refresh: async () => {},
 });
@@ -65,8 +72,8 @@ export default function GlobalThemeProvider({ children }) {
     themeVersion: 0,
     labelsVersion: 0,
   }));
-  const [modePreference, setModePreferenceState] = useState("system");
-  const [systemDark, setSystemDark] = useState(false);
+  const [modePreference, setModePreferenceState] = useState("normal");
+  const [interfaceScale, setInterfaceScaleState] = useState("standard");
   const [loading, setLoading] = useState(true);
 
   const applyAppearance = useCallback((incoming) => {
@@ -109,16 +116,14 @@ export default function GlobalThemeProvider({ children }) {
 
   useEffect(() => {
     setModePreferenceState(readColorModePreference());
-    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const update = () => setSystemDark(media?.matches === true);
-    update();
-    media?.addEventListener?.("change", update);
-    return () => media?.removeEventListener?.("change", update);
+    const savedInterfaceScale = readInterfaceScalePreference();
+    setInterfaceScaleState(savedInterfaceScale);
+    applyInterfaceScale(savedInterfaceScale);
   }, []);
 
   useEffect(() => {
-    applyGlobalTheme(appearance.theme, { preference: modePreference, systemDark });
-  }, [appearance.theme, modePreference, systemDark]);
+    applyGlobalTheme(appearance.theme, { preference: modePreference });
+  }, [appearance.theme, modePreference]);
 
   useEffect(() => {
     refresh();
@@ -142,7 +147,24 @@ export default function GlobalThemeProvider({ children }) {
     setModePreferenceState(next);
   }, []);
 
-  const resolvedMode = modePreference === "system" ? (systemDark ? "dark" : "light") : modePreference;
-  const contextValue = useMemo(() => ({ ...appearance, modePreference, resolvedMode, setModePreference, loading, refresh }), [appearance, loading, modePreference, refresh, resolvedMode, setModePreference]);
+  const setInterfaceScale = useCallback((value) => {
+    const next = writeInterfaceScalePreference(value);
+    setInterfaceScaleState(next);
+  }, []);
+
+  const resolvedMode = modePreference;
+  const contextValue = useMemo(
+    () => ({
+      ...appearance,
+      modePreference,
+      resolvedMode,
+      setModePreference,
+      interfaceScale,
+      setInterfaceScale,
+      loading,
+      refresh,
+    }),
+    [appearance, interfaceScale, loading, modePreference, refresh, resolvedMode, setInterfaceScale, setModePreference]
+  );
   return <AppearanceContext.Provider value={contextValue}>{children}</AppearanceContext.Provider>;
 }

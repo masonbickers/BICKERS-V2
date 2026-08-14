@@ -3,9 +3,12 @@
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { onSnapshot } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { OperationsHeaderActions, OperationsPage, OperationsPageHeader } from "@/app/components/OperationsPage";
+import { Button, MetricCard as SharedMetricCard, NavigationCard } from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 import { formatQuoteDate, getCompletedQuoteRows, money } from "@/app/utils/completedQuotes";
@@ -25,21 +28,11 @@ import {
   Search,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* Mini design system */
 const UI = UI_TOKENS;
 
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
@@ -50,7 +43,6 @@ const card = {
   color: UI.text,
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
 };
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, border: `1px solid ${UI.brandBorder}` };
 const grid = (cols = 4) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: UI.gap });
 
 const sectionHeader = {
@@ -62,7 +54,6 @@ const sectionHeader = {
   flexWrap: "wrap",
 };
 const titleMd = { fontWeight: 800, fontSize: 17, margin: 0, color: UI.text, letterSpacing: 0 };
-const cardTitle = { fontWeight: 800, fontSize: 15, margin: 0, color: UI.text, letterSpacing: 0 };
 const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.4 };
 
 const chip = (kind = "neutral") => {
@@ -101,49 +92,6 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
   flex: "0 0 auto",
 });
 
-const statCard = {
-  ...card,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8,
-  minHeight: 54,
-  padding: 10,
-};
-
-const statLabel = {
-  color: UI.muted,
-  fontSize: 11.5,
-  fontWeight: 900,
-  textTransform: "uppercase",
-};
-
-const statValue = {
-  color: UI.text,
-  fontSize: 22,
-  lineHeight: 1.1,
-  fontWeight: 850,
-  marginTop: 3,
-};
-
-const actionButton = (kind = "ghost") => ({
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  minHeight: 36,
-  padding: "8px 11px",
-  borderRadius: UI.radiusSm,
-  border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "var(--color-surface)",
-  color: kind === "primary" ? "var(--color-white)" : UI.text,
-  fontWeight: 850,
-  fontSize: 13,
-  textDecoration: "none",
-  boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadowSm,
-  whiteSpace: "nowrap",
-});
-
 const inputStyle = {
   width: "100%",
   minHeight: 36,
@@ -158,7 +106,7 @@ const inputStyle = {
 
 const rowShell = {
   display: "grid",
-  gridTemplateColumns: "minmax(360px, 1fr) minmax(160px, 220px) 136px 110px",
+  gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, .85fr) minmax(108px, .55fr) 110px",
   columnGap: 8,
   rowGap: 0,
   alignItems: "center",
@@ -171,15 +119,15 @@ const rowShell = {
 
 const jobNumberRowShell = {
   ...rowShell,
-  gridTemplateColumns: "minmax(260px, 1fr) 260px 136px 110px",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(130px, .7fr) 136px 110px",
 };
 
 const quoteRowShell = {
   ...rowShell,
-  gridTemplateColumns: "minmax(220px, 1fr) minmax(170px, 260px) 120px 120px",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(0, .9fr) 110px 120px",
 };
 
-const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "var(--color-surface)" };
+const listShell = { width: "100%", minWidth: 0, border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "var(--color-surface)", boxSizing: "border-box" };
 
 const focusCss = `
   input:focus, button:focus, a:focus {
@@ -264,42 +212,7 @@ const prettifyStatus = (raw) => {
 };
 
 const statusColors = (label) => {
-  if (FIXED_JOB_STATUS_STYLES[label]) return FIXED_JOB_STATUS_STYLES[label];
-  switch (label) {
-    case "Confirmed":
-      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Bickers":
-      return { bg: "var(--color-white)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Stunt":
-      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "First Pencil":
-      return { bg: "var(--color-info-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Second Pencil":
-      return { bg: "var(--color-warning)", text: "var(--color-white)", border: "var(--color-border-strong)" };
-    case "Maintenance":
-      return { bg: "var(--color-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Complete":
-      return { bg: "var(--color-success-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Action Required":
-      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "DNH":
-      return { bg: "var(--color-border)", text: "var(--color-text)", border: "var(--color-border)" };
-    case "Postponed":
-    case "Deleted":
-      return { bg: "var(--shell-muted)", text: "var(--color-text)", border: "var(--shell-muted)" };
-    case "Ready to Invoice":
-      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
-    case "Invoiced":
-      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
-    case "Paid":
-      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
-    case "Missing":
-      return { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", text: "var(--color-danger)" };
-    case "TBC":
-      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
-    default:
-      return { bg: "var(--color-border)", border: "var(--color-border)", text: "var(--color-text)" };
-  }
+  return getFixedJobStatusStyle(label);
 };
 
 const StatusBadge = ({ value, rowIndex = 0, rowCount = 1 }) => {
@@ -318,7 +231,7 @@ const StatusBadge = ({ value, rowIndex = 0, rowCount = 1 }) => {
         padding: "0 8px",
         fontSize: 11.5,
         borderRadius: `0 ${isFirst ? UI.radius : 0}px ${isLast ? UI.radius : 0}px 0`,
-        border: "1px solid var(--color-border-strong)",
+        border: `1px solid ${c.border}`,
         borderTopWidth: isFirst ? 1 : 0,
         marginTop: 0,
         background: c.bg,
@@ -334,20 +247,6 @@ const StatusBadge = ({ value, rowIndex = 0, rowCount = 1 }) => {
     </span>
   );
 };
-
-function MetricCard({ label, value, icon: Icon, color, bg, border }) {
-  return (
-    <section style={statCard}>
-      <div>
-        <div style={statLabel}>{label}</div>
-        <div style={statValue}>{value}</div>
-      </div>
-      <span style={iconBox(color, bg, border)}>
-        <Icon size={17} />
-      </span>
-    </section>
-  );
-}
 
 const groupButtonStyle = (active = false) => ({
   minHeight: 30,
@@ -443,6 +342,7 @@ const classify = (job, todayMidnight) => {
 
 /* Page */
 export default function JobHomePage() {
+  const router = useRouter();
   const authState = useAuth();
   const accessKey = dataAccessKey(authState);
   const [bookings, setBookings] = useState([]);
@@ -742,41 +642,6 @@ export default function JobHomePage() {
     });
   }, [searchTerm, selectedGroupJobs, selectedJobGroup]);
 
-  const actionCard = (href, title, subtitle, pillText, Icon, color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder, compact = false) => (
-    <Link
-      href={href}
-      style={{
-        ...card,
-        padding: compact ? 10 : card.padding,
-        minHeight: compact ? 68 : undefined,
-        display: "grid",
-        alignContent: "space-between",
-      }}
-      onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
-      onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
-    >
-      <div style={{ ...sectionHeader, marginBottom: compact ? 4 : sectionHeader.marginBottom }}>
-        <div className={layoutStyles.extracted1}>
-          <span style={{ ...iconBox(color, bg, border), width: compact ? 28 : 34, height: compact ? 28 : 34 }}>
-            <Icon size={17} />
-          </span>
-          <div>
-            <div style={cardTitle}>{title}</div>
-            <div style={{ ...cardHint, marginTop: compact ? 2 : 5, fontSize: compact ? 12 : 12.5 }}>
-              {subtitle}
-            </div>
-          </div>
-        </div>
-        <span style={chip()}>{pillText}</span>
-      </div>
-      {!compact && (
-        <div style={{ display: "flex", justifyContent: "flex-end", color: UI.brand, marginTop: 8 }}>
-          <ChevronRight size={17} />
-        </div>
-      )}
-    </Link>
-  );
-
   const jobNumberRow = (j, rowIndex = 0, rowCount = 1) => {
     if (j.isMissingJobNumber) {
       return (
@@ -971,122 +836,144 @@ export default function JobHomePage() {
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted16}>
-          <div>
-            <h1 style={h1}>Jobs Home</h1>
-          </div>
-          <div className={layoutStyles.extracted17}>
-            <Link href="/create-booking" style={actionButton("primary")}>
+      <OperationsPage>
+        <OperationsPageHeader
+          title="Jobs Sheets"
+          subtitle="Track live work from enquiry through completion and finance handoff."
+          actions={<OperationsHeaderActions>
+            <Button as={Link} href="/create-booking">
               <Plus size={14} />
               New Booking
-            </Link>
-            <Link href="/create-enquiry" style={actionButton()}>
+            </Button>
+            <Button as={Link} href="/create-enquiry" variant="secondary">
               <FileText size={14} />
               New Enquiry
-            </Link>
+            </Button>
             <div style={chip()}>
               <BriefcaseBusiness size={13} /> {loading ? "Loading..." : `${total} jobs`}
             </div>
-          </div>
-        </div>
+          </OperationsHeaderActions>}
+        />
 
-        <div className="job-home-top-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(300px, 1fr)", gap: 10, marginBottom: UI.gap, alignItems: "stretch" }}>
-          <div className={layoutStyles.extracted18}>
+        <div className={`job-home-top-grid ${layoutStyles.overviewGrid}`}>
+          <section className={layoutStyles.overviewMain} style={card}>
+            <div className={layoutStyles.overviewHeader}>
+              <div>
+                <h2 style={{ ...titleMd, fontSize: 18 }}>Home</h2>
+                <div style={cardHint}>Live workload, workflow queues and finance handoff in one place.</div>
+              </div>
+              <span style={chip()}>{loading ? "Loading…" : `${total} jobs`}</span>
+            </div>
+
             <div className="job-home-stat-grid" style={grid(4)}>
-              <MetricCard
+              <SharedMetricCard
                 label="Upcoming"
                 value={grouped.Upcoming ?? 0}
-                icon={CalendarDays}
-                color={UI.brand}
-                bg={UI.brandSoft}
-                border={UI.brandBorder}
+                icon={<CalendarDays size={19} />}
+                tone="info"
+                hint="Scheduled work"
+                onClick={() => router.push("/job-sheet?section=Upcoming")}
               />
-              <MetricCard
+              <SharedMetricCard
                 label="Review Queue"
                 value={reviewQueueCount}
-                icon={ClipboardList}
-                color={UI.purple}
-                bg={UI.purpleSoft}
-                border={UI.purpleBorder}
+                icon={<ClipboardList size={19} />}
+                tone="info"
+                hint="Awaiting checks"
+                onClick={() => router.push("/review-queue")}
               />
-              <MetricCard
+              <SharedMetricCard
                 label="Ready to Invoice"
                 value={financeReadyCount}
-                icon={Receipt}
-                color={UI.green}
-                bg={UI.greenSoft}
-                border={UI.greenBorder}
+                icon={<Receipt size={19} />}
+                tone="success"
+                hint="Prepared for finance"
+                onClick={() => router.push("/finance-queue")}
               />
-              <MetricCard
+              <SharedMetricCard
                 label="Needs Action"
                 value={grouped["Needs Action"] ?? 0}
-                icon={AlertTriangle}
-                color={UI.red}
-                bg={UI.redSoft}
-                border={UI.redBorder}
+                icon={<AlertTriangle size={19} />}
+                tone={(grouped["Needs Action"] ?? 0) > 0 ? "danger" : "success"}
+                hint="Requires attention"
+                onClick={() => router.push("/job-sheet?section=Needs%20Action")}
               />
             </div>
 
-            <div className="job-home-shortcut-grid" style={grid(2)}>
-              <section style={{ ...card, padding: 10 }}>
-                <div className={layoutStyles.extracted19}>
-                  <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 28, height: 28 }}>
-                    <Search size={15} />
-                  </span>
-                  <h2 style={{ ...cardTitle, margin: 0 }}>Quick Search</h2>
-                </div>
-                <div className={layoutStyles.extracted20}>
-                  <Search size={15} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} aria-hidden />
-                  <input
-                    ref={searchRef}
-                    type="text"
-                    placeholder="Search jobs..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{ ...inputStyle, minHeight: 34, paddingTop: 6, paddingBottom: 6 }}
-                    aria-label="Search jobs"
-                  />
-                </div>
-              </section>
-              {actionCard(
-                "/enquiry",
-                "Open Enquiries",
-                "View enquiry jobs.",
-                `${grouped.Enquiries ?? 0}`,
-                Clock3,
-                UI.amber,
-                UI.amberSoft,
-                UI.amberBorder,
-                true
-              )}
-            </div>
-
-          </div>
-
-          <section style={{ ...card, alignSelf: "stretch", padding: 10 }}>
-            <div className={layoutStyles.extracted21}>
-              <div className={layoutStyles.extracted22}>
-                <span style={{ ...iconBox(UI.green, UI.greenSoft, UI.greenBorder), width: 28, height: 28 }}>
-                  <ChevronRight size={17} />
-                </span>
-                <div>
-                  <h2 style={titleMd}>Workflow</h2>
-                </div>
+            <div className={layoutStyles.workspaceHeading}>
+              <div>
+                <h3 style={{ ...titleMd, fontSize: 15 }}>Job workspaces</h3>
+                <div style={cardHint}>Open the queue or finance stage you need to work in.</div>
               </div>
-              <span style={chip("purple")}>Shortcuts</span>
             </div>
-            <div className={`job-home-workflow-grid ${layoutStyles.extracted23}`} >
-              <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
-              <WorkflowLink href="/finance-queue" label="Ready to Invoice" count={financeReadyCount} tone="green" />
-              <WorkflowLink href="/completed-quotes" label="Completed Quotes" count={completedQuoteRows.length} tone="green" />
-              <WorkflowLink href="/invoiced" label="Invoiced" count={invoicedCount} />
-              <WorkflowLink href="/paid" label="Paid" count={paidCount} tone="green" />
+            <div className={layoutStyles.workspaceGrid}>
+              <NavigationCard icon={<Clock3 size={20} strokeWidth={2.2} />} title="Open Enquiries" description="View enquiry jobs." badges={[{ label: String(grouped.Enquiries ?? 0), tone: "warning" }]} onClick={() => router.push("/enquiry")} />
+              <NavigationCard icon={<ClipboardList size={20} strokeWidth={2.2} />} title="Review Queue" description="Complete checks and handoff." badges={[{ label: String(reviewQueueCount), tone: "info" }]} onClick={() => router.push("/review-queue")} />
+              <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Ready to Invoice" description="Price and prepare invoices." badges={[{ label: String(financeReadyCount), tone: "success" }]} onClick={() => router.push("/finance-queue")} />
+              <NavigationCard icon={<FileText size={20} strokeWidth={2.2} />} title="Completed Quotes" description="Review saved booking quotes." badges={[{ label: String(completedQuoteRows.length), tone: "success" }]} onClick={() => router.push("/completed-quotes")} />
+              <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Invoiced" description="View issued invoices." badges={[{ label: String(invoicedCount), tone: "neutral" }]} onClick={() => router.push("/invoiced")} />
+              <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Paid" description="View settled work." badges={[{ label: String(paidCount), tone: "success" }]} onClick={() => router.push("/paid")} />
             </div>
           </section>
+
+          <aside className={layoutStyles.overviewRail}>
+            <section style={{ ...card, padding: 10 }}>
+              <div className={layoutStyles.railHeader}>
+                <div>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>Job pipeline</h2>
+                  <div style={cardHint}>Active operational workload.</div>
+                </div>
+                <span style={chip("purple")}>Live</span>
+              </div>
+              <div className={layoutStyles.railLinks}>
+                <WorkflowLink href="/job-sheet?section=Upcoming" label="Upcoming" count={grouped.Upcoming ?? 0} />
+                <WorkflowLink href="/enquiry" label="Open Enquiries" count={grouped.Enquiries ?? 0} tone="amber" />
+                <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
+                <WorkflowLink href="/job-sheet?section=Needs%20Action" label="Needs Action" count={grouped["Needs Action"] ?? 0} />
+              </div>
+            </section>
+            <section style={{ ...card, padding: 10 }}>
+              <div className={layoutStyles.railHeader}>
+                <div>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>Finance handoff</h2>
+                  <div style={cardHint}>Progress from pricing to payment.</div>
+                </div>
+              </div>
+              <div className={layoutStyles.railLinks}>
+              <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
+              <WorkflowLink href="/finance-queue" label="Ready to Invoice" count={financeReadyCount} tone="green" />
+              <WorkflowLink href="/invoiced" label="Invoiced" count={invoicedCount} />
+              <WorkflowLink href="/paid" label="Paid" count={paidCount} tone="green" />
+              </div>
+            </section>
+          </aside>
         </div>
 
-        <div className="job-home-groups-grid" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 300px) minmax(0, 1fr)", gap: UI.gap, marginBottom: UI.gap }}>
+        <section className={layoutStyles.searchPanel} style={card}>
+          <div className={layoutStyles.searchHeading}>
+            <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 30, height: 30 }}>
+              <Search size={15} />
+            </span>
+            <div>
+              <h2 style={{ ...titleMd, fontSize: 15 }}>Find a job</h2>
+              <div style={cardHint}>Search job number, production, customer or location.</div>
+            </div>
+          </div>
+          <div className={layoutStyles.searchControl}>
+            <Search size={15} className={layoutStyles.searchIcon} aria-hidden />
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Search jobs…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ ...inputStyle, minHeight: 36 }}
+              aria-label="Search jobs"
+            />
+          </div>
+        </section>
+
+        <div className="job-home-groups-grid" style={{ display: "grid", gridTemplateColumns: "minmax(210px, 250px) minmax(0, 1fr)", gap: UI.gap, marginBottom: UI.gap }}>
           <section style={{ ...card, padding: 9 }}>
             <div className={layoutStyles.extracted24}>
               <div className={layoutStyles.extracted25}>
@@ -1174,7 +1061,7 @@ export default function JobHomePage() {
           />
         </div>
 
-        <div className="job-home-pipeline-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
+        <div className="job-home-pipeline-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: UI.gap }}>
           <PipelinePanel
             title="Upcoming This Week"
             hintText="Jobs scheduled within the current week window."
@@ -1240,7 +1127,7 @@ export default function JobHomePage() {
             icon={BriefcaseBusiness}
           />
         </div>
-      </div>
+      </OperationsPage>
     </HeaderSidebarLayout>
   );
 }
@@ -1288,7 +1175,7 @@ function PipelinePanel({
   compact = false,
 }) {
   return (
-    <section style={{ ...card, minHeight: compact ? 0 : 200, padding: compact ? 9 : card.padding }}>
+    <section style={{ ...card, minWidth: 0, minHeight: compact ? 0 : 200, padding: compact ? 9 : card.padding }}>
       <div style={{ ...sectionHeader, marginBottom: compact ? 6 : sectionHeader.marginBottom }}>
         <div style={{ display: "flex", gap: compact ? 8 : 10, minWidth: 0, alignItems: "center" }}>
           <span style={{ ...iconBox(color, bg, border), width: compact ? 28 : 34, height: compact ? 28 : 34 }}>

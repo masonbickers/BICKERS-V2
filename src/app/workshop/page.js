@@ -21,6 +21,7 @@ import {
   buildMaintenanceBookingEvents,
   buildMaintenanceJobEvents,
   buildVehicleDueEvents,
+  dedupeMaintenanceCalendarEvents,
 } from "@/app/utils/maintenanceCalendar";
 import { db } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
@@ -174,7 +175,13 @@ export default function WorkshopPage() {
   );
 
   const calendarEvents = useMemo(
-    () => [...maintenanceEvents, ...maintenanceJobEvents, ...dueEvents],
+    () => dedupeMaintenanceCalendarEvents(
+      [...maintenanceEvents, ...maintenanceJobEvents, ...dueEvents].map((event) => ({
+        ...event,
+        ...(event.extendedProps || {}),
+        extendedProps: event.extendedProps,
+      }))
+    ),
     [maintenanceEvents, maintenanceJobEvents, dueEvents]
   );
 

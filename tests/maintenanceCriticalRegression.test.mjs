@@ -117,7 +117,7 @@ test("PMI and brake can complete separately or together", () => {
 });
 
 test("service recurrence handles leap day and ISO week-year boundaries", () => {
-  assert.equal(calculateNextMaintenanceDue({ maintenanceTypeId: "service", completedDate: "2024-02-29" }), "2025-02-28");
+  assert.equal(calculateNextMaintenanceDue({ maintenanceTypeId: "service", completedDate: "2024-02-29", frequencyWeeks: 52 }), "2025-02-27");
   assert.equal(maintenanceIsoWeekLabel("2025-12-29"), "2026-W01");
   assert.equal(maintenanceIsoWeekLabel("2027-01-03"), "2026-W53");
   assert.equal(maintenanceIsoWeekLabel("2027-01-04"), "2027-W01");

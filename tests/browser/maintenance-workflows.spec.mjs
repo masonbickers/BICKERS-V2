@@ -39,3 +39,20 @@ test("combined inspection workflow preserves exact PMI and brake identifiers", a
   expect(payload.type).toBe("INSPECTION");
   expect(payload.maintenanceTypeIds).toEqual(["pmi", "brake_test"]);
 });
+
+test("requested due item becomes one confirmed booking and preserves both dates", async ({ page }) => {
+  await page.getByRole("button", { name: "Requested due-item workflow" }).click();
+  await expect(page.getByText("Due — not yet arranged")).toBeVisible();
+  await expect(page.getByText("Legal due date: 12 August 2026")).toBeVisible();
+  await page.getByRole("button", { name: "Choose workshop date" }).click();
+  await expect(page.getByText("This work is legally due on")).toBeVisible();
+  await page.getByRole("button", { name: "Create booking" }).click();
+  await expect(page.getByRole("heading", { name: "Confirmed booking" })).toBeVisible();
+  const payload = JSON.parse(await page.getByTestId("saved-maintenance-payload").textContent());
+  expect(payload.id).toBe("req_service_browser");
+  expect(payload.requestedRecordId).toBe("req_service_browser");
+  expect(payload.status).toBe("Booked");
+  expect(payload.appointmentDate).toBe("2026-08-10");
+  expect(payload.sourceDueDate).toBe("2026-08-12");
+  expect(payload.dateKeys).toEqual(["2026-08-10"]);
+});

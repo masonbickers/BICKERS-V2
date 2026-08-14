@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -465,13 +466,13 @@ export default function EmployeesAdminPage() {
     const name = (e.name ?? r.name ?? "").trim();
     const pattern = e.workPattern ?? r.workPattern ?? DEFAULT_PATTERN;
 
-    if (!name) return alert("Name is required.");
+    if (!name) return systemDialogs.showSystemNotification("Name is required.");
 
     const allowance = getAllowanceForYear(r, yearView);
     const carry = getCarryForYear(r, yearView);
 
-    if (allowance < 0 || carry < 0) return alert("Numbers must be ≥ 0.");
-    if (yearView === nextYear && carry > MAX_CARRY) return alert(`Carry over cannot exceed ${MAX_CARRY} days.`);
+    if (allowance < 0 || carry < 0) return systemDialogs.showSystemNotification("Numbers must be ≥ 0.");
+    if (yearView === nextYear && carry > MAX_CARRY) return systemDialogs.showSystemNotification(`Carry over cannot exceed ${MAX_CARRY} days.`);
 
     const yrKey = String(yearView);
 
@@ -505,9 +506,9 @@ export default function EmployeesAdminPage() {
         )
       );
 
-      alert(`Saved ${name} (${yearView}).`);
+      systemDialogs.showSystemNotification(`Saved ${name} (${yearView}).`);
     } catch (err) {
-      alert(`Failed to save: ${err?.message || err}`);
+      systemDialogs.showSystemNotification(`Failed to save: ${err?.message || err}`);
     } finally {
       setSaving((p) => ({ ...p, [r.id]: false }));
     }
@@ -515,7 +516,7 @@ export default function EmployeesAdminPage() {
 
   /* ---------------- delete ---------------- */
   const deleteRow = async (r) => {
-    if (!confirm(`Delete employee "${r.name}"? This removes their allowance record.`)) return;
+    if (!await systemDialogs.confirmSystem(`Delete employee "${r.name}"? This removes their allowance record.`)) return;
 
     setSaving((p) => ({ ...p, [r.id]: true }));
     try {
@@ -528,9 +529,9 @@ export default function EmployeesAdminPage() {
         return cp;
       });
 
-      alert("Deleted.");
+      systemDialogs.showSystemNotification("Deleted.");
     } catch (err) {
-      alert(`Failed to delete: ${err?.message || err}`);
+      systemDialogs.showSystemNotification(`Failed to delete: ${err?.message || err}`);
     } finally {
       setSaving((p) => ({ ...p, [r.id]: false }));
     }
@@ -540,7 +541,7 @@ export default function EmployeesAdminPage() {
   const addEmployee = async () => {
     const name = (newName || "").trim();
     const pattern = newPattern || DEFAULT_PATTERN;
-    if (!name) return alert("Name is required.");
+    if (!name) return systemDialogs.showSystemNotification("Name is required.");
 
     const allowance = entitlementFor(pattern);
     const carry = Math.max(0, asNum(newCarry, 0));
@@ -587,9 +588,9 @@ export default function EmployeesAdminPage() {
       setNewPattern(DEFAULT_PATTERN);
       setNewCarry(0);
 
-      alert("Employee added.");
+      systemDialogs.showSystemNotification("Employee added.");
     } catch (err) {
-      alert(`Failed to add: ${err?.message || err}`);
+      systemDialogs.showSystemNotification(`Failed to add: ${err?.message || err}`);
     } finally {
       setAdding(false);
     }

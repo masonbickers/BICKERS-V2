@@ -1,6 +1,7 @@
 // src/app/edit-equipment/[id]/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -215,12 +216,12 @@ export default function EditEquipmentPage() {
           setEquipment(nextEquipment);
           setInitialSnapshot(JSON.stringify(nextEquipment));
         } else {
-          alert("Equipment not found.");
+          systemDialogs.showSystemNotification("Equipment not found.");
           router.push("/equipment");
         }
       } catch (e) {
         console.error("Fetch equipment failed:", e);
-        alert("Failed to load equipment.");
+        systemDialogs.showSystemNotification("Failed to load equipment.");
       } finally {
         setLoading(false);
       }
@@ -275,7 +276,7 @@ export default function EditEquipmentPage() {
   const handleSave = async (options = {}) => {
     if (!equipment || !id || saving) return false;
     if (!canSave) {
-      alert("Please fill Name and Category.");
+      systemDialogs.showSystemNotification("Please fill Name and Category.");
       return false;
     }
 
@@ -299,7 +300,7 @@ export default function EditEquipmentPage() {
 
       await updateDoc(refDoc, tenantPayload(dataAccessState, payload));
       clearBookingReferenceCache();
-      alert("Equipment updated.");
+      systemDialogs.showSystemNotification("Equipment updated.");
       setInitialSnapshot(JSON.stringify({ ...equipment, ...payload }));
       if (navigateOnSuccess) {
         router.push("/equipment");
@@ -308,7 +309,7 @@ export default function EditEquipmentPage() {
       return true;
     } catch (e) {
       console.error("Update equipment failed:", e);
-      alert("Could not save changes.");
+      systemDialogs.showSystemNotification("Could not save changes.");
       return false;
     } finally {
       setSaving(false);
@@ -317,18 +318,18 @@ export default function EditEquipmentPage() {
 
   const handleDelete = async () => {
     if (!id || deleting) return;
-    const ok = window.confirm("Are you sure you want to delete this equipment?");
+    const ok = await systemDialogs.confirmSystem("Are you sure you want to delete this equipment?");
     if (!ok) return;
 
     setDeleting(true);
     try {
       await deleteDoc(doc(db, "equipment", id));
-      alert("Equipment deleted.");
+      systemDialogs.showSystemNotification("Equipment deleted.");
       router.push("/equipment");
       router.refresh?.();
     } catch (e) {
       console.error("Delete equipment failed:", e);
-      alert("Failed to delete equipment.");
+      systemDialogs.showSystemNotification("Failed to delete equipment.");
     } finally {
       setDeleting(false);
     }

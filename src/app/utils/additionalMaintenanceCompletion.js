@@ -1,5 +1,8 @@
 import { normalizeMaintenanceDocumentList } from "./maintenanceDocuments.js";
-import { getIsoWeekLabel } from "./maintenanceSchema.js";
+import {
+  getConfiguredMaintenanceFrequencyWeeks,
+  getIsoWeekLabel,
+} from "./maintenanceSchema.js";
 import {
   buildComplianceReleasePatch,
   complianceVorReleaseBlocker,
@@ -75,22 +78,24 @@ export const buildAdditionalMaintenanceCompletionPatch = ({
   const patch = { updatedAt: completedAt };
 
   workflows.forEach((workflow) => {
-    const document =
+    const suppliedDocuments =
       documentsByKey[workflow.key] ||
       documentsByKey[workflow.maintenanceTypeId] ||
-      null;
-    const documents = document ? [document] : [];
-    const frequencyWeeks = resolveMaintenanceFrequencyWeeks(
-      vehicle[workflow.frequencyField],
-      vehicle[workflow.lastField],
-      vehicle[workflow.nextField]
+      [];
+    const documents = normalizeMaintenanceDocumentList(
+      Array.isArray(suppliedDocuments) ? suppliedDocuments : [suppliedDocuments],
+      {
+        maintenanceTypeId: workflow.maintenanceTypeId,
+        sourceRecordId: bookingId,
+        uploadedBy: auditUser,
+      }
     );
-    const nextDueDate = ["pmi", "brake_test"].includes(workflow.maintenanceTypeId)
-      ? calculateNextMaintenanceDue({
-          maintenanceTypeId: workflow.maintenanceTypeId,
-          completedDate: normalizedCompletedDate,
-        })
-      : addMaintenanceWeeks(normalizedCompletedDate, frequencyWeeks);
+    const frequencyWeeks = getConfiguredMaintenanceFrequencyWeeks(vehicle, workflow);
+    const nextDueDate = calculateNextMaintenanceDue({
+      maintenanceTypeId: workflow.maintenanceTypeId,
+      completedDate: normalizedCompletedDate,
+      frequencyWeeks,
+    });
     const priorHistory = safeArr(vehicle[workflow.historyField]).map((entry) => ({
       ...entry,
       maintenanceTypeId: workflow.maintenanceTypeId,
@@ -104,13 +109,16 @@ export const buildAdditionalMaintenanceCompletionPatch = ({
     if (nextDueDate) {
       patch[workflow.nextField] = nextDueDate;
       patch[workflow.isoWeekField] = getIsoWeekLabel(nextDueDate);
+    } else {
+      patch[workflow.nextField] = "";
+      patch[workflow.isoWeekField] = "";
     }
-    if (document) {
+    if (documents.length) {
       patch[workflow.documentsField] = [
         ...normalizeMaintenanceDocumentList(vehicle[workflow.documentsField], {
           maintenanceTypeId: workflow.maintenanceTypeId,
         }),
-        document,
+        ...documents,
       ];
     }
     const historyEntry = {

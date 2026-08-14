@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -707,12 +708,12 @@ export default function PrepListPage() {
     const vehicleLabel = String(manualForm.vehicleLabel || "").trim();
 
     if (!prepDate) {
-      alert("Please choose a prep date.");
+      systemDialogs.showSystemNotification("Please choose a prep date.");
       return;
     }
 
     if (!vehicleLabel) {
-      alert("Please enter a vehicle name/label.");
+      systemDialogs.showSystemNotification("Please enter a vehicle name/label.");
       return;
     }
 
@@ -750,12 +751,12 @@ export default function PrepListPage() {
     const vehicleId = String(fleetForm.vehicleId || "").trim();
 
     if (!prepDate) {
-      alert("Please choose a prep date.");
+      systemDialogs.showSystemNotification("Please choose a prep date.");
       return;
     }
 
     if (!vehicleId) {
-      alert("Please select a fleet vehicle.");
+      systemDialogs.showSystemNotification("Please select a fleet vehicle.");
       return;
     }
 

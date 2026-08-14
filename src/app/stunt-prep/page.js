@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -610,12 +611,12 @@ export default function StuntPrepPage() {
     const vehicleLabel = String(manualForm.vehicleLabel || "").trim();
 
     if (!outingDate) {
-      alert("Please choose an outing date.");
+      systemDialogs.showSystemNotification("Please choose an outing date.");
       return;
     }
 
     if (!vehicleLabel) {
-      alert("Please enter a vehicle name/label.");
+      systemDialogs.showSystemNotification("Please enter a vehicle name/label.");
       return;
     }
 
@@ -652,11 +653,11 @@ export default function StuntPrepPage() {
     const outingDate = String(fleetForm.outingDate || "").trim();
     const vehicleId = String(fleetForm.vehicleId || "").trim();
     if (!outingDate) {
-      alert("Please choose an outing date.");
+      systemDialogs.showSystemNotification("Please choose an outing date.");
       return;
     }
     if (!vehicleId) {
-      alert("Please select a fleet vehicle.");
+      systemDialogs.showSystemNotification("Please select a fleet vehicle.");
       return;
     }
 

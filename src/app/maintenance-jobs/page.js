@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,10 +20,13 @@ import {
   ArrowLeft,
   CalendarCheck2,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
+  ExternalLink,
   FileCheck2,
   PlayCircle,
   Plus,
+  RotateCcw,
   Save,
   Search,
   Wrench,
@@ -57,80 +61,25 @@ import {
   normalizeMaintenanceStage,
   validateMaintenanceStageRequirements,
 } from "../utils/maintenanceWorkflowSpec";
-import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
+import {
+  Alert,
+  Badge,
+  Button,
+  EmptyState,
+  FormField,
+  Input,
+  MetricCard,
+  Modal,
+  Select,
+  Textarea,
+} from "@/app/components/ui";
+import {
+  OperationsHeaderActions,
+  OperationsPage,
+  OperationsPageHeader,
+} from "@/app/components/OperationsPage";
 
-const UI = UI_TOKENS;
-
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const card = { ...surface, padding: 12 };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = { margin: 0, color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0 };
-const sub = { marginTop: 6, color: UI.muted, fontSize: 13.5, lineHeight: 1.45 };
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 10,
-  flexWrap: "wrap",
-};
-const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
-const input = {
-  width: "100%",
-  minHeight: 38,
-  padding: "8px 10px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  background: "var(--color-surface)",
-  color: UI.text,
-  fontSize: 13,
-  outline: "none",
-};
-const btn = (kind = "ghost") => {
-  const primary = kind === "primary";
-  return {
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-    background: primary
-      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
-      : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-    color: primary ? "var(--color-white)" : UI.text,
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    textDecoration: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    boxShadow: primary
-      ? "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)"
-      : "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
-};
-
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "middle" };
-const theadTh = {
-  ...thtd,
-  fontWeight: 900,
-  color: UI.muted,
-  background: "var(--color-surface-subtle)",
-  fontSize: 11.5,
-  textTransform: "uppercase",
-  letterSpacing: 0,
-};
 
 const fmtDateTime = (raw) => {
   const d = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null;
@@ -175,20 +124,6 @@ const classifyServiceRecord = (record) => {
   return "service";
 };
 
-const activityTypeConfig = {
-  service: { label: "Service", bg: "var(--color-success-soft)", fg: "var(--color-success)" },
-  minor_service: { label: "Minor service", bg: "var(--color-info-soft)", fg: "var(--color-brand)" },
-  repair: { label: "Repair", bg: "var(--color-warning-soft)", fg: "var(--color-warning)" },
-  defect: { label: "Defect", bg: "var(--color-danger-soft)", fg: "var(--color-danger)" },
-  mot_precheck: { label: "MOT pre-check", bg: "var(--color-info-soft)", fg: "var(--color-info)" },
-  vehicle_prep: { label: "Vehicle prep", bg: "var(--color-info-soft)", fg: "var(--color-brand)" },
-  vehicle_check: { label: "Vehicle check", bg: "var(--color-brand-soft)", fg: UI.brand },
-  vehicle_issue: { label: "Vehicle issue", bg: "var(--color-accent-soft)", fg: "var(--color-accent)" },
-  booking: { label: "Booking", bg: "var(--color-surface-subtle)", fg: UI.text },
-  job: { label: "Job card", bg: UI.brandSoft, fg: UI.brand },
-};
-
-const activityTypeLabel = (type) => activityTypeConfig[type]?.label || prettyStatus(type || "Activity");
 const isServiceLike = (item) => {
   const kind = String(item?.maintenanceKind || "").toLowerCase();
   return ["service", "minor_service"].includes(item.type) || kind.includes("service");
@@ -372,6 +307,8 @@ export default function MaintenanceJobsPage() {
   const [jobErrors, setJobErrors] = useState({});
   const [jobDrafts, setJobDrafts] = useState({});
   const [focusedJobId, setFocusedJobId] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [expandedJobId, setExpandedJobId] = useState("");
 
   const [form, setForm] = useState({
     assetId: "",
@@ -498,6 +435,7 @@ export default function MaintenanceJobsPage() {
       dueDate: dueDate || prev.dueDate,
       plannedDate: prev.plannedDate || dueDate,
     }));
+    setCreateOpen(true);
   }, [searchParams]);
 
   const vehicleOptions = useMemo(
@@ -572,7 +510,9 @@ export default function MaintenanceJobsPage() {
     const q = String(search || "").trim().toLowerCase();
     return allJobs.filter((j) => {
       const stage = normalizeWorkflowStageCompat(j.status);
-      if (statusFilter !== "all" && stage !== statusFilter) return false;
+      if (statusFilter === "active" && stage !== "booked" && stage !== "in_progress") return false;
+      if (statusFilter === "commercial" && stage !== "completed" && stage !== "ready_to_invoice") return false;
+      if (!["all", "active", "commercial"].includes(statusFilter) && stage !== statusFilter) return false;
       if (!q) return true;
       const blob = [
         j.title,
@@ -871,6 +811,8 @@ export default function MaintenanceJobsPage() {
       });
       setForm((prev) => ({ ...prev, title: "", notes: "" }));
       setFocusedJobId(createdRecord.id);
+      setExpandedJobId(createdRecord.id);
+      setCreateOpen(false);
       setCreateMessage(`Job card created for ${createdTitle || "this asset"}. The new row is highlighted below.`);
     } catch (error) {
       console.error("Failed creating maintenance job:", error);
@@ -926,7 +868,7 @@ export default function MaintenanceJobsPage() {
         const nextBookedDate = String(patch.bookedDate || "").slice(0, 10);
         const currentBookedDate = String(job.bookedDate || job.plannedDate || job.appointmentDateISO || "").slice(0, 10);
         if (nextBookedDate && nextBookedDate !== currentBookedDate) {
-          const reason = window.prompt("Reason for rescheduling this maintenance job:", "");
+          const reason = await systemDialogs.promptSystem("Reason for rescheduling this maintenance job:", "");
           if (!String(reason || "").trim()) throw new Error("A rescheduling reason is required.");
           await rescheduleMaintenanceBooking({
             bookingId: job.id,
@@ -1003,7 +945,7 @@ export default function MaintenanceJobsPage() {
       setSavingJobId(job.id);
       if (job.__collection === "maintenanceBookings") {
         if (nextStatus === "completed") {
-          const completedISO = window.prompt(
+          const completedISO = await systemDialogs.promptSystem(
             "Actual completion date (YYYY-MM-DD)",
             new Date().toISOString().slice(0, 10)
           );
@@ -1043,373 +985,256 @@ export default function MaintenanceJobsPage() {
 
   return (
     <HeaderSidebarLayout>
-      <style>{`
-        input:focus, button:focus, select:focus, textarea:focus {
-          outline: none;
-          box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: var(--shell-muted) !important;
-        }
-        button:disabled { opacity: .55; cursor: not-allowed; }
-        .maintenance-jobs-action:hover { background: var(--color-surface-subtle) !important; border-color: var(--shell-muted) !important; }
-        .maintenance-jobs-kpi-grid {
-          display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-        .maintenance-jobs-form-grid {
-          display: grid;
-          gap: 8px;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        }
-        .maintenance-jobs-filter-grid {
-          display: grid;
-          grid-template-columns: minmax(260px, 1fr) 220px;
-          gap: 10px;
-          align-items: center;
-        }
-        .maintenance-activity-groups {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-          margin-bottom: 14px;
-        }
-        @media (max-width: 1180px) {
-          .maintenance-jobs-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          .maintenance-jobs-filter-grid { grid-template-columns: 1fr 1fr !important; }
-          .maintenance-activity-groups { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 720px) {
-          .maintenance-jobs-kpi-grid, .maintenance-jobs-filter-grid { grid-template-columns: 1fr !important; }
-          .maintenance-activity-row { grid-template-columns: 1fr !important; }
-          .maintenance-activity-status { border-left: 0 !important; justify-content: flex-start !important; }
-        }
-      `}</style>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted1}>
-            <div>
-              <h1 style={h1}>Maintenance Jobs</h1>
-              <div style={sub}>
-                Plan, track, complete, and close workshop jobs from one place.
-              </div>
-            </div>
-            <div className={layoutStyles.extracted2}>
-              <button type="button" className="maintenance-jobs-action" style={btn()} onClick={() => router.push("/vehicle-home")}>
-                <ArrowLeft size={15} />
-                Back to Vehicle Home
-              </button>
-            </div>
+      <OperationsPage className={layoutStyles.page}>
+        <OperationsPageHeader
+          title="Maintenance jobs"
+          subtitle="Plan workshop work, keep active jobs moving, and close the commercial trail."
+          actions={
+            <OperationsHeaderActions>
+              <Button variant="secondary" onClick={() => router.push("/vehicle-home")}>
+                <ArrowLeft size={16} />
+                Vehicle home
+              </Button>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus size={16} />
+                New job
+              </Button>
+            </OperationsHeaderActions>
+          }
+        />
+
+        <div className={layoutStyles.metrics} aria-label="Job status summary">
+          <MetricCard label="All jobs" value={jobStats.total} hint="Entire job register" icon={<ClipboardList size={19} />} tone="info" onClick={() => setStatusFilter("all")} />
+          <MetricCard label="Planned" value={jobStats.planned} hint="Needs booking detail" icon={<CalendarCheck2 size={19} />} tone="info" onClick={() => setStatusFilter("planned")} />
+          <MetricCard label="Active" value={jobStats.active} hint="Booked or in progress" icon={<PlayCircle size={19} />} tone="warning" onClick={() => setStatusFilter("active")} />
+          <MetricCard label="Commercial" value={jobStats.commercial} hint="Complete or invoice-ready" icon={<FileCheck2 size={19} />} tone="success" onClick={() => setStatusFilter("commercial")} />
+          <MetricCard label="Closed" value={jobStats.closed} hint="Finished workflow" icon={<CheckCircle2 size={19} />} onClick={() => setStatusFilter("closed")} />
         </div>
 
-        <div className="maintenance-jobs-kpi-grid">
-          <SummaryCard label="Total Jobs" value={jobStats.total} sub="All maintenance job cards" icon={ClipboardList} tone="brand" />
-          <SummaryCard label="Planned" value={jobStats.planned} sub="Needs booking detail" icon={CalendarCheck2} tone="soft" />
-          <SummaryCard label="Active" value={jobStats.active} sub="Booked or in progress" icon={PlayCircle} tone="amber" />
-          <SummaryCard label="Commercial" value={jobStats.commercial} sub="Completed or invoice-ready" icon={FileCheck2} tone="ok" />
-          <SummaryCard label="Closed" value={jobStats.closed} sub="Finished workflow" icon={CheckCircle2} tone="default" />
-        </div>
+        {createMessage ? <Alert variant="success" className={layoutStyles.pageAlert}>{createMessage}</Alert> : null}
+        {focusedJobId && !createMessage ? (
+          <Alert variant="info" className={layoutStyles.pageAlert}>The job opened from the previous page is highlighted below.</Alert>
+        ) : null}
 
-        <section className={layoutStyles.extracted3}>
-          <div className={layoutStyles.extracted4}>
+        <section className={layoutStyles.queueSection} aria-labelledby="job-queue-heading">
+          <div className={layoutStyles.sectionHeading}>
             <div>
-              <h2 style={titleMd}>Transport Manager Overview</h2>
-              <div style={hint}>Maintenance activity grouped into queue cards for a quick transport-manager scan.</div>
+              <h2 id="job-queue-heading">Job queue</h2>
+              <p>Find a job, change its stage, or open it to update workshop and commercial details.</p>
             </div>
-            <OverviewChip label="Activity" value={overviewStats.activity} />
+            <Badge variant="info">{visibleJobs.length} of {allJobs.length}</Badge>
           </div>
 
-          <div className="maintenance-activity-groups">
-            {groupedActivity.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: 12, textAlign: "center" }}>No vehicle activity found yet.</div>
-            ) : (
-              groupedActivity.map((group) => (
-                <ActivityGroup key={group.key} group={group} router={router} />
-              ))
-            )}
+          <div className={layoutStyles.toolbar}>
+            <label className={layoutStyles.searchField}>
+              <span className={layoutStyles.visuallyHidden}>Search jobs</span>
+              <Search size={17} aria-hidden="true" />
+              <Input
+                type="search"
+                placeholder="Search job, vehicle, provider or reference…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <Select aria-label="Filter jobs by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">All statuses</option>
+              <option value="active">Active — booked or in progress</option>
+              <option value="commercial">Commercial — complete or invoice-ready</option>
+              {MAINTENANCE_JOB_WORKFLOW_STAGES.map((stage) => (
+                <option key={stage} value={stage}>{MAINTENANCE_STAGE_LABELS[stage] || stage}</option>
+              ))}
+            </Select>
+            {(search || statusFilter !== "all") ? (
+              <Button variant="ghost" onClick={() => { setSearch(""); setStatusFilter("all"); }}>
+                <RotateCcw size={15} />
+                Reset
+              </Button>
+            ) : null}
+          </div>
+
+          <div className={layoutStyles.jobList}>
+            {visibleJobs.length === 0 ? (
+              <EmptyState
+                icon={<ClipboardList size={28} />}
+                title={allJobs.length ? "No jobs match these filters" : "No maintenance jobs yet"}
+                description={allJobs.length ? "Try another status or clear the search." : "Create the first job card to start the workshop workflow."}
+                action={allJobs.length ? <Button variant="secondary" onClick={() => { setSearch(""); setStatusFilter("all"); }}>Clear filters</Button> : <Button onClick={() => setCreateOpen(true)}>Create job</Button>}
+              />
+            ) : visibleJobs.map((job) => {
+              const stage = normalizeWorkflowStageCompat(job.status);
+              const draft = jobDrafts[job.id] || buildJobDraft(job);
+              const isSavingRow = savingJobId === job.id;
+              const isFocused = focusedJobId === job.id;
+              const isExpanded = expandedJobId === job.id;
+              const isLegacy = job.__collection === "maintenanceJobs";
+              const semanticStatus = getSemanticStatusStyle(MAINTENANCE_STAGE_LABELS[stage] || stage);
+              return (
+                /* style-audit-allow runtime semantic status colours */
+                <article
+                  key={job.id}
+                  ref={(node) => {
+                    if (node) rowRefs.current[job.id] = node;
+                    else delete rowRefs.current[job.id];
+                  }}
+                  className={`${layoutStyles.jobCard} ${isFocused ? layoutStyles.focusedJob : ""}`}
+                  style={{ "--job-status-bg": semanticStatus.bg, "--job-status-fg": semanticStatus.text }}
+                >
+                  <div className={layoutStyles.jobSummary}>
+                    <button
+                      type="button"
+                      className={layoutStyles.jobToggle}
+                      aria-expanded={isExpanded}
+                      onClick={() => setExpandedJobId(isExpanded ? "" : job.id)}
+                    >
+                      <span className={layoutStyles.jobIdentity}>
+                        <span className={layoutStyles.jobTitle}>{job.title || "Untitled maintenance job"}</span>
+                        <span className={layoutStyles.jobAsset}>{job.assetLabel || job.assetId || "No vehicle linked"}</span>
+                      </span>
+                      <span className={layoutStyles.jobMeta}>
+                        <Badge>{prettyStatus(job.type || "Work")}</Badge>
+                        <Badge variant={priorityVariant(job.priority)}>{prettyStatus(job.priority || "Normal")}</Badge>
+                        <span><strong>Due</strong> {fmtDate(job.dueDate)}</span>
+                        <span><strong>Planned</strong> {fmtDate(job.plannedDate)}</span>
+                      </span>
+                      <ChevronDown className={`${layoutStyles.chevron} ${isExpanded ? layoutStyles.chevronOpen : ""}`} size={18} aria-hidden="true" />
+                    </button>
+                    <div className={layoutStyles.stageControl}>
+                      <span className={layoutStyles.statusPill}>{MAINTENANCE_STAGE_LABELS[stage] || prettyStatus(stage)}</span>
+                      <Select
+                        aria-label={`Change status for ${job.title || "maintenance job"}`}
+                        value={stage}
+                        onChange={(event) => setJobStatus(job, event.target.value)}
+                        disabled={isSavingRow || isLegacy}
+                      >
+                        {MAINTENANCE_JOB_WORKFLOW_STAGES.map((nextStage) => (
+                          <option key={nextStage} value={nextStage}>{MAINTENANCE_STAGE_LABELS[nextStage] || nextStage}</option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
+
+                  {isExpanded ? (
+                    <div className={layoutStyles.jobDetails}>
+                      <div className={layoutStyles.detailIntro}>
+                        <div>
+                          <span>Last updated</span>
+                          <strong>{fmtDateTime(job.updatedAt || job.updatedAtServer)}</strong>
+                        </div>
+                        {job.notes ? <p>{job.notes}</p> : null}
+                      </div>
+
+                      {isLegacy ? (
+                        <Alert variant="neutral">This is a legacy job record and is read-only. Create a follow-up job for new work.</Alert>
+                      ) : (
+                        <>
+                          <div className={layoutStyles.detailsGrid}>
+                            <FormField label="Provider">
+                              <Input value={draft.provider} onChange={(event) => updateJobDraft(job.id, "provider", event.target.value)} placeholder="Garage or supplier" />
+                            </FormField>
+                            <FormField label="Booked date">
+                              <Input type="date" value={draft.bookedDate} onChange={(event) => updateJobDraft(job.id, "bookedDate", event.target.value)} />
+                            </FormField>
+                            <FormField label="Assigned to">
+                              <Input value={draft.assignedToName} onChange={(event) => updateJobDraft(job.id, "assignedToName", event.target.value)} placeholder="Technician or owner" />
+                            </FormField>
+                            <FormField label="Total cost">
+                              <Input inputMode="decimal" value={draft.totalCost} onChange={(event) => updateJobDraft(job.id, "totalCost", event.target.value)} placeholder="0.00" />
+                            </FormField>
+                            <FormField label="PO number">
+                              <Input value={draft.poNumber} onChange={(event) => updateJobDraft(job.id, "poNumber", event.target.value)} placeholder="Purchase order" />
+                            </FormField>
+                            <FormField label="Invoice reference">
+                              <Input value={draft.invoiceRef} onChange={(event) => updateJobDraft(job.id, "invoiceRef", event.target.value)} placeholder="Supplier invoice" />
+                            </FormField>
+                            <FormField label="Completion notes" className={layoutStyles.notesField}>
+                              <Textarea value={draft.completionNotes} onChange={(event) => updateJobDraft(job.id, "completionNotes", event.target.value)} placeholder="Work completed, parts used, or follow-up required" />
+                            </FormField>
+                          </div>
+                          <div className={layoutStyles.detailActions}>
+                            <Button variant="secondary" loading={isSavingRow} onClick={() => saveJobDetails(job)}>
+                              <Save size={15} />
+                              Save details
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      {jobErrors[job.id] ? <Alert variant="danger">{jobErrors[job.id]}</Alert> : null}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         </section>
 
-        <div style={{ ...card, marginBottom: 14 }}>
-          <div className={layoutStyles.extracted5}>
+        <section className={layoutStyles.activitySection} aria-labelledby="maintenance-overview-heading">
+          <div className={layoutStyles.sectionHeading}>
             <div>
-              <h2 style={titleMd}>Create Job Card</h2>
-              <div style={hint}>Start a maintenance job, then complete workflow details in the queue below.</div>
+              <h2 id="maintenance-overview-heading">Maintenance overview</h2>
+              <p>Jump into the specialist registers without loading their full history on this work queue.</p>
             </div>
+            <Badge>{overviewStats.activity} records</Badge>
           </div>
-          <div className="maintenance-jobs-form-grid">
-            <select value={form.assetId} onChange={(e) => setForm((p) => ({ ...p, assetId: e.target.value }))} style={input}>
-              <option value="">Select asset...</option>
-              {vehicleOptions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-            <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} style={input}>
+          <div className={layoutStyles.activityGrid}>
+            {groupedActivity.map((group) => (
+              <ActivityOverviewCard key={group.key} group={group} onOpen={() => router.push(groupRoute(group.key))} />
+            ))}
+          </div>
+        </section>
+      </OperationsPage>
+
+      <Modal
+        open={createOpen}
+        onClose={() => !saving && setCreateOpen(false)}
+        title="Create maintenance job"
+        description="Add the essential planning details now. Workshop and commercial fields can be completed from the queue."
+        size="lg"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</Button>
+            <Button loading={saving} onClick={createJob}><Plus size={16} />Create job</Button>
+          </>
+        }
+      >
+        <div className={layoutStyles.createGrid}>
+          <FormField label="Vehicle or asset" required>
+            <Select value={form.assetId} onChange={(event) => setForm((previous) => ({ ...previous, assetId: event.target.value }))}>
+              <option value="">Select asset…</option>
+              {vehicleOptions.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.label}</option>)}
+            </Select>
+          </FormField>
+          <FormField label="Job type" required>
+            <Select value={form.type} onChange={(event) => setForm((previous) => ({ ...previous, type: event.target.value }))}>
               <option value="service">Service</option>
               <option value="mot">MOT</option>
               <option value="inspection">Inspection</option>
               <option value="repair">Repair</option>
-            </select>
-            <input type="text" placeholder="Job title" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} style={input} />
-            <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} style={input} />
-            <input type="date" value={form.plannedDate} onChange={(e) => setForm((p) => ({ ...p, plannedDate: e.target.value }))} style={input} />
-            <select value={form.priority} onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))} style={input}>
+            </Select>
+          </FormField>
+          <FormField label="Job title" required className={layoutStyles.createTitleField}>
+            <Input autoFocus value={form.title} onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))} placeholder="What work is required?" />
+          </FormField>
+          <FormField label="Due date" required>
+            <Input type="date" value={form.dueDate} onChange={(event) => setForm((previous) => ({ ...previous, dueDate: event.target.value }))} />
+          </FormField>
+          <FormField label="Planned date">
+            <Input type="date" value={form.plannedDate} onChange={(event) => setForm((previous) => ({ ...previous, plannedDate: event.target.value }))} />
+          </FormField>
+          <FormField label="Priority">
+            <Select value={form.priority} onChange={(event) => setForm((previous) => ({ ...previous, priority: event.target.value }))}>
               <option value="low">Low</option>
               <option value="normal">Normal</option>
               <option value="high">High</option>
               <option value="critical">Critical</option>
-            </select>
-          </div>
-          <textarea
-            placeholder="Notes"
-            value={form.notes}
-            onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-            style={{ ...input, marginTop: 8, minHeight: 64, resize: "vertical" }}
-          />
-          <div className={layoutStyles.extracted6}>
-            <button type="button" style={btn("primary")} onClick={createJob} disabled={saving}>
-              <Plus size={14} />
-              {saving ? "Saving..." : "Create Job"}
-            </button>
-          </div>
-          {createError ? (
-            <div className={layoutStyles.extracted7}>{createError}</div>
-          ) : null}
-          {createMessage ? (
-            <div
-              className={layoutStyles.extracted8}
-            >
-              {createMessage}
-            </div>
-          ) : null}
+            </Select>
+          </FormField>
+          <FormField label="Planning notes" className={layoutStyles.createNotesField}>
+            <Textarea value={form.notes} onChange={(event) => setForm((previous) => ({ ...previous, notes: event.target.value }))} placeholder="Fault details, access constraints, or work requested" />
+          </FormField>
         </div>
-
-        <div style={card}>
-          {focusedJobId ? (
-            <div
-              style={{
-                marginBottom: 10,
-                border: `1px solid ${UI.brandBorder}`,
-                background: UI.brandSoft,
-                color: UI.brand,
-                borderRadius: UI.radius,
-                padding: "10px 12px",
-                fontSize: 13,
-                lineHeight: 1.45,
-                fontWeight: 700,
-              }}
-            >
-              Opened from dashboard. The selected job row is highlighted below.
-            </div>
-          ) : null}
-          <div className={layoutStyles.extracted9}>
-            <div>
-              <h2 style={titleMd}>Job Queue</h2>
-              <div style={hint}>Update booking, completion, cost, invoice and workflow stage from each row.</div>
-            </div>
-            <div className={layoutStyles.extracted10}>
-              <span
-                style={{
-                  padding: "5px 9px",
-                  borderRadius: 999,
-                  border: `1px solid ${UI.brandBorder}`,
-                  background: UI.brandSoft,
-                  color: UI.brand,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Showing {visibleJobs.length} / {allJobs.length}
-              </span>
-            </div>
-          </div>
-          <div className="maintenance-jobs-filter-grid" style={{ ...surface, boxShadow: "none", padding: 12, marginBottom: 12 }}>
-            <label className={layoutStyles.extracted11}>
-              <Search
-                size={16}
-                style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
-              />
-              <input
-                type="text"
-                placeholder="Search jobs..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ ...input, paddingLeft: 34 }}
-              />
-            </label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...input, maxWidth: 220 }}>
-              <option value="all">All statuses</option>
-              {MAINTENANCE_JOB_WORKFLOW_STAGES.map((s) => (
-                <option key={s} value={s}>
-                  {MAINTENANCE_STAGE_LABELS[s] || s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={layoutStyles.extracted12}>
-            <table className={layoutStyles.extracted13}>
-              <thead>
-                <tr>
-                  {["Title", "Asset", "Type", "Priority", "Due", "Planned", "Workflow Details", "Status", "Updated"].map((h) => (
-                    <th key={h} style={{ ...theadTh, textAlign: "left" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleJobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{ ...thtd, color: UI.muted }}>
-                      No maintenance jobs.
-                    </td>
-                  </tr>
-                ) : (
-                  visibleJobs.map((j) => {
-                    const stage = normalizeWorkflowStageCompat(j.status);
-                    const draft = jobDrafts[j.id] || buildJobDraft(j);
-                    const isSavingRow = savingJobId === j.id;
-                    const isFocused = focusedJobId === j.id;
-                    return (
-                    <tr
-                      key={j.id}
-                      ref={(node) => {
-                        if (node) rowRefs.current[j.id] = node;
-                        else delete rowRefs.current[j.id];
-                      }}
-                      style={isFocused ? { background: UI.brandSoft } : { background: "var(--color-surface)" }}
-                    >
-                      <td style={{ ...thtd, fontWeight: 800, color: UI.text }}>{j.title || "-"}</td>
-                      <td className={layoutStyles.extracted14}>{j.assetLabel || j.assetId || "-"}</td>
-                      <td className={layoutStyles.extracted15}>{j.type || "-"}</td>
-                      <td className={layoutStyles.extracted16}>{j.priority || "-"}</td>
-                      <td className={layoutStyles.extracted17}>{fmtDate(j.dueDate)}</td>
-                      <td className={layoutStyles.extracted18}>{fmtDate(j.plannedDate)}</td>
-                      <td className={layoutStyles.extracted19}>
-                        <div className={layoutStyles.extracted20}>
-                          <input
-                            type="text"
-                            placeholder="Provider"
-                            value={draft.provider}
-                            onChange={(e) => updateJobDraft(j.id, "provider", e.target.value)}
-                            style={{ ...input, minWidth: 220 }}
-                          />
-                          <input
-                            type="date"
-                            value={draft.bookedDate}
-                            onChange={(e) => updateJobDraft(j.id, "bookedDate", e.target.value)}
-                            style={input}
-                          />
-                          <input
-                            type="text"
-                            placeholder="Assigned to"
-                            value={draft.assignedToName}
-                            onChange={(e) => updateJobDraft(j.id, "assignedToName", e.target.value)}
-                            style={input}
-                          />
-                          <textarea
-                            placeholder="Completion notes"
-                            value={draft.completionNotes}
-                            onChange={(e) => updateJobDraft(j.id, "completionNotes", e.target.value)}
-                            style={{ ...input, minHeight: 62, resize: "vertical" }}
-                          />
-                          <div className={layoutStyles.extracted21}>
-                            <input
-                              type="text"
-                              placeholder="Total cost"
-                              value={draft.totalCost}
-                              onChange={(e) => updateJobDraft(j.id, "totalCost", e.target.value)}
-                              style={input}
-                            />
-                            <input
-                              type="text"
-                              placeholder="PO number"
-                              value={draft.poNumber}
-                              onChange={(e) => updateJobDraft(j.id, "poNumber", e.target.value)}
-                              style={input}
-                            />
-                            <input
-                              type="text"
-                              placeholder="Invoice ref"
-                              value={draft.invoiceRef}
-                              onChange={(e) => updateJobDraft(j.id, "invoiceRef", e.target.value)}
-                              style={input}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            style={{ ...btn(), width: "fit-content" }}
-                            onClick={() => saveJobDetails(j)}
-                            disabled={isSavingRow}
-                          >
-                            <Save size={14} />
-                            {isSavingRow ? "Saving..." : "Save details"}
-                          </button>
-                        </div>
-                      </td>
-                      <td className={layoutStyles.extracted22}>
-                        <select
-                          value={stage}
-                          onChange={(e) => setJobStatus(j, e.target.value)}
-                          style={{ ...input, minWidth: 150 }}
-                          disabled={isSavingRow}
-                        >
-                          {MAINTENANCE_JOB_WORKFLOW_STAGES.map((s) => (
-                            <option key={s} value={s}>
-                              {MAINTENANCE_STAGE_LABELS[s] || s}
-                            </option>
-                          ))}
-                        </select>
-                        {jobErrors[j.id] ? (
-                          <div className={layoutStyles.extracted23}>
-                            {jobErrors[j.id]}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td style={{ ...thtd, color: UI.muted }}>
-                        {fmtDateTime(j.updatedAt || j.updatedAtServer)}
-                      </td>
-                    </tr>
-                  )})
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+        {createError ? <Alert variant="danger" className={layoutStyles.modalAlert}>{createError}</Alert> : null}
+      </Modal>
     </HeaderSidebarLayout>
-  );
-}
-
-function OverviewChip({ label, value, tone = "default" }) {
-  const colors =
-    tone === "danger"
-      ? { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "var(--color-danger-border)" }
-      : tone === "ok"
-      ? { bg: "var(--color-success-soft)", fg: "var(--color-success)", border: "var(--color-success-border)" }
-      : { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder };
-
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        minHeight: 30,
-        padding: "5px 9px",
-        borderRadius: 999,
-        border: `1px solid ${colors.border}`,
-        background: colors.bg,
-        color: colors.fg,
-        fontSize: 12,
-        fontWeight: 850,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {label}
-      <strong className={layoutStyles.extracted24}>{value}</strong>
-    </span>
   );
 }
 
@@ -1421,178 +1246,31 @@ const groupRoute = (groupKey) => {
   return "/maintenance-jobs";
 };
 
-function ActivityGroup({ group, router }) {
+function ActivityOverviewCard({ group, onOpen }) {
   const Icon = group.icon || ClipboardList;
-  const route = groupRoute(group.key);
+  const latest = group.items[0];
   return (
-    <section
-      style={{
-        border: UI.border,
-        borderRadius: UI.radius,
-        background: "var(--color-surface)",
-        overflow: "hidden",
-        minWidth: 0,
-        minHeight: 236,
-        boxShadow: UI.shadowSm,
-      }}
-    >
-      <div className={layoutStyles.extracted25}>
-        <div className={layoutStyles.extracted26}>
-          <span
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: UI.radiusSm,
-              border: `1px solid ${UI.brandBorder}`,
-              background: UI.brandSoft,
-              color: UI.brand,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flex: "0 0 auto",
-            }}
-          >
-            <Icon size={16} />
-          </span>
-          <div className={layoutStyles.extracted27}>
-            <div style={{ color: UI.text, fontSize: 18, lineHeight: 1.1, fontWeight: 950 }}>{group.label}</div>
-            <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.35, marginTop: 4 }}>{group.note}</div>
-          </div>
-        </div>
-        <button type="button" className="maintenance-jobs-action" style={btn()} onClick={() => router.push(route)}>
-          Open queue
-          <span aria-hidden="true">&gt;</span>
-        </button>
-      </div>
-
-      <div>
-        {group.items.length === 0 ? (
-          <div
-            style={{
-              margin: "0 12px 12px",
-              border: "1px solid var(--color-border)",
-              borderRadius: UI.radius,
-              padding: "11px 12px",
-              color: UI.muted,
-              fontSize: 13,
-              background: "var(--color-surface)",
-            }}
-          >
-            Nothing in this queue.
-          </div>
-        ) : (
-          group.items.map((item) => <ActivityRow key={item.activityId} item={item} />)
-        )}
-      </div>
-      {group.count > group.items.length ? (
-        <div style={{ padding: "8px 12px 10px", color: UI.muted, fontSize: 11.5, fontWeight: 750 }}>
-          {group.count - group.items.length} more in this group
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function ActivityRow({ item }) {
-  const status = prettyStatus(item.status);
-  const statusLower = status.toLowerCase();
-  const statusStyle =
-    statusLower.includes("open") || statusLower.includes("defect")
-      ? { bg: "var(--color-warning-border)", fg: "var(--color-text)" }
-      : statusLower.includes("complete") || statusLower.includes("closed") || statusLower.includes("logged") || statusLower.includes("history")
-      ? { bg: "var(--color-success-accent)", fg: "var(--color-text)" }
-      : { bg: "var(--color-border)", fg: UI.text };
-  return (
-    <div
-      className={`maintenance-activity-row ${layoutStyles.extracted28}`}
-
-    >
-      <div className={layoutStyles.extracted29}>
-        <div style={{ color: UI.text, fontSize: 16, lineHeight: 1.22, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {item.title || activityTypeLabel(item.type)}
-        </div>
-      </div>
-      <div style={{ padding: "8px 10px", color: UI.muted, fontSize: 12.5, lineHeight: 1.35, minWidth: 0 }}>
-        <div className={layoutStyles.extracted30}>
-          {item.vehicleName || "Unknown vehicle"}
-        </div>
-        {item.registration ? (
-          <div className={layoutStyles.extracted31}>{String(item.registration).toUpperCase()}</div>
-        ) : null}
-      </div>
-      <div style={{ padding: "8px 10px", color: UI.text, fontSize: 12.5, lineHeight: 1.35, whiteSpace: "nowrap" }}>
-        {fmtDate(item.activityDate)}
-      </div>
-      <div
-        className="maintenance-activity-status"
-        style={{
-          background: statusStyle.bg,
-          color: statusStyle.fg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "8px 10px",
-          fontSize: 12.5,
-          lineHeight: 1.2,
-          fontWeight: 950,
-          textAlign: "center",
-          borderLeft: "1px solid var(--color-text)",
-        }}
-      >
-        {status}
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Wrench }) {
-  const toneStyles =
-    tone === "danger"
-      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
-      : tone === "amber"
-      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
-      : tone === "ok"
-      ? { fg: "var(--color-success)", bg: "var(--color-success-soft)", border: "var(--color-success-border)" }
-      : tone === "brand" || tone === "soft"
-      ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "var(--color-surface-subtle)", border: "var(--color-border)" };
-
-  return (
-    <div
-      style={{
-        ...card,
-        minHeight: 96,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
-      }}
-    >
-      <div className={layoutStyles.extracted32}>
-        <div>
-          <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
-            {label}
-          </div>
-          <div style={{ fontSize: 26, lineHeight: 1.05, fontWeight: 900, color: toneStyles.fg, marginTop: 6 }}>{value}</div>
-        </div>
-        <span
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: UI.radiusSm,
-            border: `1px solid ${toneStyles.border}`,
-            background: toneStyles.bg,
-            color: toneStyles.fg,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: "0 0 auto",
-          }}
-        >
-          <Icon size={17} />
+    <button type="button" className={layoutStyles.activityCard} onClick={onOpen}>
+      <span className={layoutStyles.activityIcon}><Icon size={18} /></span>
+      <span className={layoutStyles.activityBody}>
+        <span className={layoutStyles.activityTitleRow}>
+          <strong>{group.label}</strong>
+          <Badge>{group.count}</Badge>
         </span>
-      </div>
-      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
-    </div>
+        <span className={layoutStyles.activityNote}>{group.note}</span>
+        <span className={layoutStyles.activityLatest}>
+          {latest ? `Latest: ${latest.title || latest.vehicleName || "Activity"}` : "No records in this area"}
+        </span>
+      </span>
+      <ExternalLink size={16} aria-hidden="true" />
+    </button>
   );
+}
+
+function priorityVariant(priority) {
+  const value = String(priority || "").toLowerCase();
+  if (value === "critical") return "danger";
+  if (value === "high") return "warning";
+  if (value === "low") return "info";
+  return "neutral";
 }

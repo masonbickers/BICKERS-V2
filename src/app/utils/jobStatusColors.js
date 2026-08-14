@@ -1,3 +1,11 @@
+export const SEMANTIC_STATUS_STYLES = Object.freeze({
+  red: { bg: "var(--status-red)", text: "var(--status-red-text)", border: "var(--status-red-border)" },
+  orange: { bg: "var(--status-orange)", text: "var(--status-orange-text)", border: "var(--status-orange-border)" },
+  green: { bg: "var(--status-green)", text: "var(--status-green-text)", border: "var(--status-green-border)" },
+  blue: { bg: "var(--status-blue)", text: "var(--status-blue-text)", border: "var(--status-blue-border)" },
+  grey: { bg: "var(--status-grey)", text: "var(--status-grey-text)", border: "var(--status-grey-border)" },
+});
+
 export const FIXED_JOB_STATUS_STYLES = Object.freeze({
   Confirmed: { bg: "var(--job-status-confirmed)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" },
   "First Pencil": { bg: "var(--job-status-first-pencil)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" },
@@ -31,9 +39,83 @@ export function normalizeJobStatus(value = "") {
 }
 
 export function getFixedJobStatusStyle(value = "") {
-  return FIXED_JOB_STATUS_STYLES[normalizeJobStatus(value)] || {
-    bg: "var(--job-status-note)",
-    text: "var(--job-status-text-dark)",
-    border: "var(--job-status-border)",
-  };
+  return FIXED_JOB_STATUS_STYLES[normalizeJobStatus(value)] || getSemanticStatusStyle(value);
+}
+
+const EXACT_STATUS_TONES = Object.freeze({
+  "ready to invoice": "orange",
+  invoiced: "blue",
+  paid: "green",
+  settled: "green",
+  approved: "green",
+  active: "green",
+  available: "green",
+  safe: "green",
+  passed: "green",
+  resolved: "green",
+  ready: "green",
+  submitted: "green",
+  ok: "green",
+  certified: "green",
+  closed: "green",
+  logged: "green",
+  scheduled: "blue",
+  "in progress": "blue",
+  pending: "orange",
+  open: "orange",
+  maintenance: "orange",
+  compliance: "orange",
+  warning: "orange",
+  "action required": "orange",
+  "needs action": "orange",
+  attention: "orange",
+  overdue: "orange",
+  due: "orange",
+  missing: "orange",
+  conflict: "red",
+  defect: "red",
+  error: "red",
+  failed: "red",
+  rejected: "red",
+  invalid: "red",
+  unsafe: "red",
+  inactive: "grey",
+  archived: "grey",
+  draft: "grey",
+  recorded: "grey",
+  postponed: "grey",
+  deleted: "grey",
+  cancelled: "grey",
+  canceled: "grey",
+  lost: "grey",
+  declined: "grey",
+  tbc: "grey",
+  history: "blue",
+});
+
+const STATUS_TONE_PATTERNS = Object.freeze([
+  ["red", /\b(second pencil|conflict|defect|error|failed|rejected|invalid|unsafe)\b/],
+  ["orange", /\b(maintenance|compliance|warning|attention|action required|needs action|overdue|due|pending|missing|vor)\b/],
+  ["green", /\b(complete|completed|confirmed|success|successful|safe|passed|approved|resolved|paid|settled|ready|active|available|booked|submitted|ok)\b/],
+  ["blue", /\b(first pencil|information|info|invoiced|requested|enquiry|inquiry|scheduled|in progress|bickers|stunt|note)\b/],
+  ["grey", /\b(inactive|archived|draft|postponed|deleted|cancelled|canceled|lost|declined|dnh|holiday|tbc)\b/],
+]);
+
+export function getSemanticStatusTone(value = "") {
+  const normalized = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  if (!normalized) return "grey";
+  if (FIXED_JOB_STATUS_STYLES[normalizeJobStatus(normalized)]) {
+    const fixed = normalizeJobStatus(normalized);
+    if (["Second Pencil"].includes(fixed)) return "red";
+    if (["Action Required", "Maintenance"].includes(fixed)) return "orange";
+    if (["Confirmed", "Complete", "Booked"].includes(fixed)) return "green";
+    if (["First Pencil", "Bickers", "Stunt", "Note", "Requested", "Enquiry"].includes(fixed)) return "blue";
+    return "grey";
+  }
+  if (EXACT_STATUS_TONES[normalized]) return EXACT_STATUS_TONES[normalized];
+  return STATUS_TONE_PATTERNS.find(([, pattern]) => pattern.test(normalized))?.[0] || "grey";
+}
+
+export function getSemanticStatusStyle(value = "") {
+  return SEMANTIC_STATUS_STYLES[getSemanticStatusTone(value)];
 }

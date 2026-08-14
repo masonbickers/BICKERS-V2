@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -368,7 +369,7 @@ export default function EditBookingPage() {
         // Load record to edit
         const refDoc = await getDoc(doc(db, "bookings", id));
         if (!refDoc.exists()) {
-          alert("Booking not found");
+          systemDialogs.showSystemNotification("Booking not found");
           router.push("/dashboard");
           return;
         }
@@ -410,7 +411,7 @@ export default function EditBookingPage() {
         setEquipment(Array.isArray(data.equipment) ? data.equipment : []); // hidden but preserved
       } catch (err) {
         console.error(err);
-        alert("Failed to load booking.");
+        systemDialogs.showSystemNotification("Failed to load booking.");
       } finally {
         setLoading(false);
       }
@@ -482,8 +483,8 @@ export default function EditBookingPage() {
 
     try {
       if (status !== "Enquiry") {
-        if (!startDate) return alert("Please select a start date.");
-        if (isRange && !endDate) return alert("Please select an end date.");
+        if (!startDate) return systemDialogs.showSystemNotification("Please select a start date.");
+        if (isRange && !endDate) return systemDialogs.showSystemNotification("Please select an end date.");
       }
 
       const customNames = customEmployee
@@ -499,13 +500,13 @@ export default function EditBookingPage() {
       for (const employeeName of cleanedEmployees) {
         if (isEmployeeOnHoliday(employeeName)) {
           setSaving(false);
-          alert(`${employeeName} is on holiday during the selected dates.`);
+          systemDialogs.showSystemNotification(`${employeeName} is on holiday during the selected dates.`);
           return;
         }
         const unavailableNote = getEmployeeUnavailableNote(employeeName);
         if (unavailableNote) {
           setSaving(false);
-          alert(
+          systemDialogs.showSystemNotification(
             `${employeeName} is marked unavailable on a note during the selected dates.${unavailableNote.text ? `\n\nNote: ${unavailableNote.text}` : ""}`
           );
           return;
@@ -600,11 +601,11 @@ export default function EditBookingPage() {
       };
 
       await updateDoc(refDoc, updatePayload);
-      alert("Booking updated ");
+      systemDialogs.showSystemNotification("Booking updated ");
       router.push(`/job-numbers/${id}`);
     } catch (err) {
       console.error(err);
-      alert("Failed to update booking \n\n" + err.message);
+      systemDialogs.showSystemNotification("Failed to update booking \n\n" + err.message);
     } finally {
       setSaving(false);
     }
@@ -938,7 +939,7 @@ export default function EditBookingPage() {
                 type="button"
                 style={dangerBtn}
                 onClick={async () => {
-                  if (!confirm("Save a copy as a new booking?")) return;
+                  if (!await systemDialogs.confirmSystem("Save a copy as a new booking?")) return;
                   try {
                     const user = auth.currentUser;
 
@@ -992,11 +993,11 @@ export default function EditBookingPage() {
                     };
 
                     const newRef = await addDoc(collection(db, "bookings"), payload);
-                    alert("Copy created ");
+                    systemDialogs.showSystemNotification("Copy created ");
                     router.push(`/job-numbers/${newRef.id}`);
                   } catch (err) {
                     console.error(err);
-                    alert("Failed to create copy: " + err.message);
+                    systemDialogs.showSystemNotification("Failed to create copy: " + err.message);
                   }
                 }}
               >

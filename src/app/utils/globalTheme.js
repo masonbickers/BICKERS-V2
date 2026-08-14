@@ -1,7 +1,8 @@
-export const APPEARANCE_SCHEMA_VERSION = 2;
-export const DARK_DERIVATION_VERSION = 1;
+export const APPEARANCE_SCHEMA_VERSION = 4;
+export const DARK_DERIVATION_VERSION = 2;
 export const GLOBAL_THEME_CACHE_KEY = "bickers-global-theme:v2";
-export const COLOR_MODE_STORAGE_KEY = "bickers-color-mode:v1";
+export const COLOR_MODE_STORAGE_KEY = "bickers-color-mode:v2";
+const LEGACY_COLOR_MODE_STORAGE_KEY = "bickers-color-mode:v1";
 
 export const FONT_OPTIONS = [
   { value: "inter", label: "Inter", stack: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
@@ -14,7 +15,7 @@ export const FONT_OPTIONS = [
 
 export const DENSITY_OPTIONS = ["compact", "standard", "spacious"];
 export const SHADOW_OPTIONS = ["none", "subtle", "elevated"];
-export const COLOR_MODE_OPTIONS = ["light", "dark", "system"];
+export const COLOR_MODE_OPTIONS = ["dark", "normal", "light"];
 
 export const DEFAULT_GLOBAL_THEME = Object.freeze({
   schemaVersion: APPEARANCE_SCHEMA_VERSION,
@@ -57,6 +58,22 @@ export const DEFAULT_GLOBAL_THEME = Object.freeze({
   tableAlternateColor: "#f8fafc",
   tableZebra: false,
   darkModeEnabled: true,
+  darkBrandColor: "#f5f5f5",
+  darkAccentColor: "#a3a3a3",
+  darkTextColor: "#f5f5f5",
+  darkMutedTextColor: "#b3b3b3",
+  darkCanvasColor: "#111111",
+  darkSurfaceColor: "#242424",
+  darkBorderColor: "#666666",
+  darkShellColor: "#000000",
+  darkShellTextColor: "#f5f5f5",
+  darkPrimaryTextColor: "#111111",
+  darkSuccessColor: "#498761",
+  darkWarningColor: "#b66d54",
+  darkDangerColor: "#b35454",
+  darkInfoColor: "#4f75e1",
+  darkTableHeaderColor: "#1a1a1a",
+  darkTableAlternateColor: "#202020",
   darkDerivationVersion: DARK_DERIVATION_VERSION,
 });
 
@@ -68,6 +85,24 @@ const COLOR_KEYS = [
   "successColor", "warningColor", "dangerColor", "infoColor", "tableHeaderColor",
   "tableAlternateColor",
 ];
+const DARK_COLOR_KEYS = {
+  darkBrandColor: "brandColor",
+  darkAccentColor: "accentColor",
+  darkTextColor: "textColor",
+  darkMutedTextColor: "mutedTextColor",
+  darkCanvasColor: "canvasColor",
+  darkSurfaceColor: "surfaceColor",
+  darkBorderColor: "borderColor",
+  darkShellColor: "shellColor",
+  darkShellTextColor: "shellTextColor",
+  darkPrimaryTextColor: "primaryTextColor",
+  darkSuccessColor: "successColor",
+  darkWarningColor: "warningColor",
+  darkDangerColor: "dangerColor",
+  darkInfoColor: "infoColor",
+  darkTableHeaderColor: "tableHeaderColor",
+  darkTableAlternateColor: "tableAlternateColor",
+};
 
 // Exact supporting colours used by the live UI before global styling is
 // applied. The editable theme stores the core palette; these preserve the
@@ -152,6 +187,11 @@ export function normalizeGlobalTheme(value = {}) {
   COLOR_KEYS.forEach((key) => {
     normalized[key] = safeColor(source?.[key], DEFAULT_GLOBAL_THEME[key]);
   });
+  const generatedDark = generatedDarkPalette(normalized);
+  const regenerateDarkPalette = Number(source?.darkDerivationVersion || 0) < DARK_DERIVATION_VERSION;
+  Object.entries(DARK_COLOR_KEYS).forEach(([darkKey, themeKey]) => {
+    normalized[darkKey] = safeColor(regenerateDarkPalette ? generatedDark[themeKey] : source?.[darkKey], generatedDark[themeKey]);
+  });
   return normalized;
 }
 
@@ -192,39 +232,98 @@ export function readableTextColor(background, preferred = "#ffffff") {
   return white >= black ? "#ffffff" : "#000000";
 }
 
-export function deriveDarkTheme(value = {}) {
-  const theme = normalizeGlobalTheme(value);
+function generatedDarkPalette(theme) {
   const dark = {
     ...theme,
-    canvasColor: mixColors(theme.canvasColor, "#020617", 0.93),
-    surfaceColor: mixColors(theme.surfaceColor, "#0f172a", 0.9),
-    textColor: "#f8fafc",
-    mutedTextColor: "#cbd5e1",
-    borderColor: "#334155",
-    shellColor: mixColors(theme.shellColor, "#020617", 0.42),
-    shellTextColor: "#f8fafc",
-    brandColor: mixColors(theme.brandColor, "#ffffff", 0.18),
-    accentColor: mixColors(theme.accentColor, "#ffffff", 0.2),
+    canvasColor: "#111111",
+    surfaceColor: "#242424",
+    textColor: "#f5f5f5",
+    mutedTextColor: "#b3b3b3",
+    borderColor: "#666666",
+    shellColor: "#000000",
+    shellTextColor: "#f5f5f5",
+    brandColor: "#f5f5f5",
+    accentColor: "#a3a3a3",
     successColor: mixColors(theme.successColor, "#ffffff", 0.22),
     warningColor: mixColors(theme.warningColor, "#ffffff", 0.28),
     dangerColor: mixColors(theme.dangerColor, "#ffffff", 0.25),
     infoColor: mixColors(theme.infoColor, "#ffffff", 0.22),
-    tableHeaderColor: "#172033",
-    tableAlternateColor: "#111b2d",
+    tableHeaderColor: "#1a1a1a",
+    tableAlternateColor: "#202020",
   };
-  dark.primaryTextColor = readableTextColor(dark.brandColor, theme.primaryTextColor);
+  dark.primaryTextColor = "#111111";
   return dark;
+}
+
+export function createMonochromeDarkPalette(value = {}) {
+  const lightTheme = { ...DEFAULT_GLOBAL_THEME, ...value };
+  const generated = generatedDarkPalette(lightTheme);
+  const palette = {
+    ...value,
+    darkModeEnabled: true,
+    darkDerivationVersion: DARK_DERIVATION_VERSION,
+  };
+  Object.entries(DARK_COLOR_KEYS).forEach(([darkKey, themeKey]) => {
+    palette[darkKey] = generated[themeKey];
+  });
+  return palette;
+}
+
+export function deriveDarkTheme(value = {}) {
+  const theme = normalizeGlobalTheme(value);
+  return {
+    ...theme,
+    brandColor: theme.darkBrandColor,
+    accentColor: theme.darkAccentColor,
+    textColor: theme.darkTextColor,
+    mutedTextColor: theme.darkMutedTextColor,
+    canvasColor: theme.darkCanvasColor,
+    surfaceColor: theme.darkSurfaceColor,
+    borderColor: theme.darkBorderColor,
+    shellColor: theme.darkShellColor,
+    shellTextColor: theme.darkShellTextColor,
+    primaryTextColor: theme.darkPrimaryTextColor,
+    successColor: theme.darkSuccessColor,
+    warningColor: theme.darkWarningColor,
+    dangerColor: theme.darkDangerColor,
+    infoColor: theme.darkInfoColor,
+    tableHeaderColor: theme.darkTableHeaderColor,
+    tableAlternateColor: theme.darkTableAlternateColor,
+  };
+}
+
+// The published palette remains the familiar "Normal" appearance. Light mode
+// is a brighter, Expo-inspired treatment derived from it so company branding
+// and semantic colours stay consistent without a second editable palette.
+export function deriveLightTheme(value = {}) {
+  const theme = normalizeGlobalTheme(value);
+  return {
+    ...theme,
+    textColor: mixColors(theme.textColor, "#000000", 0.04),
+    mutedTextColor: mixColors(theme.mutedTextColor, "#ffffff", 0.08),
+    canvasColor: mixColors(theme.canvasColor, "#ffffff", 0.74),
+    surfaceColor: "#ffffff",
+    borderColor: mixColors(theme.borderColor, "#ffffff", 0.28),
+    shellColor: "#ffffff",
+    shellTextColor: mixColors(theme.textColor, "#000000", 0.04),
+    tableHeaderColor: mixColors(theme.tableHeaderColor, "#ffffff", 0.45),
+    tableAlternateColor: mixColors(theme.tableAlternateColor, "#ffffff", 0.55),
+  };
 }
 
 export function validateThemeContrast(value = {}) {
   const theme = normalizeGlobalTheme(value);
+  const contrastChecks = (palette, prefix = "", labelPrefix = "") => [
+    [`${prefix}text-surface`, `${labelPrefix}Main text on surfaces`, palette.textColor, palette.surfaceColor, 4.5, true],
+    [`${prefix}text-canvas`, `${labelPrefix}Main text on page background`, palette.textColor, palette.canvasColor, 4.5, true],
+    [`${prefix}primary-button`, `${labelPrefix}Primary button text`, palette.primaryTextColor, palette.brandColor, 4.5, true],
+    [`${prefix}shell`, `${labelPrefix}Navigation text`, palette.shellTextColor, palette.shellColor, 4.5, true],
+    [`${prefix}muted-surface`, `${labelPrefix}Muted text on surfaces`, palette.mutedTextColor, palette.surfaceColor, 4.5, false],
+    [`${prefix}border-surface`, `${labelPrefix}Borders against surfaces`, palette.borderColor, palette.surfaceColor, 3, false],
+  ];
   const checks = [
-    ["text-surface", "Main text on surfaces", theme.textColor, theme.surfaceColor, 4.5, true],
-    ["text-canvas", "Main text on page background", theme.textColor, theme.canvasColor, 4.5, true],
-    ["primary-button", "Primary button text", theme.primaryTextColor, theme.brandColor, 4.5, true],
-    ["shell", "Navigation text", theme.shellTextColor, theme.shellColor, 4.5, true],
-    ["muted-surface", "Muted text on surfaces", theme.mutedTextColor, theme.surfaceColor, 4.5, false],
-    ["border-surface", "Borders against surfaces", theme.borderColor, theme.surfaceColor, 3, false],
+    ...contrastChecks(theme),
+    ...(theme.darkModeEnabled ? contrastChecks(deriveDarkTheme(theme), "dark-", "Dark: ") : []),
   ].map(([id, label, foreground, background, minimum, critical]) => {
     const ratio = contrastRatio(foreground, background);
     return { id, label, foreground, background, minimum, ratio: Number(ratio.toFixed(2)), critical, pass: ratio >= minimum };
@@ -241,7 +340,8 @@ const shadowValues = {
 export function themeToCssVariables(value = {}, options = {}) {
   const normalized = normalizeGlobalTheme(value);
   const useDark = options.mode === "dark" && normalized.darkModeEnabled;
-  const theme = useDark ? deriveDarkTheme(normalized) : normalized;
+  const useLight = options.mode === "light";
+  const theme = useDark ? deriveDarkTheme(normalized) : useLight ? deriveLightTheme(normalized) : normalized;
   const font = FONT_OPTIONS.find((option) => option.value === theme.fontFamily) || FONT_OPTIONS[0];
   const brandHover = mixColors(theme.brandColor, useDark ? "#ffffff" : "#000000", useDark ? 0.12 : 0.22);
   const brandSoft = mixColors(theme.brandColor, theme.surfaceColor, 0.88);
@@ -310,26 +410,26 @@ export function themeToCssVariables(value = {}, options = {}) {
   return !useDark && usesLiveDefaultPalette(theme) ? { ...variables, ...LIVE_DEFAULT_COLOR_VARIABLES } : variables;
 }
 
-export function resolveColorMode(preference = "system", mediaMatches = false, darkEnabled = true) {
-  if (!darkEnabled) return "light";
-  if (preference === "dark") return "dark";
+export function resolveColorMode(preference = "normal", mediaMatches = false, darkEnabled = true) {
   if (preference === "light") return "light";
-  return mediaMatches ? "dark" : "light";
+  if (!darkEnabled) return "normal";
+  if (preference === "dark") return "dark";
+  return "normal";
 }
 
 export function applyGlobalTheme(value = {}, options = {}) {
   const theme = normalizeGlobalTheme(value);
   if (typeof document === "undefined") return theme;
-  const mode = resolveColorMode(options.preference || options.mode || "light", options.systemDark === true, theme.darkModeEnabled);
+  const mode = resolveColorMode(options.preference || options.mode || "normal", options.systemDark === true, theme.darkModeEnabled);
   const root = document.documentElement;
   const variables = themeToCssVariables(theme, { mode });
   Object.entries(variables).forEach(([name, cssValue]) => {
-    if (mode === "light" && usesLiveDefaultPalette(theme)) root.style.removeProperty(name);
+    if (mode === "normal" && usesLiveDefaultPalette(theme)) root.style.removeProperty(name);
     else root.style.setProperty(name, cssValue);
   });
   root.dataset.globalTheme = "custom";
   root.dataset.colorMode = mode;
-  root.style.colorScheme = mode;
+  root.style.colorScheme = mode === "dark" ? "dark" : "light";
   return theme;
 }
 
@@ -358,13 +458,15 @@ export function readCachedGlobalTheme(companyId = "__platform__") {
 }
 
 export function readColorModePreference() {
-  if (typeof window === "undefined") return "system";
+  if (typeof window === "undefined") return "normal";
   const value = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY);
-  return COLOR_MODE_OPTIONS.includes(value) ? value : "system";
+  if (COLOR_MODE_OPTIONS.includes(value)) return value;
+  const legacy = window.localStorage.getItem(LEGACY_COLOR_MODE_STORAGE_KEY);
+  return legacy === "dark" ? "dark" : "normal";
 }
 
 export function writeColorModePreference(value) {
-  const preference = COLOR_MODE_OPTIONS.includes(value) ? value : "system";
+  const preference = COLOR_MODE_OPTIONS.includes(value) ? value : "normal";
   if (typeof window !== "undefined") window.localStorage.setItem(COLOR_MODE_STORAGE_KEY, preference);
   return preference;
 }

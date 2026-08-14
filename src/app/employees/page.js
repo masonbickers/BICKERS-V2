@@ -1,11 +1,40 @@
 "use client";
 
-import layoutStyles from "./page.styles.module.css";
-import React, { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { addDoc, collection, getDocs } from "firebase/firestore";
+import Papa from "papaparse";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  ContactRound,
+  FileText,
+  FileUp,
+  IdCard,
+  Search,
+  UserPlus,
+  Users,
+  PauseCircle,
+  ShieldAlert,
+} from "lucide-react";
+
 import { db } from "../../../firebaseConfig";
-import { collection, getDocs, addDoc } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  PeopleFleetHeaderActions,
+  PeopleFleetPage,
+  PeopleFleetPageHeader,
+} from "@/app/components/PeopleFleetPage";
+import {
+  Alert,
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  MetricCard,
+  Select,
+} from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
@@ -15,211 +44,15 @@ import {
   tenantCollectionQuery,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
-import Papa from "papaparse";
+import styles from "./page.styles.module.css";
 import {
-  ContactRound,
-  FileText,
-  FileUp,
-  IdCard,
-  Pencil,
-  SlidersHorizontal,
-  UserPlus,
-  Users,
-} from "lucide-react";
-import { UI_TOKENS } from "@/app/utils/uiTokens";
-
-/* Mini design system */
-const UI = UI_TOKENS;
-
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-
-const chip = {
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const chipSoft = {
-  ...chip,
-  background: UI.brandSoft,
-  borderColor: UI.brandBorder,
-  color: UI.brand,
-};
-
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  if (kind === "success") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: "1px solid var(--color-success-border)",
-      background: UI.greenSoft,
-      color: "var(--color-success)",
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-    color: "var(--color-white)",
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
-};
-
-const input = {
-  minHeight: 36,
-  padding: "7px 9px",
-  border: UI.border,
-  borderRadius: UI.radiusSm,
-  background: "var(--color-surface)",
-  fontSize: 13,
-  outline: "none",
-  color: UI.text,
-};
-
-const cardBase = {
-  ...surface,
-  padding: 12,
-  background: "var(--color-surface)",
-  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
-};
-
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 10,
-  flexWrap: "wrap",
-};
-
-const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
-const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
-
-const toolsGrid = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 270px",
-  gap: UI.gap,
-  alignItems: "stretch",
-};
-
-const summaryGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 10,
-  marginBottom: UI.gap,
-};
-
-const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: bg,
-  color,
-  border: `1px solid ${border}`,
-  flex: "0 0 auto",
-});
-
-const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--color-surface)" };
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
-const th = {
-  textAlign: "left",
-  padding: "9px 11px",
-  borderBottom: "1px solid var(--color-brand-soft)",
-  position: "sticky",
-  top: 0,
-  background: "var(--color-surface-subtle)",
-  zIndex: 1,
-  whiteSpace: "nowrap",
-  fontWeight: 900,
-  color: UI.muted,
-  fontSize: 11.5,
-  textTransform: "uppercase",
-};
-const td = { padding: "9px 11px", borderBottom: "1px solid var(--color-surface-hover)", verticalAlign: "middle", color: UI.text };
-
-const badge = {
-  background: UI.brandSoft,
-  border: `1px solid ${UI.brandBorder}`,
-  color: UI.brand,
-  fontSize: 12,
-  fontWeight: 800,
-  padding: "4px 8px",
-  borderRadius: 999,
-  display: "inline-block",
-};
-
-const rowHover = `
-  tr[data-row="true"]:hover td {
-    background: var(--color-surface-subtle);
-  }
-  input:focus, select:focus, button:focus {
-    outline: none;
-    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--color-info-border) !important;
-  }
-  @media (max-width: 1180px) {
-    .employees-tools-grid,
-    .employees-summary-grid { grid-template-columns: 1fr !important; }
-  }
-`;
+  EMPLOYEE_PERSONNEL_COLLECTION,
+  checklistProgress,
+  deriveOnboardingChecklist,
+  getPersonnelCompliance,
+  mergeEmployeePersonnel,
+  withoutPrivateEmployeeFields,
+} from "@/app/utils/employeePersonnel";
 
 function isEmployeeRecord(employee = {}) {
   const role = String(employee.role || "").trim().toLowerCase();
@@ -238,23 +71,38 @@ function isEmployeeRecord(employee = {}) {
     employee.deleted === true ||
     employee.isDeleted === true ||
     employee.archived === true ||
-    employee.isArchived === true ||
-    employee.active === false ||
-    employee.appDisabled === true
+    employee.isArchived === true
   ) return false;
   const appAccess = employee.appAccess && typeof employee.appAccess === "object" ? employee.appAccess : {};
-  const serviceOnly = employee.isService === true && appAccess.user !== true;
-  if (serviceOnly) return false;
-  if (employee.preview === true || employee.isPreview === true || employee.test === true || employee.isTest === true) {
-    return false;
-  }
-  if (role === "service") return false;
-  if (role === "freelancer" || role === "freelance") return false;
-  if (employmentType.includes("freelance")) return false;
-  if (jobTitleBlob.includes("freelance")) return false;
+  if (employee.isService === true && appAccess.user !== true) return false;
+  if (employee.preview === true || employee.isPreview === true || employee.test === true || employee.isTest === true) return false;
+  if (role === "service" || role === "freelancer" || role === "freelance") return false;
+  if (employmentType.includes("freelance") || jobTitleBlob.includes("freelance")) return false;
   if (/\b(preview lane|test employee|demo employee)\b/.test(nameBlob)) return false;
-  if (nameBlob.includes("example.invalid")) return false;
-  return true;
+  return !nameBlob.includes("example.invalid");
+}
+
+function employmentStatus(employee = {}) {
+  const status = String(employee.employmentStatus || "").trim();
+  if (status) return status;
+  return employee.active === false ? "Ended" : "Active";
+}
+
+function employmentStatusKey(employee = {}) {
+  const value = employmentStatus(employee).toLowerCase();
+  if (value === "paused") return "paused";
+  if (value === "ended" || value === "leaver") return "ended";
+  if (value === "on leave") return "leave";
+  if (value === "probation") return "probation";
+  return employee.active === false ? "ended" : "active";
+}
+
+function employmentBadgeTone(employee = {}) {
+  const key = employmentStatusKey(employee);
+  if (key === "paused" || key === "leave") return "warning";
+  if (key === "probation") return "info";
+  if (key === "ended") return "neutral";
+  return "success";
 }
 
 function getPersonnelStatus(employee = {}) {
@@ -271,8 +119,12 @@ function getPersonnelStatus(employee = {}) {
     : Array.isArray(file.documents)
       ? file.documents
       : [];
-  const hasPassport = Boolean(employee.passportNumber || passport.number || passport.documentUrl);
-  const hasLicence = Boolean(employee.licenceNumber || employee.licenseNumber || drivingLicence.number || drivingLicence.documentUrl);
+  const hasMeaningfulValue = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return Boolean(normalized) && !["-", "/", "0", "none", "n/a", "na"].includes(normalized);
+  };
+  const hasPassport = [employee.passportNumber, passport.number, passport.documentUrl].some(hasMeaningfulValue);
+  const hasLicence = [employee.licenceNumber, employee.licenseNumber, drivingLicence.number, drivingLicence.documentUrl].some(hasMeaningfulValue);
   const emergencyCount = emergencyContacts.filter((row) =>
     [row?.name, row?.phone, row?.email].some((value) => String(value || "").trim())
   ).length;
@@ -282,8 +134,40 @@ function getPersonnelStatus(employee = {}) {
     ).length +
     (passport.documentUrl ? 1 : 0) +
     (drivingLicence.documentUrl ? 1 : 0);
+  const completedSections = [hasPassport, hasLicence, emergencyCount > 0, documentCount > 0].filter(Boolean).length;
 
-  return { hasPassport, hasLicence, emergencyCount, documentCount };
+  return {
+    hasPassport,
+    hasLicence,
+    emergencyCount,
+    documentCount,
+    completedSections,
+    isComplete: completedSections === 4,
+  };
+}
+
+function getInitials(name = "") {
+  return String(name)
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "?";
+}
+
+function formatDate(value) {
+  if (!value) return "Not added";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+function employeeSearchText(employee, includePrivate = false) {
+  const jobs = Array.isArray(employee.jobTitle) ? employee.jobTitle.join(" ") : employee.jobTitle;
+  return [employee.name, employee.employeeCode, employee.email, employee.mobile, jobs, includePrivate ? employee.licenceNumber : ""]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
 }
 
 export default function EmployeeListPage() {
@@ -300,292 +184,456 @@ export default function EmployeeListPage() {
   );
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [employees, setEmployees] = useState([]);
-  const [filter, setFilter] = useState("none");
+  const [query, setQuery] = useState("");
+  const [readiness, setReadiness] = useState("all");
+  const [employmentFilter, setEmploymentFilter] = useState("current");
+  const [onboardingFilter, setOnboardingFilter] = useState("all");
+  const [complianceFilter, setComplianceFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  const filteredEmployees = useMemo(() => {
-    switch (filter) {
-      case "jobTitle":
-        return [...employees].sort((a, b) => (a.jobTitle?.[0] || "").localeCompare(b.jobTitle?.[0] || ""));
-      case "name":
-        return [...employees].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      case "dob":
-        return [...employees].sort((a, b) => new Date(a.dob) - new Date(b.dob));
-      default:
-        return employees;
-    }
-  }, [employees, filter]);
-  const jobTitleCount = useMemo(() => {
-    const titles = new Set();
-    employees.forEach((employee) => {
-      if (Array.isArray(employee.jobTitle)) {
-        employee.jobTitle.forEach((title) => title && titles.add(String(title).trim()));
-      } else if (employee.jobTitle) {
-        titles.add(String(employee.jobTitle).trim());
-      }
-    });
-    return titles.size;
-  }, [employees]);
-  const personnelMetrics = useMemo(() => {
-    return employees.reduce(
-      (acc, employee) => {
-        const status = getPersonnelStatus(employee);
-        if (status.emergencyCount > 0) acc.withEmergency += 1;
-        if (status.documentCount > 0) acc.withDocuments += 1;
-        if (status.hasPassport || status.hasLicence || status.emergencyCount > 0 || status.documentCount > 0) {
-          acc.started += 1;
-        }
-        return acc;
-      },
-      { started: 0, withEmergency: 0, withDocuments: 0 }
-    );
-  }, [employees]);
-
-  useEffect(() => {
+  const loadEmployees = useCallback(async () => {
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "employees", operation: "read employees" });
+      setLoading(false);
       return;
     }
 
-    const fetchEmployees = async () => {
-      const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
-      const data = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter(isEmployeeRecord);
-      setEmployees(data);
-    };
-    fetchEmployees().catch((error) => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const [employeeSnapshot, personnelSnapshot] = await Promise.all([
+        getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
+        authAccess.isAdmin
+          ? getDocs(tenantCollectionQuery(db, EMPLOYEE_PERSONNEL_COLLECTION, dataAccessState))
+          : Promise.resolve(null),
+      ]);
+      const personnelById = new Map(
+        (personnelSnapshot?.docs || []).map((personnelDoc) => [personnelDoc.id, personnelDoc.data()])
+      );
+      setEmployees(employeeSnapshot.docs
+        .map((employeeDoc) => {
+          const operational = { id: employeeDoc.id, ...employeeDoc.data() };
+          return authAccess.isAdmin
+            ? mergeEmployeePersonnel(operational, personnelById.get(employeeDoc.id) || {})
+            : withoutPrivateEmployeeFields(operational);
+        })
+        .filter(isEmployeeRecord));
+    } catch (error) {
       if (!handleFirestoreAccessError(error, { collectionName: "employees", operation: "read employees" })) {
         console.error("[employees] load error:", error);
       }
+      setLoadError("Employee files could not be loaded. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [authAccess.isAdmin, dataAccessState]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, [accessKey, loadEmployees]);
+
+  const complianceDue = useMemo(
+    () => authAccess.isAdmin
+      ? employees.filter((employee) => getPersonnelCompliance(employee).dueWithin90Days > 0).length
+      : 0,
+    [authAccess.isAdmin, employees]
+  );
+
+  const employmentMetrics = useMemo(
+    () =>
+      employees.reduce(
+        (summary, employee) => {
+          const key = employmentStatusKey(employee);
+          if (key === "active" || key === "probation" || key === "leave") summary.current += 1;
+          if (key === "paused") summary.paused += 1;
+          if (key === "ended") summary.ended += 1;
+          return summary;
+        },
+        { current: 0, paused: 0, ended: 0 }
+      ),
+    [employees]
+  );
+
+  const personnelMetrics = useMemo(
+    () =>
+      employees.reduce(
+        (summary, employee) => {
+          const status = getPersonnelStatus(employee);
+          if (status.isComplete) summary.complete += 1;
+          if (status.emergencyCount > 0) summary.withEmergency += 1;
+          if (status.documentCount > 0) summary.withDocuments += 1;
+          return summary;
+        },
+        { complete: 0, withEmergency: 0, withDocuments: 0 }
+      ),
+    [employees]
+  );
+
+  const visibleEmployees = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const rows = employees.filter((employee) => {
+      const status = getPersonnelStatus(employee);
+      const onboarding = checklistProgress(deriveOnboardingChecklist(employee));
+      const compliance = getPersonnelCompliance(employee);
+      const matchesQuery = !normalizedQuery || employeeSearchText(employee, authAccess.isAdmin).includes(normalizedQuery);
+      const matchesReadiness =
+        readiness === "all" ||
+        (readiness === "complete" && status.isComplete) ||
+        (readiness === "attention" && !status.isComplete);
+      const lifecycleKey = employmentStatusKey(employee);
+      const matchesEmployment =
+        employmentFilter === "all" ||
+        (employmentFilter === "current" && ["active", "probation", "leave"].includes(lifecycleKey)) ||
+        lifecycleKey === employmentFilter;
+      const matchesOnboarding =
+        onboardingFilter === "all" ||
+        (onboardingFilter === "complete" && onboarding.percentage === 100) ||
+        (onboardingFilter === "attention" && onboarding.percentage < 100);
+      const matchesCompliance =
+        complianceFilter === "all" ||
+        (complianceFilter === "due" && compliance.dueWithin90Days > 0) ||
+        (complianceFilter === "overdue" && compliance.overdue > 0) ||
+        (complianceFilter === "current" && compliance.dueWithin90Days === 0);
+      return matchesQuery && matchesReadiness && matchesEmployment && matchesOnboarding && matchesCompliance;
     });
-  }, [accessKey, dataAccessState]);
+
+    return rows.sort((a, b) => {
+      if (sortBy === "dob") return String(a.dob || "9999").localeCompare(String(b.dob || "9999"));
+      if (sortBy === "jobTitle") {
+        const aJob = Array.isArray(a.jobTitle) ? a.jobTitle[0] : a.jobTitle;
+        const bJob = Array.isArray(b.jobTitle) ? b.jobTitle[0] : b.jobTitle;
+        return String(aJob || "zzzz").localeCompare(String(bJob || "zzzz"));
+      }
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, [authAccess.isAdmin, complianceFilter, employees, employmentFilter, onboardingFilter, query, readiness, sortBy]);
+
+  const hasActiveFilters = Boolean(query.trim()) || readiness !== "all" || employmentFilter !== "current" || onboardingFilter !== "all" || complianceFilter !== "all";
 
   return (
     <HeaderSidebarLayout>
-      <style>{rowHover}</style>
+      <PeopleFleetPage className={styles.page}>
+        <PeopleFleetPageHeader
+          title="Employee personnel files"
+          subtitle="Keep contact, right-to-work, licence, emergency and HR records together."
+          actions={
+            <PeopleFleetHeaderActions>
+              <Badge variant="info">{employees.length} employee records</Badge>
+              {authAccess.isAdmin ? <Button variant="primary" onClick={() => router.push("/add-employee")}>
+                <UserPlus size={16} /> Add employee
+              </Button> : null}
+            </PeopleFleetHeaderActions>
+          }
+        />
 
-      <div style={pageWrap}>
-        {/* Header */}
-        <div className={layoutStyles.extracted1}>
-          <div>
-            <h1 style={h1}>Employee Personnel Files</h1>
-            <div style={sub}>Open each employee file to manage contact details, right-to-work, licence, emergency contacts and HR documents.</div>
-          </div>
-
-          <div className={layoutStyles.extracted2}>
-            <span style={chip}>{employees.length} employees</span>
-            <button style={btn()} onClick={() => router.push("/add-employee")} type="button">
-              <UserPlus size={14} /> Add employee
-            </button>
-          </div>
+        <div className={styles.metricsGrid} aria-label="Personnel file overview">
+          <MetricCard
+            label="Current employees"
+            value={employmentMetrics.current}
+            hint={`${employmentMetrics.paused} paused · ${employmentMetrics.ended} former`}
+            icon={<Users size={19} />}
+          />
+          <MetricCard
+            label="Files ready"
+            value={personnelMetrics.complete}
+            hint={`${Math.max(0, employees.length - personnelMetrics.complete)} need attention`}
+            icon={<CheckCircle2 size={19} />}
+            tone={employees.length > 0 && personnelMetrics.complete === employees.length ? "success" : "info"}
+            onClick={() => setReadiness("complete")}
+          />
+          <MetricCard
+            label="Emergency cover"
+            value={personnelMetrics.withEmergency}
+            hint={`of ${employees.length} employees`}
+            icon={<ContactRound size={19} />}
+            tone={employees.length > 0 && personnelMetrics.withEmergency < employees.length ? "warning" : "success"}
+          />
+          <MetricCard
+            label="HR documents"
+            value={personnelMetrics.withDocuments}
+            hint="files with documents"
+            icon={<IdCard size={19} />}
+            tone="info"
+          />
         </div>
 
-        <div className="employees-summary-grid" style={summaryGrid}>
-          <MetricCard label="Employees" value={employees.length} icon={Users} />
-          <MetricCard label="Files Started" value={personnelMetrics.started} icon={FileText} tone="soft" />
-          <MetricCard label="Emergency Contacts" value={personnelMetrics.withEmergency} icon={ContactRound} tone="soft" />
-          <MetricCard label="HR Documents" value={personnelMetrics.withDocuments} icon={IdCard} tone="soft" />
-        </div>
-
-        {/* Tools row */}
-        <div className="employees-tools-grid" style={toolsGrid}>
-          <div style={cardBase}>
-            <div className={layoutStyles.extracted3}>
-              <div className={layoutStyles.extracted4}>
-                <span style={iconBox(UI.brand, UI.brandSoft)}>
-                  <FileUp size={17} />
-                </span>
-                <div>
-                  <h2 style={titleMd}>CSV Import</h2>
-                  <div style={hint}>
-                    Upload a CSV with columns: <b>name</b>, <b>dob</b>, <b>licenceNumber</b>, <b>jobTitle</b>, <b>email</b>, <b>mobile</b>.
-                  </div>
-                </div>
-              </div>
-              <EmployeeCSVImport dataAccessState={dataAccessState} onImportComplete={() => window.location.reload()} />
-            </div>
-          </div>
-
-          <div style={cardBase}>
-            <div className={layoutStyles.extracted5}>
-              <span style={iconBox(UI.brand, UI.brandSoft)}>
-                <SlidersHorizontal size={17} />
-              </span>
-              <div>
-                <h2 style={{ ...titleMd, fontSize: 15 }}>Sort</h2>
-                <div style={hint}>Order the employee table.</div>
-              </div>
-            </div>
-            <select onChange={(e) => setFilter(e.target.value)} style={{ ...input, width: 220 }}>
-              <option value="none">None</option>
-              <option value="jobTitle">Job Title (A-Z)</option>
-              <option value="name">Name (A-Z)</option>
-              <option value="dob">DOB (Oldest First)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Employee Table */}
-        <section style={{ ...cardBase, marginTop: UI.gap }}>
-          <div className={layoutStyles.extracted6}>
+        <section className={styles.register} aria-labelledby="employee-register-title">
+          <div className={styles.registerHeader}>
             <div>
-              <h2 style={titleMd}>Personnel File Register</h2>
-              <div style={hint}>Click open file to update employment, passport, licence, emergency and document records.</div>
+              <h2 id="employee-register-title">Personnel file register</h2>
+              <p>Find an employee and open their file to review or update records.</p>
             </div>
-            <span style={chipSoft}>{filteredEmployees.length} listed</span>
+            <Badge>{visibleEmployees.length} shown</Badge>
           </div>
 
-          <div style={tableWrap}>
-            <table className={layoutStyles.extracted7}>
+          <div className={styles.toolbar}>
+            <label className={styles.searchField}>
+              <Search size={17} aria-hidden="true" />
+              <span className={styles.srOnly}>Search employees</span>
+              <Input
+                bare
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name, role, email, mobile or licence…"
+              />
+            </label>
+            <div className={styles.filterGroup}>
+              <label>
+                <span>File status</span>
+                <Select bare value={readiness} onChange={(event) => setReadiness(event.target.value)}>
+                  <option value="all">All files</option>
+                  <option value="attention">Needs attention</option>
+                  <option value="complete">File ready</option>
+                </Select>
+              </label>
+              <label>
+                <span>Employment</span>
+                <Select bare value={employmentFilter} onChange={(event) => setEmploymentFilter(event.target.value)}>
+                  <option value="current">Current employees</option>
+                  <option value="all">All personnel records</option>
+                  <option value="active">Active</option>
+                  <option value="probation">Probation</option>
+                  <option value="leave">On leave</option>
+                  <option value="paused">Paused</option>
+                  <option value="ended">Former employees</option>
+                </Select>
+              </label>
+              <label>
+                <span>Sort</span>
+                <Select bare value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                  <option value="name">Name A–Z</option>
+                  <option value="jobTitle">Job title A–Z</option>
+                  <option value="dob">DOB, oldest first</option>
+                </Select>
+              </label>
+            </div>
+          </div>
+
+          {loadError ? (
+            <Alert variant="danger" className={styles.loadAlert}>
+              <span>{loadError}</span>
+              <Button variant="secondary" size="sm" onClick={loadEmployees}>Try again</Button>
+            </Alert>
+          ) : null}
+
+          <div className={styles.tableViewport}>
+            <table className={styles.employeeTable}>
               <thead>
                 <tr>
-                  <th style={th}>Name</th>
-                  <th style={th}>DOB</th>
-                  <th style={th}>Licence number</th>
-                  <th style={th}>Job title</th>
-                  <th style={th}>Email</th>
-                  <th style={th}>Mobile</th>
-                  <th style={th}>Personnel file</th>
-                  <th style={th}>Actions</th>
+                  <th>Employee</th>
+                  <th>Contact</th>
+                  <th>Job title</th>
+                  <th>Licence</th>
+                  <th>Personnel file</th>
+                  <th><span className={styles.srOnly}>Action</span></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.map((employee) => {
-                  const personnel = getPersonnelStatus(employee);
-                  return (
-                  <tr key={employee.id} data-row="true">
-                    <td style={td}>
-                      <div className={layoutStyles.extracted8}>{employee.name || "-"}</div>
-                    </td>
-                    <td style={td}>{employee.dob || "-"}</td>
-                    <td style={td}>{employee.licenceNumber || "-"}</td>
-
-                    <td style={td}>
-                      {Array.isArray(employee.jobTitle) && employee.jobTitle.length ? (
-                        <div className={layoutStyles.extracted9}>
-                          {employee.jobTitle.map((job, i) => (
-                            <span key={i} style={badge}>
-                              {job}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        employee.jobTitle || "-"
-                      )}
-                    </td>
-
-                    <td style={td}>
-                      <div className={layoutStyles.extracted10}>
-                        {employee.email || "-"}
-                      </div>
-                    </td>
-                    <td style={td}>{employee.mobile || "-"}</td>
-                    <td style={td}>
-                      <div className={layoutStyles.extracted11}>
-                        <span style={{ ...badge, background: personnel.hasPassport ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
-                          Passport {personnel.hasPassport ? "added" : "missing"}
-                        </span>
-                        <span style={{ ...badge, background: personnel.hasLicence ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
-                          Licence {personnel.hasLicence ? "added" : "missing"}
-                        </span>
-                        <span style={{ ...badge, background: personnel.emergencyCount ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
-                          Emergency {personnel.emergencyCount}
-                        </span>
-                        <span style={{ ...badge, background: personnel.documentCount ? "var(--color-info-soft)" : "var(--color-surface-subtle)" }}>
-                          Docs {personnel.documentCount}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={td}>
-                      <button style={btn("success")} onClick={() => router.push(`/edit-employee/${employee.id}`)} type="button">
-                        <Pencil size={14} /> Open file
-                      </button>
-                    </td>
-                  </tr>
-                  );
-                })}
-
-                {filteredEmployees.length === 0 ? (
-                  <tr>
-                    <td style={{ ...td, color: UI.muted }} colSpan={8}>
-                      No employees found.
-                    </td>
-                  </tr>
-                ) : null}
+                {loading ? <LoadingRows /> : null}
+                {!loading && visibleEmployees.map((employee) => (
+                  <EmployeeRow
+                    key={employee.id}
+                    employee={employee}
+                    onOpen={() => router.push(`/edit-employee/${employee.id}`)}
+                  />
+                ))}
               </tbody>
             </table>
+
+            {!loading && visibleEmployees.length === 0 ? (
+              <EmptyState
+                className={styles.emptyState}
+                icon={<Users size={28} />}
+                title={hasActiveFilters ? "No employees match your filters" : "No employee files yet"}
+                description={hasActiveFilters ? "Try a different search or clear the filters." : "Add the first employee to start their personnel file."}
+                action={
+                  hasActiveFilters ? (
+                    <Button variant="secondary" size="sm" onClick={() => { setQuery(""); setReadiness("all"); setEmploymentFilter("current"); }}>
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={() => router.push("/add-employee")}>
+                      <UserPlus size={15} /> Add employee
+                    </Button>
+                  )
+                }
+              />
+            ) : null}
           </div>
         </section>
-      </div>
+
+        <details className={styles.importPanel}>
+          <summary>
+            <span className={styles.importIcon}><FileUp size={18} /></span>
+            <span>
+              <strong>Import employees from CSV</strong>
+              <small>For bulk additions using the standard employee template</small>
+            </span>
+            <ChevronRight className={styles.summaryChevron} size={18} aria-hidden="true" />
+          </summary>
+          <EmployeeCSVImport dataAccessState={dataAccessState} onImportComplete={loadEmployees} />
+        </details>
+      </PeopleFleetPage>
     </HeaderSidebarLayout>
   );
 }
 
-function MetricCard({ label, value, icon: Icon, tone = "default" }) {
-  const colors =
-    tone === "soft"
-      ? { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand }
-      : { bg: "var(--color-white)", border: "var(--color-border)", fg: UI.brand };
+function EmployeeRow({ employee, onOpen }) {
+  const personnel = getPersonnelStatus(employee);
+  const jobTitles = [...new Set(
+    (Array.isArray(employee.jobTitle) ? employee.jobTitle : [employee.jobTitle])
+      .map((job) => String(job || "").trim())
+      .filter(Boolean)
+  )];
 
   return (
-    <div style={{ ...surface, padding: 11, minHeight: 92, boxShadow: "none", background: colors.bg, border: `1px solid ${colors.border}` }}>
-      <div className={layoutStyles.extracted12}>
-        <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-        <span style={iconBox(colors.fg, "var(--color-white)", colors.border)}>
-          <Icon size={17} />
+    <tr className={styles.employeeRow} onClick={onOpen}>
+      <td data-label="Employee">
+        <div className={styles.employeeIdentity}>
+          <span className={styles.avatar}>{getInitials(employee.name)}</span>
+          <span>
+            <span className={styles.employeeNameRow}>
+              <strong>{employee.name || "Unnamed employee"}</strong>
+              <Badge variant={employmentBadgeTone(employee)}>{employmentStatus(employee)}</Badge>
+            </span>
+            <small>DOB {formatDate(employee.dob)}</small>
+          </span>
+        </div>
+      </td>
+      <td data-label="Contact">
+        <div className={styles.contactDetails}>
+          <span>{employee.email || "No email"}</span>
+          <small>{employee.mobile || "No mobile"}</small>
+        </div>
+      </td>
+      <td data-label="Job title">
+        {jobTitles.length ? (
+          <div className={styles.jobTitle} title={jobTitles.join(", ")}>
+            <strong>{jobTitles[0]}</strong>
+            {jobTitles.length > 1 ? <small>Also: {jobTitles.slice(1).join(" · ")}</small> : null}
+          </div>
+        ) : <span className={styles.muted}>Not added</span>}
+      </td>
+      <td data-label="Licence">
+        <span className={employee.licenceNumber ? styles.value : styles.muted}>
+          {employee.licenceNumber || "Not added"}
         </span>
-      </div>
-      <div style={{ marginTop: 10, color: UI.text, fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{value}</div>
-    </div>
+      </td>
+      <td data-label="Personnel file">
+        <div className={styles.fileStatus}>
+          <div className={styles.statusHeading}>
+            {personnel.isComplete ? (
+              <Badge variant="success"><CheckCircle2 size={13} /> File ready</Badge>
+            ) : (
+              <Badge variant="warning"><AlertCircle size={13} /> {4 - personnel.completedSections} items missing</Badge>
+            )}
+            <span>{personnel.completedSections}/4</span>
+          </div>
+          <span className={styles.progressTrack} aria-label={`${personnel.completedSections} of 4 file sections complete`}>
+            <span style={{ width: `${personnel.completedSections * 25}%` }} />
+          </span>
+          <small>{personnel.emergencyCount} emergency · {personnel.documentCount} documents</small>
+        </div>
+      </td>
+      <td className={styles.actionCell}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={(event) => { event.stopPropagation(); onOpen(); }}
+          aria-label={`Open ${employee.name || "employee"} personnel file`}
+        >
+          Open file <ChevronRight size={15} />
+        </Button>
+      </td>
+    </tr>
   );
 }
 
-/* CSV Import */
+function LoadingRows() {
+  return Array.from({ length: 5 }, (_, index) => (
+    <tr className={styles.loadingRow} key={index} aria-hidden="true">
+      <td><span /></td><td><span /></td><td><span /></td><td><span /></td><td><span /></td><td><span /></td>
+    </tr>
+  ));
+}
+
 function EmployeeCSVImport({ onImportComplete, dataAccessState }) {
-  const handleFileUpload = async (event) => {
+  const [fileName, setFileName] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("info");
+
+  const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
+    setFileName(file.name);
+    setMessage("");
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async function (results) {
-        const employees = results.data;
+      complete: async ({ data }) => {
+        setImporting(true);
+        let imported = 0;
+        let skipped = 0;
 
-        for (const employee of employees) {
-          const isValid = employee.name && employee.dob && employee.licenceNumber;
-          if (!isValid) continue;
+        for (const employee of data) {
+          if (!employee.name || !employee.dob || !employee.licenceNumber) {
+            skipped += 1;
+            continue;
+          }
 
           try {
             await addDoc(collection(db, "employees"), tenantPayload(dataAccessState, {
               name: employee.name,
               dob: employee.dob,
               licenceNumber: employee.licenceNumber,
-              jobTitle: employee.jobTitle ? employee.jobTitle.split(",").map((j) => j.trim()) : [],
+              jobTitle: employee.jobTitle ? employee.jobTitle.split(",").map((job) => job.trim()) : [],
               email: employee.email || "",
               mobile: employee.mobile || "",
             }));
-          } catch (err) {
-            if (!handleFirestoreAccessError(err, { collectionName: "employees", operation: "import employee" })) {
-              console.error("Error importing employee:", err);
+            imported += 1;
+          } catch (error) {
+            skipped += 1;
+            if (!handleFirestoreAccessError(error, { collectionName: "employees", operation: "import employee" })) {
+              console.error("Error importing employee:", error);
             }
           }
         }
 
-        alert("Employee data imported successfully!");
-        onImportComplete?.();
+        setImporting(false);
+        setMessageTone(imported > 0 ? "success" : "warning");
+        setMessage(`${imported} employee${imported === 1 ? "" : "s"} imported${skipped ? ` · ${skipped} skipped` : ""}.`);
+        if (imported > 0) await onImportComplete?.();
+      },
+      error: () => {
+        setImporting(false);
+        setMessageTone("danger");
+        setMessage("That CSV could not be read. Check the file and try again.");
       },
     });
   };
 
   return (
-    <div className={layoutStyles.extracted13}>
-      <label style={{ ...btn("ghost"), cursor: "default" }}>
-        <FileUp size={14} /> Upload CSV
-      </label>
-      <input type="file" accept=".csv" onChange={handleFileUpload} style={{ fontSize: 12.5, color: UI.muted }} />
+    <div className={styles.importBody}>
+      <div>
+        <h3>CSV requirements</h3>
+        <p>Required columns: <code>name</code>, <code>dob</code>, <code>licenceNumber</code>. Optional: <code>jobTitle</code>, <code>email</code>, <code>mobile</code>.</p>
+      </div>
+      <div className={styles.filePicker}>
+        <label className={styles.fileButton}>
+          <FileText size={16} />
+          <span>{fileName || "Choose CSV file"}</span>
+          <input type="file" accept=".csv,text/csv" onChange={handleFileUpload} disabled={importing} />
+        </label>
+        {importing ? <span className={styles.importing}>Importing employees…</span> : null}
+      </div>
+      {message ? <Alert variant={messageTone}>{message}</Alert> : null}
     </div>
   );
 }

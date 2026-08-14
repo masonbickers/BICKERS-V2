@@ -11,6 +11,23 @@
   padding: 16px;
 }
 
+/* Compact interface scaling uses CSS zoom on the app shell. Keep route
+   feedback lightweight so navigation never replaces the visible workspace
+   with an enlarged blank canvas. */
+:global(html[data-interface-scale="compact"]) .extracted1 {
+  inset: auto 18px 18px auto;
+  width: min(390px, calc(100vw - 36px));
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+:global(html[data-interface-scale="compact"]) .extracted2 {
+  width: 100%;
+  box-shadow: 0 16px 40px rgba(15,23,42,0.2);
+}
+
 .extracted2 {
   width: min(390px, 92vw);
   background: var(--color-surface);

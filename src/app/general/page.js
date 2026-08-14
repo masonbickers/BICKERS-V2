@@ -1,9 +1,11 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { Button, Modal } from "@/app/components/ui";
 import {
   getDocs,
   updateDoc,
@@ -20,6 +22,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* ───────────────── Visual tokens ──────────────── */
 const UI = UI_TOKENS;
@@ -67,6 +70,10 @@ const badge = (bg, fg) => ({
   background: bg,
   color: fg,
 });
+const semanticBadge = (status) => {
+  const tone = getSemanticStatusStyle(status);
+  return { ...badge(tone.bg, tone.text), borderColor: tone.border };
+};
 
 const btn = (bg = "var(--color-white)", fg = "var(--color-text)") => ({
   display: "inline-flex",
@@ -232,14 +239,14 @@ export default function GeneralDefectsPage() {
       setNotesModal(null);
     } catch (e) {
       console.error(e);
-      alert("Could not save status. Please try again.");
+      systemDialogs.showSystemNotification("Could not save status. Please try again.");
     } finally {
       setSavingId(null);
     }
   };
 
   const rerouteToImmediate = async (row) => {
-    const ok = confirm(
+    const ok = await systemDialogs.confirmSystem(
       "Move this defect to Immediate Defects? This will change its category to 'immediate'."
     );
     if (!ok) return;
@@ -264,7 +271,7 @@ export default function GeneralDefectsPage() {
       router.push(IMMEDIATE_DEFECTS_PATH);
     } catch (e) {
       console.error(e);
-      alert("Could not re-route. Please try again.");
+      systemDialogs.showSystemNotification("Could not re-route. Please try again.");
       setSavingId(null);
     }
   };
@@ -357,9 +364,9 @@ export default function GeneralDefectsPage() {
                           {r.photos?.length ? r.photos.length : 0}
                         </td>
                         <td className={layoutStyles.extracted15}>
-                          {!m && <span style={badge("var(--color-info-soft)", "var(--color-brand)")}>Pending</span>}
-                          {m === "scheduled" && <span style={badge("var(--color-success-soft)", "var(--color-success)")}>Scheduled</span>}
-                          {m === "resolved" && <span style={badge("var(--color-info-soft)", "var(--color-brand)")}>Resolved</span>}
+                          {!m && <span style={semanticBadge("Pending")}>Pending</span>}
+                          {m === "scheduled" && <span style={semanticBadge("Scheduled")}>Scheduled</span>}
+                          {m === "resolved" && <span style={semanticBadge("Resolved")}>Resolved</span>}
                           {r.maintenance?.note ? (
                             <div style={{ marginTop: 6, fontSize: 12, color: UI.subtext }}>
                               {r.maintenance.note}
@@ -431,24 +438,15 @@ export default function GeneralDefectsPage() {
 /* ───────────────── Notes Modal ──────────────── */
 function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
   return (
-    <div
-      className={layoutStyles.extracted17}
-      role="dialog"
-      aria-modal="true"
+    <Modal
+      open
+      onClose={onClose}
+      eyebrow="Maintenance status"
+      title={notesModal.newStatus === "scheduled" ? "Mark as scheduled" : "Mark as resolved"}
+      size="sm"
+      density="compact"
+      footer={<><Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button><Button size="sm" onClick={onSave}>Save</Button></>}
     >
-      <div
-        style={{
-          width: "min(92vw, 560px)",
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: 12,
-          boxShadow: UI.shadowMd,
-          padding: 18,
-        }}
-      >
-        <h3 className={layoutStyles.extracted18}>
-          {notesModal.newStatus === "scheduled" ? "Mark as Scheduled" : "Mark as Resolved"}
-        </h3>
         <div style={{ fontSize: 13, color: UI.subtext, marginBottom: 10 }}>
           <div><strong>Vehicle:</strong> {notesModal.row.vehicle || "—"}</div>
           <div><strong>Item:</strong> #{notesModal.row.defectIndex + 1} — {notesModal.row.itemLabel}</div>
@@ -474,15 +472,6 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
           className={layoutStyles.extracted19}
         />
 
-        <div className={layoutStyles.extracted20}>
-          <button onClick={onClose} style={btn("var(--color-white)", "var(--color-text)")}>
-            Cancel
-          </button>
-          <button onClick={onSave} style={btn("var(--color-text)", "var(--color-white)")}>
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

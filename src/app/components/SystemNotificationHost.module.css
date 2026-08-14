@@ -1,0 +1,188 @@
+.viewport {
+  position: fixed;
+  top: 72px;
+  right: 18px;
+  z-index: 2500;
+  width: min(390px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.notification {
+  --notification-accent: var(--color-brand);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--notification-accent);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.2);
+  pointer-events: auto;
+  animation: system-notification-in 180ms ease-out;
+}
+
+.notification[data-type="success"] { --notification-accent: var(--color-success); }
+.notification[data-type="warning"] { --notification-accent: var(--color-warning); }
+.notification[data-type="danger"] { --notification-accent: var(--color-danger); }
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+  color: var(--notification-accent);
+}
+
+.content {
+  min-width: 0;
+}
+
+.content strong {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+
+.content p {
+  margin: 3px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.notification button {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.notification button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+@keyframes system-notification-in {
+  from { opacity: 0; transform: translateY(-8px) translateX(8px); }
+  to { opacity: 1; transform: translateY(0) translateX(0); }
+}
+
+@media (max-width: 640px) {
+  .viewport {
+    top: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification { animation: none; }
+}
+
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(10, 17, 28, 0.58);
+  backdrop-filter: blur(2px);
+}
+
+.dialog {
+  width: min(470px, 100%);
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.dialogHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+}
+
+.dialogIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+
+.dialogIcon[data-danger] {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.dialog p {
+  margin: 5px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.dialog input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 14px;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.dialogActions button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.cancelButton {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.confirmButton {
+  border-color: var(--color-brand) !important;
+  background: var(--color-brand);
+  color: var(--color-white);
+}
+
+.dangerButton {
+  border-color: var(--color-danger) !important;
+  background: var(--color-danger);
+  color: var(--color-white);
+}

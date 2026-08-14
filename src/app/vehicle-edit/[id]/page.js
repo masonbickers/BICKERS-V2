@@ -6,6 +6,7 @@
 
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -14,19 +15,21 @@ import {
   AlertTriangle,
   ArrowLeft,
   CalendarPlus,
+  CheckCircle2,
   ClipboardList,
   Download,
   ExternalLink,
   Save,
   Trash2,
+  X,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   getDocs,
   doc as fsDoc,
   getDoc,
+  onSnapshot,
   updateDoc,
-  deleteDoc,
   serverTimestamp,
   where,
 } from "firebase/firestore";
@@ -55,7 +58,10 @@ import {
   deleteMaintenanceBooking as deleteMaintenanceBookingRecord,
   syncVehicleAnnualMaintenanceForecast,
 } from "@/app/utils/maintenanceMutationClient";
-import { isOpenMaintenanceBooking } from "@/app/utils/maintenanceCalendar";
+import {
+  getMaintenanceRecordDisplayDates,
+  isOpenMaintenanceBooking,
+} from "@/app/utils/maintenanceCalendar";
 import {
   ADDITIONAL_MAINTENANCE_WORKFLOWS,
   getIsoWeekLabel,
@@ -71,14 +77,27 @@ import {
   buildServiceHistoryItems,
   ensureServiceHistoryForLastService,
 } from "@/app/utils/serviceHistory";
+import {
+  buildVehicleEditorUpdatePatch,
+  getChangedProtectedVehicleFields,
+  restoreProtectedVehicleFields,
+} from "@/app/utils/vehicleEditorSave";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-import { buildVehicleComplianceAttention } from "@/app/utils/vehicleComplianceAttention";
 import {
-  buildHistoricVorPeriod,
+  mergeVehicleRealtimeState,
+  shouldApplyRealtimeSnapshot,
+} from "@/app/utils/vehicleRealtime";
+import {
+  mutateVehicleVor,
+  VEHICLE_VOR_OPERATIONS,
+} from "@/app/utils/vehicleVorMutationClient";
+import { buildVehicleComplianceAttention } from "@/app/utils/vehicleComplianceAttention";
+import { deleteVehicleAndBookings } from "@/app/utils/vehicleMutationClient";
+import {
+  canReleaseVehicleAfterCompletedCompliance,
   calculateVorDurationDays,
-  scheduleVehicleReturnInspection,
   startVehicleVorPeriod,
 } from "@/app/utils/vorPeriods";
 import {
@@ -336,32 +355,9 @@ const calcNextFromWeeks = (lastISO, freqWeeks) => {
   return clampISODate(d);
 };
 
-const calcNextEightWeekFromCycle = (baseISO, currentNextISO) => {
-  const base = parseISOorBlank(baseISO);
-  if (!base) return "";
-
-  const currentNext = parseISOorBlank(currentNextISO);
-  if (currentNext && currentNext.getTime() > base.getTime()) {
-    const diffDays = Math.round((currentNext.getTime() - base.getTime()) / 86400000);
-    if (diffDays > 0 && diffDays % 56 === 0) return clampISODate(currentNext);
-  }
-
-  return calcNextFromWeeks(baseISO, 8);
-};
-
-const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
+const resolveFreqWeeks = (explicitFreq) => {
   const explicit = Number(explicitFreq || 0);
-  if (explicit > 0) return explicit;
-
-  const last = parseISOorBlank(lastISO);
-  const next = parseISOorBlank(nextISO);
-  if (!last || !next) return 0;
-
-  const diffMs = next.getTime() - last.getTime();
-  const diffDays = Math.round(diffMs / 86400000);
-  if (diffDays <= 0) return 0;
-
-  return Math.max(1, Math.round(diffDays / 7));
+  return explicit > 0 ? explicit : 0;
 };
 
 const safeArr = (v) => (Array.isArray(v) ? v : []);
@@ -425,6 +421,16 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
       { type: "text", label: "LOLER Freq (weeks)", name: "lolerFreq" },
       { type: "date", label: "Next LOLER", name: "nextLoler" },
       { type: "text", label: "LOLER ISO Week", name: "lolerISOWeek" },
+    ],
+  },
+  {
+    key: "tachoCalibration",
+    label: "Tacho Calibration",
+    fields: [
+      { type: "date", label: "Last Tacho Calibration", name: "lastTachoCalibration" },
+      { type: "text", label: "Tacho Calibration Freq (weeks)", name: "tachoCalibrationFreq" },
+      { type: "date", label: "Next Tacho Calibration", name: "nextTachoCalibration" },
+      { type: "text", label: "Tacho Calibration ISO Week", name: "tachoCalibrationISOWeek" },
     ],
   },
 ];
@@ -503,12 +509,7 @@ const toISODate = (v) => {
 };
 
 const getMaintenanceBookingStartDate = (booking) =>
-  toDate(booking?.appointmentDate) ||
-  toDate(booking?.appointmentDateISO) ||
-  toDate(booking?.startDate) ||
-  toDate(booking?.startDateISO) ||
-  (Array.isArray(booking?.bookingDates) ? toDate(booking.bookingDates[0]) : null) ||
-  null;
+  toDate(getMaintenanceRecordDisplayDates(booking).displayDateISO);
 
 const getMaintenanceBookingEndDate = (booking) =>
   toDate(booking?.endDate) ||
@@ -620,14 +621,18 @@ export default function EditVehiclePage() {
 
   const [vehicle, setVehicle] = useState(null);
   const [loadError, setLoadError] = useState("");
+  const [realtimeVehicleError, setRealtimeVehicleError] = useState("");
   const [categories, setCategories] = useState([]);
   const [vehicleComplianceSettings, setVehicleComplianceSettings] = useState(DEFAULT_VEHICLE_COMPLIANCE_SETTINGS);
   const [uploadingField, setUploadingField] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState(null);
   const [fetchingMotHistory, setFetchingMotHistory] = useState(false);
   const [taxDatePrompt, setTaxDatePrompt] = useState(null);
   const [insuranceDatePrompt, setInsuranceDatePrompt] = useState(null);
   const [vorPrompt, setVorPrompt] = useState(null);
+  const [savingVorPeriod, setSavingVorPeriod] = useState(false);
+  const [vorPromptError, setVorPromptError] = useState("");
   const [dateOverrides, setDateOverrides] = useState({
     mot: false,
     service: false,
@@ -637,6 +642,15 @@ export default function EditVehiclePage() {
   const [maintenanceMenuOpen, setMaintenanceMenuOpen] = useState(false);
   const maintenanceMenuRef = useRef(null);
   const maintenanceMenuTriggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!saveNotice) return undefined;
+    const timeout = window.setTimeout(
+      () => setSaveNotice(null),
+      saveNotice.tone === "warning" ? 6500 : 3200
+    );
+    return () => window.clearTimeout(timeout);
+  }, [saveNotice]);
 
   // booking modals (create)
   const [showMotBooking, setShowMotBooking] = useState(false);
@@ -914,6 +928,48 @@ export default function EditVehiclePage() {
   }, [accessKey, id]);
 
   useEffect(() => {
+    if (!id) return undefined;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking || !gate.allowed) return undefined;
+
+    const unsubscribe = onSnapshot(
+      fsDoc(db, "vehicles", id),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        if (!snapshot.exists() || !shouldApplyRealtimeSnapshot(snapshot.metadata)) return;
+        const remoteVehicle = normalizeVehicleRecord({ id: snapshot.id, ...(snapshot.data() || {}) });
+        setRealtimeVehicleError("");
+        setVehicle((previous) =>
+          previous
+            ? syncStatusDateFields(mergeVehicleRealtimeState(previous, remoteVehicle))
+            : previous
+        );
+        setInitialSnapshot((previous) => {
+          if (!previous) return previous;
+          try {
+            return JSON.stringify(
+              mergeVehicleRealtimeState(JSON.parse(previous), remoteVehicle)
+            );
+          } catch {
+            return previous;
+          }
+        });
+      },
+      (error) => {
+        handleFirestoreAccessError(error, {
+          collectionName: "vehicles",
+          operation: "listen to vehicle updates",
+        });
+        setRealtimeVehicleError(
+          "Live vehicle updates are unavailable. Reload before relying on the timeline."
+        );
+      }
+    );
+
+    return unsubscribe;
+  }, [accessKey, dataAccessState, id]);
+
+  useEffect(() => {
     if (!vehicle || initialSnapshot) return;
     const frame = requestAnimationFrame(() => {
       setInitialSnapshot(JSON.stringify(vehicle));
@@ -992,27 +1048,6 @@ export default function EditVehiclePage() {
       if (nextService && vehicle.nextService !== nextService && !keepResumedDate("nextService")) updates.nextService = nextService;
     }
 
-    const nextEightWeekInspection = dateOverrides.inspection
-      ? vehicle.nextEightWeekInspection
-      : calcNextEightWeekFromCycle(
-          vehicle.eightWeekInspectionStart,
-          vehicle.nextEightWeekInspection
-        );
-    if (
-      nextEightWeekInspection &&
-      vehicle.nextEightWeekInspection !== nextEightWeekInspection
-    ) {
-      if (!keepResumedDate("nextEightWeekInspection")) {
-        updates.nextEightWeekInspection = nextEightWeekInspection;
-      }
-    }
-    const inspectionIso = getIsoWeekLabel(
-      updates.nextEightWeekInspection || vehicle.nextEightWeekInspection
-    );
-    if (inspectionIso && vehicle.eightWeekInspectionISOWeek !== inspectionIso) {
-      updates.eightWeekInspectionISOWeek = inspectionIso;
-    }
-
     // Tacho Inspection
     const nextTacho = calcNextFromWeeks(vehicle.lastTacho, vehicle.tachoFreq);
     if (nextTacho && vehicle.nextTacho !== nextTacho && !keepResumedDate("nextTacho")) updates.nextTacho = nextTacho;
@@ -1024,6 +1059,11 @@ export default function EditVehiclePage() {
     // PMI
     const nextPMI = calcNextFromWeeks(vehicle.lastPMI, vehicle.pmiFreq);
     if (nextPMI && vehicle.nextPMI !== nextPMI && !keepResumedDate("nextPMI")) updates.nextPMI = nextPMI;
+    const canonicalNextPMI = updates.nextPMI || vehicle.nextPMI;
+    if (canonicalNextPMI && vehicle.nextEightWeekInspection !== canonicalNextPMI) {
+      updates.nextEightWeekInspection = canonicalNextPMI;
+      updates.eightWeekInspectionISOWeek = getIsoWeekLabel(canonicalNextPMI);
+    }
 
     // RFL
     const nextRFL = calcNextFromWeeks(vehicle.lastRFL, vehicle.rflFreq);
@@ -1047,10 +1087,11 @@ export default function EditVehiclePage() {
     if (nextTachoCalibration && vehicle.nextTachoCalibration !== nextTachoCalibration && !keepResumedDate("nextTachoCalibration"))
       updates.nextTachoCalibration = nextTachoCalibration;
 
-    // Lorry Inspection
-    const nextLorryInspection = calcNextFromWeeks(vehicle.lastLorryInspection, vehicle.lorryInspectionFreq);
-    if (nextLorryInspection && vehicle.nextLorryInspection !== nextLorryInspection && !keepResumedDate("nextLorryInspection"))
-      updates.nextLorryInspection = nextLorryInspection;
+    // Legacy lorry inspection dates are PMI aliases, not a separate cycle.
+    if (canonicalNextPMI && vehicle.nextLorryInspection !== canonicalNextPMI) {
+      updates.nextLorryInspection = canonicalNextPMI;
+      updates.lorryInspectionISOWeek = getIsoWeekLabel(canonicalNextPMI);
+    }
 
     // Derived MOT booking status (only derives when not explicitly completed/cancelled)
     const derivedMotStatus = getMotBookingStatus({
@@ -1117,7 +1158,7 @@ export default function EditVehiclePage() {
       value &&
       value > todayISO()
     ) {
-      alert("A last-completed date cannot be in the future. Book the work instead, then mark it complete when it has been done.");
+      systemDialogs.showSystemNotification("A last-completed date cannot be in the future. Book the work instead, then mark it complete when it has been done.");
       return;
     }
     setVehicle((prev) => {
@@ -1218,8 +1259,21 @@ export default function EditVehiclePage() {
     }
 
     if (nextStatus === "Active" && currentlyVor) {
+      if (vehicle?.pendingReturnInspection?.status === "inspection_required") {
+        const inspectionDate = formatDisplayDate(
+          vehicle.pendingReturnInspection.inspectionDate
+        );
+        systemDialogs.showSystemNotification(
+          `Complete the return-to-fleet PMI and brake-test inspection${
+            inspectionDate ? ` scheduled for ${inspectionDate}` : ""
+          } before returning this vehicle to Active.`
+        );
+        return;
+      }
+      const canReleaseCompletedInspections =
+        canReleaseVehicleAfterCompletedCompliance(vehicle);
       setVorPrompt({
-        mode: "return",
+        mode: canReleaseCompletedInspections ? "release" : "return",
         returnedDate: todayISO(),
         odometer: formatOdometerInput(vehicle?.odometer),
         removedBy: "",
@@ -1238,6 +1292,7 @@ export default function EditVehiclePage() {
   };
 
   const openHistoricVorMigration = () => {
+    setVorPromptError("");
     setVorPrompt({
       mode: "historic",
       offRoadDate: "",
@@ -1254,7 +1309,7 @@ export default function EditVehiclePage() {
     });
   };
 
-  const confirmVorPrompt = () => {
+  const confirmVorPrompt = async () => {
     if (!vorPrompt) return;
 
     if (vorPrompt.mode === "historic") {
@@ -1269,39 +1324,39 @@ export default function EditVehiclePage() {
       ];
       const missing = required.find(([field]) => !String(vorPrompt[field] || "").trim());
       if (missing) {
-        alert(`Enter the ${missing[1]} before adding this historic period.`);
+        setVorPromptError(`Enter the ${missing[1]} before adding this historic period.`);
         return;
       }
+      setSavingVorPeriod(true);
+      setVorPromptError("");
       try {
-        const record = buildHistoricVorPeriod({
-          registration: vehicle.registration || vehicle.reg || "",
-          operatorLicenceNumber: vorPrompt.operatorLicenceNumber,
-          offRoadDate: vorPrompt.offRoadDate,
-          returnedDate: vorPrompt.returnedDate,
-          offRoadOdometer: vorPrompt.offRoadOdometer,
-          returnOdometer: vorPrompt.returnOdometer,
-          approvedBy: vorPrompt.approvedBy,
-          approvedPosition: vorPrompt.approvedPosition,
-          removedBy: vorPrompt.removedBy,
-          removedPosition: vorPrompt.removedPosition,
-          reason: vorPrompt.reason,
-          firstUseInspectionDate: vorPrompt.firstUseInspectionDate,
-          migratedBy: {
-            uid: authAccess.user?.uid,
-            name:
-              authAccess.userDoc?.displayName ||
-              authAccess.userDoc?.name ||
-              authAccess.user?.displayName,
-            email: authAccess.user?.email,
+        await mutateVehicleVor({
+          vehicleId: id,
+          operation: VEHICLE_VOR_OPERATIONS.ADD_HISTORIC,
+          dataAccessState,
+          payload: {
+            registration: vehicle.registration || vehicle.reg || "",
+            operatorLicenceNumber: vorPrompt.operatorLicenceNumber,
+            offRoadDate: vorPrompt.offRoadDate,
+            returnedDate: vorPrompt.returnedDate,
+            offRoadOdometer: vorPrompt.offRoadOdometer,
+            returnOdometer: vorPrompt.returnOdometer,
+            approvedBy: vorPrompt.approvedBy,
+            approvedPosition: vorPrompt.approvedPosition,
+            removedBy: vorPrompt.removedBy,
+            removedPosition: vorPrompt.removedPosition,
+            reason: vorPrompt.reason,
+            firstUseInspectionDate: vorPrompt.firstUseInspectionDate,
           },
         });
-        setVehicle((previous) => ({
-          ...previous,
-          vorHistory: [...safeArr(previous.vorHistory), record],
-        }));
         setVorPrompt(null);
       } catch (migrationError) {
-        alert(migrationError.message || "This historic VOR/SORN period is invalid.");
+        console.error("Failed to add historic VOR/SORN period:", migrationError);
+        setVorPromptError(
+          migrationError.message || "Could not add this historic VOR/SORN period."
+        );
+      } finally {
+        setSavingVorPeriod(false);
       }
       return;
     }
@@ -1315,21 +1370,31 @@ export default function EditVehiclePage() {
       ];
       const missing = required.find(([field]) => !String(vorPrompt[field] || "").trim());
       if (missing) {
-        alert(`Enter the ${missing[1]} before marking this vehicle VOR.`);
+        systemDialogs.showSystemNotification(`Enter the ${missing[1]} before marking this vehicle VOR.`);
         return;
       }
 
-      setVehicle((previous) =>
-        startVehicleVorPeriod(previous, {
-          offRoadDate: vorPrompt.offRoadDate,
-          odometer: vorPrompt.odometer,
-          approvedBy: vorPrompt.approvedBy,
-          approvedPosition: vorPrompt.approvedPosition,
-          reason: vorPrompt.reason,
-          operatorLicenceNumber: vorPrompt.operatorLicenceNumber,
-        })
-      );
-      setVorPrompt(null);
+      setSavingVorPeriod(true);
+      try {
+        await mutateVehicleVor({
+          vehicleId: id,
+          operation: VEHICLE_VOR_OPERATIONS.START,
+          dataAccessState,
+          payload: {
+            offRoadDate: vorPrompt.offRoadDate,
+            odometer: vorPrompt.odometer,
+            approvedBy: vorPrompt.approvedBy,
+            approvedPosition: vorPrompt.approvedPosition,
+            reason: vorPrompt.reason,
+            operatorLicenceNumber: vorPrompt.operatorLicenceNumber,
+          },
+        });
+        setVorPrompt(null);
+      } catch (error) {
+        setVorPromptError(error?.message || "Could not start this VOR/SORN period.");
+      } finally {
+        setSavingVorPeriod(false);
+      }
       return;
     }
 
@@ -1342,7 +1407,13 @@ export default function EditVehiclePage() {
     ];
     const missing = required.find(([field]) => !String(vorPrompt[field] || "").trim());
     if (missing) {
-      alert(`Enter the ${missing[1]} before scheduling the return inspection.`);
+      systemDialogs.showSystemNotification(
+        `Enter the ${missing[1]} before ${
+          vorPrompt.mode === "release"
+            ? "authorising the return to fleet"
+            : "scheduling the return inspection"
+        }.`
+      );
       return;
     }
     const releaseCandidate = {
@@ -1355,7 +1426,7 @@ export default function EditVehiclePage() {
       asOfDate: vorPrompt.returnedDate,
     });
     if (complianceBlocker) {
-      alert(complianceBlocker);
+      systemDialogs.showSystemNotification(complianceBlocker);
       return;
     }
     const activeRecord =
@@ -1368,19 +1439,46 @@ export default function EditVehiclePage() {
       activeRecord?.offRoadDate || vehicle.maintenanceCountdownPause?.startedDate;
     const durationDays = calculateVorDurationDays(offRoadDate, vorPrompt.returnedDate);
     if (durationDays === null) {
-      alert("The return date must be on or after the date the vehicle was taken off the fleet.");
+      systemDialogs.showSystemNotification("The return date must be on or after the date the vehicle was taken off the fleet.");
       return;
     }
-    setVehicle((previous) => {
-      return scheduleVehicleReturnInspection(previous, {
-        inspectionDate: vorPrompt.returnedDate,
-        odometer: vorPrompt.odometer,
-        removedBy: vorPrompt.removedBy,
-        removedPosition: vorPrompt.removedPosition,
-        signature: vorPrompt.signature,
+    if (vorPrompt.mode === "release") {
+      try {
+        await mutateVehicleVor({
+          vehicleId: id,
+          operation: VEHICLE_VOR_OPERATIONS.RELEASE,
+          dataAccessState,
+          payload: {
+            returnedDate: vorPrompt.returnedDate,
+            odometer: vorPrompt.odometer,
+            removedBy: vorPrompt.removedBy,
+            removedPosition: vorPrompt.removedPosition,
+            signature: vorPrompt.signature,
+          },
+        });
+        setVorPrompt(null);
+      } catch (releaseError) {
+        systemDialogs.showSystemNotification(releaseError?.message || "Could not authorise this vehicle's return to fleet.");
+      }
+      return;
+    }
+    try {
+      await mutateVehicleVor({
+        vehicleId: id,
+        operation: VEHICLE_VOR_OPERATIONS.SCHEDULE_RETURN,
+        dataAccessState,
+        payload: {
+          inspectionDate: vorPrompt.returnedDate,
+          odometer: vorPrompt.odometer,
+          removedBy: vorPrompt.removedBy,
+          removedPosition: vorPrompt.removedPosition,
+          signature: vorPrompt.signature,
+        },
       });
-    });
-    setVorPrompt(null);
+      setVorPrompt(null);
+    } catch (error) {
+      setVorPromptError(error?.message || "Could not schedule the return inspection.");
+    }
   };
 
   const handleTaxStatusChange = (e) => {
@@ -1395,7 +1493,7 @@ export default function EditVehiclePage() {
   const saveTaxDatePrompt = () => {
     const taxedUntil = String(taxDatePrompt?.date || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(taxedUntil) || !parseISOorBlank(taxedUntil)) {
-      alert("Select a road tax date before marking this vehicle as taxed.");
+      systemDialogs.showSystemNotification("Select a road tax date before marking this vehicle as taxed.");
       return;
     }
     setVehicle((prev) => syncStatusDateFields({ ...prev, taxStatus: "Taxed", nextRFL: taxedUntil }));
@@ -1423,7 +1521,7 @@ export default function EditVehiclePage() {
   const saveInsuranceDatePrompt = () => {
     const insuredUntil = String(insuranceDatePrompt?.date || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(insuredUntil) || !parseISOorBlank(insuredUntil)) {
-      alert("Select an insured until date before marking this vehicle as insured.");
+      systemDialogs.showSystemNotification("Select an insured until date before marking this vehicle as insured.");
       return;
     }
     setVehicle((prev) =>
@@ -1493,7 +1591,7 @@ export default function EditVehiclePage() {
   const handleFetchMotHistory = async () => {
     const vrm = String(vehicle?.registration || vehicle?.reg || vehicle?.registrationNumber || "").trim();
     if (!vrm) {
-      alert("Add a registration before fetching MOT history.");
+      systemDialogs.showSystemNotification("Add a registration before fetching MOT history.");
       return;
     }
 
@@ -1565,10 +1663,10 @@ export default function EditVehiclePage() {
         return next;
       });
 
-      alert("MOT history loaded. Review the updated MOT dates and odometer, then press Save.");
+      systemDialogs.showSystemNotification("MOT history loaded. Review the updated MOT dates and odometer, then press Save.");
     } catch (err) {
       console.error("Failed to fetch MOT history:", err);
-      alert(err.message || "Could not fetch MOT history.");
+      systemDialogs.showSystemNotification(err.message || "Could not fetch MOT history.");
     } finally {
       setFetchingMotHistory(false);
     }
@@ -1579,9 +1677,36 @@ export default function EditVehiclePage() {
     return JSON.stringify(vehicle) !== initialSnapshot;
   }, [vehicle, initialSnapshot]);
 
+  const hasRestorableVorAppointment = useMemo(() => {
+    if (normalizeVehicleOperatingStatus(vehicle) !== "Active") return false;
+    const nextPmi = String(vehicle?.nextPMI || vehicle?.nextEightWeekInspection || "").slice(0, 10);
+    const nextBrake = String(vehicle?.nextBrakeTest || "").slice(0, 10);
+    if (!nextPmi || nextPmi !== nextBrake) return false;
+    const isCombinedInspection = (booking) => {
+      const typeIds = new Set(
+        safeArr(booking?.maintenanceTypeIds).map((typeId) => String(typeId).trim().toLowerCase())
+      );
+      return typeIds.has("pmi") && typeIds.has("brake_test");
+    };
+    const isDueAppointment = (booking) =>
+      isCombinedInspection(booking) &&
+      toISODate(getMaintenanceBookingStartDate(booking)) === nextPmi;
+    const hasActiveAppointment = vehicleBookings.some(
+      (booking) => isOpenMaintenanceBooking(booking) && isDueAppointment(booking)
+    );
+    if (hasActiveAppointment) return false;
+    return vehicleBookings.some(
+      (booking) =>
+        String(booking?.status || "").trim().toLowerCase() === "cancelled" &&
+        String(booking?.cancellationSource || "").trim().toLowerCase() ===
+          "vehicle_vor_transition" &&
+        isDueAppointment(booking)
+    );
+  }, [vehicle, vehicleBookings]);
+
   const handleSave = async (options = {}) => {
     if (!vehicle?.id) return false;
-    const { navigateOnSuccess = true } = options;
+    const { navigateOnSuccess = false } = options;
     setSaving(true);
     try {
       const previousVehicle = (() => {
@@ -1591,13 +1716,25 @@ export default function EditVehiclePage() {
           return {};
         }
       })();
+      const directlyChangedProtectedFields = getChangedProtectedVehicleFields(
+        vehicle,
+        previousVehicle
+      );
+      const hasCompletedVorReturnDeclaration =
+        String(vehicle?.complianceVor?.state || "").toLowerCase() === "clear" &&
+        !vehicle?.pendingReturnInspection &&
+        !safeArr(vehicle?.vorHistory).some(
+          (record) => String(record?.status || "").toLowerCase() === "open"
+        ) &&
+        Boolean(vehicle?.vorEndedAt);
       const bypassedVorReturnWorkflow =
         normalizeVehicleOperatingStatus(previousVehicle) === "VOR" &&
-        normalizeVehicleOperatingStatus(vehicle) === "Active";
+        normalizeVehicleOperatingStatus(vehicle) === "Active" &&
+        !hasCompletedVorReturnDeclaration;
       if (bypassedVorReturnWorkflow) {
         setVehicle((previous) => syncVehicleOperatingStatus(previous, "VOR"));
-        alert(
-          "This vehicle must remain VOR. Use the Active option and complete the return-to-fleet inspection form."
+        systemDialogs.showSystemNotification(
+          "This vehicle must remain VOR. Use the Active option and complete the return-to-fleet declaration."
         );
         return false;
       }
@@ -1731,9 +1868,16 @@ export default function EditVehiclePage() {
       delete payload.id;
       let cancelledVorBookingIds = [];
       let forecastBookings = vehicleBookings;
+      let savedVehicle = { ...payload, id: vehicle.id };
       const becameVor =
         normalizeVehicleOperatingStatus(previousVehicle) !== "VOR" &&
         normalizeVehicleOperatingStatus(payload) === "VOR";
+      const returnedFromVor =
+        normalizeVehicleOperatingStatus(previousVehicle) === "VOR" &&
+        normalizeVehicleOperatingStatus(payload) === "Active";
+      const hasUnrestoredVorAppointments =
+        normalizeVehicleOperatingStatus(payload) === "Active" &&
+        hasRestorableVorAppointment;
       if (becameVor) {
         const activeRecord = safeArr(payload.vorHistory).find(
           (record) => record?.status === "open" && record?.id === payload.activeVorRecordId
@@ -1777,10 +1921,15 @@ export default function EditVehiclePage() {
           );
         }
       } else {
+        const ordinaryPatch = buildVehicleEditorUpdatePatch(payload, previousVehicle);
         await updateDoc(
           refDoc,
-          tenantPayload(dataAccessState, { ...payload, updatedAt: serverTimestamp() })
+          tenantPayload(dataAccessState, { ...ordinaryPatch, updatedAt: serverTimestamp() })
         );
+        savedVehicle = {
+          ...restoreProtectedVehicleFields(payload, previousVehicle),
+          id: vehicle.id,
+        };
       }
       let forecastSyncFailed = false;
       try {
@@ -1795,6 +1944,7 @@ export default function EditVehiclePage() {
           payload.nextTachoDownload,
           payload.nextTailLift,
           payload.nextLoler,
+          payload.nextTachoCalibration,
         ].forEach((date) => {
           const dueYear = Number(String(date || "").slice(0, 4));
           if (Number.isInteger(dueYear) && dueYear > 0) scheduleYears.add(dueYear);
@@ -1805,28 +1955,43 @@ export default function EditVehiclePage() {
             year: forecastYear,
             maintenanceBookings: forecastBookings,
             authState: dataAccessState,
+            restoreVorCancelledAppointments:
+              returnedFromVor || hasUnrestoredVorAppointments,
           });
         }
       } catch (forecastError) {
         forecastSyncFailed = true;
         console.error("Could not synchronise the annual maintenance forecast:", forecastError);
       }
-      setVehicle((prev) => ({ ...prev, ...payload, id: vehicle.id }));
-      setInitialSnapshot(JSON.stringify({ ...payload, id: vehicle.id }));
-      alert(
-        forecastSyncFailed
+      const hasDeferredProtectedChanges =
+        !becameVor && directlyChangedProtectedFields.length > 0;
+      if (!hasDeferredProtectedChanges) setVehicle(savedVehicle);
+      setInitialSnapshot(JSON.stringify(savedVehicle));
+      setSaveNotice({
+        tone: forecastSyncFailed || hasDeferredProtectedChanges ? "warning" : "success",
+        message: hasDeferredProtectedChanges
+          ? "Vehicle details were saved, but maintenance completion dates must be recorded through the maintenance workflow. Those date changes remain unsaved."
+          : forecastSyncFailed
           ? "Vehicle updated, but its annual maintenance appointments could not be synchronised. Run the maintenance reconciliation before relying on the calendar."
           : cancelledVorBookingIds.length
           ? `Vehicle updated. ${cancelledVorBookingIds.length} future PMI/brake booking${cancelledVorBookingIds.length === 1 ? " was" : "s were"} cancelled with an audit record.`
-          : "Vehicle updated."
-      );
+          : "Vehicle updated successfully.",
+      });
       if (navigateOnSuccess) {
         router.push("/vehicles");
       }
       return true;
     } catch (e) {
       console.error(e);
-      alert("Could not save vehicle.");
+      const permissionDenied =
+        e?.code === "permission-denied" ||
+        String(e?.message || "").toLowerCase().includes("insufficient permissions");
+      setSaveNotice({
+        tone: "error",
+        message: permissionDenied
+          ? "Your account does not have permission to update this vehicle. Ask an administrator to check your User or Service workspace access."
+          : "Could not save the vehicle. Please try again.",
+      });
       return false;
     } finally {
       setSaving(false);
@@ -1834,8 +1999,8 @@ export default function EditVehiclePage() {
   };
 
   const handleArchiveMaintenanceBooking = async (bookingId) => {
-    if (!bookingId || !window.confirm("Archive this maintenance booking? Its audit history will be retained.")) return;
-    const reason = window.prompt("Reason for archiving this legal maintenance requirement:", "");
+    if (!bookingId || !await systemDialogs.confirmSystem("Archive this maintenance booking? Its audit history will be retained.")) return;
+    const reason = await systemDialogs.promptSystem("Reason for archiving this legal maintenance requirement:", "");
     if (!String(reason || "").trim()) return;
     try {
       await deleteMaintenanceBooking({ bookingId, reason });
@@ -1846,20 +2011,21 @@ export default function EditVehiclePage() {
       );
     } catch (error) {
       console.error("Could not archive maintenance booking:", error);
-      window.alert(error?.message || "Could not archive maintenance booking.");
+      systemDialogs.showSystemNotification(error?.message || "Could not archive maintenance booking.");
     }
   };
 
   const handleDelete = async () => {
-    const ok = window.confirm("Are you sure you want to delete this vehicle?");
+    const ok = await systemDialogs.confirmSystem("Permanently delete this vehicle and all of its maintenance and workshop bookings?");
     if (!ok) return;
     try {
-      await deleteDoc(fsDoc(db, "vehicles", id));
-      alert("Vehicle deleted.");
+      const result = await deleteVehicleAndBookings(id);
+      const count = Object.values(result.deletedBookings || {}).reduce((total, value) => total + Number(value || 0), 0);
+      systemDialogs.showSystemNotification(`Vehicle deleted with ${count} linked booking${count === 1 ? "" : "s"}.`);
       router.push("/vehicles");
     } catch (err) {
       console.error("Error deleting vehicle:", err);
-      alert("Failed to delete vehicle.");
+      systemDialogs.showSystemNotification("Failed to delete vehicle.");
     }
   };
 
@@ -1892,7 +2058,7 @@ export default function EditVehiclePage() {
       e.target.value = "";
     } catch (err) {
       console.error("File upload error:", err);
-      alert("Error uploading files.");
+      systemDialogs.showSystemNotification("Error uploading files.");
     } finally {
       setUploadingField(null);
     }
@@ -2094,7 +2260,7 @@ export default function EditVehiclePage() {
                   <Trash2 size={15} />
                   Delete
                 </button>
-                <button onClick={handleSave} style={btn()} disabled={saving}>
+                <button onClick={() => handleSave()} style={btn()} disabled={saving}>
                   <Save size={15} />
                   {saving ? "Saving..." : "Save"}
                 </button>
@@ -2221,12 +2387,30 @@ export default function EditVehiclePage() {
   };
 
   const bookingDateLabel = (b) => {
-    const start = getMaintenanceBookingStartDate(b);
-    const end = getMaintenanceBookingEndDate(b);
-    if (!start && !end) return "No date";
-    const s = start ? start.toLocaleDateString("en-GB") : "-";
-    const e = end ? end.toLocaleDateString("en-GB") : s;
-    return s === e ? s : `${s} -> ${e}`;
+    const dates = getMaintenanceRecordDisplayDates(b);
+    const display = (value) => {
+      const date = toDate(value);
+      return date ? date.toLocaleDateString("en-GB") : "";
+    };
+    const due = display(dates.legalDueDateISO);
+    const appointment = display(dates.appointmentDateISO);
+    const completed = display(dates.completionDateISO);
+    if (dates.status === "requested" && due) return `Due ${due} — not arranged`;
+    if (dates.status === "deferred") {
+      const date = appointment || due;
+      return date ? `Deferred — ${date}` : "Deferred — no date";
+    }
+    if (dates.status === "completed") {
+      const date = completed || appointment || due;
+      return date ? `Completed ${date}` : "Completed — no date";
+    }
+    if (appointment) {
+      return due && due !== appointment
+        ? `Booked ${appointment} · due ${due}`
+        : `Booked ${appointment}`;
+    }
+    if (due) return `Due ${due}`;
+    return "No date";
   };
 
   function bookingCompletedLabel(b) {
@@ -2243,9 +2427,9 @@ export default function EditVehiclePage() {
 
   const deleteMaintenanceBooking = async (bookingId) => {
     if (!bookingId) return;
-    const ok = window.confirm("Archive this maintenance requirement? Its audit history will be retained.");
+    const ok = await systemDialogs.confirmSystem("Archive this maintenance requirement? Its audit history will be retained.");
     if (!ok) return;
-    const reason = window.prompt("Reason for cancelling this legal maintenance requirement:", "");
+    const reason = await systemDialogs.promptSystem("Reason for cancelling this legal maintenance requirement:", "");
     if (!String(reason || "").trim()) return;
     try {
       await deleteMaintenanceBookingRecord({
@@ -2258,10 +2442,10 @@ export default function EditVehiclePage() {
       });
       await reloadVehicle();
       if (editBookingId === bookingId) setEditBookingId(null);
-      alert("Maintenance requirement archived.");
+      systemDialogs.showSystemNotification("Maintenance requirement archived.");
     } catch (error) {
       console.error("Failed deleting maintenance booking:", error);
-      alert(error?.message || "Could not archive this maintenance requirement.");
+      systemDialogs.showSystemNotification(error?.message || "Could not archive this maintenance requirement.");
     }
   };
 
@@ -2327,13 +2511,11 @@ export default function EditVehiclePage() {
             htmlFor="vehicle-notes"
             help="Operational information that is useful to anyone managing this vehicle."
           >
-            <Textarea
+            <AutoGrowingTextarea
               id="vehicle-notes"
               name="notes"
               value={vehicle.notes || ""}
               onChange={handleChange}
-              rows={5}
-              style={{ minHeight: 118 }}
               placeholder="General notes for this vehicle..."
             />
           </FormField>
@@ -2405,6 +2587,64 @@ export default function EditVehiclePage() {
               })}
             </div>
           )}
+
+          {motHistoryItems.length ? (
+            <div className={layoutStyles.motAppointmentHistory}>
+              <div className={layoutStyles.motAppointmentHistoryHeader}>
+                Previous MOT appointments
+              </div>
+              <div className={layoutStyles.extracted23}>
+                {motHistoryItems.map((item, index) => {
+                  const appointmentDetails = [
+                    { label: "Provider", value: item.provider },
+                    { label: "Ref", value: item.bookingRef },
+                  ].filter(({ value }) => String(value || "").trim());
+
+                  return (
+                    <div
+                      key={item.bookingId || `${item.completedDate}-${index}`}
+                      className={layoutStyles.openWorkCard}
+                    >
+                      <div className={layoutStyles.openWorkSummary}>
+                        <div className={layoutStyles.openWorkTitleLine}>
+                          <span>MOT</span>
+                          <span aria-hidden="true">–</span>
+                          <span className={layoutStyles.openWorkDate}>
+                            {formatDisplayDate(item.completedDate)}
+                          </span>
+                        </div>
+                        {appointmentDetails.length ? (
+                          <div className={layoutStyles.openWorkDetails}>
+                            {appointmentDetails.map(({ label, value }) => (
+                              <span key={label} className={layoutStyles.openWorkDetail}>
+                                <strong>{label}:</strong> {value}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className={layoutStyles.openWorkControls}>
+                        <div className={layoutStyles.openWorkStatus}>
+                          {item.bookingStateLabel || "Past booking"}
+                        </div>
+                        {item.bookingId ? (
+                          <button
+                            type="button"
+                            style={btn("ghost")}
+                            className={layoutStyles.compactHistoryButton}
+                            onClick={() => setEditBookingId(item.bookingId)}
+                          >
+                            View
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </>
@@ -2443,7 +2683,46 @@ export default function EditVehiclePage() {
         }
       `}</style>
 
+      {saveNotice ? (
+        <div
+          className={`${layoutStyles.saveNotice} ${layoutStyles[`saveNotice_${saveNotice.tone}`]}`}
+          role={saveNotice.tone === "error" ? "alert" : "status"}
+          aria-live="polite"
+        >
+          <span className={layoutStyles.saveNoticeIcon} aria-hidden="true">
+            {saveNotice.tone === "success" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+          </span>
+          <div className={layoutStyles.saveNoticeCopy}>
+            <strong>{saveNotice.tone === "success" ? "Vehicle saved" : saveNotice.tone === "warning" ? "Saved with a warning" : "Save failed"}</strong>
+            <span>{saveNotice.message}</span>
+          </div>
+          <button
+            type="button"
+            className={layoutStyles.saveNoticeClose}
+            onClick={() => setSaveNotice(null)}
+            aria-label="Dismiss notification"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ) : null}
+
       <div style={pageWrap}>
+        {realtimeVehicleError ? (
+          <div
+            role="alert"
+            style={{
+              ...panel,
+              marginBottom: 10,
+              borderColor: "var(--color-danger-border)",
+              background: "var(--color-danger-soft)",
+              color: "var(--color-danger)",
+              fontWeight: 750,
+            }}
+          >
+            {realtimeVehicleError}
+          </div>
+        ) : null}
         <div
           className={layoutStyles.stickyVehicleToolbar}
           style={vehicleToolbar}
@@ -2455,11 +2734,19 @@ export default function EditVehiclePage() {
                 {motStatusPill}
                 <span
                   className={`${layoutStyles.saveState} ${
-                    hasUnsavedChanges ? layoutStyles.saveStateDirty : layoutStyles.saveStateSaved
+                    hasUnsavedChanges || hasRestorableVorAppointment
+                      ? layoutStyles.saveStateDirty
+                      : layoutStyles.saveStateSaved
                   }`}
                   role="status"
                 >
-                  {saving ? "Saving…" : hasUnsavedChanges ? "Unsaved changes" : "Saved"}
+                  {saving
+                    ? "Saving…"
+                    : hasRestorableVorAppointment
+                      ? "Booking restoration required"
+                      : hasUnsavedChanges
+                        ? "Unsaved changes"
+                        : "Saved"}
                 </span>
               </div>
               <div style={subtitle}>
@@ -2594,10 +2881,14 @@ export default function EditVehiclePage() {
                 className={layoutStyles.saveButton}
                 onClick={() => handleSave()}
                 style={btn()}
-                disabled={saving || !hasUnsavedChanges}
+                disabled={saving || (!hasUnsavedChanges && !hasRestorableVorAppointment)}
               >
                 <Save size={15} />
-                {saving ? "Saving..." : "Save"}
+                {saving
+                  ? "Saving..."
+                  : hasRestorableVorAppointment
+                    ? "Restore booking"
+                    : "Save"}
               </button>
             </div>
           </div>
@@ -2777,12 +3068,12 @@ export default function EditVehiclePage() {
               <section style={{ ...panel, padding: 12, borderColor: "rgba(220,38,38,.42)" }}>
                 <h2 style={{ ...sectionTitle, margin: 0 }}>HGV Compliance VOR</h2>
                 <div style={{ ...sectionMeta, marginTop: 5 }}>
-                  {vehicle?.pendingReturnInspection?.status === "inspection_required"
+                  {canReleaseVehicleAfterCompletedCompliance(vehicle)
+                    ? "All overdue items are resolved. Select Active and complete the authorised return-to-fleet declaration; no new inspection will be booked."
+                    : vehicle?.pendingReturnInspection?.status === "inspection_required"
                     ? `Return-to-fleet PMI + brake test is required on ${formatDisplayDate(
                         vehicle.pendingReturnInspection.inspectionDate
                       )}. The vehicle remains VOR until it is completed.`
-                    : vehicle.complianceVor.state === "ready_for_release"
-                    ? "All overdue items are resolved. An authorised return-to-fleet declaration is still required."
                     : "This vehicle must remain VOR until every item below is resolved and a fresh PMI is recorded."}
                 </div>
                 <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
@@ -2801,7 +3092,7 @@ export default function EditVehiclePage() {
                             ? "var(--color-warning-soft)"
                             : reason.status === "resolved"
                               ? "var(--color-success-soft)"
-                              : "var(--color-danger-soft)",
+                              : "var(--color-warning-soft)",
                         fontWeight: 800,
                       }}
                     >
@@ -2822,7 +3113,12 @@ export default function EditVehiclePage() {
             <div className="vehicle-edit-left" style={sectionStack}>
             {/* Main Information */}
             <div className="vehicle-edit-main">
-              <h2 style={{ ...sectionTitle, margin: "0 0 8px 2px" }}>Main Information</h2>
+              <div className={layoutStyles.mainInformationHeader}>
+                <h2 style={{ ...sectionTitle, margin: 0 }}>Main Information</h2>
+                <UIButton type="button" variant="secondary" size="sm" onClick={openHistoricVorMigration}>
+                  Add historic VOR/SORN period
+                </UIButton>
+              </div>
               <div style={panel}>
                 <div className="vehicle-edit-field-grid" style={grid(2)}>
                 <Field label="Name" name="name" value={vehicle.name} onChange={handleChange} />
@@ -2866,12 +3162,6 @@ export default function EditVehiclePage() {
                   suffix="mi"
                   inputMode="numeric"
                 />
-
-                <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
-                  <UIButton type="button" variant="ghost" onClick={openHistoricVorMigration}>
-                    Add historic VOR/SORN period
-                  </UIButton>
-                </div>
 
                 <div className={layoutStyles.extracted10}>
                   <fieldset className={layoutStyles.complianceGroup}>
@@ -2930,9 +3220,33 @@ export default function EditVehiclePage() {
             <div className="vehicle-edit-left vehicle-edit-left-rest" style={sectionStack}>
             {/* Due Dates & Intervals */}
             <div className="vehicle-edit-core">
-              <h2 style={{ ...sectionTitle, margin: "0 0 0 2px" }}>Core Due Dates</h2>
-              <div style={{ ...sectionMeta, margin: "3px 0 8px 2px" }}>
-                Edit the last date and frequency; next will auto-calculate.
+              <div className={layoutStyles.coreDueHeader}>
+                <div>
+                  <h2 style={{ ...sectionTitle, margin: 0 }}>Core Due Dates</h2>
+                  <div style={{ ...sectionMeta, marginTop: 3 }}>
+                    Edit the last date and frequency; next will auto-calculate.
+                  </div>
+                </div>
+                <div className={layoutStyles.coreDueHeaderActions}>
+                  <label className={layoutStyles.coreDueOption}>
+                    <input
+                      type="checkbox"
+                      name="motNotApplicable"
+                      checked={isMotNotApplicable(vehicle)}
+                      onChange={handleChange}
+                    />
+                    MOT not applicable
+                  </label>
+                  <label className={layoutStyles.coreDueOption}>
+                    <input
+                      type="checkbox"
+                      name="serviceNotApplicable"
+                      checked={isServiceNotApplicable(vehicle)}
+                      onChange={handleChange}
+                    />
+                    Service not required
+                  </label>
+                </div>
               </div>
               <div style={{ ...panel, padding: 10 }}>
                 <div className={layoutStyles.extracted11}>
@@ -2954,15 +3268,6 @@ export default function EditVehiclePage() {
               </div>
 
               <div className={`vehicle-edit-core-grid ${layoutStyles.extracted12}`} >
-                <label className={layoutStyles.dueGroupHeader}>
-                  <input
-                    type="checkbox"
-                    name="motNotApplicable"
-                    checked={isMotNotApplicable(vehicle)}
-                    onChange={handleChange}
-                  />
-                  MOT not applicable for this vehicle
-                </label>
                 <DateField
                   label="Last MOT"
                   name="lastMOT"
@@ -2998,17 +3303,7 @@ export default function EditVehiclePage() {
                   <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} disabled={isMotNotApplicable(vehicle)} readOnly source="Calculated" />
                 ) : null}
 
-                <label
-                  className={`${layoutStyles.dueGroupHeader} ${layoutStyles.dueGroupHeaderSeparate}`}
-                >
-                  <input
-                    type="checkbox"
-                    name="serviceNotApplicable"
-                    checked={isServiceNotApplicable(vehicle)}
-                    onChange={handleChange}
-                  />
-                  Service not required for this vehicle
-                </label>
+                <div className={layoutStyles.coreDueDivider} aria-hidden="true" />
                 <DateField label="Last Service" name="lastService" value={dateOnly(vehicle.lastService)} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
                 <Field label="Service Freq (weeks)" name="serviceFreq" value={vehicle.serviceFreq} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
                 <DateField
@@ -3172,8 +3467,12 @@ export default function EditVehiclePage() {
                           const isVorComplianceDate = Boolean(
                             isCalculatedNext && complianceType && isVehicleOutOfUse
                           );
+                          const isReadyForRelease =
+                            isVorComplianceDate &&
+                            canReleaseVehicleAfterCompletedCompliance(vehicle);
                           const hasPendingReturnInspection =
                             isVorComplianceDate &&
+                            !isReadyForRelease &&
                             vehicle?.pendingReturnInspection?.status === "inspection_required";
                           const unresolvedComplianceReason = complianceType
                             ? vehicle?.complianceVor?.reasons?.[complianceType]
@@ -3186,6 +3485,8 @@ export default function EditVehiclePage() {
                           );
                           const vorSource = hasPendingReturnInspection
                             ? "Return inspection"
+                            : isReadyForRelease
+                              ? "Calculated from completed inspection"
                             : isExpiredComplianceDate
                               ? "Expired"
                               : isVorComplianceDate
@@ -3193,6 +3494,8 @@ export default function EditVehiclePage() {
                                 : "";
                           const vorTone = hasPendingReturnInspection
                             ? "warning"
+                            : isReadyForRelease
+                              ? "success"
                             : isExpiredComplianceDate
                               ? "danger"
                               : isVorComplianceDate
@@ -3202,6 +3505,10 @@ export default function EditVehiclePage() {
                             ? complianceType === "pmi"
                               ? "Return PMI inspection date"
                               : "Return brake-test date"
+                            : isReadyForRelease
+                              ? complianceType === "pmi"
+                                ? "Next PMI inspection"
+                                : "Next brake-test"
                             : isExpiredComplianceDate
                               ? complianceType === "pmi"
                                 ? "Expired PMI date"
@@ -3211,12 +3518,20 @@ export default function EditVehiclePage() {
                                   ? "PMI date while VOR"
                                   : "Brake-test date while VOR"
                                 : field.label;
+                          const readyForReleaseDate = isReadyForRelease
+                            ? complianceType === "pmi"
+                              ? calcNextFromWeeks(vehicle.lastPMI, vehicle.pmiFreq)
+                              : calcNextFromWeeks(
+                                  vehicle.lastBrakeTest,
+                                  vehicle.brakeTestFreq
+                                )
+                            : "";
                           return (
                             <DateField
                               key={`${section.key}-${field.name}`}
                               label={displayLabel}
                               name={field.name}
-                              value={vehicle[field.name]}
+                              value={readyForReleaseDate || vehicle[field.name]}
                               onChange={handleChange}
                               readOnly={isCalculatedNext}
                               source={vorSource || (isCalculatedNext ? "Calculated" : "")}
@@ -3271,13 +3586,11 @@ export default function EditVehiclePage() {
                 htmlFor="vehicle-notes"
                 help="Operational information that is useful to anyone managing this vehicle."
               >
-                <Textarea
+                <AutoGrowingTextarea
                   id="vehicle-notes"
                   name="notes"
                   value={vehicle.notes || ""}
                   onChange={handleChange}
-                  rows={5}
-                  style={{ minHeight: 118 }}
                   placeholder="General notes for this vehicle..."
                 />
               </FormField>
@@ -3468,68 +3781,6 @@ export default function EditVehiclePage() {
               </div>
             </div>
 
-            <div className="vehicle-edit-mot-history">
-              <div
-                className={`${layoutStyles.extracted26} ${layoutStyles.sidebarSectionHeader}`}
-              >
-                <div>
-                  <h2 style={sectionTitle}>Internal MOT Bookings</h2>
-                  <div style={sectionMeta}>Completed or past maintenance booking records.</div>
-                </div>
-                <button
-                  type="button"
-                  style={btn("ghost")}
-                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/mot-history`)}
-                >
-                  DVSA History
-                </button>
-              </div>
-
-              <div style={{ ...panel, padding: 10 }}>
-              {motHistoryItems.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13 }}>
-                  No internal MOT bookings. DVSA history is available above.
-                </div>
-              ) : (
-                <div className={layoutStyles.extracted27}>
-                  {motHistoryItems.map((item, index) => (
-                    <div
-                      key={item.bookingId || `${item.completedDate}-${index}`}
-                      onClick={() => item.bookingId && setEditBookingId(item.bookingId)}
-                      style={{
-                        border: UI.border,
-                        borderRadius: UI.radius,
-                        padding: 10,
-                        background: "var(--color-surface)",
-                        cursor: item.bookingId ? "pointer" : "default",
-                      }}
-                      title={item.bookingId ? "View linked booking record" : "No linked booking record"}
-                    >
-                      <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
-                        {formatDisplayDate(item.completedDate)}
-                      </div>
-                      <div style={{ marginTop: 5, fontSize: 12.5, color: UI.muted, lineHeight: 1.4 }}>
-                        {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
-                        <br />
-                        {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
-                      </div>
-                      {item.notes ? (
-                        <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text, lineHeight: 1.35 }}>
-                          {item.notes}
-                        </div>
-                      ) : null}
-                      {item.bookingId ? (
-                        <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 800, color: UI.brand }}>
-                          {item.bookingStateLabel || "Historical booking"}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-              </div>
-            </div>
-
             <div className="vehicle-edit-service-history">
               <div
                 className={`${layoutStyles.extracted28} ${layoutStyles.sidebarSectionHeader}`}
@@ -3632,14 +3883,18 @@ export default function EditVehiclePage() {
           open={Boolean(vorPrompt)}
           onClose={() => setVorPrompt(null)}
           title={
-            vorPrompt?.mode === "return"
+            vorPrompt?.mode === "release"
+              ? "Authorise return to fleet"
+              : vorPrompt?.mode === "return"
               ? "Schedule return-to-fleet inspection"
               : vorPrompt?.mode === "historic"
               ? "Add historic VOR/SORN period"
               : "Vehicle Off-Road (VOR)"
           }
           description={
-            vorPrompt?.mode === "return"
+            vorPrompt?.mode === "release"
+              ? "Completed PMI and brake-test evidence is already recorded. This declaration closes the VOR period without booking another inspection."
+              : vorPrompt?.mode === "return"
               ? "Set the return date for the required combined PMI and brake-test inspection. The vehicle remains VOR until that inspection is completed."
               : vorPrompt?.mode === "historic"
               ? "Migrate a completed off-road period into this vehicle’s timeline."
@@ -3648,26 +3903,46 @@ export default function EditVehiclePage() {
           size="lg"
           footer={
             <>
-              <UIButton type="button" variant="ghost" onClick={() => setVorPrompt(null)}>
+              <UIButton type="button" variant="ghost" onClick={() => setVorPrompt(null)} disabled={savingVorPeriod}>
                 Cancel
               </UIButton>
-              <UIButton type="button" onClick={confirmVorPrompt}>
-                {vorPrompt?.mode === "return"
+              <UIButton type="button" onClick={confirmVorPrompt} disabled={savingVorPeriod}>
+                {vorPrompt?.mode === "release"
+                  ? "Authorise release"
+                  : vorPrompt?.mode === "return"
                   ? "Schedule inspection"
                   : vorPrompt?.mode === "historic"
-                  ? "Add historic period"
+                  ? savingVorPeriod ? "Adding..." : "Add historic period"
                   : "Confirm VOR"}
               </UIButton>
             </>
           }
         >
           <div className={layoutStyles.vorPolicyNotice}>
-            {vorPrompt?.mode === "return"
+            {vorPrompt?.mode === "release"
+              ? "The existing completed PMI and brake test will be used as the first-use inspection evidence. Their next due dates will not be changed."
+              : vorPrompt?.mode === "return"
               ? "The date below becomes the PMI and brake-test inspection date. Completing that inspection returns the vehicle to Active and calculates both next due dates from the completion date."
               : vorPrompt?.mode === "historic"
               ? "Historic periods are added to the vehicle timeline without changing current maintenance due dates."
               : "PMI and brake validity continue while the vehicle is VOR. Future open PMI/brake bookings will be cancelled with an audit record when this vehicle is saved."}
           </div>
+
+          {vorPromptError ? (
+            <div
+              role="alert"
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--color-danger-border)",
+                background: "var(--color-danger-soft)",
+                color: "var(--color-danger)",
+                fontWeight: 750,
+              }}
+            >
+              {vorPromptError}
+            </div>
+          ) : null}
 
           <div className={layoutStyles.vorFormGrid}>
             <FormField label="Vehicle registration / identification">
@@ -3730,9 +4005,16 @@ export default function EditVehiclePage() {
                   />
                 </FormField>
               </>
-            ) : vorPrompt?.mode === "return" ? (
+            ) : ["return", "release"].includes(vorPrompt?.mode) ? (
               <>
-                <FormField label="Return-to-fleet / inspection date" htmlFor="vor-returned-date">
+                <FormField
+                  label={
+                    vorPrompt?.mode === "release"
+                      ? "Return-to-fleet date"
+                      : "Return-to-fleet / inspection date"
+                  }
+                  htmlFor="vor-returned-date"
+                >
                   <Input
                     id="vor-returned-date"
                     type="date"
@@ -3877,10 +4159,14 @@ export default function EditVehiclePage() {
         <section className={layoutStyles.dangerZone} aria-labelledby="vehicle-danger-heading">
           <div>
             <h2 id="vehicle-danger-heading">Danger zone</h2>
-            <p>Permanently delete this vehicle and remove it from the active register.</p>
+            <p>Permanently delete this vehicle and all linked maintenance and workshop bookings.</p>
           </div>
-          <button type="button" onClick={handleDelete} style={btn("danger")}>
-            <Trash2 size={15} />
+          <button
+            type="button"
+            onClick={handleDelete}
+            style={{ ...btn("danger"), minHeight: 26, padding: "3px 7px", fontSize: 11.5, boxShadow: "none" }}
+          >
+            <Trash2 size={13} />
             Delete vehicle
           </button>
         </section>
@@ -4036,6 +4322,36 @@ function SelectField({ label, name, value, onChange, options }) {
         ))}
       </Select>
     </FormField>
+  );
+}
+
+function AutoGrowingTextarea({ value, onChange, style, ...props }) {
+  const fieldRef = useRef(null);
+
+  const resize = (field) => {
+    if (!field) return;
+    field.style.height = "auto";
+    const nextHeight = Math.min(Math.max(field.scrollHeight, 38), 180);
+    field.style.height = `${nextHeight}px`;
+    field.style.overflowY = field.scrollHeight > 180 ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resize(fieldRef.current);
+  }, [value]);
+
+  return (
+    <Textarea
+      {...props}
+      ref={fieldRef}
+      rows={1}
+      value={value}
+      onChange={(event) => {
+        resize(event.currentTarget);
+        onChange?.(event);
+      }}
+      style={{ minHeight: 38, maxHeight: 180, resize: "none", ...style }}
+    />
   );
 }
 

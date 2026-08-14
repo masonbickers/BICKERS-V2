@@ -1,9 +1,10 @@
 
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./ViewBookingModal.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Modal } from "@/app/components/ui";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
   doc,
@@ -15,7 +16,6 @@ import {
 } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
-import RouteLoadingOverlay from "./RouteLoadingOverlay";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   dataAccessKey,
@@ -320,86 +320,55 @@ export default function ViewBookingModal({
   const [deleteReasonOther, setDeleteReasonOther] = useState("");
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
-  const [editProgress, setEditProgress] = useState(0);
-  const [portalReady, setPortalReady] = useState(false);
+  const deleteInProgressRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
 
   const handleEdit = () => {
     if (editLoading) return;
 
     setEditLoading(true);
-    setEditProgress(8);
 
     try {
       const bookingForCache = booking?.id ? booking : { ...(booking || {}), id };
       cacheBookingForEdit(bookingForCache);
 
-      setTimeout(() => {
-        try {
-          let editHref = "";
-          if (typeof onEdit === "function") {
-            editHref = onEdit(bookingForCache);
-            if (
-              typeof editHref !== "string" ||
-              !editHref.startsWith("/") ||
-              editHref.startsWith("//")
-            ) {
-              throw new Error("Edit destination was not provided.");
-            }
-          } else {
-            const returnTo =
-              typeof window !== "undefined"
-                ? `${pathname || "/dashboard"}${window.location.search || ""}`
-                : pathname || "/dashboard";
-            editHref = `/edit-booking/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(returnTo)}`;
-          }
-
-          window.location.assign(editHref);
-        } catch (error) {
-          console.error("Open edit booking failed:", error);
-          setEditLoading(false);
-          setEditProgress(0);
-          alert("Failed to open edit page. Please try again.");
+      let editHref = "";
+      if (typeof onEdit === "function") {
+        editHref = onEdit(bookingForCache);
+        if (
+          typeof editHref !== "string" ||
+          !editHref.startsWith("/") ||
+          editHref.startsWith("//")
+        ) {
+          throw new Error("Edit destination was not provided.");
         }
-      }, 80);
+      } else {
+        const returnTo =
+          typeof window !== "undefined"
+            ? `${pathname || "/dashboard"}${window.location.search || ""}`
+            : pathname || "/dashboard";
+        editHref = `/edit-booking/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(returnTo)}`;
+      }
+
+      router.push(editHref);
     } catch (error) {
-      console.error("Prepare edit booking failed:", error);
+      console.error("Open edit booking failed:", error);
       setEditLoading(false);
-      setEditProgress(0);
-      alert("Failed to open edit page. Please try again.");
+      systemDialogs.showSystemNotification("Failed to open edit page. Please try again.");
     }
   };
-
-  useEffect(() => {
-    if (!editLoading) return undefined;
-
-    const timer = setInterval(() => {
-      setEditProgress((current) => {
-        if (current >= 95) return current;
-        const step = current < 45 ? 9 : current < 75 ? 5 : 2;
-        return Math.min(95, current + step);
-      });
-    }, 320);
-
-    return () => clearInterval(timer);
-  }, [editLoading]);
-
-  useEffect(() => {
-    const onEsc = (e) => e.key === "Escape" && !editLoading && onClose?.();
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [onClose, editLoading]);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
+        // The dashboard's live listener removes this booking from
+        // `initialBooking` as soon as deleteDoc runs. Do not interpret that
+        // expected update as a reason to reload the document being deleted.
+        if (deleteInProgressRef.current) return;
+
         if (!fromDeleted && String(initialBooking?.id || "") === String(id || "")) {
           setBooking(initialBooking);
           return;
@@ -419,7 +388,7 @@ export default function ViewBookingModal({
           if (!mounted) return;
 
           if (!delSnap.exists()) {
-            alert("Deleted booking not found");
+            systemDialogs.showSystemNotification("Deleted booking not found");
             onClose?.();
             return;
           }
@@ -448,10 +417,11 @@ export default function ViewBookingModal({
         if (!mounted) return;
 
         if (snap.exists()) setBooking({ id: snap.id, ...snap.data() });
-        else alert("Booking not found");
+        else if (!deleteInProgressRef.current) systemDialogs.showSystemNotification("Booking not found");
       } catch (e) {
+        if (deleteInProgressRef.current) return;
         console.error("Load booking failed:", e);
-        alert(`Failed to load booking${e?.code ? ` (${e.code})` : ""}. Check console.`);
+        systemDialogs.showSystemNotification(`Failed to load booking${e?.code ? ` (${e.code})` : ""}. Check console.`);
       }
     })();
 
@@ -548,23 +518,25 @@ export default function ViewBookingModal({
 
   const handleDelete = async () => {
     if (!deleteReasons.length) {
-      alert("Please choose at least one reason for delete.");
+      systemDialogs.showSystemNotification("Please choose at least one reason for delete.");
       return;
     }
     if (deleteReasons.includes("Other") && !deleteReasonOther.trim()) {
-      alert("Please enter the 'Other' reason.");
+      systemDialogs.showSystemNotification("Please enter the 'Other' reason.");
       return;
     }
 
-    const confirmDelete = confirm("Are you sure you want to delete this booking?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this booking?");
     if (!confirmDelete) return;
+
+    deleteInProgressRef.current = true;
 
     try {
       const bookingRef = doc(db, "bookings", String(id));
       const snap = await getDoc(bookingRef);
 
       if (!snap.exists()) {
-        alert("Booking not found (already deleted?)");
+        systemDialogs.showSystemNotification("Booking not found (already deleted?)");
         onClose?.();
         return;
       }
@@ -585,18 +557,19 @@ export default function ViewBookingModal({
 
       await deleteDoc(bookingRef);
 
-      alert("Booking deleted (stored in Deleted Bookings)");
+      systemDialogs.showSystemNotification("Booking deleted (stored in Deleted Bookings)");
       onClose?.();
     } catch (err) {
+      deleteInProgressRef.current = false;
       console.error("Delete failed:", err);
-      alert("Delete failed. Check console.");
+      systemDialogs.showSystemNotification("Delete failed. Check console.");
     }
   };
 
   const handleRestore = async () => {
     if (!fromDeleted) return;
 
-    const ok = confirm("Restore this booking back into Bookings?");
+    const ok = await systemDialogs.confirmSystem("Restore this booking back into Bookings?");
     if (!ok) return;
 
     try {
@@ -617,15 +590,15 @@ export default function ViewBookingModal({
       const delDocId = booking?.__deletedDocId || deletedId || id;
       await deleteDoc(doc(db, "deletedBookings", String(delDocId)));
 
-      alert("Restored ");
+      systemDialogs.showSystemNotification("Restored ");
       onClose?.();
     } catch (e) {
       console.error("Restore failed:", e);
-      alert("Restore failed. Check console.");
+      systemDialogs.showSystemNotification("Restore failed. Check console.");
     }
   };
 
-  if (!booking || !portalReady) return null;
+  if (!booking) return null;
 
   const employeesPrettyText = prettyEmployees(booking.employees || []);
   const quoteStatus = quoteStatusSummary(booking);
@@ -676,29 +649,19 @@ export default function ViewBookingModal({
     ? historyTrail
     : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
-  return createPortal(
-    <div
-      className={layoutStyles.extracted1}
-      onClick={(e) => e.target === e.currentTarget && !editLoading && onClose?.()}
-    >
-      <div
-        className={layoutStyles.extracted2}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Booking details for ${booking.client || booking.production || "this job"}`}
-      >
-        {/* Header */}
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <div className={layoutStyles.extracted4}>Job #{booking.jobNumber || "-"}</div>
-            <h2 className={layoutStyles.extracted5}>{booking.client || "Booking Details"}</h2>
-            {fromDeleted && (
-              <div className={layoutStyles.extracted6}>
+  return (
+    <Modal
+      open
+      onClose={() => !editLoading && onClose?.()}
+      eyebrow={`Job #${booking.jobNumber || "-"}`}
+      title={booking.client || "Booking details"}
+      description={fromDeleted ? (
+              <span className={layoutStyles.extracted6}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
-              </div>
-            )}
-          </div>
+              </span>
+            ) : null}
+      headerActions={
           <span
             style={{
               ...badge,
@@ -708,7 +671,25 @@ export default function ViewBookingModal({
           >
             {booking.status || "-"}
           </span>
-        </div>
+      }
+      size="xl"
+      density="compact"
+      footer={fromDeleted ? (
+        <>
+          <Button onClick={handleRestore} variant="success" size="sm">Restore</Button>
+          <Button onClick={onClose} variant="secondary" size="sm">Close</Button>
+        </>
+      ) : (
+        <>
+          {canViewQuote ? (
+            <Button onClick={() => router.push(quoteViewHref)} disabled={editLoading} size="sm">View quote</Button>
+          ) : null}
+          <Button onClick={handleEdit} disabled={editLoading} loading={editLoading} size="sm">Edit</Button>
+          <Button onClick={handleDelete} disabled={editLoading} variant="danger" size="sm">Delete</Button>
+          <Button onClick={onClose} disabled={editLoading} variant="secondary" size="sm">Close</Button>
+        </>
+      )}
+    >
 
         {/* Quick chips */}
         <div className={layoutStyles.extracted7}>
@@ -1093,82 +1074,7 @@ export default function ViewBookingModal({
           )}
         </div>
 
-        <div className={layoutStyles.extracted76}>
-          {fromDeleted ? (
-            <>
-              <button onClick={handleRestore} className={layoutStyles.extracted77}>
-                Restore
-              </button>
-              <button onClick={onClose} className={layoutStyles.extracted78}>
-                Close
-              </button>
-            </>
-          ) : (
-            <>
-              {canViewQuote ? (
-                <button
-                  onClick={() => router.push(quoteViewHref)}
-                  disabled={editLoading}
-                  style={{
-                    ...btn,
-                    background: "var(--color-brand)",
-                    cursor: editLoading ? "not-allowed" : "pointer",
-                    opacity: editLoading ? 0.58 : 1,
-                  }}
-                >
-                  View Quote
-                </button>
-              ) : null}
-              <button
-                onClick={handleEdit}
-                disabled={editLoading}
-                style={{
-                  ...btn,
-                  background: "var(--color-info)",
-                  cursor: editLoading ? "wait" : "pointer",
-                  opacity: editLoading ? 0.82 : 1,
-                }}
-              >
-                {editLoading ? `Opening ${editProgress}%` : "Edit"}
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={editLoading}
-                style={{
-                  ...btn,
-                  background: "var(--color-danger)",
-                  cursor: editLoading ? "not-allowed" : "pointer",
-                  opacity: editLoading ? 0.58 : 1,
-                }}
-              >
-                Delete
-              </button>
-              <button
-                onClick={onClose}
-                disabled={editLoading}
-                style={{
-                  ...btn,
-                  background: "var(--color-text-muted)",
-                  cursor: editLoading ? "not-allowed" : "pointer",
-                  opacity: editLoading ? 0.58 : 1,
-                }}
-              >
-                Close
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {editLoading && (
-        <RouteLoadingOverlay
-          progress={editProgress}
-          title="Opening edit page"
-          hint="Preparing booking details..."
-        />
-      )}
-    </div>,
-    document.body
+    </Modal>
   );
 }
 

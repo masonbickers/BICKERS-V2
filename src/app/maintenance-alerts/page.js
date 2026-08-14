@@ -12,12 +12,13 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { PeopleFleetHeaderActions, PeopleFleetPage, PeopleFleetPageHeader } from "@/app/components/PeopleFleetPage";
+import { Badge, Button, Checkbox, Input } from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const UI = UI_TOKENS;
 const surface = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const button = { border: UI.border, borderRadius: UI.radiusSm, background: UI.card, color: UI.text, padding: "8px 11px", fontWeight: 800, cursor: "pointer", display: "inline-flex", gap: 7, alignItems: "center" };
 
 async function authorisedJson(path, user) {
   const token = await user?.getIdToken?.();
@@ -215,11 +216,10 @@ export default function MaintenanceAlertsPage() {
   const emailField = (key, label, help) => (
     <label style={{ display: "grid", gap: 5 }}>
       <span style={{ fontWeight: 800, fontSize: 13 }}>{label}</span>
-      <input
+      <Input
         value={(settings[key] || []).join(", ")}
         onChange={(event) => setSettings((current) => ({ ...current, [key]: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) }))}
         placeholder="name@example.com, another@example.com"
-        style={{ border: UI.border, borderRadius: UI.radiusSm, background: UI.card, color: UI.text, padding: "9px 10px" }}
       />
       <span style={{ color: UI.muted, fontSize: 12 }}>{help}</span>
     </label>
@@ -227,14 +227,12 @@ export default function MaintenanceAlertsPage() {
 
   return (
     <HeaderSidebarLayout>
-      <main style={{ minHeight: "100vh", background: UI.bg, color: UI.text, padding: "18px 18px 36px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 14 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 23 }}>Maintenance alerts</h1>
-            <p style={{ margin: "6px 0 0", color: UI.muted, fontSize: 13.5 }}>Live PMI, brake-test and automatic VOR attention, using the current maintenance rules.</p>
-          </div>
-          <button type="button" onClick={load} disabled={loading} style={button}><RefreshCw size={15} /> Refresh</button>
-        </div>
+      <PeopleFleetPage>
+        <PeopleFleetPageHeader
+          title="Maintenance alerts"
+          subtitle="Live PMI, brake-test and automatic VOR attention using the current maintenance rules."
+          actions={<PeopleFleetHeaderActions><Button variant="secondary" type="button" onClick={load} disabled={loading}><RefreshCw size={15} /> Refresh</Button></PeopleFleetHeaderActions>}
+        />
 
         {error ? <div style={{ ...surface, padding: 12, color: UI.dangerText, background: UI.dangerSoft }}>{error}</div> : null}
         {!error && !loading && alerts.length === 0 ? (
@@ -243,7 +241,19 @@ export default function MaintenanceAlertsPage() {
 
         <div style={{ display: "grid", gap: 10 }}>
           {alerts.map((alert) => (
-            <article key={alert.id} style={{ ...surface, padding: 13, borderLeft: `4px solid ${alert.severity === "critical" ? UI.danger : UI.warn}` }}>
+            <article
+              key={alert.id}
+              style={{
+                background: UI.card,
+                borderTop: UI.border,
+                borderRight: UI.border,
+                borderBottom: UI.border,
+                borderLeft: `4px solid ${alert.severity === "critical" ? UI.danger : UI.warn}`,
+                borderRadius: UI.radius,
+                boxShadow: UI.shadowSm,
+                padding: 13,
+              }}
+            >
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 {alert.severity === "critical" ? <ShieldAlert size={20} color={UI.danger} /> : <AlertTriangle size={20} color={UI.warnText} />}
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -251,7 +261,7 @@ export default function MaintenanceAlertsPage() {
                   <div style={{ color: UI.muted, fontSize: 13, marginTop: 3 }}>{alert.message}</div>
                   <div style={{ color: UI.muted, fontSize: 12, marginTop: 7 }}>Due {alert.dueDateISO || alert.startedDateISO || "—"}{alert.dueIsoWeek ? ` · ${alert.dueIsoWeek}` : ""}</div>
                 </div>
-                {alert.vehicleId ? <Link href={`/vehicle-edit/${encodeURIComponent(alert.vehicleId)}`} style={{ ...button, textDecoration: "none", fontSize: 12 }}>Open vehicle</Link> : null}
+                {alert.vehicleId ? <Button as={Link} href={`/vehicle-edit/${encodeURIComponent(alert.vehicleId)}`} variant="secondary" size="sm">Open vehicle</Button> : null}
               </div>
             </article>
           ))}
@@ -261,9 +271,9 @@ export default function MaintenanceAlertsPage() {
           <section style={{ ...surface, padding: 14, marginTop: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div><h2 style={{ margin: 0, fontSize: 18 }}>Notification recipients</h2><p style={{ color: UI.muted, fontSize: 13, margin: "5px 0 0" }}>Comma-separated email addresses. Urgent VOR messages are immediate; warnings are included in the weekday digest.</p></div>
-              <button type="button" onClick={saveSettings} disabled={savingSettings} style={button}><Save size={15} /> {savingSettings ? "Saving…" : "Save recipients"}</button>
+              <Button type="button" onClick={saveSettings} disabled={savingSettings}><Save size={15} /> {savingSettings ? "Saving…" : "Save recipients"}</Button>
             </div>
-            <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "13px 0" }}><input type="checkbox" checked={settings.enabled !== false} onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))} /><b>Maintenance alerts enabled</b></label>
+            <div style={{ margin: "13px 0" }}><Checkbox label="Maintenance alerts enabled" checked={settings.enabled !== false} onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))} /></div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
               {emailField("warningRecipients", "Warning recipients", "Receives the one-week PMI/brake warning through the digest.")}
               {emailField("immediateVorRecipients", "Urgent VOR recipients", "Receives an email immediately when automatic VOR starts.")}
@@ -279,7 +289,7 @@ export default function MaintenanceAlertsPage() {
             {review ? (
               <>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                  {[['Manual review', review.summary?.manualReviewCount], ['Invalid', review.summary?.invalidRecordCount], ['Due conflicts', review.summary?.dueDateConflictCount], ['Duplicates', review.summary?.duplicateGroupCount]].map(([label, value]) => <span key={label} style={{ padding: "6px 9px", borderRadius: 999, background: UI.brandSoft, border: `1px solid ${UI.brandBorder}`, fontSize: 12, fontWeight: 800 }}>{label}: {value || 0}</span>)}
+                  {[['Manual review', review.summary?.manualReviewCount], ['Invalid', review.summary?.invalidRecordCount], ['Due conflicts', review.summary?.dueDateConflictCount], ['Duplicates', review.summary?.duplicateGroupCount]].map(([label, value]) => <Badge key={label} variant="info">{label}: {value || 0}</Badge>)}
                 </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {(review.reconciliationPreview || []).map((item) => (
@@ -307,9 +317,9 @@ export default function MaintenanceAlertsPage() {
                       ["MOT/service preserved", review.futureScheduleReset?.summary?.preservedCoreRecordCount],
                       ["Future history to review", review.futureScheduleReset?.summary?.futureCompletionAnomalyCount],
                     ].map(([label, value]) => (
-                      <span key={label} style={{ padding: "6px 9px", borderRadius: 999, background: UI.brandSoft, border: `1px solid ${UI.brandBorder}`, fontSize: 12, fontWeight: 800 }}>
+                      <Badge key={label} variant="info">
                         {label}: {value || 0}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 8, marginBottom: 12 }}>
@@ -340,29 +350,29 @@ export default function MaintenanceAlertsPage() {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      <button type="button" onClick={exportFutureScheduleReset} disabled={applyingReset || !review.futureScheduleReset?.fingerprint} style={button}>
+                      <Button variant="secondary" type="button" onClick={exportFutureScheduleReset} disabled={applyingReset || !review.futureScheduleReset?.fingerprint}>
                         <Download size={15} /> Export dry-run JSON
-                      </button>
-                      <input
+                      </Button>
+                      <Input
                         aria-label="Future schedule reset confirmation"
                         value={resetConfirmation}
                         onChange={(event) => setResetConfirmation(event.target.value)}
                         placeholder={review.futureScheduleReset?.confirmationPhrase || "Confirmation phrase"}
                         disabled={!resetExported || applyingReset}
-                        style={{ minWidth: 320, flex: "1 1 320px", border: UI.border, borderRadius: UI.radiusSm, background: UI.card, color: UI.text, padding: "9px 10px" }}
+                        style={{ minWidth: 320, flex: "1 1 320px" }}
                       />
-                      <button
+                      <Button
                         type="button"
+                        variant="danger"
                         onClick={applyFutureScheduleReset}
                         disabled={
                           applyingReset ||
                           !resetExported ||
                           resetConfirmation !== review.futureScheduleReset?.confirmationPhrase
                         }
-                        style={{ ...button, background: UI.dangerSoft, color: UI.dangerText, border: `1px solid ${UI.danger}` }}
                       >
                         <ShieldCheck size={15} /> {applyingReset ? "Applying…" : "Archive later appointments"}
-                      </button>
+                      </Button>
                     </div>
                     <div style={{ color: resetExported ? UI.successText : UI.muted, fontSize: 12 }}>
                       {resetExported
@@ -389,9 +399,9 @@ export default function MaintenanceAlertsPage() {
                       ["Last-PMI markers repaired", review.futurePmiHistoryCleanup?.summary?.futureMarkerFieldCount],
                       ["Non-PMI history preserved", review.futurePmiHistoryCleanup?.summary?.preservedNonPmiAnomalyCount],
                     ].map(([label, value]) => (
-                      <span key={label} style={{ padding: "6px 9px", borderRadius: 999, background: UI.brandSoft, border: `1px solid ${UI.brandBorder}`, fontSize: 12, fontWeight: 800 }}>
+                      <Badge key={label} variant="info">
                         {label}: {value || 0}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                   <div style={{ marginBottom: 12 }}>
@@ -424,34 +434,34 @@ export default function MaintenanceAlertsPage() {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
                         onClick={exportFuturePmiHistoryCleanup}
                         disabled={applyingHistoryCleanup || !review.futurePmiHistoryCleanup?.fingerprint || !review.futurePmiHistoryCleanup?.summary?.historyEntryCount}
-                        style={button}
                       >
                         <Download size={15} /> Export PMI-history dry-run
-                      </button>
-                      <input
+                      </Button>
+                      <Input
                         aria-label="Future PMI history cleanup confirmation"
                         value={historyCleanupConfirmation}
                         onChange={(event) => setHistoryCleanupConfirmation(event.target.value)}
                         placeholder={review.futurePmiHistoryCleanup?.confirmationPhrase || "Confirmation phrase"}
                         disabled={!historyCleanupExported || applyingHistoryCleanup}
-                        style={{ minWidth: 320, flex: "1 1 320px", border: UI.border, borderRadius: UI.radiusSm, background: UI.card, color: UI.text, padding: "9px 10px" }}
+                        style={{ minWidth: 320, flex: "1 1 320px" }}
                       />
-                      <button
+                      <Button
                         type="button"
+                        variant="danger"
                         onClick={applyFuturePmiHistoryCleanup}
                         disabled={
                           applyingHistoryCleanup ||
                           !historyCleanupExported ||
                           historyCleanupConfirmation !== review.futurePmiHistoryCleanup?.confirmationPhrase
                         }
-                        style={{ ...button, background: UI.dangerSoft, color: UI.dangerText, border: `1px solid ${UI.danger}` }}
                       >
                         <ShieldCheck size={15} /> {applyingHistoryCleanup ? "Applying…" : "Remove false future PMI history"}
-                      </button>
+                      </Button>
                     </div>
                     <div style={{ color: historyCleanupExported ? UI.successText : UI.muted, fontSize: 12 }}>
                       {historyCleanupExported
@@ -472,7 +482,7 @@ export default function MaintenanceAlertsPage() {
             ) : <div style={{ color: UI.muted }}>{loading ? "Building the review…" : "Review unavailable."}</div>}
           </section>
         ) : null}
-      </main>
+      </PeopleFleetPage>
     </HeaderSidebarLayout>
   );
 }

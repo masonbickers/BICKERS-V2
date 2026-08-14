@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import { useState, useEffect } from "react";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs } from "firebase/firestore";
@@ -394,10 +395,10 @@ const bookedEmployees = allBookings
   const handleSubmit = async (status = "Confirmed") => {
 if (status !== "Enquiry") {
   if (useCustomDates) {
-    if (customDates.length === 0) return alert("Please select at least one date.");
+    if (customDates.length === 0) return systemDialogs.showSystemNotification("Please select at least one date.");
   } else {
-    if (!startDate) return alert("Please select a start date.");
-    if (isRange && !endDate) return alert("Please select an end date.");
+    if (!startDate) return systemDialogs.showSystemNotification("Please select a start date.");
+    if (isRange && !endDate) return systemDialogs.showSystemNotification("Please select an end date.");
   }
 }
 
@@ -417,7 +418,7 @@ if (status !== "Enquiry") {
 
     for (const employee of cleanedEmployees) {
       if (isEmployeeOnHoliday(employee)) {
-        alert(`${employee} is on holiday during the selected dates.`);
+        systemDialogs.showSystemNotification(`${employee} is on holiday during the selected dates.`);
         return;
       }
     }
@@ -483,7 +484,7 @@ if (quoteFile) {
       );
     });
   } catch (error) {
-    alert("Failed to upload Excel/CSV: " + error.message);
+    systemDialogs.showSystemNotification("Failed to upload Excel/CSV: " + error.message);
     return;
   }
 } else {
@@ -547,11 +548,11 @@ quoteUrl: quoteUrlToSave,
 
     try {
       await addDoc(collection(db, "bookings"), booking);
-      alert("Booking Saved ");
+      systemDialogs.showSystemNotification("Booking Saved ");
       router.push("/dashboard?saved=true");
     } catch (err) {
       console.error(" Error saving booking:", err);
-      alert("Failed to save booking \n\n" + err.message);
+      systemDialogs.showSystemNotification("Failed to save booking \n\n" + err.message);
     }
   };
 

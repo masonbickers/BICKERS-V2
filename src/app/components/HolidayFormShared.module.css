@@ -1,0 +1,185 @@
+.form,
+.fieldGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px 12px;
+  min-width: 0;
+}
+
+.fieldGrid {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.field,
+.full {
+  min-width: 0;
+}
+
+.field {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.dateGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.form label,
+.fieldGrid label {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.form select,
+.form input[type="date"],
+.form textarea,
+.fieldGrid select,
+.fieldGrid input[type="date"],
+.fieldGrid textarea {
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.form textarea,
+.fieldGrid textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.form select:focus,
+.form input[type="date"]:focus,
+.form textarea:focus,
+.fieldGrid select:focus,
+.fieldGrid input[type="date"]:focus,
+.fieldGrid textarea:focus {
+  border-color: var(--color-info);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-info) 16%, transparent);
+}
+
+.halfDayPanel {
+  display: grid;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-subtle);
+}
+
+.halfHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.halfTitle {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.halfHint {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+}
+
+.toggle {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text) !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.halfOptions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.notice {
+  grid-column: 1 / -1;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.statusLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.statusPill {
+  display: inline-flex;
+  padding: 2px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .form,
+  .fieldGrid,
+  .dateGrid,
+  .halfOptions {
+    grid-template-columns: 1fr;
+  }
+
+  .full,
+  .notice {
+    grid-column: 1;
+  }
+
+  .halfHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

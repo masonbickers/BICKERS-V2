@@ -1,4 +1,4 @@
-// Generated from outputs/quote-template-extract on 2026-06-15.
+// Generated from OneDrive_2026-08-10.zip on 2026-08-10.
 export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
   {
     "id": "horse-rig-2026",
@@ -152,11 +152,27 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "auto",
         "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 42
       },
       {
         "section": "Travel Charges",
@@ -357,6 +373,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "",
         "totalMode": "tbc",
         "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 40
       },
       {
         "section": "Travel Charges",
@@ -576,11 +608,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "18.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "28.00",
         "totalMode": "tbc",
         "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 43
       },
       {
         "section": "Travel Charges",
@@ -768,11 +824,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 42
       },
       {
         "section": "Travel Charges",
@@ -960,11 +1040,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
         "totalMode": "tbc",
         "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 40
       },
       {
         "section": "Travel Charges",
@@ -1176,6 +1280,30 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "auto",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
@@ -1373,6 +1501,30 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "30.00",
         "totalMode": "auto",
         "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "auto",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -1584,11 +1736,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 42
       },
       {
         "section": "Travel Charges",
@@ -1800,11 +1976,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 43
       },
       {
         "section": "Travel Charges",
@@ -1992,11 +2192,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 40
       },
       {
         "section": "Travel Charges",
@@ -2053,14 +2277,6 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "95.00",
         "totalMode": "tbc",
         "sourceRow": 15
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "0.0%",
-        "totalMode": "auto",
-        "sourceRow": 16
       },
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
@@ -2176,11 +2392,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
         "totalMode": "tbc",
         "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 36
       },
       {
         "section": "Travel Charges",
@@ -2392,11 +2632,27 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 41
       },
       {
         "section": "Travel Charges",
@@ -2552,6 +2808,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge Per Vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -2565,6 +2829,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 37
       },
       {
         "section": "Travel Charges",
@@ -2637,14 +2917,6 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "",
         "totalMode": "tbc",
         "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 18
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -2760,11 +3032,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 40
       },
       {
         "section": "Travel Charges",
@@ -2957,6 +3253,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "30.00",
         "totalMode": "auto",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -3176,6 +3488,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnights",
         "qty": "",
         "unitPrice": "35.00",
@@ -3269,14 +3597,6 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "",
         "totalMode": "auto",
         "sourceRow": 19
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "0.00%",
-        "totalMode": "auto",
-        "sourceRow": 20
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -3392,11 +3712,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 41
       },
       {
         "section": "Travel Charges",
@@ -3485,14 +3829,6 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "95.00",
         "totalMode": "tbc",
         "sourceRow": 19
-      },
-      {
-        "section": "Pre-Rigging & Additional Equipment",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "0.00%",
-        "totalMode": "auto",
-        "sourceRow": 21
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -3592,6 +3928,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -3600,11 +3944,27 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance / Per Diem",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 40
       },
       {
         "section": "Travel Charges",
@@ -3808,11 +4168,27 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 41
       },
       {
         "section": "Travel Charges",
@@ -4024,11 +4400,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 43
       },
       {
         "section": "Travel Charges",
@@ -4184,6 +4584,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge Per Vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -4197,6 +4605,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 37
       },
       {
         "section": "Travel Charges",
@@ -4360,6 +4784,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge Per Vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -4373,6 +4805,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 37
       },
       {
         "section": "Travel Charges",
@@ -4584,11 +5032,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
         "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 42
       },
       {
         "section": "Travel Charges",
@@ -4617,16 +5089,656 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
     ]
   },
   {
-    "id": "low-loader-no-1-or-no-2-london-2026",
-    "file": "Low Loader No.1 OR No.2 London - 2026.xls",
-    "serviceDescription": "Artic Low Loader No1 OR No.2 Elite Tracking Trailer - 2 x Man Crew",
+    "id": "q-globetrotter-elite-2026",
+    "file": "Q Globetrotter Elite 2026.xls",
+    "serviceDescription": "Globetrotter Heavy Duty Elite Tracking Vehicle - 2 Man Crew Required Full Test Maybe Required for using the Heavy Duty \"A\" Frame",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Globetrotter Heavy Duty Elite Tracking Vehicle",
+        "qty": "",
+        "unitPrice": "1200.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Universal Heavy Duty HGV \"A\" Frame",
+        "qty": "",
+        "unitPrice": "260.00",
+        "totalMode": "tbc",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "5K Generator (Built in Generator) Including Fuel",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Rigging of A Frame Brackets - TBC",
+        "qty": "",
+        "unitPrice": "650.00",
+        "totalMode": "tbc",
+        "sourceRow": 16
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Crane Mounting Kit",
+        "qty": "",
+        "unitPrice": "175.00",
+        "totalMode": "tbc",
+        "sourceRow": 17
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "tbc",
+        "sourceRow": 18
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "auto",
+        "sourceRow": 19
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 28
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 29
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
+        "qty": "",
+        "unitPrice": "1.55",
+        "totalMode": "auto",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "",
+        "unitPrice": "130.00",
+        "totalMode": "auto",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "",
+        "unitPrice": "35.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 43
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 44
+      }
+    ]
+  },
+  {
+    "id": "q-heavy-duty-spec-lift-elite-2026",
+    "file": "Q Heavy Duty Spec Lift Elite 2026.xls",
+    "serviceDescription": "Heavy Duty Spec lift- 2 Man Crew",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Heavy Duty Tracking / Spec Lift",
+        "qty": "",
+        "unitPrice": "1200.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "5K Generator",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "tbc",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "auto",
+        "sourceRow": 16
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (Call to Wrap)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 19
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 20
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 Man Crew",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
+        "qty": "",
+        "unitPrice": "1.55",
+        "totalMode": "auto",
+        "sourceRow": 29
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Support Vehicle",
+        "qty": "",
+        "unitPrice": "175.00",
+        "totalMode": "auto",
+        "sourceRow": 30
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Support Vehicle Mileage",
+        "qty": "",
+        "unitPrice": "1.25",
+        "totalMode": "auto",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "auto",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnights (Meal Allowance) per man per night",
+        "qty": "",
+        "unitPrice": "35.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      }
+    ]
+  },
+  {
+    "id": "jwm-low-loader-working-in-dublin-area-2026",
+    "file": "JWM Low Loader - Working in Dublin Area - 2026.xls",
+    "serviceDescription": "JWM Belfast based Low Loader - 2 Man Crew",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "JWM Low Loader Tracking Trailer",
+        "qty": "1",
+        "unitPrice": "1075.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "6K Generator (Built in Generator) - Charged if used",
+        "qty": "1",
+        "unitPrice": "180.00",
+        "totalMode": "auto",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit (18 Tubes and Fittings)",
+        "qty": "1",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "tbc",
+        "sourceRow": 16
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "1",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times prior to 07.00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 1 x MAN CREW",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 28
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage - Belfast to Wicklow & Return",
+        "qty": "230",
+        "unitPrice": "1.55",
+        "totalMode": "auto",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "1.5",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "2",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "2",
+        "unitPrice": "35.00",
+        "totalMode": "auto",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Road Tolls - Belfast to Dublin and return",
+        "qty": "1",
+        "unitPrice": "",
+        "totalMode": "auto",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      }
+    ]
+  },
+  {
+    "id": "low-loader-no-1-london-2026",
+    "file": "Low Loader No.1 London - 2026.xls",
+    "serviceDescription": "Artic Low Loader No1 Elite Tracking Trailer - 2 x Man Crew",
     "defaultBickersContact": "",
     "lineItems": [
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Artic Low Loader No1 Elite Tracking Trailer",
         "qty": "1",
-        "unitPrice": "1,075.00",
+        "unitPrice": "1075.00",
         "totalMode": "auto",
         "sourceRow": 13
       },
@@ -4651,16 +5763,8 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "description": "Pre-Rigging & Additional Equipment",
         "qty": "",
         "unitPrice": "",
-        "totalMode": "tbc",
-        "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
         "totalMode": "auto",
-        "sourceRow": 18
+        "sourceRow": 16
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -4723,7 +5827,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "description": "Recce Charge per man",
         "qty": "",
         "unitPrice": "585.00",
-        "totalMode": "tbc",
+        "totalMode": "auto",
         "sourceRow": 28
       },
       {
@@ -4760,11 +5864,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "1",
         "unitPrice": "30.00",
         "totalMode": "auto",
         "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 38
       },
       {
         "section": "Travel Charges",
@@ -4801,16 +5929,16 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
     ]
   },
   {
-    "id": "low-loader-no-2-2026",
-    "file": "Low Loader No.2 - 2026.xls",
-    "serviceDescription": "Artic Low Loader No.2 Elite Tracking Trailer",
+    "id": "low-loader-no-1-or-no-2-2026",
+    "file": "Low Loader No.1 OR No.2 - 2026.xls",
+    "serviceDescription": "Artic Low Loader No.1 OR No.2 Elite Tracking Trailer",
     "defaultBickersContact": "",
     "lineItems": [
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Artic Low Loader No.2 Elite Tracking Trailer",
+        "description": "Artic Low Loader No1 OR No.2 Elite Tracking Trailer",
         "qty": "",
-        "unitPrice": "1,075.00",
+        "unitPrice": "1075.00",
         "totalMode": "auto",
         "sourceRow": 13
       },
@@ -4834,17 +5962,9 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Pre Rigging and Prep Work",
         "qty": "",
-        "unitPrice": "",
+        "unitPrice": "95.00",
         "totalMode": "tbc",
         "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 18
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -4944,6 +6064,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel and Per Diem charged if Tracking Vehicle is pre rigged or left rigged between Shoot Days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -4957,6 +6085,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -4976,7 +6120,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside London area)",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
         "qty": "",
         "unitPrice": "58.50",
         "totalMode": "tbc",
@@ -4993,16 +6137,16 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
     ]
   },
   {
-    "id": "low-loader-no-2-london-2026",
-    "file": "Low Loader No.2 London - 2026.xls",
-    "serviceDescription": "Artic Low Loader No.2 Elite Tracking Trailer - 2 x Man Crew",
+    "id": "low-loader-no-1-or-no-2-london-2026",
+    "file": "Low Loader No.1 OR No.2 London - 2026.xls",
+    "serviceDescription": "Artic Low Loader No1 OR No.2 Elite Tracking Trailer - 2 x Man Crew",
     "defaultBickersContact": "",
     "lineItems": [
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Artic Low Loader No.2 Elite Tracking Trailer",
+        "description": "Artic Low Loader No1 Elite Tracking Trailer",
         "qty": "1",
-        "unitPrice": "1,075.00",
+        "unitPrice": "1075.00",
         "totalMode": "auto",
         "sourceRow": 13
       },
@@ -5029,14 +6173,6 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "",
         "totalMode": "tbc",
         "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 18
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -5136,11 +6272,443 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "1",
         "unitPrice": "30.00",
         "totalMode": "auto",
         "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "",
+        "unitPrice": "35.00",
+        "totalMode": "tbc",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      }
+    ]
+  },
+  {
+    "id": "low-loader-no-2-2026",
+    "file": "Low Loader No.2 - 2026.xls",
+    "serviceDescription": "Artic Low Loader No.2 Elite Tracking Trailer",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Artic Low Loader No.2 Elite Tracking Trailer",
+        "qty": "",
+        "unitPrice": "1075.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "8K Generator (Built in Generator) - Charged if used",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit (18 Tubes and Fittings)",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "tbc",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre Rigging and Prep Work",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "tbc",
+        "sourceRow": 16
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (Call to Wrap)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 28
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
+        "qty": "",
+        "unitPrice": "1.55",
+        "totalMode": "auto",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel and Per Diem charged if Tracking Vehicle is pre rigged or left rigged between Shoot Days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "auto",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "",
+        "unitPrice": "35.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 43
+      }
+    ]
+  },
+  {
+    "id": "low-loader-no-2-london-2026",
+    "file": "Low Loader No.2 London - 2026.xls",
+    "serviceDescription": "Artic Low Loader No.2 Elite Tracking Trailer - 2 x Man Crew",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Artic Low Loader No.2 Elite Tracking Trailer",
+        "qty": "1",
+        "unitPrice": "1075.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "8K Generator (Built in Generator) - Charged if used",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit (18 Tubes and Fittings)",
+        "qty": "1",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "tbc",
+        "sourceRow": 16
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "2",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times prior to 07.00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 28
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
+        "qty": "95",
+        "unitPrice": "1.55",
+        "totalMode": "auto",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "1",
+        "unitPrice": "30.00",
+        "totalMode": "auto",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 38
       },
       {
         "section": "Travel Charges",
@@ -5186,7 +6754,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Artic Low Loader No1 Elite Tracking Trailer",
         "qty": "",
-        "unitPrice": "1,125.00",
+        "unitPrice": "1125.00",
         "totalMode": "auto",
         "sourceRow": 13
       },
@@ -5213,14 +6781,6 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "95.00",
         "totalMode": "tbc",
         "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 18
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -5320,6 +6880,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel and Per Diem charged if Tracking Vehicle is pre rigged or left rigged between Shoot Days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -5333,6 +6901,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -5378,7 +6962,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Artic Low Loader No1 Elite Tracking Trailer",
         "qty": "",
-        "unitPrice": "1,075.00",
+        "unitPrice": "1075.00",
         "totalMode": "auto",
         "sourceRow": 13
       },
@@ -5405,14 +6989,6 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "95.00",
         "totalMode": "tbc",
         "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 18
       },
       {
         "section": "Labour Rates - Daily Rates",
@@ -5512,587 +7088,51 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge per vehicle",
+        "description": "Hotel and Per Diem charged if Tracking Vehicle is pre rigged or left rigged between Shoot Days",
         "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "auto",
-        "sourceRow": 36
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Clean air zone charge where applicable",
-        "qty": "",
-        "unitPrice": "TBC",
-        "totalMode": "tbc",
-        "sourceRow": 37
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Overnight Meal Allowance per man per night",
-        "qty": "",
-        "unitPrice": "35.00",
-        "totalMode": "tbc",
-        "sourceRow": 40
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Breakfast/Lunch not Supplied on location per man",
-        "qty": "",
-        "unitPrice": "22.00",
-        "totalMode": "tbc",
-        "sourceRow": 41
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 42
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Mileage",
-        "qty": "",
-        "unitPrice": "0.68",
-        "totalMode": "tbc",
-        "sourceRow": 43
-      }
-    ]
-  },
-  {
-    "id": "low-loader-no-1-london-2026",
-    "file": "Low Loader No.1 London - 2026.xls",
-    "serviceDescription": "Artic Low Loader No1 Elite Tracking Trailer - 2 x Man Crew",
-    "defaultBickersContact": "",
-    "lineItems": [
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Artic Low Loader No1 Elite Tracking Trailer",
-        "qty": "1",
-        "unitPrice": "1,075.00",
-        "totalMode": "auto",
-        "sourceRow": 13
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "8K Generator (Built in Generator) - Charged if used",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "tbc",
-        "sourceRow": 14
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Basic Riggers Scaffolding Kit (18 Tubes and Fittings)",
-        "qty": "1",
-        "unitPrice": "95.00",
-        "totalMode": "auto",
-        "sourceRow": 15
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Pre-Rigging & Additional Equipment",
-        "qty": "",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 18
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
-        "qty": "2",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 21
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times prior to 07.00)",
-        "qty": "",
-        "unitPrice": "87.75",
-        "totalMode": "tbc",
-        "sourceRow": 22
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Sunday and Bank Holiday Work charged at Double Time",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 23
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Turnaround Day After Night Work Chargeable from 23:59",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 25
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge applies for Saturday working",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 26
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 27
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Recce Charge per man",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 28
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
-        "qty": "95",
-        "unitPrice": "1.55",
-        "totalMode": "auto",
-        "sourceRow": 31
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Days",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 32
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 33
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 34
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge per vehicle",
-        "qty": "1",
-        "unitPrice": "30.00",
-        "totalMode": "auto",
-        "sourceRow": 36
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Overnight Meal Allowance per man per night",
-        "qty": "",
-        "unitPrice": "35.00",
-        "totalMode": "tbc",
-        "sourceRow": 39
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Breakfast/Lunch not Supplied on location per man",
-        "qty": "",
-        "unitPrice": "22.00",
-        "totalMode": "tbc",
-        "sourceRow": 40
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 41
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
-        "qty": "",
-        "unitPrice": "0.68",
-        "totalMode": "tbc",
-        "sourceRow": 42
-      }
-    ]
-  },
-  {
-    "id": "low-loader-no-1-or-no-2-2026",
-    "file": "Low Loader No.1 OR No.2 - 2026.xls",
-    "serviceDescription": "Artic Low Loader No.1 OR No.2 Elite Tracking Trailer",
-    "defaultBickersContact": "",
-    "lineItems": [
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Artic Low Loader No1 OR No.2 Elite Tracking Trailer",
-        "qty": "",
-        "unitPrice": "1,075.00",
-        "totalMode": "auto",
-        "sourceRow": 13
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "8K Generator (Built in Generator) - Charged if used",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "tbc",
-        "sourceRow": 14
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Basic Riggers Scaffolding Kit (18 Tubes and Fittings)",
-        "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "tbc",
-        "sourceRow": 15
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Pre Rigging and Prep Work",
-        "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "tbc",
-        "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Discount",
-        "qty": "Less",
-        "unitPrice": "",
-        "totalMode": "auto",
-        "sourceRow": 18
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "To Services of Driver/Technician per 10hr Cont. Day (Call to Wrap)",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 21
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
-        "qty": "",
-        "unitPrice": "87.75",
-        "totalMode": "tbc",
-        "sourceRow": 22
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Turnaround Day After Night Work Chargeable from 23:59",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 23
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Sunday and Bank Holiday Work charged at Double Time",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 25
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge applies for Saturday working",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 26
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 27
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Recce Charge per man",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 28
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
-        "qty": "",
-        "unitPrice": "1.55",
-        "totalMode": "auto",
-        "sourceRow": 31
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Days",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 32
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 33
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 34
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge per vehicle",
-        "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "auto",
-        "sourceRow": 36
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Clean air zone charge where applicable",
-        "qty": "",
-        "unitPrice": "TBC",
-        "totalMode": "tbc",
-        "sourceRow": 37
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Overnight Meal Allowance per man per night",
-        "qty": "",
-        "unitPrice": "35.00",
-        "totalMode": "tbc",
-        "sourceRow": 40
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Breakfast/Lunch not Supplied on location per man",
-        "qty": "",
-        "unitPrice": "22.00",
-        "totalMode": "tbc",
-        "sourceRow": 41
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 42
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Mileage",
-        "qty": "",
-        "unitPrice": "0.68",
-        "totalMode": "tbc",
-        "sourceRow": 43
-      }
-    ]
-  },
-  {
-    "id": "pod-car-hire-2026",
-    "file": "Pod Car Hire 2026.xls",
-    "serviceDescription": "Pod Car / Top Driver Car",
-    "defaultBickersContact": "",
-    "lineItems": [
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Hire of Existing Pod Car Rig per day (White Insignia, Audi Q3, Landrover Discovery)",
-        "qty": "",
-        "unitPrice": "1,100.00",
-        "totalMode": "auto",
-        "sourceRow": 13
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Pre-Rigging, Prep and loading",
-        "qty": "",
-        "unitPrice": "",
-        "totalMode": "tbc",
-        "sourceRow": 14
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Precision Pod Car Driver per 10hr Cont. Day - Below Terms Apply to this Drivers rate",
-        "qty": "",
-        "unitPrice": "790.00",
-        "totalMode": "tbc",
-        "sourceRow": 18
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "To Services of Technician per 10hr Cont. Day (call to Wrap)",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 19
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
-        "qty": "",
-        "unitPrice": "87.75",
-        "totalMode": "tbc",
-        "sourceRow": 20
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Sunday and Bank Holiday Work charged at Double Time",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 21
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Turnaround Day After Night Work Chargeable from 23:59",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 22
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 23
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Supplementary charge applies for Saturday working",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 25
-      },
-      {
-        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
-        "description": "Recce Charge per man",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 26
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Transport Vehicle with Basic Hand Tools for Mechanical Back up",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 29
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
-        "qty": "",
-        "unitPrice": "1.55",
-        "totalMode": "auto",
-        "sourceRow": 30
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Days",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 31
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 32
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 33
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London Congestion Charge-ULEZ per vehicle",
-        "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "auto",
-        "sourceRow": 34
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Clean air zone charge where applicable",
-        "qty": "",
-        "unitPrice": "TBC",
+        "unitPrice": "150.00",
         "totalMode": "tbc",
         "sourceRow": 35
       },
       {
         "section": "Travel Charges",
-        "description": "Overnight Meal Allowance",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "auto",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
-        "sourceRow": 38
+        "sourceRow": 40
       },
       {
         "section": "Travel Charges",
@@ -6100,15 +7140,15 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "qty": "",
         "unitPrice": "22.00",
         "totalMode": "tbc",
-        "sourceRow": 39
+        "sourceRow": 41
       },
       {
         "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
         "qty": "",
         "unitPrice": "58.50",
         "totalMode": "tbc",
-        "sourceRow": 40
+        "sourceRow": 42
       },
       {
         "section": "Travel Charges",
@@ -6116,7 +7156,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "qty": "",
         "unitPrice": "0.68",
         "totalMode": "tbc",
-        "sourceRow": 41
+        "sourceRow": 43
       }
     ]
   },
@@ -6130,7 +7170,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Bespoke POD Car / Top Driver Build - Estimate - Including Pod Equipment Hire",
         "qty": "",
-        "unitPrice": "11,000.00",
+        "unitPrice": "11000.00",
         "totalMode": "auto",
         "sourceRow": 14
       },
@@ -6272,6 +7312,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
@@ -6305,42 +7361,178 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
     ]
   },
   {
-    "id": "q-tracking-vehicle-recce-2026",
-    "file": "Q Tracking Vehicle Recce 2026.xls",
-    "serviceDescription": "Tracking Vehicle Recce",
+    "id": "pod-car-hire-2026",
+    "file": "Pod Car Hire 2026.xls",
+    "serviceDescription": "Pod Car / Top Driver Car",
     "defaultBickersContact": "",
     "lineItems": [
       {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Recce Charge per man",
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Hire of Existing Pod Car Rig per day (White Insignia, Audi Q3, Landrover Discovery)",
         "qty": "",
-        "unitPrice": "585.00",
+        "unitPrice": "1100.00",
         "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging, Prep and loading",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "tbc",
         "sourceRow": 14
       },
       {
-        "section": "Travel Charges",
-        "description": "Taxis/Ubers",
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Precision Pod Car Driver per 10hr Cont. Day - Below Terms Apply to this Drivers rate",
         "qty": "",
-        "unitPrice": "TBC",
+        "unitPrice": "790.00",
         "totalMode": "tbc",
+        "sourceRow": 18
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "To Services of Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
         "sourceRow": 19
       },
       {
-        "section": "Travel Charges",
-        "description": "Train Fair - Charged back at Cost",
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
         "qty": "",
-        "unitPrice": "TBC",
+        "unitPrice": "87.75",
         "totalMode": "tbc",
         "sourceRow": 20
       },
       {
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates - 2 man Crew TBC",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
         "section": "Travel Charges",
-        "description": "Overnight Meal",
+        "description": "Transport Vehicle with Basic Hand Tools for Mechanical Back up",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 29
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage",
+        "qty": "",
+        "unitPrice": "1.55",
+        "totalMode": "auto",
+        "sourceRow": 30
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion Charge-ULEZ per vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
-        "sourceRow": 21
+        "sourceRow": 38
       },
       {
         "section": "Travel Charges",
@@ -6348,39 +7540,23 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "qty": "",
         "unitPrice": "22.00",
         "totalMode": "tbc",
-        "sourceRow": 22
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge Per Vehicle",
-        "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "tbc",
-        "sourceRow": 23
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Travel Day (When recce is outside the London area)",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Hours Travel Time (When recce is outside the London area)",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area",
         "qty": "",
         "unitPrice": "58.50",
         "totalMode": "tbc",
-        "sourceRow": 25
+        "sourceRow": 40
       },
       {
         "section": "Travel Charges",
-        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "description": "Recce Mileage",
         "qty": "",
         "unitPrice": "0.68",
-        "totalMode": "auto",
-        "sourceRow": 26
+        "totalMode": "tbc",
+        "sourceRow": 41
       }
     ]
   },
@@ -6400,6 +7576,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 17
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 18
+      },
+      {
+        "section": "Travel Charges",
         "description": "Taxis/Ubers",
         "qty": "",
         "unitPrice": "TBC",
@@ -6465,778 +7657,58 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
     ]
   },
   {
-    "id": "q-trojan-electric-2026",
-    "file": "Q Trojan Electric 2026.xlsx",
-    "serviceDescription": "Trojan Elite Electric Tracking Vehicle",
+    "id": "q-tracking-vehicle-recce-2026",
+    "file": "Q Tracking Vehicle Recce 2026.xls",
+    "serviceDescription": "Tracking Vehicle Recce",
     "defaultBickersContact": "",
     "lineItems": [
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Trojan Electric Tracking Vehicle",
-        "qty": "",
-        "unitPrice": "630.00",
-        "totalMode": "auto",
-        "sourceRow": 13
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "tbc",
-        "sourceRow": 14
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Basic Riggers Scaffolding Kit",
-        "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "auto",
-        "sourceRow": 15
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Pre-Rigging & Additional Equipment",
-        "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "tbc",
-        "sourceRow": 16
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 20
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
-        "qty": "",
-        "unitPrice": "87.75",
-        "totalMode": "tbc",
-        "sourceRow": 21
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Sunday and Bank Holiday Work charged at Double Time",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 22
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Turnaround Day After Night Work Chargeable from 23:59",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 23
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge applies for Saturday working",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 25
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 26
-      },
       {
         "section": "Labour Rates - Daily Rates",
         "description": "Recce Charge per man",
         "qty": "",
         "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 27
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Transport Vehicle",
-        "qty": "",
-        "unitPrice": "180.00",
         "totalMode": "auto",
-        "sourceRow": 30
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Transport Vehicle Mileage (Miles)",
-        "qty": "",
-        "unitPrice": "1.25",
-        "totalMode": "auto",
-        "sourceRow": 31
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Days",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 32
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 33
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 34
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge per vehicle",
-        "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "auto",
-        "sourceRow": 36
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Clean air zone charge where applicable",
-        "qty": "",
-        "unitPrice": "TBC",
-        "totalMode": "tbc",
-        "sourceRow": 37
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Overnight Meal Allowance per man per night",
-        "qty": "",
-        "unitPrice": "35.00",
-        "totalMode": "tbc",
-        "sourceRow": 40
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Breakfast/Lunch not Supplied on location per man",
-        "qty": "",
-        "unitPrice": "22.00",
-        "totalMode": "tbc",
-        "sourceRow": 41
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 42
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
-        "qty": "",
-        "unitPrice": "0.68",
-        "totalMode": "tbc",
-        "sourceRow": 43
-      }
-    ]
-  },
-  {
-    "id": "q-trojan-electric-bicycle-banking-rig-2026",
-    "file": "Q Trojan Electric & Bicycle Banking-Rig 2026.xlsx",
-    "serviceDescription": "Trojan Elite Electric Tracking Vehicle & Bicycle Banking-Rig or Mini Low-Loader - 2 x Man Crew 2 x Transport Vehicles Required",
-    "defaultBickersContact": "",
-    "lineItems": [
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Trojan Electric Tracking Vehicle",
-        "qty": "",
-        "unitPrice": "630.00",
-        "totalMode": "auto",
-        "sourceRow": 13
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "tbc",
         "sourceRow": 14
       },
       {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Bicycle Mini Low-Loader",
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
         "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 15
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Bicycle Hydraulic Banking-Rig",
-        "qty": "",
-        "unitPrice": "600.00",
-        "totalMode": "tbc",
-        "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Fork Attachments",
-        "qty": "",
-        "unitPrice": "288.00",
-        "totalMode": "tbc",
+        "unitPrice": "",
+        "totalMode": "production",
         "sourceRow": 17
       },
       {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Basic Riggers Scaffolding Kit",
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
         "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "auto",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
         "sourceRow": 18
       },
       {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Pre-Rigging & Additional Equipment",
+        "section": "Travel Charges",
+        "description": "Taxis/Ubers",
         "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "auto",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
         "sourceRow": 19
       },
       {
-        "section": "Labour Rates - Daily Rates",
-        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 23
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
-        "qty": "",
-        "unitPrice": "87.75",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Sunday and Bank Holiday Work charged at Double Time",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 25
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Turnaround Day After Night Work Chargeable from 23:59",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 26
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 27
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge applies for Saturday working",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 28
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 29
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Recce Charge per man",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 30
-      },
-      {
         "section": "Travel Charges",
-        "description": "Transport Vehicle",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "auto",
-        "sourceRow": 34
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Transport Vehicle Mileage (Miles)",
-        "qty": "",
-        "unitPrice": "1.25",
-        "totalMode": "auto",
-        "sourceRow": 36
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Days",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 37
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 38
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 39
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge per vehicle",
-        "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "tbc",
-        "sourceRow": 41
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Clean air zone charge where applicable",
+        "description": "Train Fair - Charged back at Cost",
         "qty": "",
         "unitPrice": "TBC",
         "totalMode": "tbc",
-        "sourceRow": 42
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Overnight Meal Allowance per man per night",
-        "qty": "",
-        "unitPrice": "35.00",
-        "totalMode": "auto",
-        "sourceRow": 45
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Breakfast/Lunch not Supplied on location per man",
-        "qty": "",
-        "unitPrice": "22.00",
-        "totalMode": "auto",
-        "sourceRow": 46
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 47
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
-        "qty": "",
-        "unitPrice": "0.68",
-        "totalMode": "tbc",
-        "sourceRow": 48
-      }
-    ]
-  },
-  {
-    "id": "q-trojan-electric-and-motorcycle-banking-rig-or-mini-low-loader-2026",
-    "file": "Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx",
-    "serviceDescription": "Trojan Elite Electric Tracking Vehicle With Mini Low-Loader - 2 x Man Crew. Additional Transport Vehicles Required",
-    "defaultBickersContact": "",
-    "lineItems": [
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Trojan Electric Tracking Vehicle",
-        "qty": "",
-        "unitPrice": "630.00",
-        "totalMode": "auto",
-        "sourceRow": 13
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Motorcycle Mini Low-Loader",
-        "qty": "",
-        "unitPrice": "225.00",
-        "totalMode": "tbc",
-        "sourceRow": 14
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "tbc",
-        "sourceRow": 15
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Basic Riggers Scaffolding Kit",
-        "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "tbc",
-        "sourceRow": 16
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Pre-Rigging & Additional Equipment",
-        "qty": "",
-        "unitPrice": "",
-        "totalMode": "tbc",
-        "sourceRow": 17
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
-        "sourceRow": 21
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
-        "qty": "",
-        "unitPrice": "87.75",
-        "totalMode": "tbc",
-        "sourceRow": 22
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "Sunday and Bank Holiday Work charged at Double Time",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 23
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "Turnaround Day After Night Work Chargeable from 23:59",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 25
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "Supplementary charge applies for Saturday working",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 26
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 27
-      },
-      {
-        "section": "Labour Rates - Daily Rates (2 Man Crew)",
-        "description": "Recce Charge per man",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 28
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Transport Vehicle",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "auto",
-        "sourceRow": 32
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Transport Vehicle Mileage (Miles)",
-        "qty": "",
-        "unitPrice": "1.25",
-        "totalMode": "auto",
-        "sourceRow": 34
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Days",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 35
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 36
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "tbc",
-        "sourceRow": 37
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge per vehicle (Recce & Shoot)",
-        "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "tbc",
-        "sourceRow": 39
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Clean air zone charge where applicable",
-        "qty": "",
-        "unitPrice": "TBC",
-        "totalMode": "tbc",
-        "sourceRow": 40
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Overnight Meal Allowance per man per night",
-        "qty": "",
-        "unitPrice": "35.00",
-        "totalMode": "tbc",
-        "sourceRow": 43
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Breakfast/Lunch not Supplied on location per man",
-        "qty": "",
-        "unitPrice": "22.00",
-        "totalMode": "tbc",
-        "sourceRow": 44
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 45
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
-        "qty": "",
-        "unitPrice": "0.68",
-        "totalMode": "tbc",
-        "sourceRow": 46
-      }
-    ]
-  },
-  {
-    "id": "q-twizzy-electric-2026",
-    "file": "Q Twizzy Electric 2026.xlsx",
-    "serviceDescription": "Twizzy Electric Tracking Vehicle",
-    "defaultBickersContact": "",
-    "lineItems": [
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Twizzy Electric Tracking Vehicle",
-        "qty": "",
-        "unitPrice": "630.00",
-        "totalMode": "auto",
-        "sourceRow": 13
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "tbc",
-        "sourceRow": 14
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Basic Riggers Scaffolding Kit",
-        "qty": "",
-        "unitPrice": "95.00",
-        "totalMode": "auto",
-        "sourceRow": 15
-      },
-      {
-        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
-        "description": "Pre-Rigging & Additional Equipment",
-        "qty": "",
-        "unitPrice": "",
-        "totalMode": "tbc",
-        "sourceRow": 16
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "auto",
         "sourceRow": 20
       },
       {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
-        "qty": "",
-        "unitPrice": "87.75",
-        "totalMode": "tbc",
-        "sourceRow": 21
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Sunday and Bank Holiday Work charged at Double Time",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 22
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Turnaround Day After Night Work Chargeable from 23:59",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 23
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 24
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Supplementary charge applies for Saturday working",
-        "qty": "",
-        "unitPrice": "292.50",
-        "totalMode": "tbc",
-        "sourceRow": 25
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 26
-      },
-      {
-        "section": "Labour Rates - Daily Rates",
-        "description": "Recce Charge per man",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 27
-      },
-      {
         "section": "Travel Charges",
-        "description": "Transport Vehicle",
-        "qty": "",
-        "unitPrice": "180.00",
-        "totalMode": "auto",
-        "sourceRow": 30
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Transport Vehicle Mileage (Miles)",
-        "qty": "",
-        "unitPrice": "1.25",
-        "totalMode": "auto",
-        "sourceRow": 31
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Days",
-        "qty": "",
-        "unitPrice": "585.00",
-        "totalMode": "tbc",
-        "sourceRow": 32
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
-        "qty": "",
-        "unitPrice": "58.50",
-        "totalMode": "tbc",
-        "sourceRow": 33
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
-        "unitPrice": "185.00",
-        "totalMode": "auto",
-        "sourceRow": 34
-      },
-      {
-        "section": "Travel Charges",
-        "description": "London Congestion-ULEZ Charge per vehicle",
-        "qty": "",
-        "unitPrice": "30.00",
-        "totalMode": "auto",
-        "sourceRow": 36
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Clean air zone charge where applicable",
-        "qty": "",
-        "unitPrice": "TBC",
-        "totalMode": "tbc",
-        "sourceRow": 37
-      },
-      {
-        "section": "Travel Charges",
-        "description": "Overnight Meal Allowance per man per night",
+        "description": "Overnight Meal",
         "qty": "",
         "unitPrice": "35.00",
         "totalMode": "tbc",
-        "sourceRow": 40
+        "sourceRow": 21
       },
       {
         "section": "Travel Charges",
@@ -7244,23 +7716,39 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "qty": "",
         "unitPrice": "22.00",
         "totalMode": "tbc",
-        "sourceRow": 41
+        "sourceRow": 22
       },
       {
         "section": "Travel Charges",
-        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "description": "London Congestion-ULEZ Charge Per Vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Hours Travel Time (When recce is outside the London area)",
         "qty": "",
         "unitPrice": "58.50",
         "totalMode": "tbc",
-        "sourceRow": 42
+        "sourceRow": 25
       },
       {
         "section": "Travel Charges",
         "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
         "qty": "",
         "unitPrice": "0.68",
-        "totalMode": "tbc",
-        "sourceRow": 43
+        "totalMode": "auto",
+        "sourceRow": 26
       }
     ]
   },
@@ -7408,6 +7896,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "1",
         "unitPrice": "30.00",
@@ -7421,6 +7917,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -7600,6 +8112,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "1",
         "unitPrice": "30.00",
@@ -7613,6 +8133,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -7715,7 +8251,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "description": "Turnaround Day After Night Work Chargeable from 23:59",
         "qty": "",
         "unitPrice": "585.00",
-        "totalMode": "tbc",
+        "totalMode": "auto",
         "sourceRow": 23
       },
       {
@@ -7787,8 +8323,16 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "description": "London and Home Counties Fixed Travel Charge",
         "qty": "",
         "unitPrice": "185.00",
-        "totalMode": "tbc",
+        "totalMode": "auto",
         "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
       },
       {
         "section": "Travel Charges",
@@ -7805,6 +8349,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel per man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -7984,6 +8544,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -7997,6 +8565,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel per man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -8176,11 +8760,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel per man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -8219,13 +8827,13 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
   {
     "id": "q-dominator-quad-electric-2026",
     "file": "Q Dominator Quad Electric 2026.xlsx",
-    "serviceDescription": "Dominator Electric Tracking Quad",
+    "serviceDescription": "Dominator Electric Tracking Quad (2 Man Crew)",
     "defaultBickersContact": "",
     "lineItems": [
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Dominator Electric Tracking Quad",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "600.00",
         "totalMode": "auto",
         "sourceRow": 13
@@ -8241,9 +8849,9 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Basic Riggers Scaffolding Kit",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "95.00",
-        "totalMode": "tbc",
+        "totalMode": "auto",
         "sourceRow": 15
       },
       {
@@ -8257,7 +8865,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Labour Rates - Daily Rates",
         "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
-        "qty": "",
+        "qty": "2",
         "unitPrice": "585.00",
         "totalMode": "auto",
         "sourceRow": 20
@@ -8321,7 +8929,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Travel Charges",
         "description": "Transport Vehicle",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "185.00",
         "totalMode": "auto",
         "sourceRow": 30
@@ -8329,9 +8937,9 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Travel Charges",
         "description": "Transport Vehicle Mileage (Miles)",
-        "qty": "",
+        "qty": "190",
         "unitPrice": "1.25",
-        "totalMode": "tbc",
+        "totalMode": "auto",
         "sourceRow": 31
       },
       {
@@ -8353,10 +8961,18 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Travel Charges",
         "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
+        "qty": "2",
         "unitPrice": "185.00",
-        "totalMode": "tbc",
+        "totalMode": "auto",
         "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
       },
       {
         "section": "Travel Charges",
@@ -8365,6 +8981,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "30.00",
         "totalMode": "tbc",
         "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 38
       },
       {
         "section": "Travel Charges",
@@ -8544,6 +9176,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
         "description": "Overnight Meal Allowance",
         "qty": "",
         "unitPrice": "35.00",
@@ -8720,6 +9368,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -8733,6 +9389,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel per man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -8777,7 +9449,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "E-Trike - Tricycle Tracking Vehicle",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "500.00",
         "totalMode": "auto",
         "sourceRow": 13
@@ -8785,7 +9457,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
         "description": "Basic Riggers Scaffolding Kit",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "95.00",
         "totalMode": "auto",
         "sourceRow": 14
@@ -8801,7 +9473,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Labour Rates - Daily Rates",
         "description": "To Services of Driver/Technician per 10hr Day",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "585.00",
         "totalMode": "auto",
         "sourceRow": 19
@@ -8865,7 +9537,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Travel Charges",
         "description": "Transport Vehicle",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "105.00",
         "totalMode": "auto",
         "sourceRow": 29
@@ -8873,7 +9545,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Travel Charges",
         "description": "Transport Vehicle Mileage (Miles)",
-        "qty": "",
+        "qty": "100",
         "unitPrice": "1.25",
         "totalMode": "auto",
         "sourceRow": 30
@@ -8897,7 +9569,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       {
         "section": "Travel Charges",
         "description": "London and Home Counties Fixed Travel Charge",
-        "qty": "",
+        "qty": "1",
         "unitPrice": "185.00",
         "totalMode": "auto",
         "sourceRow": 33
@@ -8917,6 +9589,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 37
       },
       {
         "section": "Travel Charges",
@@ -9096,6 +9784,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -9109,6 +9805,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -9296,11 +10008,35 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
         "description": "Clean air zone charge where applicable",
         "qty": "",
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -9480,6 +10216,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -9493,6 +10237,22 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",
@@ -9672,6 +10432,14 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
         "description": "London Congestion-ULEZ Charge per vehicle",
         "qty": "",
         "unitPrice": "30.00",
@@ -9685,6 +10453,934 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "unitPrice": "TBC",
         "totalMode": "tbc",
         "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "TBC",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "",
+        "unitPrice": "35.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 43
+      }
+    ]
+  },
+  {
+    "id": "q-trojan-electric-bicycle-banking-rig-2026",
+    "file": "Q Trojan Electric & Bicycle Banking-Rig 2026.xlsx",
+    "serviceDescription": "Trojan Elite Electric Tracking Vehicle & Bicycle Banking-Rig or Mini Low-Loader - 2 x Man Crew 2 x Transport Vehicles Required",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Trojan Electric Tracking Vehicle",
+        "qty": "",
+        "unitPrice": "630.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Bicycle Mini Low-Loader",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Bicycle Hydraulic Banking-Rig",
+        "qty": "",
+        "unitPrice": "600.00",
+        "totalMode": "tbc",
+        "sourceRow": 16
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Fork Attachments",
+        "qty": "",
+        "unitPrice": "288.00",
+        "totalMode": "tbc",
+        "sourceRow": 17
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 18
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 19
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 28
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 29
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 30
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Equipment Transport Vehicle",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "auto",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Transport Vehicle",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Equipment Transport Vehicle Mileage (Miles)",
+        "qty": "",
+        "unitPrice": "1.25",
+        "totalMode": "auto",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Transport Vehicle Mileage (Miles)",
+        "qty": "",
+        "unitPrice": "1.25",
+        "totalMode": "auto",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "auto",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 43
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "production",
+        "sourceRow": 44
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "",
+        "unitPrice": "35.00",
+        "totalMode": "auto",
+        "sourceRow": 45
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 46
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 47
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 48
+      }
+    ]
+  },
+  {
+    "id": "q-trojan-electric-2026",
+    "file": "Q Trojan Electric 2026.xlsx",
+    "serviceDescription": "Trojan Elite Electric Tracking Vehicle",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Trojan Electric Tracking Vehicle",
+        "qty": "",
+        "unitPrice": "630.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "tbc",
+        "sourceRow": 16
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 20
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Transport Vehicle",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "auto",
+        "sourceRow": 30
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Transport Vehicle Mileage (Miles)",
+        "qty": "",
+        "unitPrice": "1.25",
+        "totalMode": "auto",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "auto",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "",
+        "unitPrice": "35.00",
+        "totalMode": "tbc",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 43
+      }
+    ]
+  },
+  {
+    "id": "q-trojan-electric-and-motorcycle-banking-rig-or-mini-low-loader-2026",
+    "file": "Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx",
+    "serviceDescription": "Trojan Elite Electric Tracking Vehicle With Streight Tow-Pole. To Tow 2 x Sledge Set-Ups (2 Man Crew)",
+    "defaultBickersContact": "Adam Eastall",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Trojan Electric Tracking Vehicle",
+        "qty": "1",
+        "unitPrice": "630.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Streight Tow-Pole Towing Rig.",
+        "qty": "1",
+        "unitPrice": "175.00",
+        "totalMode": "auto",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit",
+        "qty": "1",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 16
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment (Pre Rigging of Tow-Brackets on two sledge set-ups)",
+        "qty": "6",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 17
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "2",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Labour Rates - Daily Rates (2 Man Crew)",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 28
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Equipment Transport Vehicle",
+        "qty": "3",
+        "unitPrice": "180.00",
+        "totalMode": "auto",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Equipment Transport Vehicle Mileage (Miles)",
+        "qty": "300",
+        "unitPrice": "1.25",
+        "totalMode": "auto",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days (2 Crew. 1/2 Day Travel Each Way)",
+        "qty": "2",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle (Recce & Shoot)",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "4",
+        "unitPrice": "22.00",
+        "totalMode": "auto",
+        "sourceRow": 39
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "4",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 40
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Overnight Meal Allowance per man per night",
+        "qty": "4",
+        "unitPrice": "35.00",
+        "totalMode": "auto",
+        "sourceRow": 41
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Breakfast/Lunch not Supplied on location per man",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 42
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Travel Time/Travel Day (When recce is outside the London area)",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 43
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",
+        "qty": "",
+        "unitPrice": "0.68",
+        "totalMode": "tbc",
+        "sourceRow": 44
+      }
+    ]
+  },
+  {
+    "id": "q-twizzy-electric-2026",
+    "file": "Q Twizzy Electric 2026.xlsx",
+    "serviceDescription": "Twizzy Electric Tracking Vehicle",
+    "defaultBickersContact": "",
+    "lineItems": [
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Twizzy Electric Tracking Vehicle",
+        "qty": "",
+        "unitPrice": "630.00",
+        "totalMode": "auto",
+        "sourceRow": 13
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "tbc",
+        "sourceRow": 14
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Basic Riggers Scaffolding Kit",
+        "qty": "",
+        "unitPrice": "95.00",
+        "totalMode": "auto",
+        "sourceRow": 15
+      },
+      {
+        "section": "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)",
+        "description": "Pre-Rigging & Additional Equipment",
+        "qty": "",
+        "unitPrice": "",
+        "totalMode": "tbc",
+        "sourceRow": 16
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "auto",
+        "sourceRow": 20
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+        "qty": "",
+        "unitPrice": "87.75",
+        "totalMode": "tbc",
+        "sourceRow": 21
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Sunday and Bank Holiday Work charged at Double Time",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 22
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Turnaround Day After Night Work Chargeable from 23:59",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 23
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge for Late Working between 22:00 & 23:59",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 24
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Supplementary charge applies for Saturday working",
+        "qty": "",
+        "unitPrice": "292.50",
+        "totalMode": "tbc",
+        "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 26
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 27
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Transport Vehicle",
+        "qty": "",
+        "unitPrice": "180.00",
+        "totalMode": "auto",
+        "sourceRow": 30
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Transport Vehicle Mileage (Miles)",
+        "qty": "",
+        "unitPrice": "1.25",
+        "totalMode": "auto",
+        "sourceRow": 31
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Days",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 32
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Tracking Vehicle and Crew Travel Time",
+        "qty": "",
+        "unitPrice": "58.50",
+        "totalMode": "tbc",
+        "sourceRow": 33
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London and Home Counties Fixed Travel Charge",
+        "qty": "",
+        "unitPrice": "185.00",
+        "totalMode": "auto",
+        "sourceRow": 34
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel & Overnight charge if Tracking Vehicle is pre-rigged & left rigged between shoot days",
+        "qty": "",
+        "unitPrice": "150.00",
+        "totalMode": "tbc",
+        "sourceRow": 35
+      },
+      {
+        "section": "Travel Charges",
+        "description": "London Congestion-ULEZ Charge per vehicle",
+        "qty": "",
+        "unitPrice": "30.00",
+        "totalMode": "auto",
+        "sourceRow": 36
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Clean air zone charge where applicable",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "tbc",
+        "sourceRow": 37
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Travel Meal Allowance per man per day",
+        "qty": "",
+        "unitPrice": "22.00",
+        "totalMode": "tbc",
+        "sourceRow": 38
+      },
+      {
+        "section": "Travel Charges",
+        "description": "Hotel Per Man Per Room",
+        "qty": "",
+        "unitPrice": "TBC",
+        "totalMode": "production",
+        "sourceRow": 39
       },
       {
         "section": "Travel Charges",

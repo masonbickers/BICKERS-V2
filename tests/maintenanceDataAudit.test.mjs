@@ -6,12 +6,37 @@ import {
   buildFuturePmiHistoryCleanupPatch,
   buildFuturePmiHistoryCleanupPreview,
   buildFutureMaintenanceResetPreview,
+  selectSafeMaintenanceReconciliationActions,
 } from "../src/app/utils/maintenanceDataAudit.js";
+
+test("safe reconciliation includes idempotent requested records but blocks due-date conflicts", () => {
+  const requested = {
+    action: "create_missing_requested_due_item",
+    collection: "maintenanceBookings",
+    documentId: "requirement-1",
+    idempotentKey: "requirement-1",
+    automaticPatch: {
+      vehicleId: "vehicle-1",
+      items: [{ maintenanceTypeId: "pmi", legalDueDateISO: "2026-08-05" }],
+    },
+  };
+  assert.deepEqual(
+    selectSafeMaintenanceReconciliationActions({ reconciliationPreview: [requested] }),
+    [requested]
+  );
+  assert.deepEqual(
+    selectSafeMaintenanceReconciliationActions({
+      reconciliationPreview: [requested],
+      dueDateConflicts: [{ vehicleId: "vehicle-1", maintenanceTypeId: "pmi" }],
+    }),
+    []
+  );
+});
 
 test("maintenance audit reports invalid, orphaned, conflicting and duplicate records", () => {
   const report = auditMaintenanceDataset({
     forecastYear: 2026,
-    vehicles: [{ id: "vehicle-1", nextPMI: "2026-08-10" }],
+    vehicles: [{ id: "vehicle-1", nextPMI: "2026-08-10", pmiFreq: 8 }],
     maintenanceBookings: [
       {
         id: "booking-1",
@@ -51,6 +76,69 @@ test("maintenance audit reports invalid, orphaned, conflicting and duplicate rec
   assert.equal(report.summary.missingRequestedRecordCount, 1);
   assert.equal(report.summary.manualReviewCount, 3);
   assert.deepEqual(report.orphanVehicleIds, ["missing-vehicle"]);
+});
+
+test("maintenance audit uses trusted company context for vehicles missing companyId", () => {
+  const vehicle = {
+    id: "legacy-company-trailer",
+    nextService: "2026-09-28",
+    serviceFreq: 52,
+    motNotApplicable: true,
+  };
+  const requirementKey =
+    "maintenance-requirement-v1|bickers-action|legacy-company-trailer|service@2026-09-28";
+  const report = auditMaintenanceDataset({
+    companyId: "bickers-action",
+    forecastYear: 2026,
+    vehicles: [vehicle],
+    maintenanceBookings: [{
+      id: "existing-service",
+      companyId: "bickers-action",
+      vehicleId: vehicle.id,
+      type: "SERVICE",
+      maintenanceTypeIds: ["service"],
+      status: "Booked",
+      requirementKey,
+      sourceDueKey: requirementKey,
+      sourceDueDateISO: "2026-09-28",
+      appointmentDateISO: "2026-10-05",
+      origin: { source: "vehicle_maintenance_schedule" },
+    }],
+  });
+
+  assert.equal(report.summary.missingRequestedRecordCount, 0);
+  assert.equal(report.summary.ambiguousLegacyMatchCount, 0);
+});
+
+test("maintenance audit reports ambiguous confirmed legacy matches without auto-matching", () => {
+  const vehicle = {
+    id: "legacy-dax",
+    companyId: "bickers-action",
+    nextMOT: "2027-12-16",
+    serviceNotApplicable: true,
+  };
+  const candidates = ["legacy-dax-a", "legacy-dax-b"].map((id) => ({
+    id,
+    companyId: "bickers-action",
+    vehicleId: vehicle.id,
+    type: "MOT",
+    status: "Booked",
+    appointmentDateISO: "2027-12-17",
+  }));
+  const report = auditMaintenanceDataset({
+    companyId: "bickers-action",
+    forecastYear: 2027,
+    vehicles: [vehicle],
+    maintenanceBookings: candidates,
+  });
+
+  assert.equal(report.summary.missingRequestedRecordCount, 0);
+  assert.equal(report.summary.ambiguousLegacyMatchCount, 2);
+  assert.deepEqual(
+    report.ambiguousLegacyMatches.map((record) => record.documentId).sort(),
+    ["legacy-dax-a", "legacy-dax-b"]
+  );
+  assert.ok(report.ambiguousLegacyMatches.every((record) => record.automaticPatch === null));
 });
 
 test("maintenance reconciliation terminally cancels existing VOR inspection plans once", () => {
@@ -132,14 +220,16 @@ test("maintenance audit groups same-week PMI and brake requirements into one ide
       name: "HGV Test",
       nextPMI: "2026-08-03",
       nextBrakeTest: "2026-08-07",
+      pmiFreq: 8,
+      brakeTestFreq: 8,
     }],
   };
   const first = auditMaintenanceDataset(input);
   const second = auditMaintenanceDataset(input);
   assert.equal(first.requestedRecordCandidates.length, 1);
-  assert.equal(first.requestedRecordCandidates[0].action, "create_missing_booked_appointment");
-  assert.equal(first.requestedRecordCandidates[0].automaticPatch.status, "Booked");
-  assert.deepEqual(first.requestedRecordCandidates[0].automaticPatch.bookingDates, ["2026-08-03"]);
+  assert.equal(first.requestedRecordCandidates[0].action, "create_missing_requested_due_item");
+  assert.equal(first.requestedRecordCandidates[0].automaticPatch.status, "Requested");
+  assert.deepEqual(first.requestedRecordCandidates[0].automaticPatch.bookingDates, []);
   assert.deepEqual(
     first.requestedRecordCandidates[0].automaticPatch.items
       .map((item) => item.maintenanceTypeId)
@@ -307,15 +397,18 @@ test("future schedule reset is read-only and protects manual, moved and terminal
   assert.equal(preview.mode, "dry_run");
   assert.deepEqual(
     preview.archiveCandidates.map((item) => item.documentId),
-    ["automatic-tacho", "auto-later-inspection"]
+    []
   );
   assert.deepEqual(
     preview.protectedRecords.map((item) => [item.documentId, item.protectionReason]),
     [
+      ["auto-future", "confirmed_booking"],
+      ["auto-later-inspection", "confirmed_booking"],
       ["moved-future", "manually_moved"],
       ["edited-future", "human_edited"],
-      ["manual-inspection", "manual_or_unverified_source"],
-      ["missing-origin-inspection", "manual_or_unverified_source"],
+      ["manual-inspection", "confirmed_booking"],
+      ["missing-origin-inspection", "confirmed_booking"],
+      ["automatic-tacho", "confirmed_booking"],
       ["completed-future", "terminal_completed"],
     ]
   );
@@ -323,19 +416,16 @@ test("future schedule reset is read-only and protects manual, moved and terminal
     preview.preservedCoreRecords.map((item) => item.documentId),
     ["manual-future", "automatic-mot", "mixed-mot-inspection"]
   );
-  assert.deepEqual(preview.summary.archiveByType, [
-    { key: "brake_test + pmi", count: 1 },
-    { key: "tacho_download", count: 1 },
-  ]);
+  assert.deepEqual(preview.summary.archiveByType, []);
   assert.deepEqual(
     preview.preservedInspectionRecords.map((item) => item.documentId),
-    ["auto-future"]
+    []
   );
   assert.equal(preview.summary.rebuildCandidateCount, 0);
   assert.equal(preview.futureCompletionAnomalies.length, 1);
   assert.equal(preview.futureCompletionAnomalies[0].completionDateISO, "2026-09-01");
   assert.deepEqual(preview.rebuildCandidates, []);
-  assert.equal("automaticPatch" in preview.archiveCandidates[0], false);
+  assert.equal(preview.archiveCandidates.length, 0);
 });
 
 test("future schedule cleanup keeps the nearest inspection and is idempotent", () => {
@@ -364,11 +454,11 @@ test("future schedule cleanup keeps the nearest inspection and is idempotent", (
   });
   assert.deepEqual(
     first.preservedInspectionRecords.map((item) => item.documentId),
-    ["legacy-auto-inspection-1"]
+    []
   );
   assert.deepEqual(
     first.archiveCandidates.map((item) => item.documentId),
-    ["legacy-auto-inspection-2", "legacy-auto-inspection-3"]
+    []
   );
   assert.equal(first.rebuildCandidates.length, 0);
 
@@ -386,7 +476,7 @@ test("future schedule cleanup keeps the nearest inspection and is idempotent", (
   assert.equal(second.rebuildCandidates.length, 0);
   assert.deepEqual(
     second.preservedInspectionRecords.map((item) => item.documentId),
-    ["legacy-auto-inspection-1"]
+    []
   );
 });
 
@@ -411,11 +501,11 @@ test("future schedule cleanup deterministically prefers a combined inspection on
 
   assert.deepEqual(
     preview.preservedInspectionRecords.map((item) => item.documentId),
-    ["nearest-combined"]
+    []
   );
   assert.deepEqual(
     preview.archiveCandidates.map((item) => item.documentId),
-    ["nearest-pmi", "later-combined"]
+    []
   );
 });
 

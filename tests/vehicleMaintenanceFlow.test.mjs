@@ -24,9 +24,21 @@ import {
 } from "../src/app/utils/maintenanceHistory.js";
 import {
   applyVorCountdownResume,
+  addHistoricVorPeriod,
+  archiveHistoricVorPeriod,
+  archiveVehicleHistoricVorPeriod,
+  assertVorHistoryIntegrity,
+  assertVorPeriodDoesNotOverlap,
+  buildHistoricVorPeriod,
+  canReleaseVehicleAfterCompletedCompliance,
+  correctHistoricVorPeriod,
+  correctVehicleHistoricVorPeriod,
+  historicVorFirstUseBookingIntent,
+  releaseVehicleAfterCompletedCompliance,
   returnVehicleFromVor,
   scheduleVehicleReturnInspection,
   startVehicleVorPeriod,
+  vehicleReturnInspectionBookingIntent,
 } from "../src/app/utils/vorPeriods.js";
 import {
   buildVorTimelineEvents,
@@ -38,12 +50,24 @@ import {
 } from "../src/app/utils/vehicleTimelineEvents.js";
 import {
   buildCompletedInspectionDates,
+  buildPlannerInspectionEvidenceDates,
   hasActiveInspectionWindow,
   buildLivePlannerEvents,
+  hgvComplianceStatusForIsoWeek,
+  isReturnInspectionScheduledForIsoWeek,
+  isVorPeriodStartingInIsoWeek,
+  summarizeInspectionRequirements,
+  vehicleStatusForIsoWeek,
+  vorHistoryPeriodsForIsoWeek,
+  vorHistoryStatusForIsoWeek,
 } from "../src/app/hgv-compliance/hgvPlanner.js";
 import {
   buildVehicleDueEvents,
 } from "../src/app/utils/maintenanceCalendar.js";
+import {
+  mergeVehicleRealtimeState,
+  shouldApplyRealtimeSnapshot,
+} from "../src/app/utils/vehicleRealtime.js";
 import { buildAnnualMaintenanceForecast } from "../src/app/utils/maintenanceForecast.js";
 import {
   buildVorInspectionCancellationPatch,
@@ -75,6 +99,7 @@ const baseVehicle = {
   nextBrakeTest: "2026-08-01",
   nextPMI: "2026-08-01",
   pmiFreq: "8",
+  brakeTestFreq: "8",
 };
 
 test("blank operating-status selections cannot resolve a vehicle to Active", () => {
@@ -244,18 +269,122 @@ test("VOR terminally cancels every invalid future inspection plan but preserves 
   assert.notEqual(mixedPatch.items.find((item) => item.maintenanceTypeId === "repair").status, "cancelled");
 });
 
-test("a completed inspection creates exactly eight active ISO weeks", () => {
+test("a completed inspection remains active through its legal due ISO week", () => {
   const completedDates = ["2026-02-02"];
 
   assert.equal(hasActiveInspectionWindow(completedDates, 2026, 5), false);
   assert.equal(hasActiveInspectionWindow(completedDates, 2026, 6), true);
   assert.equal(hasActiveInspectionWindow(completedDates, 2026, 13), true);
-  assert.equal(hasActiveInspectionWindow(completedDates, 2026, 14), false);
+  assert.equal(hasActiveInspectionWindow(completedDates, 2026, 14), true);
+  assert.equal(hasActiveInspectionWindow(completedDates, 2026, 15), false);
 
   const completedAgain = [...completedDates, "2026-09-01"];
   assert.equal(hasActiveInspectionWindow(completedAgain, 2026, 36), true);
   assert.equal(hasActiveInspectionWindow(completedAgain, 2026, 43), true);
-  assert.equal(hasActiveInspectionWindow(completedAgain, 2026, 44), false);
+  assert.equal(hasActiveInspectionWindow(completedAgain, 2026, 44), true);
+  assert.equal(hasActiveInspectionWindow(completedAgain, 2026, 45), false);
+
+  const currentlyVorVehicle = {
+    category: "HGV",
+    pmiFreq: 8,
+    nextPMI: "2026-03-31",
+    nextBrakeTest: "2026-03-31",
+    nextMOT: "2027-01-01",
+  };
+  assert.equal(
+    hgvComplianceStatusForIsoWeek(currentlyVorVehicle, "ACTIVE", 2026, 14, false, ["2026-03-31"]),
+    ""
+  );
+  assert.equal(
+    hgvComplianceStatusForIsoWeek(currentlyVorVehicle, "ACTIVE", 2026, 21, false, ["2026-03-31"]),
+    ""
+  );
+  assert.equal(
+    hgvComplianceStatusForIsoWeek(currentlyVorVehicle, "ACTIVE", 2026, 22, false, ["2026-03-31"]),
+    ""
+  );
+  assert.equal(
+    hgvComplianceStatusForIsoWeek(currentlyVorVehicle, "ACTIVE", 2026, 23, false, ["2026-03-31"]),
+    "VOR"
+  );
+});
+
+test("the planner reconstructs elapsed expired-VOR gaps between inspections", () => {
+  const vehicle = {
+    category: "HGV",
+    operationalStatus: "Active",
+    pmiFreq: 8,
+  };
+  const completedDates = ["2026-05-06", "2026-07-17"];
+
+  assert.equal(
+    vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 18, false, completedDates, "2026-08-07"),
+    ""
+  );
+  assert.equal(
+    vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 27, false, completedDates, "2026-08-07"),
+    ""
+  );
+  assert.equal(
+    vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 28, false, completedDates, "2026-08-07"),
+    "VOR"
+  );
+  assert.equal(
+    vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 29, false, completedDates, "2026-08-07"),
+    "VOR"
+  );
+  assert.equal(
+    vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 30, false, completedDates, "2026-08-07"),
+    ""
+  );
+  assert.equal(
+    vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 40, false, completedDates, "2026-08-07"),
+    ""
+  );
+});
+
+test("historical imported inspections drive VOR gaps without treating MOT-only events as PMI", () => {
+  const result = buildPlannerInspectionEvidenceDates(
+    new Map([["MX05VHW", ["2024-11-18"]]]),
+    [
+      { registration: "MX05VHW", date: "2025-01-13", type: "imported" },
+      { registration: "MX05VHW", date: "2025-03-21", type: "imported" },
+      { registration: "MX05VHW", date: "2025-05-05", type: "inspection", status: "completed" },
+      { registration: "MX05VHW", date: "2025-05-30", type: "mot", status: "completed" },
+      { registration: "MX05VHW", date: "2025-06-02", type: "inspection", status: "booked" },
+    ]
+  );
+
+  assert.deepEqual(result.get("MX05VHW"), [
+    "2024-11-18",
+    "2025-01-13",
+    "2025-03-21",
+    "2025-05-05",
+  ]);
+  assert.equal(
+    vehicleStatusForIsoWeek(
+      { category: "HGV", pmiFreq: 8 },
+      "ACTIVE",
+      2025,
+      12,
+      false,
+      result.get("MX05VHW"),
+      "2026-08-07"
+    ),
+    "VOR"
+  );
+  assert.equal(
+    vehicleStatusForIsoWeek(
+      { category: "HGV", pmiFreq: 8 },
+      "ACTIVE",
+      2025,
+      13,
+      false,
+      result.get("MX05VHW"),
+      "2026-08-07"
+    ),
+    ""
+  );
 });
 
 test("vehicle creation dates remain planned until an explicit completion is recorded", () => {
@@ -519,6 +648,116 @@ test("combined HGV appointment writes separate PMI and brake histories without a
   );
 });
 
+test("ready-for-release VOR uses completed inspections without scheduling duplicates", () => {
+  const vorVehicle = startVehicleVorPeriod(
+    {
+      ...baseVehicle,
+      nextPMI: "2026-09-28",
+      nextBrakeTest: "2026-09-28",
+      complianceVor: {
+        state: "ready_for_release",
+        releaseRequired: true,
+        freshPmiCompletedAt: "2026-08-03",
+        reasons: {
+          pmi: {
+            type: "pmi",
+            dueDate: "2026-07-27",
+            resolvedAt: "2026-08-03T12:00:00.000Z",
+            completionDate: "2026-08-03",
+          },
+          brake_test: {
+            type: "brake_test",
+            dueDate: "2026-07-27",
+            resolvedAt: "2026-08-03T12:00:00.000Z",
+            completionDate: "2026-08-03",
+          },
+        },
+      },
+    },
+    {
+      offRoadDate: "2026-08-01",
+      odometer: "100000",
+      approvedBy: "Transport Manager",
+      approvedPosition: "Transport Manager",
+      reason: "Overdue inspection",
+    },
+    { recordId: "compliance-vor-1", startedAt: "2026-08-01T08:00:00.000Z" }
+  );
+  vorVehicle.complianceVor = { state: "clear", releaseRequired: false, reasons: {} };
+  vorVehicle.lastPMI = "2026-08-03";
+  vorVehicle.lastBrakeTest = "2026-08-03";
+  vorVehicle.pendingReturnInspection = {
+    status: "inspection_required",
+    inspectionDate: "2026-08-04",
+    requestedAt: "2026-08-04T10:00:00.000Z",
+  };
+  vorVehicle.nextPMI = "2026-08-04";
+  vorVehicle.nextEightWeekInspection = "2026-08-04";
+  vorVehicle.nextBrakeTest = "2026-08-04";
+  assert.equal(canReleaseVehicleAfterCompletedCompliance(vorVehicle), true);
+  assert.deepEqual(
+    getHgvComplianceVorDisplayRows(vorVehicle).map((row) => row.status),
+    ["resolved", "resolved"]
+  );
+
+  const released = releaseVehicleAfterCompletedCompliance(
+    vorVehicle,
+    {
+      returnedDate: "2026-08-04",
+      odometer: "100120",
+      removedBy: "Fleet Manager",
+      removedPosition: "Transport Manager",
+      signature: "Fleet Manager",
+    },
+    {
+      completedAt: "2026-08-04T12:00:00.000Z",
+      releasedBy: { uid: "user-1", email: "fleet@example.com" },
+    }
+  );
+
+  assert.equal(released.operationalStatus, "Active");
+  assert.equal(released.complianceVor.state, "clear");
+  assert.equal(released.complianceVor.releaseRequired, false);
+  assert.equal(released.complianceVor.releaseMethod, "completed_compliance_inspections");
+  assert.equal(
+    released.complianceVor.releaseEvidence.supersededPendingReturnInspection.inspectionDate,
+    "2026-08-04"
+  );
+  assert.equal(released.vorHistory.at(-1).status, "closed");
+  assert.equal(released.vorHistory.at(-1).firstUseInspectionDate, "2026-08-03");
+  assert.equal(released.pendingReturnInspection, null);
+  assert.equal(released.nextPMI, "2026-09-28");
+  assert.equal(released.nextBrakeTest, "2026-09-28");
+});
+
+test("completion document arrays remain flat in vehicle document and history fields", () => {
+  const workflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.filter((workflow) =>
+    ["pmi", "brake_test"].includes(workflow.maintenanceTypeId)
+  );
+  const pmiDocument = buildMaintenanceDocument({
+    file: { name: "pmi-sheet.pdf", type: "application/pdf", size: 2048 },
+    url: "https://files.example/pmi-sheet.pdf",
+    storagePath: "vehicles/vehicle-1/pmi-sheet.pdf",
+    maintenanceTypeId: "pmi",
+    source: "maintenance_booking",
+    sourceRecordId: "inspection-1",
+  });
+  const patch = buildAdditionalMaintenanceCompletionPatch({
+    vehicle: { category: "HGV", pmiFreq: 8, brakeTestFreq: 8 },
+    workflows,
+    completedDate: "2026-08-18",
+    bookingId: "inspection-1",
+    documentsByKey: { pmi: [pmiDocument], brake_test: [] },
+  });
+
+  assert.equal(patch.pmiDocuments.length, 1);
+  assert.equal(Array.isArray(patch.pmiDocuments[0]), false);
+  assert.equal(patch.pmiHistory.at(-1).documents.length, 1);
+  assert.equal(Array.isArray(patch.pmiHistory.at(-1).documents[0]), false);
+  assert.deepEqual(patch.brakeTestHistory.at(-1).documents, []);
+  assert.equal("brakeTestDocuments" in patch, false);
+});
+
 test("return-to-fleet declaration schedules PMI and brake only, then completion activates the vehicle", () => {
   const vorVehicle = startVehicleVorPeriod(
     {
@@ -555,6 +794,20 @@ test("return-to-fleet declaration schedules PMI and brake only, then completion 
   assert.equal(pendingInspection.nextBrakeTest, "2026-08-18");
   assert.equal(pendingInspection.pendingReturnInspection.status, "inspection_required");
   assert.equal(pendingInspection.vorHistory[0].status, "open");
+  assert.equal(canReleaseVehicleAfterCompletedCompliance(pendingInspection), false);
+  assert.deepEqual(vehicleReturnInspectionBookingIntent(pendingInspection), {
+    vehicleId: pendingInspection.id,
+    vehicleLabel: pendingInspection.name || pendingInspection.registration || pendingInspection.reg,
+    type: "INSPECTION",
+    status: "Booked",
+    maintenanceTypeIds: ["pmi", "brake_test"],
+    appointmentDateISO: "2026-08-18",
+    sourceDueDateISO: "2026-08-18",
+    sourceDueKey: `vor-return:${pendingInspection.id}:2026-08-18`,
+    notes: "Required combined PMI and brake-test inspection before return to fleet.",
+    origin: "vehicle_vor_return",
+    sourceVorPeriodId: "vor-return-1",
+  });
   assert.deepEqual(getHgvComplianceVorDisplayRows(pendingInspection), [
     {
       type: "brake_test",
@@ -567,13 +820,25 @@ test("return-to-fleet declaration schedules PMI and brake only, then completion 
       date: "2026-08-18",
     },
   ]);
+  assert.deepEqual(
+    getHgvComplianceVorDisplayRows({
+      ...pendingInspection,
+      complianceVor: {
+        ...pendingInspection.complianceVor,
+        state: "ready_for_release",
+      },
+    }).map((row) => row.status),
+    ["return_inspection_required", "return_inspection_required"]
+  );
   const returnAppointments = buildAnnualMaintenanceForecast({
     vehicle: pendingInspection,
     year: 2026,
     includedTypeIds: ["pmi", "brake_test"],
   });
   assert.equal(returnAppointments.length, 1);
-  assert.equal(returnAppointments[0].schedule.appointmentDateISO, "2026-08-18");
+  assert.equal(returnAppointments[0].sourceDueDateISO, "2026-08-18");
+  assert.equal(returnAppointments[0].status, "requested");
+  assert.deepEqual(returnAppointments[0].schedule.bookingDates, []);
   assert.deepEqual(
     returnAppointments[0].items.map((item) => item.maintenanceTypeId).sort(),
     ["brake_test", "pmi"]
@@ -634,9 +899,227 @@ test("planner expands one combined system inspection booking into PMI and brake 
     asOfDate: "2026-08-03",
   });
   assert.deepEqual(
-    events.map((event) => event.type).sort(),
+    events.filter((event) => event.status === "booked").map((event) => event.type).sort(),
     ["brake", "inspection"]
   );
+});
+
+test("planner marks recurring PMI and brake inspections due for 12 months", () => {
+  const vehicle = {
+    id: "year-ahead-hgv",
+    category: "HGV",
+    registration: "YEAR12",
+    nextPMI: "2026-08-10",
+    nextBrakeTest: "2026-08-10",
+    pmiFreq: 8,
+    brakeTestFreq: 8,
+  };
+  const common = {
+    vehicles: [vehicle],
+    bookings: [],
+    registrations: [vehicle.registration],
+    asOfDate: "2026-08-07",
+  };
+
+  const events2026 = buildLivePlannerEvents({ ...common, year: 2026 });
+  const events2027 = buildLivePlannerEvents({ ...common, year: 2027 });
+
+  assert.deepEqual(
+    events2026.filter((event) => event.type === "inspection").map((event) => event.date),
+    ["2026-08-10", "2026-10-05", "2026-11-30"]
+  );
+  assert.deepEqual(
+    events2027.filter((event) => event.type === "inspection").map((event) => event.date),
+    ["2027-01-25", "2027-03-22", "2027-05-17", "2027-07-12"]
+  );
+  assert.ok([...events2026, ...events2027].every((event) => event.status === "requested"));
+  assert.ok([...events2026, ...events2027].every((event) => event.source === "year_ahead_forecast"));
+});
+
+test("saved inspection appointments replace the matching year-ahead due markers", () => {
+  const vehicle = {
+    id: "booked-year-ahead-hgv",
+    category: "HGV",
+    registration: "BOOK12",
+    nextPMI: "2026-08-10",
+    nextBrakeTest: "2026-08-10",
+    pmiFreq: 8,
+    brakeTestFreq: 8,
+  };
+  const events = buildLivePlannerEvents({
+    vehicles: [vehicle],
+    bookings: [{
+      id: "booked-first-cycle",
+      vehicleId: vehicle.id,
+      status: "Booked",
+      appointmentDateISO: "2026-08-12",
+      maintenanceTypeIds: ["pmi", "brake_test"],
+      items: [
+        { maintenanceTypeId: "pmi", status: "booked", legalDueDateISO: "2026-08-10" },
+        { maintenanceTypeId: "brake_test", status: "booked", legalDueDateISO: "2026-08-10" },
+      ],
+    }],
+    year: 2026,
+    registrations: [vehicle.registration],
+    asOfDate: "2026-08-07",
+  });
+
+  assert.equal(events.filter((event) => event.status === "booked").length, 2);
+  assert.equal(events.some((event) => event.status === "requested" && event.date === "2026-08-10"), false);
+  assert.equal(events.some((event) => event.status === "requested" && event.date === "2026-10-05"), true);
+});
+
+test("an early inspection booking retains its later legal due-week marker", () => {
+  const vehicle = {
+    id: "early-booked-hgv",
+    category: "HGV",
+    registration: "EARLY8",
+    nextPMI: "2026-10-05",
+    nextBrakeTest: "2026-10-05",
+    pmiFreq: 8,
+    brakeTestFreq: 8,
+  };
+  const events = buildLivePlannerEvents({
+    vehicles: [vehicle],
+    bookings: [{
+      id: "early-inspection",
+      vehicleId: vehicle.id,
+      status: "Booked",
+      appointmentDateISO: "2026-07-27",
+      maintenanceTypeIds: ["pmi", "brake_test"],
+      items: [
+        { maintenanceTypeId: "pmi", status: "booked", legalDueDateISO: "2026-08-10" },
+        { maintenanceTypeId: "brake_test", status: "booked", legalDueDateISO: "2026-08-10" },
+      ],
+    }],
+    year: 2026,
+    registrations: [vehicle.registration],
+    asOfDate: "2026-07-20",
+  });
+
+  assert.deepEqual(
+    events
+      .filter((event) => ["booked", "due"].includes(event.status))
+      .map((event) => [
+        event.type,
+        event.status,
+        event.date,
+        event.isLegalDueReference || false,
+        event.bookingId || "",
+        event.linkedBookingId || "",
+      ]),
+    [
+      ["inspection", "booked", "2026-07-27", false, "early-inspection", ""],
+      ["brake", "booked", "2026-07-27", false, "early-inspection", ""],
+      ["inspection", "due", "2026-08-10", true, "", "early-inspection"],
+      ["brake", "due", "2026-08-10", true, "", "early-inspection"],
+    ]
+  );
+  assert.equal(events.some((event) => event.status === "requested" && event.date === "2026-10-05"), true);
+});
+
+test("planner shows canonical requested TEST requirements in their legal due week", () => {
+  const vehicle = {
+    id: "test-hgv",
+    category: "HGV",
+    registration: "TE5T",
+    nextPMI: "2026-08-07",
+    nextBrakeTest: "2026-08-07",
+    nextMOT: "2026-08-07",
+    nextService: "2026-08-07",
+  };
+  const requested = [
+    {
+      id: "test-inspection",
+      vehicleId: vehicle.id,
+      status: "Requested",
+      requirementKey: "maintenance-requirement-v1|company|test-hgv|pmi:2026-08-07,brake_test:2026-08-07",
+      maintenanceTypeIds: ["pmi", "brake_test"],
+      items: [
+        { maintenanceTypeId: "pmi", status: "requested", legalDueDateISO: "2026-08-07" },
+        { maintenanceTypeId: "brake_test", status: "requested", legalDueDateISO: "2026-08-07" },
+      ],
+    },
+    ...["mot", "service"].map((maintenanceTypeId) => ({
+      id: `test-${maintenanceTypeId}`,
+      vehicleId: vehicle.id,
+      status: "Requested",
+      requirementKey: `maintenance-requirement-v1|company|test-hgv|${maintenanceTypeId}:2026-08-07`,
+      maintenanceTypeIds: [maintenanceTypeId],
+      items: [{ maintenanceTypeId, status: "requested", legalDueDateISO: "2026-08-07" }],
+    })),
+  ];
+
+  const events = buildLivePlannerEvents({
+    vehicles: [vehicle],
+    bookings: requested,
+    year: 2026,
+    registrations: [vehicle.registration],
+    asOfDate: "2026-08-05",
+  });
+  const canonicalEvents = events.filter((event) => event.source === "maintenance_booking");
+
+  assert.deepEqual(
+    canonicalEvents.map((event) => [event.type, event.status, event.date, event.week]),
+    [
+      ["inspection", "requested", "2026-08-07", 32],
+      ["brake", "requested", "2026-08-07", 32],
+      ["mot", "requested", "2026-08-07", 32],
+      ["service", "requested", "2026-08-07", 32],
+    ]
+  );
+  assert.ok(canonicalEvents.every((event) => event.legalDueDateISO === "2026-08-07"));
+  assert.ok(canonicalEvents.every((event) => event.appointmentDateISO === ""));
+  assert.equal(events.some((event) => event.source === "year_ahead_forecast"), true);
+});
+
+test("planner prefers a canonical completed booking over its linked vehicle-history copy", () => {
+  const events = buildLivePlannerEvents({
+    vehicles: [{
+      id: "low-loader-1",
+      category: "HGV",
+      registration: "AY65LNO",
+      motHistory: [
+        { completedDate: "2026-05-18", bookingId: "mot-booking-1", source: "booking" },
+      ],
+      dvsaMotTests: [
+        { completedDate: "2026-04-29", testResult: "PASSED" },
+      ],
+    }],
+    bookings: [{
+      id: "mot-booking-1",
+      vehicleId: "low-loader-1",
+      status: "Completed",
+      maintenanceTypeIds: ["mot"],
+      startDateISO: "2026-05-18",
+      endDateISO: "2026-05-20",
+      items: [{
+        maintenanceTypeId: "mot",
+        status: "completed",
+        completionDateISO: "2026-05-20",
+      }],
+    }],
+    year: 2026,
+    registrations: ["AY65LNO"],
+    asOfDate: "2026-08-05",
+  });
+
+  const motEvents = events.filter((event) => event.type === "mot");
+  assert.deepEqual(motEvents.map((event) => event.date), ["2026-04-29", "2026-05-20"]);
+  assert.equal(motEvents[1].source, "maintenance_booking");
+  assert.equal(motEvents[1].bookingId, "mot-booking-1");
+});
+
+test("planner summaries count distinct inspection requirements by legal due date", () => {
+  const summary = summarizeInspectionRequirements([
+    { type: "inspection", status: "requested", registration: "TE5T", requirementKey: "req-test", legalDueDateISO: "2026-08-07" },
+    { type: "brake", status: "requested", registration: "TE5T", requirementKey: "req-test", legalDueDateISO: "2026-08-07" },
+    { type: "inspection", status: "booked", registration: "HGV1", requirementKey: "req-booked", legalDueDateISO: "2026-08-04", date: "2026-08-12" },
+    { type: "inspection", status: "completed", registration: "OLD", requirementKey: "req-complete", legalDueDateISO: "2026-08-01" },
+    { type: "mot", status: "requested", registration: "TE5T", requirementKey: "req-mot", legalDueDateISO: "2026-08-07" },
+  ], "2026-08-05");
+
+  assert.deepEqual(summary, { dueSoon: 1, overdue: 1 });
 });
 
 test("planner shows audited PMI and brake-test completion history", () => {
@@ -666,7 +1149,7 @@ test("planner shows audited PMI and brake-test completion history", () => {
     completed.map((event) => [event.type, event.date]).sort(),
     [["brake", "2026-08-03"], ["inspection", "2026-08-03"]]
   );
-  assert.equal(events.some((event) => ["due", "projected"].includes(event.status)), false);
+  assert.equal(events.some((event) => event.status === "requested"), true);
 });
 
 test("future HGV planner uses only active saved compliance, MOT and service appointments", () => {
@@ -687,6 +1170,10 @@ test("future HGV planner uses only active saved compliance, MOT and service appo
         maintenanceTypeIds: ["pmi", "brake_test"],
         status: "Booked",
         appointmentDateISO: "2026-09-28",
+        items: [
+          { maintenanceTypeId: "pmi", status: "booked", legalDueDateISO: "2026-09-21" },
+          { maintenanceTypeId: "brake_test", status: "booked", legalDueDateISO: "2026-09-21" },
+        ],
       },
       {
         id: "active-mot",
@@ -716,12 +1203,60 @@ test("future HGV planner uses only active saved compliance, MOT and service appo
   });
 
   assert.deepEqual(
-    events.map((event) => [event.type, event.status, event.date]),
+    events
+      .filter((event) => event.status === "booked")
+      .map((event) => [event.type, event.status, event.date]),
     [
       ["inspection", "booked", "2026-09-28"],
       ["brake", "booked", "2026-09-28"],
       ["mot", "booked", "2026-10-01"],
       ["service", "booked", "2026-10-02"],
+    ]
+  );
+  assert.equal(events[0].legalDueDateISO, "2026-09-21");
+  assert.equal(events[0].appointmentDateISO, "2026-09-28");
+  assert.equal(
+    events.some(
+      (event) => event.source === "year_ahead_forecast" && event.date === "2026-11-23"
+    ),
+    true
+  );
+});
+
+test("deferred planner records use a workshop date when present and otherwise retain the legal due date", () => {
+  const vehicle = { id: "hgv-deferred", category: "HGV", registration: "DEFER1" };
+  const events = buildLivePlannerEvents({
+    vehicles: [vehicle],
+    bookings: [
+      {
+        id: "deferred-pmi",
+        vehicleId: vehicle.id,
+        status: "Deferred",
+        requirementKey: "deferred-pmi-key",
+        maintenanceTypeIds: ["pmi"],
+        appointmentDateISO: "2026-09-04",
+        items: [{ maintenanceTypeId: "pmi", status: "deferred", legalDueDateISO: "2026-08-28" }],
+      },
+      {
+        id: "deferred-service",
+        vehicleId: vehicle.id,
+        status: "Deferred",
+        requirementKey: "deferred-service-key",
+        maintenanceTypeIds: ["service"],
+        items: [{ maintenanceTypeId: "service", status: "deferred", legalDueDateISO: "2026-08-21" }],
+      },
+    ],
+    year: 2026,
+    registrations: [vehicle.registration],
+    asOfDate: "2026-08-05",
+  });
+
+  assert.deepEqual(
+    events.map((event) => [event.type, event.status, event.date, event.legalDueDateISO]),
+    [
+      ["service", "deferred", "2026-08-21", "2026-08-21"],
+      ["inspection", "due", "2026-08-28", "2026-08-28"],
+      ["inspection", "deferred", "2026-09-04", "2026-08-28"],
     ]
   );
 });
@@ -844,7 +1379,10 @@ test("VOR planner hides calculated dates but keeps explicitly rebooked complianc
     registrations: [vehicle.registration],
   });
 
-  assert.equal(events.some((event) => ["due", "projected"].includes(event.status)), false);
+  assert.equal(
+    events.some((event) => ["due", "projected", "requested"].includes(event.status)),
+    false
+  );
   assert.equal(events.some((event) => event.bookingId === "vor-work-1" && event.status === "booked"), true);
 });
 
@@ -1162,6 +1700,393 @@ test("timeline records both boundaries and the full VOR period", () => {
   );
   assert.match(events[1].description, /14 days/);
   assert.ok(events[1].details.includes("First-use PMI: 15/07/2026"));
+});
+
+test("historic VOR periods shade only overlapping ISO weeks while the vehicle is Active", () => {
+  const vehicle = {
+    category: "HGV",
+    operationalStatus: "Active",
+    vorHistory: [{
+      id: "historic-vor-1",
+      status: "closed",
+      source: "historic_migration",
+      offRoadDate: "2026-07-01",
+      returnedDate: "2026-07-15",
+    }],
+  };
+
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2026, 26), "");
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2026, 27), "VOR");
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2026, 28), "VOR");
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2026, 29), "VOR");
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2026, 30), "");
+  assert.equal(vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 28), "VOR");
+  assert.equal(vehicleStatusForIsoWeek(vehicle, "ACTIVE", 2026, 30), "");
+  assert.equal(vorHistoryPeriodsForIsoWeek(vehicle, 2026, 28)[0].id, "historic-vor-1");
+  assert.equal(isVorPeriodStartingInIsoWeek(vehicle.vorHistory[0], 2026, 27), true);
+  assert.equal(isVorPeriodStartingInIsoWeek(vehicle.vorHistory[0], 2026, 28), false);
+});
+
+test("duplicate VOR history records produce one planner period", () => {
+  const duplicatedPeriod = {
+    id: "vor-compliance-vor-2026-07-31",
+    status: "open",
+    offRoadDate: "2026-07-31",
+  };
+  const vehicle = {
+    category: "HGV",
+    operationalStatus: "VOR",
+    vorHistory: [duplicatedPeriod, { ...duplicatedPeriod }],
+  };
+
+  const periods = vorHistoryPeriodsForIsoWeek(vehicle, 2026, 31);
+  assert.equal(periods.length, 1);
+  assert.equal(periods[0].id, duplicatedPeriod.id);
+});
+
+test("a pending return inspection suppresses VOR only in its scheduled ISO week", () => {
+  const vehicle = {
+    category: "HGV",
+    operationalStatus: "VOR",
+    pendingReturnInspection: {
+      status: "inspection_required",
+      inspectionDate: "2026-08-07",
+    },
+    vorHistory: [{
+      id: "open-vor-1",
+      status: "open",
+      offRoadDate: "2026-07-31",
+    }],
+  };
+
+  assert.equal(isReturnInspectionScheduledForIsoWeek(vehicle, 2026, 31), false);
+  assert.equal(isReturnInspectionScheduledForIsoWeek(vehicle, 2026, 32), true);
+  assert.equal(vehicleStatusForIsoWeek(vehicle, "VOR", 2026, 31), "VOR");
+  assert.equal(vehicleStatusForIsoWeek(vehicle, "VOR", 2026, 32), "");
+  assert.equal(vehicleStatusForIsoWeek(vehicle, "VOR", 2026, 33), "VOR");
+  assert.equal(hgvComplianceStatusForIsoWeek(vehicle, "VOR", 2026, 32), "");
+
+  const completedVehicle = {
+    ...vehicle,
+    operationalStatus: "Active",
+    pendingReturnInspection: null,
+    vorHistory: [{
+      id: "closed-vor-1",
+      status: "closed",
+      offRoadDate: "2026-07-31",
+      returnedDate: "2026-08-06",
+      firstUseInspectionDate: "2026-08-07",
+    }],
+  };
+  assert.equal(isReturnInspectionScheduledForIsoWeek(completedVehicle, 2026, 32), true);
+  assert.equal(vehicleStatusForIsoWeek(completedVehicle, "ACTIVE", 2026, 31), "VOR");
+  assert.equal(vehicleStatusForIsoWeek(completedVehicle, "ACTIVE", 2026, 32), "");
+});
+
+test("historic VOR week status crosses ISO years and ignores archived periods", () => {
+  const vehicle = {
+    category: "HGV",
+    operationalStatus: "Active",
+    vorHistory: [
+      {
+        id: "year-boundary-vor",
+        status: "closed",
+        offRoadDate: "2026-12-30",
+        returnedDate: "2027-01-05",
+      },
+      {
+        id: "archived-vor",
+        status: "archived",
+        offRoadDate: "2027-01-11",
+        returnedDate: "2027-01-17",
+      },
+    ],
+  };
+
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2026, 53), "VOR");
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2027, 1), "VOR");
+  assert.equal(vorHistoryStatusForIsoWeek(vehicle, 2027, 2), "");
+});
+
+test("weekly historic VOR status remains separate from current compliance status", () => {
+  const vehicle = {
+    category: "HGV",
+    operationalStatus: "Active",
+    nextPMI: "2026-09-30",
+    nextBrakeTest: "2026-09-30",
+    nextMOT: "2026-09-30",
+    vorHistory: [{
+      status: "closed",
+      offRoadDate: "2026-06-29",
+      returnedDate: "2026-07-05",
+    }],
+  };
+
+  assert.equal(hgvComplianceStatusForIsoWeek(vehicle, "ACTIVE", 2026, 27), "VOR");
+  assert.equal(hgvComplianceStatusForIsoWeek(vehicle, "ACTIVE", 2026, 28), "");
+});
+
+test("realtime vehicle updates refresh VOR state without overwriting unsaved form fields", () => {
+  const localVehicle = {
+    id: "vehicle-1",
+    name: "Unsaved edited name",
+    notes: "Unsaved notes",
+    operationalStatus: "Active",
+    vorHistory: [],
+  };
+  const remoteVehicle = {
+    id: "vehicle-1",
+    name: "Stored name",
+    notes: "Stored notes",
+    operationalStatus: "VOR",
+    vorHistory: [{ id: "vor-1", status: "open", offRoadDate: "2026-08-05" }],
+  };
+
+  assert.deepEqual(mergeVehicleRealtimeState(localVehicle, remoteVehicle), {
+    ...localVehicle,
+    operationalStatus: "VOR",
+    vorHistory: remoteVehicle.vorHistory,
+  });
+});
+
+test("realtime views ignore pending local writes and apply confirmed snapshots", () => {
+  assert.equal(shouldApplyRealtimeSnapshot({ hasPendingWrites: true }), false);
+  assert.equal(shouldApplyRealtimeSnapshot({ hasPendingWrites: false }), true);
+  assert.equal(shouldApplyRealtimeSnapshot({}), true);
+});
+
+test("historic VOR corrections retain previous values and audit identity", () => {
+  const original = buildHistoricVorPeriod({
+    id: "historic-vor-1",
+    registration: "R400PBC",
+    offRoadDate: "2026-06-01",
+    returnedDate: "2026-06-08",
+    offRoadOdometer: "1000",
+    returnOdometer: "1050",
+    approvedBy: "Original approver",
+    approvedPosition: "Transport manager",
+    removedBy: "Original return authoriser",
+    removedPosition: "Director",
+    reason: "Original reason",
+    migratedBy: { uid: "user-1", name: "Importer", email: "importer@example.com" },
+  });
+  const corrected = correctHistoricVorPeriod(
+    original,
+    { returnedDate: "2026-06-10", returnOdometer: "1075" },
+    {
+      reason: "Return date entered incorrectly",
+      correctedAt: "2026-08-05T10:00:00.000Z",
+      correctedBy: { uid: "admin-1", name: "Admin", email: "admin@example.com" },
+    }
+  );
+
+  assert.equal(corrected.returnedDate, "2026-06-10");
+  assert.equal(corrected.returnOdometer, "1075");
+  assert.equal(corrected.durationDays, 9);
+  assert.equal(corrected.migratedAt, original.migratedAt);
+  assert.equal(corrected.auditHistory.length, 1);
+  assert.equal(corrected.auditHistory[0].action, "corrected");
+  assert.equal(corrected.auditHistory[0].previous.returnedDate, "2026-06-08");
+  assert.equal(corrected.auditHistory[0].previous.returnOdometer, "1050");
+});
+
+test("historic VOR archival is non-destructive and requires a reason", () => {
+  const original = buildHistoricVorPeriod({
+    id: "historic-vor-archive",
+    registration: "R400PBC",
+    offRoadDate: "2026-05-01",
+    returnedDate: "2026-05-05",
+    approvedBy: "Approver",
+    approvedPosition: "Transport manager",
+    removedBy: "Return authoriser",
+    removedPosition: "Director",
+    reason: "Workshop repair",
+  });
+  const archived = archiveHistoricVorPeriod(original, {
+    reason: "Duplicate migrated period",
+    archivedAt: "2026-08-05T10:15:00.000Z",
+    archivedBy: { uid: "admin-1", name: "Admin" },
+  });
+
+  assert.equal(archived.status, "archived");
+  assert.equal(archived.offRoadDate, original.offRoadDate);
+  assert.equal(archived.returnedDate, original.returnedDate);
+  assert.equal(archived.auditHistory[0].previous.reason, "Workshop repair");
+  assert.throws(
+    () => archiveHistoricVorPeriod(original, { reason: "" }),
+    /reason for archiving/i
+  );
+});
+
+test("admins can correct or archive a closed automatic compliance VOR without deleting evidence", () => {
+  const automatic = {
+    id: "compliance-vor-2026-07-31",
+    status: "closed",
+    source: "automatic_compliance",
+    registration: "R400PBC",
+    offRoadDate: "2026-07-31",
+    returnedDate: "2026-08-05",
+    firstUseInspectionDate: "2026-05-05",
+    offRoadOdometer: "594574",
+    returnOdometer: "594574",
+    approvedBy: "HGV compliance system",
+    approvedPosition: "Automated compliance control",
+    removedBy: "mb",
+    removedPosition: "mb",
+    reason: "Automatic compliance VOR: PMI, BRAKE TEST",
+  };
+  const corrected = correctHistoricVorPeriod(
+    automatic,
+    { firstUseInspectionDate: "2026-08-05" },
+    { reason: "Corrected first-use date", correctedBy: { uid: "admin-1" } }
+  );
+
+  assert.equal(corrected.firstUseInspectionDate, "2026-08-05");
+  assert.equal(corrected.source, "automatic_compliance");
+  assert.equal(corrected.migrated, false);
+  assert.equal(corrected.auditHistory[0].previous.firstUseInspectionDate, "2026-05-05");
+
+  const archived = archiveHistoricVorPeriod(automatic, {
+    reason: "Test compliance period created in error",
+    archivedBy: { uid: "admin-1" },
+  });
+  assert.equal(archived.status, "archived");
+  assert.equal(archived.offRoadDate, "2026-07-31");
+  assert.equal(archived.auditHistory[0].previous.status, "closed");
+});
+
+test("VOR transitions reject contradictory open periods", () => {
+  const vehicle = {
+    operationalStatus: "VOR",
+    activeVorRecordId: "vor-1",
+    vorHistory: [{ id: "vor-1", status: "open", offRoadDate: "2026-08-01" }],
+  };
+
+  assert.throws(
+    () => startVehicleVorPeriod(vehicle, { offRoadDate: "2026-08-05" }),
+    /already has an open/i
+  );
+  assert.equal(assertVorHistoryIntegrity(vehicle), true);
+  assert.throws(
+    () => assertVorHistoryIntegrity({
+      vorHistory: [
+        { id: "one", status: "open", offRoadDate: "2026-08-01" },
+        { id: "two", status: "open", offRoadDate: "2026-08-02" },
+      ],
+    }),
+    /contradictory open/i
+  );
+});
+
+test("historic VOR additions cannot overlap retained evidence", () => {
+  const vehicle = {
+    operationalStatus: "Active",
+    vorHistory: [{
+      id: "existing",
+      status: "closed",
+      offRoadDate: "2026-06-01",
+      returnedDate: "2026-06-10",
+    }],
+  };
+
+  assert.throws(
+    () => addHistoricVorPeriod(vehicle, {
+      id: "overlap",
+      offRoadDate: "2026-06-05",
+      returnedDate: "2026-06-12",
+      reason: "Imported correction",
+    }),
+    /overlaps the existing period/i
+  );
+  assert.equal(vehicle.vorHistory.length, 1);
+});
+
+test("VOR history has no maintenance booking side effects", () => {
+  const maintenanceBookings = [{ id: "booking-1", status: "Booked", vehicleId: "vehicle-1" }];
+  const vehicle = {
+    id: "vehicle-1",
+    operationalStatus: "Active",
+    vorHistory: [],
+  };
+  const updated = addHistoricVorPeriod(vehicle, {
+    id: "historic-only",
+    offRoadDate: "2026-05-01",
+    returnedDate: "2026-05-03",
+    reason: "Historic evidence",
+  });
+
+  assert.equal(updated.vorHistory.length, 1);
+  assert.deepEqual(maintenanceBookings, [{ id: "booking-1", status: "Booked", vehicleId: "vehicle-1" }]);
+  assert.equal(Object.prototype.hasOwnProperty.call(updated, "maintenanceBookings"), false);
+});
+
+test("historic VOR lifecycle updates timeline and planner without changing current status or maintenance dates", () => {
+  const original = {
+    id: "vehicle-e2e",
+    registration: "E2EVOR",
+    operationalStatus: "Active",
+    fleetStatus: "Active",
+    nextPMI: "2026-09-28",
+    nextBrakeTest: "2026-09-28",
+    nextMOT: "2027-03-01",
+    vorHistory: [],
+  };
+  const added = addHistoricVorPeriod(original, {
+    id: "historic-e2e",
+    registration: "E2EVOR",
+    offRoadDate: "2026-07-01",
+    returnedDate: "2026-07-15",
+    approvedBy: "Transport Manager",
+    approvedPosition: "Transport Manager",
+    removedBy: "Fleet Manager",
+    removedPosition: "Fleet Manager",
+    reason: "Historic workshop repair",
+  });
+
+  assert.equal(added.operationalStatus, "Active");
+  assert.equal(added.nextPMI, original.nextPMI);
+  assert.equal(added.nextBrakeTest, original.nextBrakeTest);
+  assert.equal(added.nextMOT, original.nextMOT);
+  assert.equal(buildVorTimelineEvents(added).some((event) => event.sourceRecordId === "historic-e2e"), true);
+  assert.equal(vorHistoryStatusForIsoWeek(added, 2026, 27), "VOR");
+  assert.equal(vorHistoryStatusForIsoWeek(added, 2026, 29), "VOR");
+
+  const corrected = correctVehicleHistoricVorPeriod(
+    added,
+    "historic-e2e",
+    { returnedDate: "2026-07-12" },
+    { reason: "Corrected from source document", correctedBy: { uid: "admin" } }
+  );
+  const realtimeCorrected = mergeVehicleRealtimeState(added, corrected);
+  assert.equal(realtimeCorrected.vorHistory[0].returnedDate, "2026-07-12");
+  assert.equal(vorHistoryStatusForIsoWeek(realtimeCorrected, 2026, 29), "");
+  assert.equal(realtimeCorrected.operationalStatus, "Active");
+
+  const archived = archiveVehicleHistoricVorPeriod(corrected, "historic-e2e", {
+    reason: "Duplicate historic evidence",
+    archivedBy: { uid: "admin" },
+  });
+  const realtimeArchived = mergeVehicleRealtimeState(corrected, archived);
+  assert.equal(realtimeArchived.vorHistory[0].status, "archived");
+  assert.equal(vorHistoryStatusForIsoWeek(realtimeArchived, 2026, 27), "");
+  assert.equal(buildVorTimelineEvents(realtimeArchived).length, 0);
+  assert.equal(realtimeArchived.nextPMI, original.nextPMI);
+  assert.equal(realtimeArchived.nextBrakeTest, original.nextBrakeTest);
+});
+
+test("historic VOR first-use dates create a canonical combined inspection booking intent", () => {
+  const intent = historicVorFirstUseBookingIntent(
+    { id: "vehicle-r400", name: "Low Loader 02/U-C", registration: "R400 PBC" },
+    { id: "historic-r400", firstUseInspectionDate: "2026-08-07" }
+  );
+
+  assert.deepEqual(intent.maintenanceTypeIds, ["pmi", "brake_test"]);
+  assert.equal(intent.status, "Booked");
+  assert.equal(intent.appointmentDateISO, "2026-08-07");
+  assert.equal(intent.sourceDueDateISO, "2026-08-07");
+  assert.equal(intent.sourceVorPeriodId, "historic-r400");
+  assert.match(intent.sourceDueKey, /historic-vor-first-use:vehicle-r400:historic-r400:2026-08-07/);
+  assert.equal(historicVorFirstUseBookingIntent({ id: "vehicle-r400" }, { id: "historic-r400" }), null);
 });
 
 test("timeline hides archived records and merges one combined inspection completion", () => {

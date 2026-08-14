@@ -1,9 +1,20 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { PeopleFleetHeaderActions, PeopleFleetPage, PeopleFleetPageHeader } from "@/app/components/PeopleFleetPage";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  MetricCard as SharedMetricCard,
+  NavigationCard,
+  Select,
+} from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import {
   getDocs,
@@ -50,197 +61,11 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 /*  Hide specific employees from the holiday usage chart */
 const HIDE_FROM_HOLIDAY_USAGE_GRAPH = new Set(["paul bickers"]);
 
-/* Mini design system */
+/* Page-specific visual tokens */
 const UI = UI_TOKENS;
-
-const pageWrap = {
-  padding: "16px 16px 32px",
-  background: UI.bg,
-  minHeight: "100vh",
-};
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-const surface = {
-  background: UI.card,
-  borderRadius: UI.radius,
-  border: UI.border,
-  boxShadow: UI.shadowSm,
-};
-
-const chip = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const grid = (cols = 4) => ({
-  display: "grid",
-  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: UI.gap,
-});
-
-const card = {
-  ...surface,
-  padding: 12,
-  transition:
-    "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
-};
-
-const cardHover = {
-  transform: "translateY(-2px)",
-  boxShadow: UI.shadowHover,
-  borderColor: UI.brandBorder,
-};
-
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 10,
-  flexWrap: "wrap",
-};
 
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
-
-const btn = (kind = "primary") => {
-  if (kind === "approve") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.greenBorder}`,
-      background: UI.greenSoft,
-      color: UI.green,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  if (kind === "decline") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.redBorder}`,
-      background: UI.redSoft,
-      color: "var(--color-danger)",
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  if (kind === "ghost") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-    color: "var(--color-white)",
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
-};
-
-/* Table styles (match your other tables) */
-const tableWrap = {
-  overflow: "auto",
-  border: "1px solid var(--color-border)",
-  borderRadius: UI.radius,
-  background: "var(--color-surface)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
-};
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
-const th = {
-  textAlign: "left",
-  padding: "9px 10px",
-  borderBottom: "1px solid var(--color-border)",
-  position: "sticky",
-  top: 0,
-  background: "var(--color-surface-subtle)",
-  zIndex: 1,
-  whiteSpace: "nowrap",
-  fontWeight: 800,
-  fontSize: 12,
-  color: UI.muted,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-};
-const td = { padding: "9px 10px", borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "top" };
-
-/* breakdown cell styles */
-const breakdownWrap = {
-  maxHeight: 160,
-  overflowY: "auto",
-  border: "1px solid var(--color-border)",
-  borderRadius: UI.radius,
-  padding: "8px 10px",
-  background: "var(--color-surface-subtle)",
-};
-const breakdownList = { margin: 0, padding: 0, display: "grid", gap: 6 };
-const breakdownRow = (muted) => ({
-  display: "flex",
-  gap: 8,
-  alignItems: "baseline",
-  padding: "6px 8px",
-  borderRadius: 8,
-  border: "1px solid var(--color-border)",
-  background: muted ? "var(--color-canvas)" : "var(--color-surface)",
-  color: muted ? "var(--color-text-muted)" : UI.text,
-});
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
@@ -255,54 +80,6 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
   flex: "0 0 auto",
 });
 
-const statCard = {
-  ...card,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  minHeight: 82,
-};
-
-const statLabel = {
-  color: UI.muted,
-  fontSize: 11.5,
-  fontWeight: 900,
-  textTransform: "uppercase",
-};
-
-const statValue = {
-  color: UI.text,
-  fontSize: 25,
-  lineHeight: 1.1,
-  fontWeight: 850,
-  marginTop: 8,
-};
-
-const selectStyle = {
-  minHeight: 34,
-  padding: "6px 9px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  background: UI.card,
-  fontWeight: 800,
-  color: UI.text,
-  fontSize: 12.5,
-};
-
-const focusCss = `
-  select:focus, button:focus {
-    outline: none;
-    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: var(--color-info-border) !important;
-  }
-  button:disabled { opacity: .55; cursor: not-allowed; }
-  @media (max-width: 1180px) {
-    .hr-main-grid,
-    .hr-stat-grid,
-    .hr-shortcut-grid { grid-template-columns: 1fr !important; }
-  }
-`;
 
 /* Helpers */
 const norm = (v) => String(v ?? "").trim().toLowerCase();
@@ -365,22 +142,6 @@ function sameYMD(a, b) {
   );
 }
 
-function StatCard({ labelText, value, suffix, icon: Icon, color, bg, border, textValue = false }) {
-  return (
-    <section style={statCard}>
-      <div>
-        <div style={statLabel}>{labelText}</div>
-        <div style={{ ...statValue, fontSize: textValue ? 19 : statValue.fontSize }}>
-          {value}
-          {suffix ? <span style={{ marginLeft: 6, color: UI.muted, fontSize: 12.5, fontWeight: 800 }}>{suffix}</span> : null}
-        </div>
-      </div>
-      <span style={iconBox(color, bg, border)}>
-        <Icon size={17} />
-      </span>
-    </section>
-  );
-}
 function fmt(d) {
   if (!d) return "-";
   return d.toLocaleDateString("en-GB", {
@@ -735,7 +496,7 @@ export default function HRPage() {
 
   const updateStatus = async (id, status) => {
     if (!isAdmin) {
-      alert("Only admins can approve or decline holidays.");
+      systemDialogs.showSystemNotification("Only admins can approve or decline holidays.");
       return;
     }
     try {
@@ -748,17 +509,17 @@ export default function HRPage() {
       await fetchHolidays();
     } catch (err) {
       console.error("Error updating status:", err);
-      alert(" Error updating holiday status");
+      systemDialogs.showSystemNotification(" Error updating holiday status");
     }
   };
 
   //  approve/decline delete requests
   const approveDelete = async (h) => {
     if (!isAdmin) {
-      alert("Only admins can approve deletions.");
+      systemDialogs.showSystemNotification("Only admins can approve deletions.");
       return;
     }
-    const ok = confirm(
+    const ok = await systemDialogs.confirmSystem(
       "Approve deletion? This will permanently remove the holiday entry."
     );
     if (!ok) return;
@@ -768,13 +529,13 @@ export default function HRPage() {
       await fetchHolidays();
     } catch (err) {
       console.error("Error approving delete:", err);
-      alert(" Error deleting holiday");
+      systemDialogs.showSystemNotification(" Error deleting holiday");
     }
   };
 
   const declineDelete = async (h) => {
     if (!isAdmin) {
-      alert("Only admins can decline deletions.");
+      systemDialogs.showSystemNotification("Only admins can decline deletions.");
       return;
     }
     try {
@@ -789,7 +550,7 @@ export default function HRPage() {
       await fetchHolidays();
     } catch (err) {
       console.error("Error declining delete:", err);
-      alert(" Error updating delete request");
+      systemDialogs.showSystemNotification(" Error updating delete request");
     }
   };
 
@@ -847,13 +608,13 @@ export default function HRPage() {
   ];
 
   const renderLabel = (props) => {
-    const { x, y, width, value } = props;
+    const { x, y, width, height, value } = props;
     if (value == null) return null;
     return (
       <text
-        x={x + width / 2}
-        y={y - 4}
-        textAnchor="middle"
+        x={x + width + 6}
+        y={y + height / 2 + 4}
+        textAnchor="start"
         fill="var(--color-text)"
         className={layoutStyles.extracted1}
       >
@@ -863,13 +624,13 @@ export default function HRPage() {
   };
 
   const renderAllowanceLabel = (props) => {
-    const { x, y, width, value } = props;
+    const { x, y, width, height, value } = props;
     if (value == null) return null;
     return (
       <text
-        x={x + width / 2}
-        y={y - 4}
-        textAnchor="middle"
+        x={x + width + 6}
+        y={y + height / 2 + 4}
+        textAnchor="start"
         fill="var(--color-text-muted)"
         className={layoutStyles.extracted2}
       >
@@ -895,8 +656,7 @@ export default function HRPage() {
 
   return (
     <HeaderSidebarLayout>
-      <style>{focusCss}</style>
-      <div style={pageWrap}>
+      <PeopleFleetPage>
         {/*  Render YOUR HolidayForm directly (no extra wrapper scroll / no extra close) */}
         {holidayModalOpen && (
           <HolidayForm
@@ -910,116 +670,67 @@ export default function HRPage() {
         )}
 
         {/* Header */}
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <h1 style={h1}>HR</h1>
-            <div style={sub}>
-              HR operations overview for holiday usage, approvals and employee administration.
-              {!isAdmin ? (
-                <span
-                  style={{
-                    marginLeft: 10,
-                    fontWeight: 800,
-                    color: UI.muted,
-                  }}
-                >
-                  (View only - admin required to approve/decline)
-                </span>
-              ) : null}
-            </div>
-          </div>
-
-          <div
-            className={layoutStyles.extracted4}
-          >
-            <select
+        <PeopleFleetPageHeader
+          title="HR / Timesheets"
+          subtitle={`HR operations overview for holiday usage, approvals and employee administration.${!isAdmin ? " View only — admin access is required to approve or decline." : ""}`}
+          actions={<PeopleFleetHeaderActions>
+            {requestedHolidays.length > 0 ? (
+              <Badge variant="warning">
+                <Clock3 size={13} /> {requestedHolidays.length} need review
+              </Badge>
+            ) : (
+              <Badge variant="success"><CheckCircle2 size={13} /> Queue clear</Badge>
+            )}
+            <Select
+              aria-label="HR reporting year"
               value={yearView}
               onChange={(e) => setYearView(Number(e.target.value))}
-              style={selectStyle}
               title="Select year"
+              className={layoutStyles.yearSelect}
             >
               <option value={THIS_YEAR}>{THIS_YEAR}</option>
               <option value={NEXT_YEAR}>{NEXT_YEAR}</option>
-            </select>
+            </Select>
+          </PeopleFleetHeaderActions>}
+        />
 
-            <div style={chip}>
-              <Clock3 size={13} /> {loading ? "Loading..." : `${requestedHolidays.length} requests`}
-            </div>
-
-            <div
-              style={{
-                ...chip,
-                background: UI.amberSoft,
-                borderColor: UI.amberBorder,
-                color: UI.amber,
-              }}
-            >
-              <Trash2 size={13} /> Delete requests: <b>{deleteRequestedHolidays.length}</b>
-            </div>
-
-            <div
-              style={{
-                ...chip,
-                background: UI.brandSoft,
-                borderColor: "var(--color-brand-soft)",
-                color: UI.brand,
-              }}
-            >
-              <BarChart3 size={13} /> Paid usage entries: <b>{usageData.length}</b>
-            </div>
-          </div>
-        </div>
-
-        <div className="hr-stat-grid" style={{ ...grid(4), marginBottom: UI.gap }}>
-          <StatCard
-            labelText="Pending approvals"
+        <div className={layoutStyles.metricsGrid} aria-label="HR overview">
+          <SharedMetricCard
+            label="Pending approvals"
             value={requestedHolidays.length}
-            icon={Clock3}
-            color={UI.brand}
-            bg={UI.brandSoft}
-            border={UI.brandBorder}
+            hint={requestedHolidays.length ? "Requires a decision" : "Queue is clear"}
+            icon={<Clock3 size={19} />}
+            tone={requestedHolidays.length ? "warning" : "success"}
           />
-          <StatCard
-            labelText="Delete requests"
+          <SharedMetricCard
+            label="Delete requests"
             value={deleteRequestedHolidays.length}
-            icon={Trash2}
-            color={UI.amber}
-            bg={UI.amberSoft}
-            border={UI.amberBorder}
+            hint={deleteRequestedHolidays.length ? "Requires a decision" : "No requests"}
+            icon={<Trash2 size={19} />}
+            tone={deleteRequestedHolidays.length ? "warning" : "neutral"}
           />
-          <StatCard
-            labelText="Paid usage"
+          <SharedMetricCard
+            label="Paid usage"
             value={fmtNum(totalUsedDays)}
-            suffix="days"
-            icon={BarChart3}
-            color={UI.green}
-            bg={UI.greenSoft}
-            border={UI.greenBorder}
+            valueSuffix="days"
+            hint={`Across ${usageData.length} employees`}
+            icon={<BarChart3 size={19} />}
+            tone="success"
           />
-          <StatCard
-            labelText="Access"
+          <SharedMetricCard
+            label="Access"
             value={isAdmin ? "Admin" : "View only"}
-            icon={ShieldCheck}
-            color="var(--color-info)"
-            bg="var(--color-info-soft)"
-            border="var(--color-border)"
-            textValue
+            hint={isAdmin ? "Approval controls enabled" : "Read-only access"}
+            icon={<ShieldCheck size={19} />}
+            tone="info"
           />
         </div>
 
         {/* Top row: Chart + Requests */}
-        <div
-          className="hr-main-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1.15fr) minmax(360px, 0.85fr)",
-            gap: UI.gap,
-            alignItems: "start",
-          }}
-        >
+        <div className={layoutStyles.mainGrid}>
           {/*  Usage chart */}
-          <section style={card}>
-            <div className={layoutStyles.extracted5}>
+          <Card className={layoutStyles.usageCard}>
+            <div className={layoutStyles.sectionHeader}>
               <div className={layoutStyles.extracted6}>
                 <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
                   <BarChart3 size={17} />
@@ -1031,46 +742,45 @@ export default function HRPage() {
                   </div>
                 </div>
               </div>
-              <div style={chip}>
-                <BarChart3 size={13} /> Usage chart
+              <div className={layoutStyles.chartLegend}>
+                <Badge variant="info">Used</Badge>
+                <Badge>Allowance</Badge>
               </div>
             </div>
 
             {usageData.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
-                No approved paid holidays yet for {yearView}, so there is nothing to chart.
-              </div>
+              <EmptyState
+                title="No paid holiday usage"
+                description={`There are no approved paid holidays to chart for ${yearView}.`}
+                icon={<BarChart3 size={24} />}
+                className={layoutStyles.chartEmpty}
+              />
             ) : (
-              <div className={layoutStyles.extracted7}>
+              <div className={layoutStyles.chartViewport}>
+                <div style={{ height: Math.max(380, usageData.length * 34) }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={usageData}
-                    margin={{ top: 16, right: 24, left: 0, bottom: 24 }}
+                    layout="vertical"
+                    barCategoryGap="18%"
+                    margin={{ top: 8, right: 54, left: 8, bottom: 8 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 12, fill: "var(--color-text-muted)" }}
-                      axisLine={{ stroke: "var(--color-border)" }}
-                      tickLine={{ stroke: "var(--color-border)" }}
-                      interval={0}
-                      angle={-25}
-                      textAnchor="end"
-                      height={60}
-                    />
-                    <YAxis
+                      type="number"
                       domain={[0, maxY]}
                       allowDecimals
                       tick={{ fontSize: 12, fill: "var(--color-text-muted)" }}
                       axisLine={{ stroke: "var(--color-border)" }}
                       tickLine={{ stroke: "var(--color-border)" }}
-                      label={{
-                        value: "Days",
-                        angle: -90,
-                        position: "insideLeft",
-                        offset: 8,
-                        style: { fontSize: 12, fill: "var(--color-text-muted)" },
-                      }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={124}
+                      tick={{ fontSize: 11.5, fill: "var(--color-text-muted)" }}
+                      axisLine={false}
+                      tickLine={false}
                     />
                     <Tooltip
                       cursor={{ fill: "rgba(148,163,184,0.12)" }}
@@ -1091,25 +801,26 @@ export default function HRPage() {
                     />
 
                     {/* Allowance (grey) */}
-                    <Bar dataKey="allowance" fill="var(--shell-muted)" radius={[8, 8, 0, 0]}>
+                    <Bar dataKey="allowance" fill="var(--color-border-strong)" radius={[0, 6, 6, 0]}>
                       <LabelList dataKey="allowance" content={renderAllowanceLabel} />
                     </Bar>
 
                     {/* Used (brand) */}
-                    <Bar dataKey="used" fill={UI.brand} radius={[8, 8, 0, 0]}>
+                    <Bar dataKey="used" fill={UI.brand} radius={[0, 6, 6, 0]}>
                       <LabelList dataKey="used" content={renderLabel} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+                </div>
               </div>
             )}
-          </section>
+          </Card>
 
           {/* Right column: Requested + Delete Requested */}
-          <div style={{ display: "grid", gap: UI.gap }}>
+          <div className={layoutStyles.queueColumn}>
             {/*  Requested holidays */}
-            <section style={card}>
-              <div className={layoutStyles.extracted8}>
+            <Card className={layoutStyles.queueCard}>
+              <div className={layoutStyles.sectionHeader}>
                 <div className={layoutStyles.extracted9}>
                   <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
                     <Clock3 size={17} />
@@ -1121,9 +832,9 @@ export default function HRPage() {
                     </div>
                   </div>
                 </div>
-                <div style={chip}>
+                <Badge variant={requestedHolidays.length ? "warning" : "success"}>
                   <Clock3 size={13} /> {requestedHolidays.length}
-                </div>
+                </Badge>
               </div>
 
               {!isAdmin ? (
@@ -1133,9 +844,12 @@ export default function HRPage() {
               ) : null}
 
               {requestedHolidays.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
-                  No pending holiday requests.
-                </div>
+                <EmptyState
+                  title="Approval queue clear"
+                  description={`There are no pending holiday requests for ${yearView}.`}
+                  icon={<CheckCircle2 size={24} />}
+                  className={layoutStyles.queueEmpty}
+                />
               ) : (
                 <div className={layoutStyles.extracted10}>
                   {requestedHolidays.slice(0, 6).map((h) => {
@@ -1163,14 +877,9 @@ export default function HRPage() {
                     }
 
                     return (
-                      <div
+                      <article
                         key={h.id}
-                        style={{
-                          ...surface,
-                          padding: 10,
-                          borderRadius: UI.radius,
-                          boxShadow: "none",
-                        }}
+                        className={layoutStyles.requestItem}
                       >
                         <div
                           className={layoutStyles.extracted11}
@@ -1178,7 +887,7 @@ export default function HRPage() {
                           <div style={{ fontWeight: 900, color: UI.text }}>
                             {h.employee || h.employeeCode || "Unknown"}
                           </div>
-                          <span style={chip}>{type}</span>
+                          <Badge variant={norm(type).includes("unpaid") ? "warning" : "info"}>{type}</Badge>
                         </div>
 
                         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
@@ -1196,41 +905,33 @@ export default function HRPage() {
                         </div>
 
                         <div className={layoutStyles.extracted12}>
-                          <button
-                            style={{
-                              ...btn("approve"),
-                              opacity: isAdmin ? 1 : 0.45,
-                              cursor: isAdmin ? "pointer" : "not-allowed",
-                            }}
+                          <Button
+                            variant="success"
+                            size="sm"
                             onClick={() => isAdmin && updateStatus(h.id, "approved")}
-                            type="button"
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Approve"}
                           >
                             <CheckCircle2 size={14} /> Approve
-                          </button>
-                          <button
-                            style={{
-                              ...btn("decline"),
-                              opacity: isAdmin ? 1 : 0.45,
-                              cursor: isAdmin ? "pointer" : "not-allowed",
-                            }}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={() => isAdmin && updateStatus(h.id, "declined")}
-                            type="button"
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Decline"}
                           >
                             <XCircle size={14} /> Decline
-                          </button>
-                          <button
-                            style={btn("ghost")}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => router.push("/holiday-usage")}
-                            type="button"
                           >
                             View usage <ChevronRight size={14} />
-                          </button>
+                          </Button>
                         </div>
-                      </div>
+                      </article>
                     );
                   })}
 
@@ -1241,11 +942,11 @@ export default function HRPage() {
                   ) : null}
                 </div>
               )}
-            </section>
+            </Card>
 
             {/*  Delete requested holidays */}
-            <section style={card}>
-              <div className={layoutStyles.extracted13}>
+            <Card className={layoutStyles.queueCard}>
+              <div className={layoutStyles.sectionHeader}>
                 <div className={layoutStyles.extracted14}>
                   <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}>
                     <Trash2 size={17} />
@@ -1257,9 +958,9 @@ export default function HRPage() {
                     </div>
                   </div>
                 </div>
-                <div style={{ ...chip, background: UI.amberSoft, borderColor: UI.amberBorder, color: UI.amber }}>
+                <Badge variant="warning">
                   <Trash2 size={13} /> {deleteRequestedHolidays.length}
-                </div>
+                </Badge>
               </div>
 
               {!isAdmin ? (
@@ -1269,9 +970,12 @@ export default function HRPage() {
               ) : null}
 
               {deleteRequestedHolidays.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
-                  No delete requests.
-                </div>
+                <EmptyState
+                  title="No deletion requests"
+                  description={`There are no holiday deletion requests for ${yearView}.`}
+                  icon={<Trash2 size={24} />}
+                  className={layoutStyles.queueEmpty}
+                />
               ) : (
                 <div className={layoutStyles.extracted15}>
                   {deleteRequestedHolidays.slice(0, 6).map((h) => {
@@ -1291,14 +995,9 @@ export default function HRPage() {
                     }
 
                     return (
-                      <div
+                      <article
                         key={h.id}
-                        style={{
-                          ...surface,
-                          padding: 10,
-                          borderRadius: UI.radius,
-                          boxShadow: "none",
-                        }}
+                        className={layoutStyles.requestItem}
                       >
                         <div
                           className={layoutStyles.extracted16}
@@ -1306,7 +1005,7 @@ export default function HRPage() {
                           <div style={{ fontWeight: 900, color: UI.text }}>
                             {h.employee || h.employeeCode || "Unknown"}
                           </div>
-                          <span style={chip}>{type}</span>
+                          <Badge variant={norm(type).includes("unpaid") ? "warning" : "info"}>{type}</Badge>
                         </div>
 
                         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
@@ -1323,43 +1022,35 @@ export default function HRPage() {
                         </div>
 
                         <div className={layoutStyles.extracted17}>
-                          <button
-                            style={{
-                              ...btn("approve"),
-                              opacity: isAdmin ? 1 : 0.45,
-                              cursor: isAdmin ? "pointer" : "not-allowed",
-                            }}
+                          <Button
+                            variant="success"
+                            size="sm"
                             onClick={() => isAdmin && approveDelete(h)}
-                            type="button"
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Approve delete"}
                           >
                             <CheckCircle2 size={14} /> Approve delete
-                          </button>
+                          </Button>
 
-                          <button
-                            style={{
-                              ...btn("decline"),
-                              opacity: isAdmin ? 1 : 0.45,
-                              cursor: isAdmin ? "pointer" : "not-allowed",
-                            }}
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={() => isAdmin && declineDelete(h)}
-                            type="button"
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Decline delete"}
                           >
                             <XCircle size={14} /> Decline
-                          </button>
+                          </Button>
 
-                          <button
-                            style={btn("ghost")}
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => router.push("/holiday-usage")}
-                            type="button"
                           >
                             View usage <ChevronRight size={14} />
-                          </button>
+                          </Button>
                         </div>
-                      </div>
+                      </article>
                     );
                   })}
 
@@ -1370,64 +1061,41 @@ export default function HRPage() {
                   ) : null}
                 </div>
               )}
-            </section>
+            </Card>
           </div>
         </div>
 
         {/* HR Docs */}
-        <section className={layoutStyles.extracted18}>
-          <div
-            className={layoutStyles.extracted19}
-          >
+        <section className={layoutStyles.shortcutsSection}>
+          <div className={layoutStyles.shortcutsHeader}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>HR Shortcuts</div>
               <div style={hint}>Open related operational pages.</div>
             </div>
-            <div style={chip}>
+            <Badge>
               <FileText size={13} /> {documents.length} links
-            </div>
+            </Badge>
           </div>
 
-          <div className="hr-shortcut-grid" style={grid(4)}>
+          <div className={layoutStyles.shortcutGrid}>
             {documents.map((d) => {
               const Icon = d.icon || FileText;
               return (
-              <div
+              <NavigationCard
                 key={d.key}
-                style={{ ...card, cursor: "pointer" }}
+                icon={<Icon size={20} />}
+                title={d.title}
+                description={d.description}
                 onClick={() => {
                   if (d.key === "holidayForm") return setHolidayModalOpen(true);
                   router.push(d.link);
                 }}
-                onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
-                onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    if (d.key === "holidayForm") return setHolidayModalOpen(true);
-                    router.push(d.link);
-                  }
-                }}
-              >
-                <div className={layoutStyles.extracted20}>
-                  <div className={layoutStyles.extracted21}>
-                    <span style={iconBox(d.color, d.bg, d.border)}>
-                      <Icon size={17} />
-                    </span>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: 15, color: UI.text }}>{d.title}</div>
-                      <div style={{ marginTop: 5, color: UI.muted, fontSize: 12.5, lineHeight: 1.35 }}>{d.description}</div>
-                    </div>
-                  </div>
-                  <ChevronRight size={17} color={UI.brand} />
-                </div>
-              </div>
+              />
               );
             })}
           </div>
         </section>
-      </div>
+      </PeopleFleetPage>
     </HeaderSidebarLayout>
   );
 }

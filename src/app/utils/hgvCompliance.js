@@ -146,9 +146,35 @@ const getLatestHgvCompletion = (vehicle, type, asOfDate = new Date()) => {
 export const getLatestHgvCompletionDate = (vehicle, type, asOfDate = new Date()) =>
   getLatestHgvCompletion(vehicle, type, asOfDate)?.completedDate || "";
 
+export const getCurrentHgvVorStartDate = (vehicle = {}) => {
+  const history = safeArray(vehicle.vorHistory);
+  const activeRecord = history.find(
+    (record) =>
+      (vehicle.activeVorRecordId && record?.id === vehicle.activeVorRecordId) ||
+      (!vehicle.activeVorRecordId && text(record?.status).toLowerCase() === "open")
+  );
+  return complianceDateOnly(
+    activeRecord?.offRoadDate ||
+      vehicle.complianceVor?.startedDate ||
+      vehicle.maintenanceCountdownPause?.startedDate ||
+      vehicle.vorStartedAt
+  );
+};
+
 export const getHgvComplianceVorDisplayRows = (vehicle = {}) => {
   const pendingReturnInspection = vehicle.pendingReturnInspection || {};
+  const lastPmi = complianceDateOnly(vehicle.lastPMI || vehicle.eightWeekInspectionStart);
+  const lastBrakeTest = complianceDateOnly(vehicle.lastBrakeTest);
+  const vorStartDate = getCurrentHgvVorStartDate(vehicle);
+  const completedPairSupersedesPending = Boolean(
+    lastPmi &&
+      lastBrakeTest &&
+      lastPmi === lastBrakeTest &&
+      vorStartDate &&
+      lastPmi >= vorStartDate
+  );
   if (
+    !completedPairSupersedesPending &&
     text(pendingReturnInspection.status).toLowerCase() === "inspection_required" &&
     complianceDateOnly(pendingReturnInspection.inspectionDate)
   ) {
@@ -158,6 +184,13 @@ export const getHgvComplianceVorDisplayRows = (vehicle = {}) => {
       status: "return_inspection_required",
       date: inspectionDate,
     }));
+  }
+
+  if (completedPairSupersedesPending && Object.keys(vehicle?.complianceVor?.reasons || {}).length === 0) {
+    return [
+      { type: "brake_test", status: "resolved", date: lastBrakeTest },
+      { type: "pmi", status: "resolved", date: lastPmi },
+    ];
   }
 
   return Object.values(vehicle?.complianceVor?.reasons || {})

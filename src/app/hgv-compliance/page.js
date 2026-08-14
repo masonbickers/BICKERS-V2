@@ -12,12 +12,14 @@ import {
   ChevronRight,
   CirclePause,
   Clock3,
+  GripVertical,
   Search,
   Truck,
 } from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
+import VorPeriodDetailsModal from "@/app/components/VorPeriodDetailsModal";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -27,18 +29,33 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { normalizeAssetRecord } from "@/app/utils/maintenanceSchema";
-import { getImportedPlannerYear, HGV_PLANNER_YEARS } from "./hgvPlannerData";
+import {
+  getImportedPlannerYear,
+  HGV_EXCEL_REGISTRATION_ORDER,
+  HGV_PLANNER_YEARS,
+} from "./hgvPlannerData";
 import {
   buildCompletedInspectionDates,
+  buildPlannerInspectionEvidenceDates,
   buildLivePlannerEvents,
   buildPlannerMaintenanceModalEvent,
+  applyPlannerRegistrationOrder,
   formatDate,
   getIsoWeekParts,
   hgvComplianceStatusForIsoWeek,
+  isImportedPlannerEventHidden,
+  isComplianceVorStartingInIsoWeek,
+  isReturnInspectionScheduledForIsoWeek,
+  isVorPeriodStartingInIsoWeek,
+  reconcileImportedPlannerEvents,
   normalizeRegistration,
+  orderPlannerRegistrations,
+  orderPlannerRegistrationsByFleet,
   resolveVehicleLabel,
   resolveVehicleRegistration,
+  summarizeInspectionRequirements,
   vehicleStatus,
+  vorHistoryPeriodsForIsoWeek,
   weeksInIsoYear,
 } from "./hgvPlanner";
 import styles from "./page.module.css";
@@ -47,6 +64,10 @@ import { isHgvComplianceVehicle } from "../utils/hgvCompliance";
 const TODAY = new Date();
 const CURRENT_YEAR = TODAY.getFullYear();
 const PDF_HISTORY_CUTOFF = "2026-07-31";
+const VEHICLE_ORDER_STORAGE_KEY = "hgv-compliance:vehicle-order:v1";
+const IMPORTED_CADENCE_EVENTS = HGV_PLANNER_YEARS.flatMap(
+  (plannerYear) => getImportedPlannerYear(plannerYear).events
+).filter((event) => event.type === "imported");
 
 const eventLabel = {
   imported: "Imported planner",
@@ -60,6 +81,8 @@ const eventLabel = {
 
 const eventTone = (event) => {
   if (event.type === "imported_vor") return styles.vorMarker;
+  if (event.status === "requested") return styles.requested;
+  if (event.status === "deferred") return styles.deferred;
   if (event.type === "inspection_brake") {
     return event.status === "completed"
       ? styles.completed
@@ -89,13 +112,6 @@ const statusTone = (status) => {
 const assetTone = (registration) =>
   /^C\d/i.test(registration) ? styles.trailerHeader : styles.unitHeader;
 
-const daysFromToday = (value) => {
-  const date = new Date(`${value}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
-  const today = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate(), 12);
-  return Math.round((date - today) / 86400000);
-};
-
 export default function HgvCompliancePage() {
   const router = useRouter();
   const dataAccessState = useDataAccessState();
@@ -106,10 +122,23 @@ export default function HgvCompliancePage() {
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState("");
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
+  const [selectedVorPeriod, setSelectedVorPeriod] = useState(null);
+  const [manualVehicleOrder, setManualVehicleOrder] = useState([]);
   const [expandedYears, setExpandedYears] = useState(
     () => new Set(HGV_PLANNER_YEARS.filter((plannerYear) => plannerYear >= CURRENT_YEAR))
   );
   const hasPositionedInitialYear = useRef(false);
+
+  useEffect(() => {
+    try {
+      const savedOrder = JSON.parse(window.localStorage.getItem(VEHICLE_ORDER_STORAGE_KEY) || "[]");
+      if (Array.isArray(savedOrder)) {
+        setManualVehicleOrder(savedOrder.map(normalizeRegistration).filter(Boolean));
+      }
+    } catch {
+      // Ignore unavailable or malformed device-local preferences.
+    }
+  }, []);
 
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
@@ -134,7 +163,9 @@ export default function HgvCompliancePage() {
 
     const unsubscribeVehicles = onSnapshot(
       tenantCollectionQuery(db, "vehicles", dataAccessState),
+      { includeMetadataChanges: true },
       (snapshot) => {
+        if (snapshot.metadata.hasPendingWrites) return;
         setVehicles(
           snapshot.docs.map((item) =>
             normalizeAssetRecord({ id: item.id, ...(item.data() || {}) })
@@ -156,7 +187,9 @@ export default function HgvCompliancePage() {
 
     const unsubscribeBookings = onSnapshot(
       tenantCollectionQuery(db, "maintenanceBookings", dataAccessState),
+      { includeMetadataChanges: true },
       (snapshot) => {
+        if (snapshot.metadata.hasPendingWrites) return;
         setBookings(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() || {}) })));
         bookingsReady = true;
         finish();
@@ -209,6 +242,45 @@ export default function HgvCompliancePage() {
     );
   };
 
+  const openLinkedBooking = (bookingId) => {
+    const booking = bookings.find((item) => String(item.id || "") === String(bookingId || ""));
+    if (!booking) return;
+    const registration = normalizeRegistration(
+      booking.registration ||
+        booking.vehicleRegistration ||
+        selectedMaintenanceEvent?.registration
+    );
+    const vehicle =
+      vehicleByRegistration.get(registration) ||
+      vehicles.find((item) => String(item.id || "") === String(booking.vehicleId || "")) ||
+      null;
+    setSelectedMaintenanceEvent(
+      buildPlannerMaintenanceModalEvent({
+        event: {
+          ...(selectedMaintenanceEvent || {}),
+          bookingId: booking.id,
+          registration: registration || selectedMaintenanceEvent?.registration,
+          status: booking.status || "Booked",
+          isLegalDueReference: false,
+          linkedBookingId: "",
+        },
+        vehicle,
+        booking,
+      })
+    );
+  };
+
+  const selectedVorDetails = useMemo(() => {
+    if (!selectedVorPeriod) return null;
+    const vehicle = vehicles.find(
+      (item) => String(item.id || "") === String(selectedVorPeriod.vehicleId || "")
+    );
+    const period = (Array.isArray(vehicle?.vorHistory) ? vehicle.vorHistory : []).find(
+      (item) => String(item?.id || "") === String(selectedVorPeriod.periodId || "")
+    );
+    return vehicle && period ? { vehicle, period } : null;
+  }, [selectedVorPeriod, vehicles]);
+
   const completedInspectionDatesByRegistration = useMemo(() => {
     const registrations = [
       ...new Set(
@@ -232,6 +304,7 @@ export default function HgvCompliancePage() {
     HGV_PLANNER_YEARS.forEach((plannerYear) => {
       getImportedPlannerYear(plannerYear).events.forEach((event) => {
         if (event.type !== "imported" || event.date > PDF_HISTORY_CUTOFF) return;
+        if (isImportedPlannerEventHidden(vehicleByRegistration.get(event.registration), event)) return;
         datesByRegistration.set(
           event.registration,
           [
@@ -245,7 +318,7 @@ export default function HgvCompliancePage() {
     });
 
     return datesByRegistration;
-  }, [bookings, vehicles]);
+  }, [bookings, vehicleByRegistration, vehicles]);
 
   const currentWeek = useMemo(() => getIsoWeekParts(new Date()), []);
 
@@ -257,10 +330,54 @@ export default function HgvCompliancePage() {
         .filter(isHgvComplianceVehicle)
         .map(resolveVehicleRegistration)
         .filter(Boolean);
-      const plannerRegistrations =
+      const basePlannerRegistrations =
         plannerYear >= CURRENT_YEAR
-          ? [...new Set(liveRegistrations)]
+          ? orderPlannerRegistrations(liveRegistrations, HGV_EXCEL_REGISTRATION_ORDER)
           : imported.registrations;
+      const sortStatuses = new Map(
+        basePlannerRegistrations.map((registration) => {
+          const vehicle = vehicleByRegistration.get(registration);
+          const completionDates = completedInspectionDatesByRegistration.get(registration) || [];
+          const baseStatus = vehicleStatus(vehicle, imported.statuses[registration]);
+          const complianceStatus = currentWeek
+            ? hgvComplianceStatusForIsoWeek(
+                vehicle,
+                baseStatus,
+                currentWeek.year,
+                currentWeek.week,
+                false,
+                completionDates
+              )
+            : "";
+          const returnInspectionThisWeek = currentWeek
+            ? isReturnInspectionScheduledForIsoWeek(
+                vehicle,
+                currentWeek.year,
+                currentWeek.week
+              )
+            : false;
+          return [
+            registration,
+            complianceStatus === "VOR"
+              ? "VOR"
+              : baseStatus === "VOR" && returnInspectionThisWeek
+                ? "ACTIVE"
+                : baseStatus,
+          ];
+        })
+      );
+      const automaticPlannerRegistrations = plannerYear >= CURRENT_YEAR
+        ? orderPlannerRegistrationsByFleet(
+            basePlannerRegistrations,
+            vehicleByRegistration,
+            sortStatuses,
+            HGV_EXCEL_REGISTRATION_ORDER
+          )
+        : basePlannerRegistrations;
+      const plannerRegistrations = applyPlannerRegistrationOrder(
+        automaticPlannerRegistrations,
+        manualVehicleOrder
+      );
       const visibleRegistrations = plannerRegistrations.filter((registration) => {
         if (!term) return true;
         const vehicle = vehicleByRegistration.get(registration);
@@ -276,10 +393,26 @@ export default function HgvCompliancePage() {
         registrations: plannerRegistrations,
       });
       const eventsByCell = new Map();
-      const historicalImportedEvents = imported.events.filter(
-        (event) =>
-          event.type !== "imported" ||
-          event.date <= PDF_HISTORY_CUTOFF
+      const importedCandidates = imported.events.filter(
+        (event) => event.type !== "imported" || event.date <= PDF_HISTORY_CUTOFF
+      );
+      const importedReconciliation = reconcileImportedPlannerEvents({
+        importedEvents: importedCandidates,
+        canonicalEvents: liveEvents,
+        cadenceEvents: IMPORTED_CADENCE_EVENTS,
+        vehicles,
+      });
+      const historicalImportedEvents = [
+        ...importedReconciliation.unmatched,
+        ...importedReconciliation.inferred.map((item) => item.event),
+        ...importedReconciliation.ambiguous.map((item) => item.event),
+      ];
+      const plannerInspectionDatesByRegistration = buildPlannerInspectionEvidenceDates(
+        completedInspectionDatesByRegistration,
+        [
+          ...importedReconciliation.unmatched,
+          ...importedReconciliation.inferred.map((item) => item.event),
+        ]
       );
       [...historicalImportedEvents, ...liveEvents].forEach((event) => {
         if (!visibleRegistrations.includes(event.registration)) return;
@@ -328,21 +461,50 @@ export default function HgvCompliancePage() {
           const pairedEvents = [inspectionEvent, brakeEvent];
           const allCompleted = pairedEvents.every((event) => event.status === "completed");
           const allBooked = pairedEvents.every((event) => event.status === "booked");
+          const allRequested = pairedEvents.every((event) => event.status === "requested");
+          const allDeferred = pairedEvents.every((event) => event.status === "deferred");
+          const allDue = pairedEvents.every((event) => event.status === "due");
           const dates = [...new Set(pairedEvents.map((event) => event.date).filter(Boolean))];
+          const pairedSources = [
+            ...new Set(pairedEvents.map((event) => event.source).filter(Boolean)),
+          ];
           const replacementEvent = {
             id: `system-pmi-brake-${key}`,
             type: "inspection_brake",
-            status: allCompleted ? "completed" : allBooked ? "booked" : "planned",
+            status: allCompleted
+              ? "completed"
+              : allBooked
+                ? "booked"
+                : allRequested
+                  ? "requested"
+                : allDeferred
+                  ? "deferred"
+                  : allDue
+                    ? "due"
+                    : "planned",
             date: inspectionEvent.date || brakeEvent.date,
             registration: pairedEvents[0]?.registration,
             bookingId: inspectionEvent.bookingId || brakeEvent.bookingId || "",
-            source: pairedEvents.every(
-              (event) => event.source === "vehicle_last_completed_date"
-            )
-              ? "vehicle_last_completed_date"
-              : "",
+            requirementKey: inspectionEvent.requirementKey || brakeEvent.requirementKey || "",
+            legalDueDateISO: inspectionEvent.legalDueDateISO || brakeEvent.legalDueDateISO || "",
+            appointmentDateISO: inspectionEvent.appointmentDateISO || brakeEvent.appointmentDateISO || "",
+            isLegalDueReference: pairedEvents.every((event) => event.isLegalDueReference),
+            linkedBookingId: inspectionEvent.linkedBookingId || brakeEvent.linkedBookingId || "",
+            source: pairedSources.length === 1 ? pairedSources[0] : "",
             week: pairedEvents[0]?.week,
-            label: `PMI + brake test ${allCompleted ? "completed" : allBooked ? "booked" : "planned"}${
+            label: `PMI + brake test ${
+              allCompleted
+                ? "completed"
+                : allBooked
+                  ? "booked"
+                  : allRequested
+                    ? "due — not arranged"
+                : allDeferred
+                  ? "deferred"
+                  : allDue
+                    ? "legal due date"
+                    : "planned"
+            }${
               dates.length > 1
                 ? ` (${dates.map((date) => formatDate(date)).join(" + ")})`
                 : ""
@@ -366,7 +528,7 @@ export default function HgvCompliancePage() {
       const displayedStatuses = visibleRegistrations.map((registration) => {
         const vehicle = vehicleByRegistration.get(registration);
         const inspectionCompletionDates =
-          completedInspectionDatesByRegistration.get(registration) || [];
+          plannerInspectionDatesByRegistration.get(registration) || [];
         const baseStatus =
           plannerYear < CURRENT_YEAR
             ? imported.statuses[registration] || "AVAILABLE"
@@ -382,24 +544,42 @@ export default function HgvCompliancePage() {
                 inspectionCompletionDates
               )
             : "";
+        const returnInspectionThisWeek =
+          plannerYear >= CURRENT_YEAR && currentWeek
+            ? isReturnInspectionScheduledForIsoWeek(
+                vehicle,
+                currentWeek.year,
+                currentWeek.week
+              )
+            : false;
         return {
           registration,
           vehicle,
           inspectionCompletionDates,
+          currentStatus: baseStatus,
           status:
-            plannerYear >= CURRENT_YEAR && complianceStatus === "VOR"
-              ? "VOR"
+            plannerYear >= CURRENT_YEAR
+              ? complianceStatus === "VOR"
+                ? "VOR"
+                : baseStatus === "VOR" &&
+                    (inspectionCompletionDates.length || returnInspectionThisWeek)
+                  ? "ACTIVE"
+                  : baseStatus
               : baseStatus,
         };
       });
       return {
         year: plannerYear,
         imported,
-        importedEntryCount: historicalImportedEvents.length,
+        importedEntryCount:
+          importedReconciliation.unmatched.length + importedReconciliation.ambiguous.length,
+        inferredPmiCount: importedReconciliation.inferred.length,
+        importedReconciliation,
         visibleRegistrations,
         liveEvents,
         eventsByCell,
         displayedStatuses,
+        plannerRegistrations,
         weeks: Array.from({ length: weeksInIsoYear(plannerYear) }, (_, index) => index + 1),
         sourceWarnings: historicalImportedEvents.filter(
           (event) => Number(event.date.slice(0, 4)) !== plannerYear
@@ -410,6 +590,7 @@ export default function HgvCompliancePage() {
     bookings,
     completedInspectionDatesByRegistration,
     currentWeek,
+    manualVehicleOrder,
     search,
     vehicleByRegistration,
     vehicles,
@@ -421,17 +602,36 @@ export default function HgvCompliancePage() {
   const activeCount = currentPlanner?.displayedStatuses.filter((item) => item.status === "ACTIVE").length || 0;
   const vorCount = currentPlanner?.displayedStatuses.filter((item) => item.status === "VOR").length || 0;
   const unmatchedCount = currentPlanner?.displayedStatuses.filter((item) => !item.vehicle).length || 0;
-  const nextInspectionEvents = (currentPlanner?.liveEvents || []).filter(
-    (event) => event.type === "inspection" && event.status === "booked"
-  );
-  const overdueCount = nextInspectionEvents.filter((event) => (daysFromToday(event.date) ?? 1) < 0).length;
-  const dueSoonCount = nextInspectionEvents.filter((event) => {
-    const days = daysFromToday(event.date);
-    return days !== null && days >= 0 && days <= 56;
-  }).length;
+  const inspectionSummary = summarizeInspectionRequirements(currentPlanner?.liveEvents || [], TODAY);
+  const overdueCount = inspectionSummary.overdue;
+  const dueSoonCount = inspectionSummary.dueSoon;
   const openVehicle = (registration) => {
     const vehicle = vehicleByRegistration.get(registration);
     if (vehicle?.id) router.push(`/vehicle-edit/${encodeURIComponent(vehicle.id)}`);
+  };
+
+  const reorderVehicles = (draggedRegistration, targetRegistration, displayedOrder) => {
+    const dragged = normalizeRegistration(draggedRegistration);
+    const target = normalizeRegistration(targetRegistration);
+    if (!dragged || !target || dragged === target) return;
+
+    const baseOrder = applyPlannerRegistrationOrder(
+      [...manualVehicleOrder, ...(Array.isArray(displayedOrder) ? displayedOrder : [])],
+      manualVehicleOrder
+    );
+    const fromIndex = baseOrder.indexOf(dragged);
+    const targetIndex = baseOrder.indexOf(target);
+    if (fromIndex < 0 || targetIndex < 0) return;
+
+    const nextOrder = [...baseOrder];
+    nextOrder.splice(fromIndex, 1);
+    nextOrder.splice(targetIndex, 0, dragged);
+    setManualVehicleOrder(nextOrder);
+    try {
+      window.localStorage.setItem(VEHICLE_ORDER_STORAGE_KEY, JSON.stringify(nextOrder));
+    } catch {
+      // The reordered view still works for this session when storage is unavailable.
+    }
   };
 
   const toggleYear = (plannerYear) => {
@@ -466,7 +666,7 @@ export default function HgvCompliancePage() {
             <div className={styles.eyebrow}>Fleet compliance</div>
             <h1>HGV Inspection Planner</h1>
             <p>
-              Saved PMI, brake-test, MOT and service appointments with live Active/VOR status in one ISO-week view.
+              Canonical PMI, brake-test, MOT and service requirements with live Active/VOR status in one ISO-week view.
             </p>
           </div>
           <button type="button" className={styles.secondaryButton} onClick={() => router.push("/vehicle-home")}>
@@ -513,7 +713,9 @@ export default function HgvCompliancePage() {
           <Legend className={styles.keyTrailer} label="Trailer" />
           <span className={styles.legendTitle}>Planner</span>
           <Legend className={styles.sourceHistory} label="Historic / completed" />
+          <Legend className={styles.requested} label="Due — not arranged" />
           <Legend className={styles.booked} label="Booked" />
+          <Legend className={styles.deferred} label="Deferred" />
           <Legend className={styles.brake} label="Brake test" />
           <Legend className={styles.mot} label="MOT" />
           <Legend className={styles.service} label="Service" />
@@ -576,7 +778,10 @@ export default function HgvCompliancePage() {
                     <div className={styles.yearHeadingMeta}>
                       <strong>
                         {planner.visibleRegistrations.length} vehicles ·{" "}
-                        {planner.importedEntryCount} historical imported entries
+                        {planner.importedEntryCount} unmatched imported entries
+                        {planner.inferredPmiCount
+                          ? ` · ${planner.inferredPmiCount} cadence-inferred PMI${planner.inferredPmiCount === 1 ? "" : "s"}`
+                          : ""}
                       </strong>
                       {isPreviousYear ? (
                         <button type="button" onClick={() => toggleYear(planner.year)}>
@@ -595,6 +800,21 @@ export default function HgvCompliancePage() {
                           printed date outside {planner.year}. It is shown unchanged for audit.
                         </div>
                       ) : null}
+                      {planner.importedReconciliation.ambiguous.length ? (
+                        <details className={styles.reconciliationWarning}>
+                          <summary>
+                            <AlertTriangle size={15} />
+                            {planner.importedReconciliation.ambiguous.length} imported {planner.importedReconciliation.ambiguous.length === 1 ? "entry needs" : "entries need"} review
+                          </summary>
+                          <ul>
+                            {planner.importedReconciliation.ambiguous.map(({ event, matches }) => (
+                              <li key={event.id || `${event.registration}-${event.week}-${event.date}`}>
+                                {event.registration} · W{event.week} · {formatDate(event.date)} — matches {matches.length} canonical records
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ) : null}
                       <div className={styles.plannerCard}>
                         {planner.visibleRegistrations.length ? (
                           <PlannerTable
@@ -602,6 +822,10 @@ export default function HgvCompliancePage() {
                             currentWeek={currentWeek}
                             openVehicle={openVehicle}
                             openPlannerEntry={openPlannerEntry}
+                            reorderVehicles={reorderVehicles}
+                            openVorPeriod={(vehicle, period) =>
+                              setSelectedVorPeriod({ vehicleId: vehicle.id, periodId: period.id })
+                            }
                           />
                         ) : (
                           <div className={styles.empty}>
@@ -619,14 +843,28 @@ export default function HgvCompliancePage() {
 
         <footer className={styles.sourceNote}>
           <CalendarDays size={15} />
-          PDF dates through 31/07/2026 are retained as completed history. Future PMI, brake-test,
-          MOT and service entries come only from active saved maintenance appointments.
+          Imported dates through 31/07/2026 remain visible when unmatched. Entries represented by
+          canonical bookings or vehicle history are hidden, ambiguous matches are listed for review,
+          and audited exclusions remain retained. When an MOT falls between two imported dates at an
+          approximately eight-week interval, the planner retains a clearly labelled inferred PMI in the
+          same ISO week. PMI and brake-test due dates are projected 12 months
+          ahead from each vehicle&apos;s configured interval; saved appointments replace the matching due marker.
+          MOT and service entries come from canonical requested requirements and active appointments.
         </footer>
 
         {selectedMaintenanceEvent ? (
           <DashboardMaintenanceModal
             event={selectedMaintenanceEvent}
             onClose={() => setSelectedMaintenanceEvent(null)}
+            onOpenLinkedBooking={openLinkedBooking}
+          />
+        ) : null}
+
+        {selectedVorDetails ? (
+          <VorPeriodDetailsModal
+            vehicle={selectedVorDetails.vehicle}
+            period={selectedVorDetails.period}
+            onClose={() => setSelectedVorPeriod(null)}
           />
         ) : null}
       </main>
@@ -634,12 +872,21 @@ export default function HgvCompliancePage() {
   );
 }
 
-function PlannerTable({ planner, currentWeek, openVehicle, openPlannerEntry }) {
+function PlannerTable({
+  planner,
+  currentWeek,
+  openVehicle,
+  openPlannerEntry,
+  openVorPeriod,
+  reorderVehicles,
+}) {
+  const [draggedRegistration, setDraggedRegistration] = useState("");
+  const [dragOverRegistration, setDragOverRegistration] = useState("");
   const statusByRegistration = new Map(
     planner.displayedStatuses.map(
-      ({ registration, vehicle, status, inspectionCompletionDates }) => [
+      ({ registration, vehicle, status, currentStatus, inspectionCompletionDates }) => [
         registration,
-        { vehicle, status, inspectionCompletionDates },
+        { vehicle, status, currentStatus, inspectionCompletionDates },
       ]
     )
   );
@@ -650,11 +897,55 @@ function PlannerTable({ planner, currentWeek, openVehicle, openPlannerEntry }) {
         <thead>
           <tr>
             <th className={styles.weekColumn}>ISO week</th>
-            {planner.displayedStatuses.map(({ registration, vehicle, status }) => (
-              <th key={registration} className={assetTone(registration)}>
-                <button
+            {planner.displayedStatuses.map(({ registration, vehicle, status }, index) => (
+              <th
+                key={registration}
+                className={`${assetTone(registration)} ${draggedRegistration === registration ? styles.draggingColumn : ""} ${dragOverRegistration === registration ? styles.dragTargetColumn : ""}`}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  setDragOverRegistration(registration);
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setDragOverRegistration("");
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const source = draggedRegistration || event.dataTransfer.getData("text/plain");
+                  reorderVehicles?.(source, registration, planner.plannerRegistrations);
+                  setDraggedRegistration("");
+                  setDragOverRegistration("");
+                }}
+              >
+                <div className={styles.vehicleHeader}>
+                  <button
+                    type="button"
+                    className={styles.dragHandle}
+                    draggable
+                    aria-label={`Drag ${registration} to reorder`}
+                    title="Drag to reorder vehicle columns"
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", registration);
+                      setDraggedRegistration(registration);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedRegistration("");
+                      setDragOverRegistration("");
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                      event.preventDefault();
+                      const targetIndex = event.key === "ArrowLeft" ? index - 1 : index + 1;
+                      const target = planner.displayedStatuses[targetIndex]?.registration;
+                      if (target) reorderVehicles?.(registration, target, planner.plannerRegistrations);
+                    }}
+                  >
+                    <GripVertical size={13} aria-hidden="true" />
+                  </button>
+                  <button
                   type="button"
-                  className={styles.vehicleHeader}
+                  className={styles.vehicleLink}
                   onClick={() => openVehicle(registration)}
                   disabled={!vehicle?.id}
                   title={vehicle?.id ? "Open vehicle record" : "No matching live vehicle record"}
@@ -662,7 +953,8 @@ function PlannerTable({ planner, currentWeek, openVehicle, openPlannerEntry }) {
                   <strong>{registration}</strong>
                   <span className={`${styles.statusBadge} ${statusTone(status)}`}>{status}</span>
                   <small>{resolveVehicleLabel(vehicle, vehicle ? "" : "Imported record")}</small>
-                </button>
+                  </button>
+                </div>
               </th>
             ))}
           </tr>
@@ -679,28 +971,64 @@ function PlannerTable({ planner, currentWeek, openVehicle, openPlannerEntry }) {
                 {planner.visibleRegistrations.map((registration) => {
                   const events = planner.eventsByCell.get(`${week}|${registration}`) || [];
                   const statusRecord = statusByRegistration.get(registration);
+                  const vorPeriods = vorHistoryPeriodsForIsoWeek(
+                    statusRecord?.vehicle,
+                    planner.year,
+                    week
+                  );
+                  const startingVorPeriods = vorPeriods.filter((period) =>
+                    isVorPeriodStartingInIsoWeek(period, planner.year, week)
+                  );
                   const operatingStatus = hgvComplianceStatusForIsoWeek(
                     statusRecord?.vehicle,
-                    statusRecord?.status,
+                    statusRecord?.currentStatus,
                     planner.year,
                     week,
                     planner.year < CURRENT_YEAR,
-                    planner.year >= CURRENT_YEAR
-                      ? statusRecord?.inspectionCompletionDates || []
-                      : []
+                    statusRecord?.inspectionCompletionDates || []
                   );
+                  const automaticVorStarts =
+                    startingVorPeriods.length === 0 &&
+                    isComplianceVorStartingInIsoWeek(
+                      statusRecord?.vehicle,
+                      statusRecord?.currentStatus,
+                      planner.year,
+                      week,
+                      statusRecord?.inspectionCompletionDates || []
+                    );
                   return (
                     <td
                       key={registration}
                       className={
                         operatingStatus === "VOR"
-                          ? styles.cellVor
+                          ? `${styles.cellVor} ${startingVorPeriods.length || automaticVorStarts ? styles.cellVorStart : ""}`
                           : operatingStatus === "OFF FLEET"
                             ? styles.cellOffFleet
                             : undefined
                       }
                     >
                       <div className={styles.cellEvents}>
+                        {startingVorPeriods.map((period) => (
+                          <button
+                            type="button"
+                            key={`vor-${period.id || `${period.offRoadDate}-${period.returnedDate}`}`}
+                            className={`${styles.eventChip} ${styles.vorMarker}`}
+                            title={`VOR/SORN: ${formatDate(period.offRoadDate)} to ${period.returnedDate ? formatDate(period.returnedDate) : "Open"}`}
+                            onClick={() => openVorPeriod(statusRecord.vehicle, period)}
+                          >
+                            VOR
+                          </button>
+                        ))}
+                        {automaticVorStarts ? (
+                          <button
+                            type="button"
+                            className={`${styles.eventChip} ${styles.vorMarker}`}
+                            title="VOR — inspection remains outstanding after its legal ISO week"
+                            onClick={() => openVehicle(registration)}
+                          >
+                            VOR
+                          </button>
+                        ) : null}
                         {events.map((event) => (
                           <button
                             type="button"
@@ -725,7 +1053,7 @@ function PlannerTable({ planner, currentWeek, openVehicle, openPlannerEntry }) {
                                   : event.type === "brake"
                                       ? "B"
                                       : event.type === "service"
-                                        ? "SVC"
+                                        ? "SERVICE"
                                       : "MOT"}
                               </b>
                             ) : null}

@@ -1,9 +1,12 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
+import "./CompletionReviewDialog.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { getDownloadURL, ref as storageRef, uploadBytesResumable } from "firebase/storage";
 import {
   CalendarDays,
   CheckCircle2,
@@ -13,8 +16,11 @@ import {
   RotateCcw,
   Search,
 } from "lucide-react";
-import { db } from "../../../firebaseConfig";
+import { db, storage } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import CompletionReviewDialog from "./CompletionReviewDialog";
+import { OperationsHeaderActions, OperationsPage, OperationsPageHeader } from "@/app/components/OperationsPage";
+import { Button, Checkbox, Input, Select } from "@/app/components/ui";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -25,23 +31,19 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
-import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import {
+  buildInitialLifecycle,
+  buildInitialStatusHistory,
+  buildNextLifecycle,
+  buildNextStatusHistory,
+  buildSynchronizedVehicleStatus,
+} from "@/app/utils/bookingLifecycle";
+import { buildCompletionAttachmentPatch } from "@/app/utils/completionReviewAttachments";
 
 const UI = UI_TOKENS;
 
-const pageWrap = { padding: "10px 12px 24px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 8,
-  marginBottom: 8,
-  flexWrap: "wrap",
-};
-const h1 = { color: UI.text, fontSize: 20, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const titleMd = { fontWeight: 800, fontSize: 17, margin: 0, color: UI.text, letterSpacing: 0 };
 const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
 const sectionHeader = {
@@ -54,24 +56,12 @@ const sectionHeader = {
 };
 const toolbar = {
   ...surface,
-  padding: 6,
+  padding: 12,
   display: "grid",
   gridTemplateColumns: "minmax(240px, 1fr) minmax(150px, 1fr) 130px 122px 122px auto auto",
-  gap: 5,
+  gap: 8,
   alignItems: "center",
-  marginBottom: 8,
-};
-const inputStyle = {
-  width: "100%",
-  height: 28,
-  padding: "3px 7px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  fontSize: 12,
-  outline: "none",
-  background: "var(--color-surface)",
-  color: UI.text,
-  boxSizing: "border-box",
+  marginBottom: 16,
 };
 const btn = (kind = "ghost") => ({
   display: "inline-flex",
@@ -213,29 +203,7 @@ const prettifyStatus = (raw) => {
 };
 
 const statusColors = (label) => {
-  if (FIXED_JOB_STATUS_STYLES[label]) return FIXED_JOB_STATUS_STYLES[label];
-  switch (label) {
-    case "Ready to Invoice":
-      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
-    case "Invoiced":
-      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
-    case "Paid":
-      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
-    case "Action Required":
-      return { bg: "var(--color-warning-border)", border: "var(--color-border-strong)", text: "var(--color-text)" };
-    case "Complete":
-      return { bg: "var(--color-success-accent)", border: "var(--color-border-strong)", text: "var(--color-text)" };
-    case "Confirmed":
-      return { bg: "var(--color-warning-border)", border: "var(--color-border-strong)", text: "var(--color-text)" };
-    case "First Pencil":
-      return { bg: "var(--color-info-border)", border: "var(--color-border-strong)", text: "var(--color-text)" };
-    case "Second Pencil":
-      return { bg: "var(--color-warning)", border: "var(--color-border-strong)", text: "var(--color-white)" };
-    case "TBC":
-      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
-    default:
-      return { bg: "var(--color-border)", border: "var(--color-border)", text: "var(--color-text)" };
-  }
+  return getFixedJobStatusStyle(label);
 };
 
 const StatusBadge = ({ value }) => {
@@ -300,6 +268,10 @@ export default function ReviewQueuePage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingJobId, setSavingJobId] = useState("");
+  const [completionJobId, setCompletionJobId] = useState("");
+  const [completionSaving, setCompletionSaving] = useState(false);
+  const [completionProgress, setCompletionProgress] = useState(0);
+  const [completionError, setCompletionError] = useState("");
   const [clientFilter, setClientFilter] = useSessionState("review-queue:clientFilter", "all");
   const [search, setSearch] = useSessionState("review-queue:search", "");
   const [statusFilter, setStatusFilter] = useSessionState("review-queue:statusFilter", "all");
@@ -424,51 +396,202 @@ export default function ReviewQueuePage() {
 
   const captureScrollPositions = () => {
     if (typeof window === "undefined") return () => {};
-    const target = document.scrollingElement || document.documentElement;
-    const left = target.scrollLeft || 0;
-    const top = target.scrollTop || 0;
+    const targets = Array.from(
+      new Set([
+        document.querySelector(".app-shell-content"),
+        document.scrollingElement || document.documentElement,
+      ].filter(Boolean))
+    ).map((target) => ({
+      target,
+      left: target.scrollLeft || 0,
+      top: target.scrollTop || 0,
+    }));
+
     return () => {
-      target.scrollLeft = left;
-      target.scrollTop = top;
+      targets.forEach(({ target, left, top }) => {
+        target.scrollLeft = left;
+        target.scrollTop = top;
+      });
     };
   };
 
-  const setQuickStatus = async (job, nextStatus) => {
-    if (!job?.id || savingJobId) return;
+  const restoreScrollAfterRender = (restoreScroll) => {
+    restoreScroll();
+    requestAnimationFrame(restoreScroll);
+    window.setTimeout(restoreScroll, 80);
+  };
+
+  const setQuickStatus = async (job, nextStatus, { localPatch = {}, serverPatch = {} } = {}) => {
+    if (!job?.id || savingJobId) return false;
     const restoreScroll = captureScrollPositions();
     const previousBookings = bookings;
-    const vehicleStatus =
-      nextStatus === "Ready to Invoice"
-        ? buildSynchronizedVehicleStatus(job, nextStatus)
-        : job.vehicleStatus;
+    const nowIso = new Date().toISOString();
+    const previousStatus = job.status || "Confirmed";
+    const actor = {
+      email: dataAccessState.user?.email || "Unknown",
+      uid: dataAccessState.user?.uid || "",
+    };
+    const baseStatusHistory = Array.isArray(job.statusHistory) && job.statusHistory.length
+      ? job.statusHistory
+      : buildInitialStatusHistory(previousStatus, job.createdAt || nowIso, actor);
+    const statusHistory = buildNextStatusHistory(
+      baseStatusHistory,
+      previousStatus,
+      nextStatus,
+      nowIso,
+      actor
+    );
+    const lifecycleBase = job.lifecycle && typeof job.lifecycle === "object"
+      ? job.lifecycle
+      : buildInitialLifecycle(previousStatus, job.createdAt || nowIso);
+    const lifecycle = buildNextLifecycle(lifecycleBase, previousStatus, nextStatus, nowIso);
+    const shouldSyncVehicleStatus = ["Complete", "Ready to Invoice"].includes(nextStatus);
+    const vehicleStatus = shouldSyncVehicleStatus
+      ? buildSynchronizedVehicleStatus(job, nextStatus)
+      : job.vehicleStatus;
     const optimisticPatch = {
+      ...localPatch,
       status: nextStatus,
-      updatedAt: new Date(),
+      updatedAt: nowIso,
+      statusChangedAt: nowIso,
+      statusHistory,
+      lifecycle,
       readyToInvoice: nextStatus === "Ready to Invoice",
-      ...(nextStatus === "Ready to Invoice" ? { vehicleStatus } : {}),
+      ...(shouldSyncVehicleStatus ? { vehicleStatus } : {}),
     };
 
     setSavingJobId(job.id);
     setBookings((current) => current.map((item) => (item.id === job.id ? { ...item, ...optimisticPatch } : item)));
-    requestAnimationFrame(() => restoreScroll());
+    restoreScrollAfterRender(restoreScroll);
 
     try {
       await updateDoc(
         doc(db, "bookings", job.id),
         tenantPayload(dataAccessState, {
+          ...serverPatch,
           status: nextStatus,
           updatedAt: serverTimestamp(),
+          statusChangedAt: nowIso,
+          statusHistory,
+          lifecycle,
+          lastEditedBy: actor.email,
+          lastEditedByUid: actor.uid,
           readyToInvoice: nextStatus === "Ready to Invoice",
-          ...(nextStatus === "Ready to Invoice" ? { vehicleStatus } : {}),
+          ...(shouldSyncVehicleStatus ? { vehicleStatus } : {}),
         })
       );
+      return true;
     } catch (error) {
       console.error("Failed to update review queue status:", error);
       setBookings(previousBookings);
-      alert("Could not update the job status. Please try again.");
+      systemDialogs.showSystemNotification("Could not update the job status. Please try again.");
+      return false;
     } finally {
       setSavingJobId("");
-      requestAnimationFrame(() => restoreScroll());
+      restoreScrollAfterRender(restoreScroll);
+    }
+  };
+
+  const completionJob = useMemo(
+    () => bookings.find((job) => job.id === completionJobId) || null,
+    [bookings, completionJobId]
+  );
+
+  const openCompletionDialog = useCallback((job) => {
+    setCompletionError("");
+    setCompletionProgress(0);
+    setCompletionJobId(job.id);
+  }, []);
+
+  const closeCompletionDialog = useCallback(() => {
+    if (completionSaving) return;
+    setCompletionJobId("");
+    setCompletionError("");
+    setCompletionProgress(0);
+  }, [completionSaving]);
+
+  const uploadCompletionPdf = async (job, file) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+    const path = `job_attachments/${job.id}/${Date.now()}_${safeName}`;
+    const uploadRef = storageRef(storage, path);
+    const task = uploadBytesResumable(uploadRef, file, { contentType: file.type || "application/pdf" });
+
+    await new Promise((resolve, reject) => {
+      task.on(
+        "state_changed",
+        (snapshot) => {
+          const progress = snapshot.totalBytes
+            ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+            : 0;
+          setCompletionProgress(progress);
+        },
+        reject,
+        resolve
+      );
+    });
+
+    const url = await getDownloadURL(task.snapshot.ref);
+    return {
+      name: file.name,
+      size: file.size,
+      type: file.type || "application/pdf",
+      url,
+      storagePath: path,
+      uploadedAt: new Date().toISOString(),
+    };
+  };
+
+  const completeJobWithDetails = async ({ fields, file, removedAttachmentIndexes = [] }) => {
+    const job = completionJob;
+    if (!job || completionSaving) return;
+
+    if (file && file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setCompletionError("Please attach a PDF file.");
+      return;
+    }
+
+    setCompletionSaving(true);
+    setCompletionError("");
+    setCompletionProgress(0);
+
+    try {
+      const details = {
+        generalNotes: fields.generalNotes,
+        po: fields.po.trim(),
+        invoiceContactName: fields.invoiceContactName.trim(),
+        invoiceContactEmail: fields.invoiceContactEmail.trim(),
+        invoiceContactPhone: fields.invoiceContactPhone.trim(),
+      };
+      let attachment = null;
+      if (file) attachment = await uploadCompletionPdf(job, file);
+
+      const existingAttachments = Array.isArray(job.attachments) ? job.attachments : [];
+      const attachmentPatch = buildCompletionAttachmentPatch(
+        existingAttachments,
+        removedAttachmentIndexes,
+        attachment
+      );
+      const localPatch = {
+        ...details,
+        ...(attachmentPatch.changed
+          ? { attachments: attachmentPatch.attachments, pdfUrl: attachmentPatch.pdfUrl }
+          : {}),
+      };
+      const serverPatch = {
+        ...details,
+        ...(attachmentPatch.changed
+          ? { attachments: attachmentPatch.attachments, pdfUrl: attachmentPatch.pdfUrl }
+          : {}),
+      };
+
+      const saved = await setQuickStatus(job, "Complete", { localPatch, serverPatch });
+      if (saved !== false) setCompletionJobId("");
+    } catch (error) {
+      console.error("Failed to complete job review:", error);
+      setCompletionError(error?.message || "Could not save the completion details. Please try again.");
+    } finally {
+      setCompletionSaving(false);
+      setCompletionProgress(0);
     }
   };
 
@@ -560,9 +683,11 @@ export default function ReviewQueuePage() {
                   <td className={layoutStyles.extracted21}><StatusBadge value={pretty} /></td>
                   <td className={layoutStyles.extracted22}>
                     <div className={layoutStyles.extracted23}>
-                      {["Ready for invoicing", "Needs Action"].map((option) => {
+                      {["Complete", "Ready for invoicing", "Needs Action"].map((option) => {
                         const nextStatus =
-                          option === "Ready for invoicing"
+                          option === "Complete"
+                            ? "Complete"
+                            : option === "Ready for invoicing"
                             ? "Ready to Invoice"
                             : "Action Required";
                         const currentStatus = prettifyStatus(j.status);
@@ -572,7 +697,11 @@ export default function ReviewQueuePage() {
                           <button
                             key={option}
                             type="button"
-                            onClick={() => setQuickStatus(j, nextStatus)}
+                            onClick={() =>
+                              nextStatus === "Complete"
+                                ? openCompletionDialog(j)
+                                : setQuickStatus(j, nextStatus)
+                            }
                             disabled={savingJobId === j.id}
                             style={{
                               ...btn(isActive ? "primary" : "ghost"),
@@ -604,67 +733,60 @@ export default function ReviewQueuePage() {
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted24}>
-          <div>
-            <h1 style={h1}>Review Queue</h1>
-            <div style={{ color: UI.muted, fontSize: 13 }}>
-              Complete the operational review, then send the job to Finance with “Ready for invoicing”.
-            </div>
-          </div>
-          <div className={layoutStyles.extracted25}>
-            <Link href="/job-home" style={btn()}>
+      <OperationsPage>
+        <OperationsPageHeader
+          title="Review Queue"
+          subtitle="Complete the operational review, then send the job to Finance with ‘Ready for invoicing’."
+          actions={<OperationsHeaderActions>
+            <Button as={Link} href="/job-home" variant="secondary">
               <Home size={14} />
-              Jobs Home
-            </Link>
+              Jobs Sheets
+            </Button>
             <div style={chip()}>
               <ClipboardList size={13} /> {loading ? "Loading..." : `${filtered.length} jobs`}
             </div>
-          </div>
-        </div>
+          </OperationsHeaderActions>}
+        />
 
         <div className="review-toolbar" style={toolbar}>
           <div className={`review-search ${layoutStyles.extracted26}`} >
             <Search size={14} style={{ position: "absolute", left: 9, top: 7, color: UI.muted }} aria-hidden />
-            <input
+            <Input
               ref={searchRef}
               type="text"
               placeholder="Search by job #, production, production company, location or notes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ ...inputStyle, paddingLeft: 29 }}
+              style={{ paddingLeft: 29 }}
               aria-label="Search review queue"
             />
           </div>
 
-          <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={inputStyle}>
+          <Select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
             {productionCompanies.map((c) => (
               <option key={c} value={c}>
                 {c === "all" ? "Production Company: All" : c}
               </option>
             ))}
-          </select>
+          </Select>
 
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={inputStyle}>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             {statusOptions.map((s) => (
               <option key={s} value={s}>
                 {s === "all" ? "Status: All" : s}
               </option>
             ))}
-          </select>
+          </Select>
 
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={inputStyle} aria-label="From date" />
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={inputStyle} aria-label="To date" />
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} aria-label="From date" />
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} aria-label="To date" />
 
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: UI.text, whiteSpace: "nowrap", fontWeight: 800 }}>
-            <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
-            Overdue
-          </label>
+          <Checkbox label="Overdue" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
 
-          <button type="button" onClick={resetFilters} style={btn()}>
+          <Button variant="secondary" type="button" onClick={resetFilters}>
             <RotateCcw size={13} />
             Reset
-          </button>
+          </Button>
         </div>
 
         {loading ? (
@@ -688,7 +810,16 @@ export default function ReviewQueuePage() {
             {noDate.length > 0 && <SectionTable jobs={noDate} title="No Dates" />}
           </>
         )}
-      </div>
+        <CompletionReviewDialog
+          job={completionJob}
+          open={Boolean(completionJob)}
+          saving={completionSaving}
+          uploadProgress={completionProgress}
+          error={completionError}
+          onClose={closeCompletionDialog}
+          onConfirm={completeJobWithDetails}
+        />
+      </OperationsPage>
     </HeaderSidebarLayout>
   );
 }

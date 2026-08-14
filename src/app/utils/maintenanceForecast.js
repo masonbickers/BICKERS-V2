@@ -1,12 +1,13 @@
 import {
-  ADDITIONAL_MAINTENANCE_WORKFLOWS,
-  getCanonicalDueDate,
+  RECURRING_MAINTENANCE_WORKFLOWS,
+  getConfiguredMaintenanceFrequencyWeeks,
   isMotNotApplicable,
   isServiceNotApplicable,
   isVehicleOutOfUse,
 } from "./maintenanceSchema.js";
 import {
-  buildScheduledMaintenanceBooking,
+  buildRequestedMaintenanceRecord,
+  calculateNextMaintenanceDue,
   maintenanceDateOnly,
   maintenanceIsoWeekLabel,
   maintenanceRequirementDocumentId,
@@ -16,12 +17,9 @@ import {
 const text = (value) => String(value || "").trim();
 const list = (value) => (Array.isArray(value) ? value : []);
 
-export const AUTOMATIC_CALENDAR_MAINTENANCE_TYPE_IDS = Object.freeze([
-  "mot",
-  "service",
-  "pmi",
-  "brake_test",
-]);
+export const AUTOMATIC_CALENDAR_MAINTENANCE_TYPE_IDS = Object.freeze(
+  RECURRING_MAINTENANCE_WORKFLOWS.map((workflow) => workflow.maintenanceTypeId)
+);
 
 export const INSPECTION_MAINTENANCE_TYPE_IDS = Object.freeze(["pmi", "brake_test"]);
 
@@ -34,19 +32,6 @@ const normalizedIncludedTypeIds = (includedTypeIds) =>
       .map((value) => text(value).toLowerCase())
       .filter((value) => AUTOMATIC_CALENDAR_MAINTENANCE_TYPE_IDS.includes(value))
   );
-
-const localDate = (value) => {
-  const match = maintenanceDateOnly(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
-};
-
-const addWeeks = (value, weeks) => {
-  const date = localDate(value);
-  if (!date || !Number.isFinite(Number(weeks)) || Number(weeks) <= 0) return "";
-  date.setDate(date.getDate() + Number(weeks) * 7);
-  return maintenanceDateOnly(date);
-};
 
 const yearOf = (value) => Number(maintenanceDateOnly(value).slice(0, 4) || 0);
 
@@ -66,49 +51,33 @@ const additionalUiKeyByType = Object.freeze({
   tacho_download: "tachoDownload",
   tail_lift: "tailLift",
   loler: "loler",
+  tacho_calibration: "tachoCalibration",
 });
 
 export const isVehicleMaintenanceTypeEnabled = (vehicle = {}, workflow = {}) => {
   const uiKey = additionalUiKeyByType[workflow.maintenanceTypeId] || workflow.dueKey;
-  if (list(vehicle.hiddenAdditionalMaintenance).includes(uiKey)) return false;
-  return Boolean(
-    maintenanceDateOnly(vehicle[workflow.nextField]) ||
-      maintenanceDateOnly(vehicle[workflow.lastField]) ||
-      Number(vehicle[workflow.frequencyField] || 0) > 0
-  );
+  const hiddenTypes = new Set(list(vehicle.hiddenAdditionalMaintenance).map((value) => text(value)));
+  if (
+    [uiKey, workflow.key, workflow.maintenanceTypeId]
+      .filter(Boolean)
+      .some((value) => hiddenTypes.has(text(value)))
+  ) {
+    return false;
+  }
+  const hasDate = [...(workflow.nextFields || [workflow.nextField]), ...(workflow.lastFields || [workflow.lastField])]
+    .some((field) => maintenanceDateOnly(vehicle[field]));
+  const hasAuthoritativeDueDate = workflow.dvsaAuthoritative === true &&
+    (workflow.nextFields || [workflow.nextField]).some((field) => maintenanceDateOnly(vehicle[field]));
+  if (hasAuthoritativeDueDate) return true;
+  return hasDate && getConfiguredMaintenanceFrequencyWeeks(vehicle, workflow) > 0;
 };
 
-const occurrencesForYear = ({ firstDueDateISO, frequencyWeeks, year, single = false }) => {
-  let cursor = maintenanceDateOnly(firstDueDateISO);
-  if (!cursor || !Number.isInteger(Number(year))) return [];
-  if (single) return yearOf(cursor) === Number(year) ? [cursor] : [];
-
-  const weeks = Number(frequencyWeeks || 0);
-  if (!(weeks > 0)) return yearOf(cursor) === Number(year) ? [cursor] : [];
-
-  const start = `${year}-01-01`;
-  const end = `${year}-12-31`;
-  let guard = 0;
-  while (cursor < start && guard < 1000) {
-    cursor = addWeeks(cursor, weeks);
-    guard += 1;
-  }
-
-  const dates = [];
-  while (cursor && cursor <= end && dates.length < 1000) {
-    if (cursor >= start) dates.push(cursor);
-    cursor = addWeeks(cursor, weeks);
-  }
-  return dates;
-};
-
-const scheduledRecord = ({ companyId, vehicle, items, appointmentDateISO, year }) => {
-  const record = buildScheduledMaintenanceBooking({
+const requestedRecord = ({ companyId, vehicle, items, year }) => {
+  const record = buildRequestedMaintenanceRecord({
     companyId: text(vehicle.companyId) || text(companyId),
     vehicleId: text(vehicle.id),
     vehicleLabel: vehicleLabel(vehicle),
     items,
-    appointmentDateISO,
     source: "automatic_schedule",
     sourceId: text(vehicle.id),
   });
@@ -140,30 +109,10 @@ export const buildAnnualMaintenanceForecast = ({
   const suppressVorInspectionForecast = isVehicleOutOfUse(vehicle) && !pendingReturnInspection;
 
   const items = [];
-  const addOccurrences = (maintenanceTypeId, dueDateISO, frequencyWeeks, single = false) => {
-    occurrencesForYear({ firstDueDateISO: dueDateISO, frequencyWeeks, year: forecastYear, single })
-      .forEach((legalDueDateISO) => {
-        items.push({
-          maintenanceTypeId,
-          legalDueDateISO,
-          legalDueIsoWeek: maintenanceIsoWeekLabel(legalDueDateISO),
-        });
-      });
-  };
-
-  if (includedTypes.has("mot") && !isMotNotApplicable(vehicle)) {
-    addOccurrences("mot", getCanonicalDueDate(vehicle, "mot"), 0, true);
-  }
-  if (includedTypes.has("service") && !isServiceNotApplicable(vehicle)) {
-    addOccurrences(
-      "service",
-      getCanonicalDueDate(vehicle, "service"),
-      Number(vehicle.serviceFreq || 52)
-    );
-  }
-
-  ADDITIONAL_MAINTENANCE_WORKFLOWS.forEach((workflow) => {
+  RECURRING_MAINTENANCE_WORKFLOWS.forEach((workflow) => {
     if (!includedTypes.has(workflow.maintenanceTypeId)) return;
+    if (workflow.maintenanceTypeId === "mot" && isMotNotApplicable(vehicle)) return;
+    if (workflow.maintenanceTypeId === "service" && isServiceNotApplicable(vehicle)) return;
     if (
       suppressVorInspectionForecast &&
       INSPECTION_MAINTENANCE_TYPE_IDS.includes(workflow.maintenanceTypeId)
@@ -171,23 +120,24 @@ export const buildAnnualMaintenanceForecast = ({
       return;
     }
     if (!isVehicleMaintenanceTypeEnabled(vehicle, workflow)) return;
-    const dueDateISO = maintenanceDateOnly(vehicle[workflow.nextField]);
-    const configuredWeeks = Number(vehicle[workflow.frequencyField] || 0);
-    const frequencyWeeks =
-      configuredWeeks > 0
-        ? configuredWeeks
-        : ["pmi", "brake_test"].includes(workflow.maintenanceTypeId)
-        ? 8
-        : 0;
-    // The diary only needs the next legal inspection appointment. Later PMI /
-    // brake cycles are created after the current inspection is completed and
-    // the vehicle's next due dates advance.
-    addOccurrences(
-      workflow.maintenanceTypeId,
-      dueDateISO,
-      frequencyWeeks,
-      INSPECTION_MAINTENANCE_TYPE_IDS.includes(workflow.maintenanceTypeId)
-    );
+    const dueDateISO = (workflow.nextFields || [workflow.nextField])
+      .map((field) => maintenanceDateOnly(vehicle[field]))
+      .find(Boolean) || (() => {
+        const completedDate = (workflow.lastFields || [workflow.lastField])
+          .map((field) => maintenanceDateOnly(vehicle[field]))
+          .find(Boolean);
+        return calculateNextMaintenanceDue({
+          maintenanceTypeId: workflow.maintenanceTypeId,
+          completedDate,
+          frequencyWeeks: getConfiguredMaintenanceFrequencyWeeks(vehicle, workflow),
+        });
+      })();
+    if (!dueDateISO || yearOf(dueDateISO) !== forecastYear) return;
+    items.push({
+      maintenanceTypeId: workflow.maintenanceTypeId,
+      legalDueDateISO: dueDateISO,
+      legalDueIsoWeek: maintenanceIsoWeekLabel(dueDateISO),
+    });
   });
 
   const groups = new Map();
@@ -206,18 +156,17 @@ export const buildAnnualMaintenanceForecast = ({
           `${b.legalDueDateISO}:${b.maintenanceTypeId}`
         )
       );
-      return scheduledRecord({
+      return requestedRecord({
         companyId,
         vehicle,
         items: sortedItems,
-        appointmentDateISO: sortedItems[0]?.legalDueDateISO || "",
         year: forecastYear,
       });
     })
     .filter((record) => record.id)
     .sort((a, b) =>
-      `${a.schedule.appointmentDateISO}:${a.requirementKey}`.localeCompare(
-        `${b.schedule.appointmentDateISO}:${b.requirementKey}`
+      `${a.sourceDueDateISO}:${a.requirementKey}`.localeCompare(
+        `${b.sourceDueDateISO}:${b.requirementKey}`
       )
     );
 };
@@ -231,6 +180,71 @@ const automaticSources = new Set([
 ]);
 const terminalStatuses = new Set(["completed", "cancelled", "archived"]);
 const recreationBlockingStatuses = new Set(["completed", "cancelled"]);
+const activeRequirementStatuses = new Set(["requested", "booked", "in_progress", "deferred"]);
+const confirmedLegacyStatuses = new Set(["booked", "in_progress", "deferred"]);
+const automaticArchiveTerms = ["future schedule reset", "supersed", "obsolete", "replaced by canonical"];
+
+const isVorTransitionCancellation = (source, canonical) =>
+  canonical.status === "cancelled" &&
+  text(source?.cancellationSource).toLowerCase() === "vehicle_vor_transition";
+
+const itemTypeKey = (items = []) =>
+  list(items).map((item) => text(item?.maintenanceTypeId).toLowerCase()).filter(Boolean).sort().join("+");
+
+const sameTrustedCompany = (record, canonical) =>
+  Boolean(text(record?.companyId)) && text(record.companyId) === text(canonical?.companyId);
+
+const explicitLegalRequirementMatch = (record, canonical) => {
+  if (!sameTrustedCompany(record, canonical)) return false;
+  if (text(record.vehicleId) !== text(canonical.vehicleId)) return false;
+  if (itemTypeKey(record.items) !== itemTypeKey(canonical.items)) return false;
+  if (!list(record.items).length || list(record.items).some((item) => !maintenanceDateOnly(item.legalDueDateISO))) {
+    return false;
+  }
+  if (list(canonical.items).some((item) => !maintenanceDateOnly(item.legalDueDateISO))) return false;
+
+  const combinedInspection = itemTypeKey(record.items) === "brake_test+pmi";
+  return list(record.items).every((desiredItem) => {
+    const existingItem = list(canonical.items).find(
+      (item) => item.maintenanceTypeId === desiredItem.maintenanceTypeId
+    );
+    if (!existingItem) return false;
+    if (combinedInspection) {
+      return maintenanceIsoWeekLabel(existingItem.legalDueDateISO) ===
+        maintenanceIsoWeekLabel(desiredItem.legalDueDateISO);
+    }
+    return maintenanceDateOnly(existingItem.legalDueDateISO) ===
+      maintenanceDateOnly(desiredItem.legalDueDateISO);
+  });
+};
+
+const isLegacyConfirmedRequirementCandidate = (record, { source, canonical }) => {
+  if (!sameTrustedCompany(record, canonical)) return false;
+  if (text(record.vehicleId) !== text(canonical.vehicleId)) return false;
+  if (itemTypeKey(record.items) !== itemTypeKey(canonical.items)) return false;
+  if (!confirmedLegacyStatuses.has(canonical.status)) return false;
+  if (text(source.requirementKey) || text(source.sourceDueKey)) return false;
+  if (list(canonical.items).some((item) => maintenanceDateOnly(item.legalDueDateISO))) return false;
+
+  const desiredWeeks = [...new Set(
+    list(record.items).map((item) => maintenanceIsoWeekLabel(item.legalDueDateISO)).filter(Boolean)
+  )];
+  if (desiredWeeks.length !== 1) return false;
+  return list(canonical.schedule?.bookingDates).some(
+    (date) => maintenanceIsoWeekLabel(date) === desiredWeeks[0]
+  );
+};
+
+const isAutomaticallyArchivedObsolete = (source, canonical) => {
+  if (canonical.status !== "archived") return false;
+  if (!automaticSources.has(text(source.origin?.source || canonical.origin?.source))) return false;
+  if (source.scheduleManuallyAdjusted === true) return false;
+  const auditText = [
+    source.archiveReason,
+    ...list(source.history).flatMap((entry) => [entry?.action, ...list(entry?.changes)]),
+  ].map((value) => text(value).toLowerCase()).join(" ");
+  return automaticArchiveTerms.some((term) => auditText.includes(term));
+};
 
 export const reconcileAnnualMaintenanceForecast = ({
   forecast = [],
@@ -239,6 +253,7 @@ export const reconcileAnnualMaintenanceForecast = ({
   year,
   todayISO = maintenanceDateOnly(new Date()),
   includedTypeIds,
+  restoreVorCancelledAppointments = false,
 } = {}) => {
   const targetYear = Number(year);
   const includedTypes = normalizedIncludedTypeIds(includedTypeIds);
@@ -263,6 +278,9 @@ export const reconcileAnnualMaintenanceForecast = ({
   const preserve = [];
   const blocked = [];
   const duplicate = [];
+  const ambiguous = [];
+  const reactivate = [];
+  const restore = [];
   const desiredKeys = new Set();
   const occupiedDocumentIds = new Set(
     list(existingBookings).map((booking) => text(booking?.id)).filter(Boolean)
@@ -283,35 +301,128 @@ export const reconcileAnnualMaintenanceForecast = ({
     occupiedDocumentIds.add(replacementId);
     return { ...record, id: replacementId };
   };
+  const uniqueEntries = (entries) => {
+    const seen = new Set();
+    return entries.filter(({ source }) => {
+      const key = text(source?.id) || source;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
 
   list(forecast).forEach((record) => {
     desiredKeys.add(record.requirementKey);
-    const matches = byRequirementKey.get(record.requirementKey) || [];
-    if (!matches.length) {
-      create.push(record);
+    const exactMatches = byRequirementKey.get(record.requirementKey) || [];
+    const explicitMatches = relevant.filter(({ canonical }) =>
+      explicitLegalRequirementMatch(record, canonical)
+    );
+    const legalMatches = uniqueEntries([...exactMatches, ...explicitMatches]);
+
+    const activeExactMatches = exactMatches.filter(({ canonical }) =>
+      activeRequirementStatuses.has(canonical.status)
+    );
+    if (activeExactMatches.length) {
+      const [active, ...duplicates] = activeExactMatches;
+      preserve.push(active.source);
+      duplicates.forEach(({ source }) => duplicate.push(source));
       return;
     }
-    const blocker = matches.find(({ source, canonical }) =>
+
+    const activeExplicitMatches = explicitMatches.filter(({ canonical }) =>
+      activeRequirementStatuses.has(canonical.status)
+    );
+    if (activeExplicitMatches.length > 1) {
+      activeExplicitMatches.forEach(({ source }) => {
+        ambiguous.push(source);
+        preserve.push(source);
+      });
+      return;
+    }
+    if (activeExplicitMatches.length === 1) {
+      preserve.push(activeExplicitMatches[0].source);
+      return;
+    }
+
+    const legacyCandidates = relevant.filter((entry) =>
+      isLegacyConfirmedRequirementCandidate(record, entry)
+    );
+    if (legacyCandidates.length > 1) {
+      legacyCandidates.forEach(({ source }) => {
+        ambiguous.push(source);
+        preserve.push(source);
+      });
+      return;
+    }
+    if (legacyCandidates.length === 1) {
+      preserve.push(legacyCandidates[0].source);
+      return;
+    }
+
+    if (restoreVorCancelledAppointments) {
+      const cancelledForVor = relevant.filter(({ source, canonical }) =>
+        isVorTransitionCancellation(source, canonical) &&
+        itemTypeKey(record.items) === itemTypeKey(canonical.items)
+      );
+      if (cancelledForVor.length) {
+        const desiredAppointmentDate = maintenanceDateOnly(record.sourceDueDateISO) ||
+          list(record.items).map((item) => maintenanceDateOnly(item.legalDueDateISO)).find(Boolean);
+        const matchingAppointment = cancelledForVor.find(({ canonical }) =>
+          list(canonical.schedule?.bookingDates)
+            .map(maintenanceDateOnly)
+            .includes(desiredAppointmentDate)
+        );
+        cancelledForVor.forEach(({ source }) => preserve.push(source));
+        if (matchingAppointment) {
+          reactivate.push({ source: matchingAppointment.source, forecast: record });
+        } else {
+          restore.push({
+            record: withAvailableDocumentId(record),
+            appointmentDateISO: desiredAppointmentDate,
+            replaces: cancelledForVor[0].source,
+          });
+        }
+        return;
+      }
+    }
+
+    const blocker = legalMatches.find(({ source, canonical }) =>
       recreationBlockingStatuses.has(canonical.status) ||
-      (canonical.status === "archived" &&
-        !automaticSources.has(text(source.origin?.source || canonical.origin?.source)))
+      (canonical.status === "archived" && !isAutomaticallyArchivedObsolete(source, canonical))
     );
     if (blocker) {
       blocked.push(blocker.source);
-      matches.filter((entry) => entry !== blocker).forEach(({ source }) => duplicate.push(source));
+      legalMatches.filter((entry) => entry !== blocker).forEach(({ source }) => duplicate.push(source));
       return;
     }
-    const active = matches.find(({ canonical }) => !terminalStatuses.has(canonical.status));
+    const active = legalMatches.find(({ canonical }) => !terminalStatuses.has(canonical.status));
     if (active) {
       preserve.push(active.source);
-      matches.filter((entry) => entry !== active).forEach(({ source }) => duplicate.push(source));
+      legalMatches.filter((entry) => entry !== active).forEach(({ source }) => duplicate.push(source));
+      return;
+    }
+
+    if (!legalMatches.length) {
+      create.push(record);
       return;
     }
 
     // Archived automatic records remain immutable history, but must not leave a
-    // legally required cycle without one active booked appointment.
-    matches.forEach(({ source }) => preserve.push(source));
+    // legally required cycle without one active due item.
+    legalMatches.forEach(({ source }) => preserve.push(source));
     create.push(withAvailableDocumentId(record));
+  });
+
+  relevant.forEach(({ source, canonical }) => {
+    if (desiredKeys.has(canonical.requirementKey)) return;
+    const originSource = text(source.origin?.source || canonical.origin?.source);
+    const shouldPreserve =
+      ["booked", "in_progress", "deferred"].includes(canonical.status) ||
+      source.scheduleManuallyAdjusted === true ||
+      !automaticSources.has(originSource);
+    if (shouldPreserve && !preserve.some((record) => record.id === source.id)) {
+      preserve.push(source);
+    }
   });
 
   const supersede = relevant
@@ -319,21 +430,20 @@ export const reconcileAnnualMaintenanceForecast = ({
       if (desiredKeys.has(canonical.requirementKey)) return false;
       if (!automaticSources.has(text(source.origin?.source || canonical.origin?.source))) return false;
       if (source.scheduleManuallyAdjusted === true) return false;
-      if (terminalStatuses.has(canonical.status)) return false;
-      const appointmentDate = canonical.schedule.bookingDates[0] || "";
-      const forecastRecordYear = Number(source.forecastYear || yearOf(appointmentDate));
-      return forecastRecordYear === targetYear && (!todayISO || appointmentDate >= todayISO);
+      if (canonical.status !== "requested") return false;
+      const dueDate = canonical.items.map((item) => item.legalDueDateISO).filter(Boolean).sort()[0] || "";
+      const forecastRecordYear = Number(source.forecastYear || yearOf(dueDate));
+      return forecastRecordYear === targetYear && (!todayISO || dueDate >= todayISO);
     })
     .map(({ source }) => source);
 
-  return { create, preserve, blocked, duplicate, supersede };
+  return { create, preserve, blocked, duplicate, ambiguous, reactivate, restore, supersede };
 };
 
 export const buildAnnualMaintenancePersistencePayload = (
   record,
   { createdBy = "system", nowISO = new Date().toISOString() } = {}
 ) => {
-  const appointmentDateISO = maintenanceDateOnly(record?.schedule?.appointmentDateISO);
   const typeIds = list(record?.items).map((item) => item.maintenanceTypeId);
   const type = typeIds.length === 1 && typeIds[0] === "mot"
     ? "MOT"
@@ -351,10 +461,10 @@ export const buildAnnualMaintenancePersistencePayload = (
     companyId: record.companyId,
     vehicleId: record.vehicleId,
     vehicleLabel: record.vehicleLabel,
-    status: "Booked",
-    items: list(record.items).map((item) => ({ ...item, status: "booked" })),
-    bookingDates: appointmentDateISO ? [appointmentDateISO] : [],
-    appointmentDateISO,
+    status: "Requested",
+    items: list(record.items).map((item) => ({ ...item, status: "requested" })),
+    bookingDates: [],
+    appointmentDateISO: "",
     startDateISO: "",
     endDateISO: "",
     requirementKey: record.requirementKey,
@@ -364,15 +474,15 @@ export const buildAnnualMaintenancePersistencePayload = (
     sourceDueIsoWeek:
       list(record.items).map((item) => item.legalDueIsoWeek).filter(Boolean).sort()[0] || "",
     origin: record.origin,
-    forecastYear: Number(record.forecastYear || appointmentDateISO.slice(0, 4) || 0) || null,
+    forecastYear: Number(record.forecastYear || record.sourceDueDateISO?.slice(0, 4) || 0) || null,
     scheduleManuallyAdjusted: false,
     createdBy,
     lastEditedBy: createdBy,
     history: [{
-      action: "Booked",
+      action: "Due item created",
       user: createdBy,
       timestamp: nowISO,
-      changes: [`Annual schedule appointment created for ${appointmentDateISO}.`],
+      changes: [`Unarranged maintenance requirement created for ${record.sourceDueDateISO}.`],
     }],
     createdAt: nowISO,
     updatedAt: nowISO,

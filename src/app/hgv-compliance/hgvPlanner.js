@@ -1,15 +1,269 @@
-import { isVehicleOutOfUse } from "../utils/maintenanceSchema.js";
+import {
+  getConfiguredMaintenanceFrequencyWeeks,
+  isVehicleOutOfUse,
+} from "../utils/maintenanceSchema.js";
 import {
   getHgvComplianceDueDates,
   isHgvComplianceTypeEnabled,
   isHgvComplianceVehicle,
   isOffFleetVehicle,
 } from "../utils/hgvCompliance.js";
+import {
+  getMaintenanceRecordDisplayDates,
+  selectCanonicalMaintenanceBookings,
+} from "../utils/maintenanceCalendar.js";
 
 export const normalizeRegistration = (value) =>
   String(value || "")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
+
+export const importedPlannerEventKey = (event = {}) =>
+  [
+    "pdf",
+    Number(event.year || 0),
+    Number(event.week || 0),
+    normalizeRegistration(event.registration),
+    toIsoDate(event.date),
+    String(event.type || "imported").trim().toLowerCase(),
+  ].join("|");
+
+export const isImportedPlannerEventHidden = (vehicle = {}, event = {}) => {
+  const hiddenKeys = Array.isArray(vehicle?.hgvPlannerHiddenImportedEventKeys)
+    ? vehicle.hgvPlannerHiddenImportedEventKeys
+    : [];
+  return hiddenKeys.includes(importedPlannerEventKey(event));
+};
+
+const canonicalPlannerIdentity = (event = {}) =>
+  String(
+    event.bookingId ||
+    event.requirementKey ||
+    `${event.source || "canonical"}|${event.registration}|${event.date}|${event.type}`
+  );
+
+const PMI_CADENCE_MIN_DAYS = 49;
+const PMI_CADENCE_MAX_DAYS = 63;
+
+const daysBetweenPlannerDates = (left, right) => {
+  const leftDate = parseIsoDate(left);
+  const rightDate = parseIsoDate(right);
+  if (!leftDate || !rightDate) return null;
+  return Math.round((rightDate.getTime() - leftDate.getTime()) / 86400000);
+};
+
+const importedCadenceEvidence = (event, cadenceEvents = []) => {
+  const registration = normalizeRegistration(event?.registration);
+  const eventDate = toIsoDate(event?.date);
+  if (!registration || !eventDate || event?.type !== "imported") return null;
+
+  const sequence = (Array.isArray(cadenceEvents) ? cadenceEvents : [])
+    .filter(
+      (candidate) =>
+        candidate?.type === "imported" &&
+        normalizeRegistration(candidate?.registration) === registration &&
+        toIsoDate(candidate?.date)
+    )
+    .sort((left, right) => toIsoDate(left.date).localeCompare(toIsoDate(right.date)));
+  const index = sequence.findIndex(
+    (candidate) =>
+      candidate === event ||
+      (candidate?.id && event?.id && candidate.id === event.id)
+  );
+  if (index <= 0 || index >= sequence.length - 1) return null;
+
+  const previousDate = toIsoDate(sequence[index - 1]?.date);
+  const nextDate = toIsoDate(sequence[index + 1]?.date);
+  const previousGapDays = daysBetweenPlannerDates(previousDate, eventDate);
+  const nextGapDays = daysBetweenPlannerDates(eventDate, nextDate);
+  const withinCadence = (days) =>
+    Number.isFinite(days) &&
+    days >= PMI_CADENCE_MIN_DAYS &&
+    days <= PMI_CADENCE_MAX_DAYS;
+
+  return withinCadence(previousGapDays) && withinCadence(nextGapDays)
+    ? { previousDate, nextDate, previousGapDays, nextGapDays }
+    : null;
+};
+
+const inferImportedPmiAlongsideMot = (event, matches, cadenceEvents) => {
+  if (!matches.length || matches.some((match) => match?.type !== "mot")) return null;
+  const cadence = importedCadenceEvidence(event, cadenceEvents);
+  if (!cadence) return null;
+
+  return {
+    event: {
+      ...event,
+      id: `${event.id || importedPlannerEventKey(event)}-inferred-pmi`,
+      type: "inspection",
+      status: "completed",
+      source: "imported_pmi_cadence",
+      sourceEventKey: importedPlannerEventKey(event),
+      label: "PMI completed - inferred from the surrounding eight-week PDF cadence",
+      inferred: true,
+    },
+    matches,
+    cadence,
+    reason: "eight_week_pmi_cadence_alongside_mot",
+  };
+};
+
+const importedVorHistoryMatches = (event = {}, vehicle = {}) => {
+  const eventDate = toIsoDate(event.date);
+  const eventWeek = getIsoWeekParts(eventDate);
+  return (Array.isArray(vehicle?.vorHistory) ? vehicle.vorHistory : [])
+    .filter(isVisibleVorPeriod)
+    .filter((period) => {
+      const start = toIsoDate(period?.offRoadDate || period?.startedAt);
+      const end = toIsoDate(period?.returnedDate || period?.completedAt) || "9999-12-31";
+      if (!start || !eventDate) return false;
+      if (eventDate >= start && eventDate <= end) return true;
+      const startWeek = getIsoWeekParts(start);
+      return Boolean(
+        eventWeek && startWeek && eventWeek.year === startWeek.year && eventWeek.week === startWeek.week
+      );
+    });
+};
+
+/**
+ * Reconciles immutable Excel/PDF evidence against canonical bookings and vehicle history.
+ * Explicit imported-entry exclusions remain a separate audited bucket and are never lost.
+ */
+export function reconcileImportedPlannerEvents({
+  importedEvents = [],
+  canonicalEvents = [],
+  cadenceEvents = importedEvents,
+  vehicles = [],
+} = {}) {
+  const vehiclesByRegistration = new Map(
+    (Array.isArray(vehicles) ? vehicles : []).map((vehicle) => [
+      resolveVehicleRegistration(vehicle),
+      vehicle,
+    ])
+  );
+  const result = { unmatched: [], represented: [], inferred: [], ambiguous: [], excluded: [] };
+
+  (Array.isArray(importedEvents) ? importedEvents : []).forEach((event) => {
+    const registration = normalizeRegistration(event?.registration);
+    const vehicle = vehiclesByRegistration.get(registration);
+    if (isImportedPlannerEventHidden(vehicle, event)) {
+      result.excluded.push({ event, exclusionKey: importedPlannerEventKey(event) });
+      return;
+    }
+
+    if (event?.type === "imported_vor") {
+      const matches = importedVorHistoryMatches(event, vehicle);
+      if (matches.length === 1) result.represented.push({ event, matches });
+      else if (matches.length > 1) result.ambiguous.push({ event, matches, reason: "multiple_vor_periods" });
+      else result.unmatched.push(event);
+      return;
+    }
+
+    const eventDate = toIsoDate(event?.date);
+    const eventWeek = getIsoWeekParts(eventDate);
+    const candidates = (Array.isArray(canonicalEvents) ? canonicalEvents : []).filter((candidate) => {
+      if (normalizeRegistration(candidate?.registration) !== registration) return false;
+      const candidateDate = toIsoDate(candidate?.date);
+      if (candidateDate === eventDate) return true;
+      const candidateWeek = getIsoWeekParts(candidateDate);
+      return Boolean(
+        eventWeek && candidateWeek && eventWeek.year === candidateWeek.year && eventWeek.week === candidateWeek.week
+      );
+    });
+    const identities = new Map();
+    candidates.forEach((candidate) => {
+      const key = canonicalPlannerIdentity(candidate);
+      identities.set(key, [...(identities.get(key) || []), candidate]);
+    });
+    const matches = [...identities.values()];
+    if (matches.length === 1) {
+      const inferred = inferImportedPmiAlongsideMot(event, matches[0], cadenceEvents);
+      if (inferred) result.inferred.push(inferred);
+      else result.represented.push({ event, matches: matches[0] });
+    }
+    else if (matches.length > 1) result.ambiguous.push({ event, matches: matches.flat(), reason: "multiple_canonical_records" });
+    else result.unmatched.push(event);
+  });
+
+  return result;
+}
+
+export function orderPlannerRegistrations(registrations = [], preferredOrder = []) {
+  const unique = [...new Set(
+    (Array.isArray(registrations) ? registrations : [])
+      .map(normalizeRegistration)
+      .filter(Boolean)
+  )];
+  const preferredRank = new Map(
+    (Array.isArray(preferredOrder) ? preferredOrder : [])
+      .map(normalizeRegistration)
+      .filter(Boolean)
+      .map((registration, index) => [registration, index])
+  );
+
+  return unique.sort((left, right) => {
+    const leftRank = preferredRank.get(left);
+    const rightRank = preferredRank.get(right);
+    if (leftRank !== undefined && rightRank !== undefined) return leftRank - rightRank;
+    if (leftRank !== undefined) return -1;
+    if (rightRank !== undefined) return 1;
+    return left.localeCompare(right);
+  });
+}
+
+export function applyPlannerRegistrationOrder(registrations = [], preferredOrder = []) {
+  const available = [...new Set(
+    (Array.isArray(registrations) ? registrations : [])
+      .map(normalizeRegistration)
+      .filter(Boolean)
+  )];
+  const availableSet = new Set(available);
+  const preferred = [...new Set(
+    (Array.isArray(preferredOrder) ? preferredOrder : [])
+      .map(normalizeRegistration)
+      .filter((registration) => availableSet.has(registration))
+  )];
+  const preferredSet = new Set(preferred);
+
+  return [
+    ...preferred,
+    ...available.filter((registration) => !preferredSet.has(registration)),
+  ];
+}
+
+export function orderPlannerRegistrationsByFleet(
+  registrations = [],
+  vehiclesByRegistration = new Map(),
+  statusesByRegistration = new Map(),
+  preferredOrder = []
+) {
+  const stableOrder = orderPlannerRegistrations(registrations, preferredOrder);
+  const stableRank = new Map(stableOrder.map((registration, index) => [registration, index]));
+  const fleetRank = (registration) => {
+    const vehicle = vehiclesByRegistration.get(registration) || {};
+    const status = String(statusesByRegistration.get(registration) || "ACTIVE").trim().toUpperCase();
+    const label = String([
+      resolveVehicleLabel(vehicle),
+      vehicle.category,
+      vehicle.vehicleType,
+      vehicle.assetType,
+    ].filter(Boolean).join(" ")).toLowerCase();
+    const offFleet = status === "OFF FLEET" || isOffFleetVehicle(vehicle);
+    const trailer = /\btrailer\b/.test(label);
+    return {
+      group: offFleet ? 2 : trailer ? 1 : 0,
+      lifecycle: status === "VOR" ? 1 : 0,
+    };
+  };
+
+  return [...stableOrder].sort((left, right) => {
+    const leftRank = fleetRank(left);
+    const rightRank = fleetRank(right);
+    return leftRank.group - rightRank.group ||
+      leftRank.lifecycle - rightRank.lifecycle ||
+      stableRank.get(left) - stableRank.get(right);
+  });
+}
 
 export const toIsoDate = (value) => {
   if (!value) return "";
@@ -47,6 +301,11 @@ export const getIsoWeekParts = (value) => {
   return { year, week };
 };
 
+export const isVorPeriodStartingInIsoWeek = (period = {}, year, week) => {
+  const start = getIsoWeekParts(period?.offRoadDate || period?.startedAt);
+  return Boolean(start && start.year === Number(year) && start.week === Number(week));
+};
+
 export const weeksInIsoYear = (year) =>
   getIsoWeekParts(`${Number(year)}-12-28`)?.week || 52;
 
@@ -60,46 +319,125 @@ const isoWeekRange = (year, week) => {
   return { start, end };
 };
 
+const isVisibleVorPeriod = (record = {}) =>
+  !["archived", "deleted", "superseded"].includes(
+    String(record?.status || "").trim().toLowerCase()
+  );
+
+const vorPeriodIdentity = (record = {}) => {
+  const id = String(record?.id || "").trim();
+  if (id) return `id:${id}`;
+
+  const start = toIsoDate(record?.offRoadDate || record?.startedAt);
+  const end = toIsoDate(record?.returnedDate || record?.completedAt) || "open";
+  return start ? `dates:${start}:${end}` : "";
+};
+
+export function vorHistoryPeriodsForIsoWeek(vehicle, year, week) {
+  const range = isoWeekRange(year, week);
+  const matchingPeriods = (Array.isArray(vehicle?.vorHistory) ? vehicle.vorHistory : [])
+    .filter(isVisibleVorPeriod)
+    .filter((record) => {
+      const start = parseIsoDate(record?.offRoadDate || record?.startedAt);
+      const end = parseIsoDate(record?.returnedDate || record?.completedAt);
+      return (
+        start &&
+        start.getTime() <= range.end.getTime() &&
+        (!end || end.getTime() >= range.start.getTime())
+      );
+    });
+
+  const uniquePeriods = new Map();
+  matchingPeriods.forEach((record, index) => {
+    uniquePeriods.set(vorPeriodIdentity(record) || `record:${index}`, record);
+  });
+  return [...uniquePeriods.values()];
+}
+
+export function vorHistoryStatusForIsoWeek(vehicle, year, week) {
+  return vorHistoryPeriodsForIsoWeek(vehicle, year, week).length ? "VOR" : "";
+}
+
+export function isReturnInspectionScheduledForIsoWeek(vehicle, year, week) {
+  const pending = vehicle?.pendingReturnInspection || {};
+  const pendingStatus = String(pending.status || "").trim().toLowerCase();
+  const inspectionDates = [
+    ...(["inspection_required", "pending"].includes(pendingStatus)
+      ? [pending.inspectionDate]
+      : []),
+    ...(Array.isArray(vehicle?.vorHistory) ? vehicle.vorHistory : [])
+      .filter(isVisibleVorPeriod)
+      .flatMap((period) => [
+        period?.firstUseInspectionDate,
+        period?.plannedReturnInspectionDate,
+      ]),
+  ].filter(Boolean);
+  return inspectionDates.some((inspectionDate) => {
+    const inspectionWeek = getIsoWeekParts(inspectionDate);
+    return Boolean(
+      inspectionWeek &&
+        inspectionWeek.year === Number(year) &&
+        inspectionWeek.week === Number(week)
+    );
+  });
+}
+
 export function vehicleStatusForIsoWeek(
   vehicle,
   status,
   year,
   week,
   useWholeYearStatus = false,
-  completedInspectionDates = []
+  completedInspectionDates = [],
+  asOfDate = new Date()
 ) {
   const normalizedStatus = String(status || "").trim().toUpperCase();
   if (normalizedStatus === "OFF FLEET") return "OFF FLEET";
-  if (completedInspectionDates.length) {
-    return hasActiveInspectionWindow(
-      completedInspectionDates,
+  // The booked first-use inspection week is the planner transition week. The
+  // vehicle remains canonically VOR until completion, but the weekly planner
+  // must not paint that same ISO week as unavailable.
+  if (isReturnInspectionScheduledForIsoWeek(vehicle, year, week)) return "";
+  const historicStatus = vorHistoryStatusForIsoWeek(vehicle, year, week);
+  if (historicStatus) return historicStatus;
+
+  // Reconstruct only elapsed compliance gaps. Once an eight-week inspection
+  // window has expired, past weeks remain VOR until the next completed PMI.
+  // Current and future weeks still rely on live/recorded VOR state so the
+  // planner never predicts a future VOR prematurely.
+  const targetWeekStart = isoWeekRange(year, week).start.getTime();
+  const currentWeek = getIsoWeekParts(asOfDate);
+  const currentWeekStart = currentWeek
+    ? isoWeekRange(currentWeek.year, currentWeek.week).start.getTime()
+    : null;
+  const completionDates = Array.isArray(completedInspectionDates)
+    ? completedInspectionDates
+    : [];
+  const priorCompletionDates = completionDates.filter((dateValue) => {
+    const parts = getIsoWeekParts(dateValue);
+    return Boolean(
+      parts && isoWeekRange(parts.year, parts.week).start.getTime() < targetWeekStart
+    );
+  });
+  const isElapsedWeek = currentWeekStart !== null && targetWeekStart < currentWeekStart;
+  if (
+    isElapsedWeek &&
+    priorCompletionDates.length > 0 &&
+    !hasActiveInspectionWindow(
+      priorCompletionDates,
       year,
       week,
       vehicle?.pmiFreq || 8
     )
-      ? ""
-      : "VOR";
+  ) {
+    return "VOR";
   }
+
   if (normalizedStatus !== "VOR") return "";
-  if (useWholeYearStatus) return "VOR";
-
-  const periods = (Array.isArray(vehicle?.vorHistory) ? vehicle.vorHistory : [])
-    .map((record) => ({
-      start: parseIsoDate(record?.offRoadDate || record?.startedAt),
-      end: parseIsoDate(record?.returnedDate || record?.completedAt),
-    }))
-    .filter((period) => period.start);
-
-  if (!periods.length) return "VOR";
-
-  const range = isoWeekRange(year, week);
-  return periods.some(
-    (period) =>
-      period.start.getTime() <= range.end.getTime() &&
-      (!period.end || period.end.getTime() >= range.start.getTime())
-  )
-    ? "VOR"
-    : "";
+  const hasRecordedPeriods = (Array.isArray(vehicle?.vorHistory) ? vehicle.vorHistory : [])
+    .filter(isVisibleVorPeriod)
+    .some((record) => parseIsoDate(record?.offRoadDate || record?.startedAt));
+  void useWholeYearStatus;
+  return !hasRecordedPeriods ? "VOR" : "";
 }
 
 export function hgvComplianceStatusForIsoWeek(
@@ -110,29 +448,77 @@ export function hgvComplianceStatusForIsoWeek(
   useWholeYearStatus = false,
   completedInspectionDates = []
 ) {
-  void completedInspectionDates;
   const baseStatus = vehicleStatusForIsoWeek(
     vehicle,
     status,
     year,
     week,
     useWholeYearStatus,
-    []
+    completedInspectionDates
   );
-  if (baseStatus === "OFF FLEET" || baseStatus === "VOR") return baseStatus;
-  if (!vehicle || !isHgvComplianceVehicle(vehicle)) return baseStatus;
+  return baseStatus;
+}
 
-  const targetStart = isoWeekRange(year, week).start.getTime();
-  const dueDates = getHgvComplianceDueDates(vehicle);
-  const hasExpiredRequirement = ["pmi", "brake_test", "mot"].some((type) => {
-    if (!isHgvComplianceTypeEnabled(vehicle, type)) return false;
-    const dueParts = getIsoWeekParts(dueDates[type]);
-    if (!dueParts) return false;
-    const firstWeekAfterDue = isoWeekRange(dueParts.year, dueParts.week).start;
-    firstWeekAfterDue.setDate(firstWeekAfterDue.getDate() + 7);
-    return targetStart >= firstWeekAfterDue.getTime();
+export function buildPlannerInspectionEvidenceDates(
+  completedDatesByRegistration = new Map(),
+  importedEvidenceEvents = []
+) {
+  const result = new Map(
+    [...completedDatesByRegistration.entries()].map(([registration, dates]) => [
+      normalizeRegistration(registration),
+      [...new Set((Array.isArray(dates) ? dates : []).map(toIsoDate).filter(Boolean))].sort(),
+    ])
+  );
+
+  (Array.isArray(importedEvidenceEvents) ? importedEvidenceEvents : []).forEach((event) => {
+    if (!["imported", "inspection", "inspection_brake"].includes(event?.type)) return;
+    if (event?.type !== "imported" && event?.status !== "completed") return;
+    const registration = normalizeRegistration(event?.registration);
+    const date = toIsoDate(event?.date);
+    if (!registration || !date) return;
+    result.set(
+      registration,
+      [...new Set([...(result.get(registration) || []), date])].sort()
+    );
   });
-  return hasExpiredRequirement ? "VOR" : "";
+
+  return result;
+}
+
+/**
+ * Returns true for the first ISO week of a recorded VOR period or an elapsed
+ * historical inspection gap. It never forecasts a future VOR marker.
+ */
+export function isComplianceVorStartingInIsoWeek(
+  vehicle,
+  status,
+  year,
+  week,
+  completedInspectionDates = []
+) {
+  const currentStatus = hgvComplianceStatusForIsoWeek(
+    vehicle,
+    status,
+    year,
+    week,
+    false,
+    completedInspectionDates
+  );
+  if (currentStatus !== "VOR") return false;
+
+  const previousWeekDate = isoWeekRange(year, week).start;
+  previousWeekDate.setDate(previousWeekDate.getDate() - 7);
+  const previousWeek = getIsoWeekParts(previousWeekDate);
+  if (!previousWeek) return false;
+
+  return hgvComplianceStatusForIsoWeek(
+    vehicle,
+    status,
+    previousWeek.year,
+    previousWeek.week,
+    false,
+    completedInspectionDates
+  ) !== "VOR";
 }
 
 export const formatDate = (value) => {
@@ -144,6 +530,13 @@ const addWeeks = (value, weeks) => {
   const date = parseIsoDate(value);
   if (!date) return "";
   date.setDate(date.getDate() + Number(weeks || 0) * 7);
+  return toIsoDate(date);
+};
+
+const addYears = (value, years) => {
+  const date = parseIsoDate(value);
+  if (!date) return "";
+  date.setFullYear(date.getFullYear() + Number(years || 0));
   return toIsoDate(date);
 };
 
@@ -200,6 +593,8 @@ const plannerMaintenanceTypeIds = (type) => {
 
 const plannerSourceLabel = (event = {}, hasBooking = false) => {
   if (hasBooking) return "Saved maintenance booking";
+  if (event.source === "imported_pmi_cadence") return "Inferred from imported eight-week PMI cadence";
+  if (event.source === "year_ahead_forecast") return "12-month forward inspection plan";
   if (event.source === "vehicle_last_completed_date") return "Recorded vehicle completion date";
   if (event.status === "completed") return "Completed maintenance history";
   if (event.status === "due") return "Calculated due date";
@@ -241,7 +636,7 @@ export function buildPlannerMaintenanceModalEvent({ event = {}, vehicle = null, 
   }
 
   const status = String(event.status || "recorded").trim().toLowerCase();
-  const isScheduleEntry = ["due", "projected", "planned", "booked"].includes(status);
+  const isScheduleEntry = ["due", "projected", "requested", "planned", "booked"].includes(status);
   const maintenanceType = plannerMaintenanceType(event.type);
   const vehicleName = resolveVehicleLabel(vehicle || {}, registration || "Unknown vehicle");
 
@@ -249,6 +644,7 @@ export function buildPlannerMaintenanceModalEvent({ event = {}, vehicle = null, 
     ...event,
     id: "",
     plannerEventId: String(event.id || ""),
+    plannerEventKey: String(event.sourceEventKey || importedPlannerEventKey(event)),
     __collection: isScheduleEntry ? "vehicleDueDates" : "hgvPlannerHistory",
     kind: isScheduleEntry ? maintenanceType : "",
     maintenanceType,
@@ -265,7 +661,7 @@ export function buildPlannerMaintenanceModalEvent({ event = {}, vehicle = null, 
       ? [{ id: vehicleId, name: vehicleName, registration }]
       : [],
     plannerSourceLabel: plannerSourceLabel(event, false),
-    disableBookingActions: !isScheduleEntry,
+    disableBookingActions: event.isLegalDueReference ? true : !isScheduleEntry,
   };
 }
 
@@ -293,16 +689,7 @@ const bookingTypes = (booking = {}) => {
 };
 
 const bookingDate = (booking = {}) =>
-  firstDate(
-    booking.completedDate,
-    booking.dateCompleted,
-    booking.completedAtISO,
-    booking.appointmentDateISO,
-    booking.startDateISO,
-    booking.appointmentDate,
-    booking.startDate,
-    booking.date
-  );
+  getMaintenanceRecordDisplayDates(booking).displayDateISO;
 
 export function buildCompletedInspectionDates({
   vehicles = [],
@@ -381,39 +768,100 @@ export function hasActiveInspectionWindow(
       if (!parts) return false;
       const activeFrom = isoWeekRange(parts.year, parts.week).start.getTime();
       const activeUntilDate = isoWeekRange(parts.year, parts.week).start;
-      activeUntilDate.setDate(activeUntilDate.getDate() + durationWeeks * 7);
+      // A frequency of eight weeks makes the inspection due during the ISO
+      // week eight weeks after completion. That entire due week remains legal;
+      // VOR begins on the following Monday if the work is still outstanding.
+      activeUntilDate.setDate(activeUntilDate.getDate() + (durationWeeks + 1) * 7);
       const activeUntil = activeUntilDate.getTime();
       return targetWeekStart >= activeFrom && targetWeekStart < activeUntil;
     }
   );
 }
 
-const vehicleDueEvents = (vehicle, registration) => [
-  {
-    date: firstDate(vehicle.nextEightWeekInspection, vehicle.nextPMI),
-    type: "inspection",
-    status: "due",
-    label: "PMI due",
-  },
-  {
-    date: firstDate(vehicle.nextBrakeTest),
-    type: "brake",
-    status: "due",
-    label: "Brake test due",
-  },
-  {
-    date: firstDate(
-      vehicle.nextMOT,
-      vehicle.nextMot,
-      vehicle.nextMotDate,
-      vehicle.motDueDate,
-      vehicle.motExpiryDate
-    ),
-    type: "mot",
-    status: "due",
-    label: "MOT due",
-  },
-].filter((event) => event.date).map((event) => ({ ...event, registration }));
+const sameIsoWeek = (left, right) => {
+  const leftWeek = getIsoWeekParts(left);
+  const rightWeek = getIsoWeekParts(right);
+  return Boolean(
+    leftWeek &&
+      rightWeek &&
+      leftWeek.year === rightWeek.year &&
+      leftWeek.week === rightWeek.week
+  );
+};
+
+const buildYearAheadInspectionDueEvents = ({
+  vehicle,
+  registration,
+  existingEvents,
+  asOfDate,
+}) => {
+  if (isVehicleOutOfUse(vehicle) || isOffFleetVehicle(vehicle)) return [];
+
+  const todayISO = toIsoDate(asOfDate);
+  const horizonISO = addYears(todayISO, 1);
+  if (!todayISO || !horizonISO) return [];
+
+  const dueDates = getHgvComplianceDueDates(vehicle);
+  const definitions = [
+    {
+      complianceType: "pmi",
+      eventType: "inspection",
+      fallbackDate: firstDate(vehicle.lastPMI, vehicle.lastEightWeekInspection),
+      label: "PMI due — not arranged",
+    },
+    {
+      complianceType: "brake_test",
+      eventType: "brake",
+      fallbackDate: firstDate(vehicle.lastBrakeTest),
+      label: "Brake test due — not arranged",
+    },
+  ];
+  const plannedEvents = (Array.isArray(existingEvents) ? existingEvents : []).filter(
+    (event) =>
+      event.registration === registration &&
+      ["requested", "booked", "deferred"].includes(event.status)
+  );
+
+  return definitions.flatMap(({ complianceType, eventType, fallbackDate, label }) => {
+    if (!isHgvComplianceTypeEnabled(vehicle, complianceType)) return [];
+    const frequencyWeeks = Math.max(
+      1,
+      getConfiguredMaintenanceFrequencyWeeks(vehicle, complianceType) || 8
+    );
+    let dueDate = dueDates[complianceType] || addWeeks(fallbackDate, frequencyWeeks);
+    const forecast = [];
+    let iterations = 0;
+
+    while (dueDate && dueDate <= horizonISO && iterations < 200) {
+      if (dueDate >= todayISO) {
+        const isAlreadyArranged = plannedEvents.some(
+          (event) =>
+            event.type === eventType &&
+            [event.legalDueDateISO, event.date].some((date) => sameIsoWeek(date, dueDate))
+        );
+        if (!isAlreadyArranged) {
+          forecast.push({
+            id: `year-ahead-${vehicle.id || registration}-${complianceType}-${dueDate}`,
+            registration,
+            date: dueDate,
+            type: eventType,
+            status: "requested",
+            source: "year_ahead_forecast",
+            label,
+            bookingId: "",
+            requirementKey: `year-ahead|${vehicle.id || registration}|${complianceType}:${dueDate}`,
+            legalDueDateISO: dueDate,
+            appointmentDateISO: "",
+          });
+        }
+      }
+      dueDate = addWeeks(dueDate, frequencyWeeks);
+      iterations += 1;
+    }
+
+    return forecast;
+  });
+};
 
 export function buildLivePlannerEvents({
   vehicles = [],
@@ -468,6 +916,7 @@ export function buildLivePlannerEvents({
             date,
             type,
             status: "completed",
+            source: entry?.source || "vehicle_history",
             label: `${type === "inspection" ? "PMI" : type} completed`,
             bookingId: entry?.bookingId || "",
           });
@@ -508,33 +957,132 @@ export function buildLivePlannerEvents({
 
   });
 
-  bookings.forEach((booking) => {
-    const date = bookingDate(booking);
+  selectCanonicalMaintenanceBookings(bookings).forEach((booking) => {
+    const dateInfo = getMaintenanceRecordDisplayDates(booking);
     const types = bookingTypes(booking);
-    if (!types.length || !date) return;
+    if (!types.length || !dateInfo.displayDateISO) return;
     const linked = vehiclesById.get(String(booking.vehicleId || ""));
     const registration =
       linked?.registration ||
       normalizeRegistration(booking.registration || booking.vehicleRegistration);
     if (!allowed.has(registration)) return;
-    const normalizedStatus = String(booking.status || "").trim().toLowerCase().replaceAll("_", " ");
-    if (["archived", "cancelled", "canceled", "declined", "deleted"].includes(normalizedStatus)) return;
-    const isCompleted = ["completed", "complete", "closed"].includes(normalizedStatus);
-    const isActiveBooking = ["booked", "in progress", "planned", "scheduled"].includes(normalizedStatus);
-    if (isCompleted ? date > todayISO : !isActiveBooking || date < todayISO) return;
+    const plannerStatus = dateInfo.status === "completed"
+      ? "completed"
+      : dateInfo.status === "requested"
+        ? "requested"
+        : dateInfo.status === "deferred"
+          ? "deferred"
+          : "booked";
     types.forEach((type) => {
+      const itemTypeId = type === "inspection"
+        ? "pmi"
+        : type === "brake"
+          ? "brake_test"
+          : type;
+      const item = dateInfo.canonicalItems.find(
+        (candidate) => candidate.maintenanceTypeId === itemTypeId
+      );
+      const date = plannerStatus === "requested"
+        ? toIsoDate(item?.legalDueDateISO) || dateInfo.legalDueDateISO
+        : plannerStatus === "deferred" && !dateInfo.appointmentDateISO
+          ? toIsoDate(item?.legalDueDateISO) || dateInfo.legalDueDateISO
+          : plannerStatus === "completed"
+            ? toIsoDate(item?.completionDateISO) || dateInfo.completionDateISO || dateInfo.displayDateISO
+            : dateInfo.displayDateISO;
+      if (!date || (plannerStatus === "completed" && todayISO && date > todayISO)) return;
       add({
         registration,
         date,
         type,
-        status: isCompleted ? "completed" : "booked",
-        label: `${type} ${isCompleted ? "completed" : "booked"}`,
+        status: plannerStatus,
+        source: "maintenance_booking",
+        label: `${type} ${plannerStatus === "requested" ? "due — not arranged" : plannerStatus}`,
         bookingId: booking.id || "",
+        requirementKey: dateInfo.requirementKey,
+        legalDueDateISO: toIsoDate(item?.legalDueDateISO) || dateInfo.legalDueDateISO,
+        appointmentDateISO: dateInfo.appointmentDateISO,
       });
+
+      const legalDueDateISO = toIsoDate(item?.legalDueDateISO) || dateInfo.legalDueDateISO;
+      const appointmentDateISO = dateInfo.appointmentDateISO;
+      if (
+        ["inspection", "brake"].includes(type) &&
+        ["booked", "deferred"].includes(plannerStatus) &&
+        legalDueDateISO &&
+        appointmentDateISO &&
+        !sameIsoWeek(legalDueDateISO, appointmentDateISO)
+      ) {
+        add({
+          registration,
+          date: legalDueDateISO,
+          type,
+          status: "due",
+          source: "booking_legal_due_reference",
+          label: `${type} legal due date`,
+          bookingId: "",
+          linkedBookingId: booking.id || "",
+          requirementKey: dateInfo.requirementKey,
+          legalDueDateISO,
+          appointmentDateISO,
+          isLegalDueReference: true,
+        });
+      }
     });
   });
 
-  return events.sort((a, b) => a.date.localeCompare(b.date));
+  vehiclesByRegistration.forEach((vehicle, registration) => {
+    buildYearAheadInspectionDueEvents({
+      vehicle,
+      registration,
+      existingEvents: events,
+      asOfDate,
+    }).forEach(add);
+  });
+
+  const canonicalBookingEvents = new Set(
+    events
+      .filter((event) => event.source === "maintenance_booking" && event.bookingId)
+      .map((event) => `${event.registration}|${event.bookingId}|${event.type}`)
+  );
+
+  return events
+    .filter(
+      (event) =>
+        event.source === "maintenance_booking" ||
+        !event.bookingId ||
+        !canonicalBookingEvents.has(`${event.registration}|${event.bookingId}|${event.type}`)
+    )
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function summarizeInspectionRequirements(events = [], asOfDate = new Date()) {
+  const todayISO = toIsoDate(asOfDate);
+  const seen = new Set();
+  const dueDates = [];
+
+  (Array.isArray(events) ? events : []).forEach((event) => {
+    if (event?.type !== "inspection") return;
+    if (!["requested", "booked", "deferred"].includes(event?.status)) return;
+    const dueDate = toIsoDate(event?.legalDueDateISO || event?.date);
+    if (!dueDate) return;
+    const key = event?.requirementKey || event?.bookingId || `${event?.registration}|${dueDate}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    dueDates.push(dueDate);
+  });
+
+  const today = parseIsoDate(todayISO);
+  const difference = (value) => {
+    const date = parseIsoDate(value);
+    return date && today ? Math.round((date.getTime() - today.getTime()) / 86400000) : null;
+  };
+  return {
+    dueSoon: dueDates.filter((date) => {
+      const days = difference(date);
+      return days !== null && days >= 0 && days <= 56;
+    }).length,
+    overdue: dueDates.filter((date) => (difference(date) ?? 0) < 0).length,
+  };
 }
 
 export function vehicleStatus(vehicle, importedStatus = "AVAILABLE") {

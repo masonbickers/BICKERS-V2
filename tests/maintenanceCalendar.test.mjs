@@ -5,7 +5,9 @@ import {
   buildActiveInspectionMetaByVehicle,
   buildBookedMetaByVehicle,
   buildMaintenanceBookingEvents,
+  buildMaintenanceCalendarEvents,
   dedupeMaintenanceCalendarEvents,
+  getMaintenanceRecordDisplayDates,
   getMaintenanceDisplayType,
   buildMaintenanceBookingDraftFromDueEvent,
   buildVehicleDueEvents,
@@ -14,6 +16,125 @@ import {
   isOpenMaintenanceBooking,
   shouldExcludeFromWorkDiary,
 } from "../src/app/utils/maintenanceCalendar.js";
+
+test("maintenance display dates distinguish legal due, workshop and completion dates", () => {
+  const requested = getMaintenanceRecordDisplayDates({
+    status: "Requested",
+    maintenanceTypeIds: ["pmi"],
+    items: [{ maintenanceTypeId: "pmi", legalDueDateISO: "2026-08-07" }],
+  });
+  assert.equal(requested.displayDateISO, "2026-08-07");
+  assert.equal(requested.appointmentDateISO, "");
+
+  const booked = getMaintenanceRecordDisplayDates({
+    status: "Booked",
+    bookingDates: ["2026-08-12"],
+    maintenanceTypeIds: ["pmi"],
+    items: [{ maintenanceTypeId: "pmi", legalDueDateISO: "2026-08-07" }],
+  });
+  assert.equal(booked.displayDateISO, "2026-08-12");
+  assert.equal(booked.legalDueDateISO, "2026-08-07");
+
+  const completed = getMaintenanceRecordDisplayDates({
+    status: "Completed",
+    bookingDates: ["2026-08-12"],
+    maintenanceTypeIds: ["pmi"],
+    items: [{ maintenanceTypeId: "pmi", legalDueDateISO: "2026-08-07", completionDateISO: "2026-08-13" }],
+  });
+  assert.equal(completed.displayDateISO, "2026-08-13");
+});
+
+test("canonical calendar pipeline ignores raw vehicle due fields and includes requested records and active jobs", () => {
+  const events = buildMaintenanceCalendarEvents({
+    vehicles: [{
+      id: "mercedes",
+      name: "Mercedes A45s",
+      registration: "M2 SON",
+      nextPMI: "2026-08-06",
+      nextBrakeTest: "2026-08-06",
+    }, {
+      id: "lorry-1",
+      name: "U-Crane Lorry 01",
+    }],
+    maintenanceBookings: [{
+      id: "requested-pmi",
+      companyId: "bickers-action",
+      vehicleId: "lorry-1",
+      vehicleLabel: "U-Crane Lorry 01",
+      type: "INSPECTION",
+      status: "Requested",
+      items: [{ maintenanceTypeId: "pmi", status: "requested", legalDueDateISO: "2026-08-05" }],
+    }],
+    maintenanceJobs: [{
+      id: "job-1",
+      assetId: "lorry-1",
+      assetLabel: "U-Crane Lorry 01",
+      status: "in_progress",
+      plannedDate: "2026-08-07",
+      type: "repair",
+    }, {
+      id: "job-completed",
+      assetId: "lorry-1",
+      status: "completed",
+      plannedDate: "2026-08-08",
+      type: "repair",
+    }],
+    asOfDate: "2026-08-01",
+  });
+
+  assert.deepEqual(events.map((event) => event.__collection).sort(), [
+    "maintenanceBookings",
+    "maintenanceJobs",
+  ]);
+  assert.equal(events.some((event) => event.vehicleId === "mercedes"), false);
+  assert.equal(events.find((event) => event.__collection === "maintenanceBookings")?.bookingStatus, "Due — not yet arranged");
+});
+
+test("canonical calendar pipeline keeps one preferred record per requirement", () => {
+  const common = {
+    companyId: "bickers-action",
+    vehicleId: "vehicle-1",
+    vehicleLabel: "Vehicle 1",
+    type: "SERVICE",
+    items: [{ maintenanceTypeId: "service", legalDueDateISO: "2026-08-12" }],
+  };
+  const events = buildMaintenanceCalendarEvents({
+    vehicles: [{ id: "vehicle-1", name: "Vehicle 1" }],
+    maintenanceBookings: [
+      { ...common, id: "requested-copy", status: "Requested" },
+      { ...common, id: "completed-record", status: "Completed", appointmentDateISO: "2026-08-10" },
+      { ...common, id: "cancelled-copy", status: "Cancelled", appointmentDateISO: "2026-08-11" },
+    ],
+    asOfDate: "2026-08-01",
+  });
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].__parentId, "completed-record");
+  assert.equal(events[0].bookingStatus, "Completed");
+  assert.equal(isMaintenanceCalendarEventDraggable(events[0]), false);
+});
+
+test("canonical calendar excludes orphaned bookings and jobs for deleted vehicles", () => {
+  const events = buildMaintenanceCalendarEvents({
+    vehicles: [{ id: "active-vehicle", name: "Active Vehicle" }],
+    maintenanceBookings: [{
+      id: "orphan-booking",
+      vehicleId: "deleted-vehicle",
+      type: "INSPECTION",
+      status: "Booked",
+      appointmentDateISO: "2026-08-05",
+      items: [{ maintenanceTypeId: "pmi", legalDueDateISO: "2026-08-05" }],
+    }],
+    maintenanceJobs: [{
+      id: "orphan-job",
+      assetId: "deleted-vehicle",
+      status: "in_progress",
+      plannedDate: "2026-08-05",
+    }],
+  });
+
+  assert.deepEqual(events, []);
+});
 
 test("moving a booking outside its legal ISO week requires an exception reason", () => {
   const event = {
@@ -104,7 +225,7 @@ test("whole-booking completion updates only the canonical items selected for com
   );
 });
 
-test("requested canonical records render on their legal due date as not booked", () => {
+test("requested canonical records render on their legal due date as not arranged", () => {
   const events = buildMaintenanceBookingEvents([
     {
       id: "requested-1",
@@ -118,11 +239,32 @@ test("requested canonical records render on their legal due date as not booked",
         { maintenanceTypeId: "brake_test", status: "requested", legalDueDateISO: "2026-08-05" },
       ],
     },
-  ]);
+  ], { asOfDate: "2026-07-01" });
   assert.equal(events.length, 1);
-  assert.equal(events[0].bookingStatus, "Appointment");
+  assert.equal(events[0].bookingStatus, "Due — not yet arranged");
   assert.equal(events[0].recordStatus, "requested");
+  assert.equal(events[0].dueState, "upcoming");
   assert.equal(events[0].start.getDate(), 5);
+});
+
+test("confirmed booking cards retain separate workshop and legal due dates", () => {
+  const events = buildMaintenanceBookingEvents([{
+    id: "confirmed-service",
+    vehicleId: "vehicle-1",
+    vehicleLabel: "Truck 1",
+    type: "SERVICE",
+    status: "Booked",
+    appointmentDateISO: "2026-08-05",
+    items: [{
+      maintenanceTypeId: "service",
+      status: "booked",
+      legalDueDateISO: "2026-08-12",
+    }],
+  }], { asOfDate: "2026-08-01" });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].bookingStatus, "Confirmed booking");
+  assert.equal(events[0].start.getDate(), 5);
+  assert.equal(events[0].legalDueDateISO, "2026-08-12");
 });
 
 test("archived and superseded maintenance records never render as duplicate calendar cards", () => {
@@ -173,14 +315,16 @@ test("a saved inspection booking replaces its generated PMI and brake reminder",
   assert.deepEqual(events.map((event) => event.id), ["booking-1__2026-08-03"]);
 });
 
-test("dashboard renders booked inspection work as an appointment label", async () => {
-  const dashboardSource = await import("node:fs/promises").then(({ readFile }) =>
-    readFile(new URL("../src/app/dashboard/DashboardPageImpl.js", import.meta.url), "utf8")
-  );
-  assert.match(
-    dashboardSource,
-    /kind === "INSPECTION_BOOKING" && bookingStatus === "booked"[\s\S]*?\? "Appointment"/
-  );
+test("both calendar pages use the shared inspection appointment renderer", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const [panelSource, dashboardSource, vehicleHomeSource] = await Promise.all([
+    readFile(new URL("../src/app/components/MaintenanceCalendarPanel.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/dashboard/DashboardPageImpl.js", import.meta.url), "utf8"),
+    readFile(new URL("../src/app/vehicle-home/page.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(panelSource, /kind === "INSPECTION_BOOKING" \? `\$\{event\?\.maintenanceTypeLabel \|\| displayType\} appointment`/);
+  assert.match(dashboardSource, /<MaintenanceCalendarPanel/);
+  assert.match(vehicleHomeSource, /<MaintenanceCalendarPanel/);
 });
 import { CALENDAR_REMINDER_WORKFLOW_KEYS } from "../src/app/utils/maintenanceSchema.js";
 
@@ -207,6 +351,39 @@ test("dragging a due reminder creates a booking draft without moving its legal d
   assert.equal(draft.sourceDueDate, "2026-08-03");
   assert.equal(draft.sourceDueIsoWeek, "2026-W32");
   assert.deepEqual(draft.defaultMaintenanceTypeIds, ["pmi", "brake_test"]);
+});
+
+test("requested canonical cards open the matching MOT and service booking forms", () => {
+  const baseEvent = {
+    id: "requested-record__2026-08-04",
+    __collection: "maintenanceBookings",
+    __parentId: "requested-record",
+    vehicleId: "vehicle-1",
+    dueDate: "2026-08-04",
+    sourceDueIsoWeek: "2026-W32",
+  };
+
+  const serviceDraft = buildMaintenanceBookingDraftFromDueEvent({
+    ...baseEvent,
+    kind: "SERVICE_BOOKING",
+  }, "2026-08-04");
+  assert.equal(serviceDraft.type, "SERVICE");
+  assert.deepEqual(serviceDraft.defaultMaintenanceTypeIds, []);
+
+  const motDraft = buildMaintenanceBookingDraftFromDueEvent({
+    ...baseEvent,
+    kind: "MOT_BOOKING",
+  }, "2026-08-04");
+  assert.equal(motDraft.type, "MOT");
+  assert.deepEqual(motDraft.defaultMaintenanceTypeIds, []);
+
+  const inspectionDraft = buildMaintenanceBookingDraftFromDueEvent({
+    ...baseEvent,
+    kind: "INSPECTION_BOOKING",
+    maintenanceTypeIds: ["pmi", "brake_test"],
+  }, "2026-08-04");
+  assert.equal(inspectionDraft.type, "INSPECTION");
+  assert.deepEqual(inspectionDraft.defaultMaintenanceTypeIds, ["pmi", "brake_test"]);
 });
 
 test("vehicle due events do not turn tacho, LOLER or tail-lift dates into appointments", () => {

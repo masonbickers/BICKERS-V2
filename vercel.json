@@ -16,6 +16,10 @@
     {
       "path": "/api/maintenance/alerts/digest",
       "schedule": "30 6 * * 1-5"
+    },
+    {
+      "path": "/api/activity/retention",
+      "schedule": "20 2 * * *"
     }
   ]
 }

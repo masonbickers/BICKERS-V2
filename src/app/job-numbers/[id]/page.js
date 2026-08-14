@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,7 +28,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-import { FIXED_JOB_STATUS_STYLES, normalizeJobStatus } from "@/app/utils/jobStatusColors";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
 
 /* ────────────────────────────────────────────────────────────
@@ -393,19 +394,7 @@ const ConnectedSummaryPanel = ({ title, values }) => {
 };
 
 const statusColor = (status) => {
-  const fixed = FIXED_JOB_STATUS_STYLES[normalizeJobStatus(status)];
-  if (fixed) return fixed;
-  const label = String(status || "").toLowerCase();
-  if (label === "ready to invoice") return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
-  if (label === "needs action" || label === "action required") return { bg: "var(--color-warning-border)", border: "var(--color-text)", text: "var(--color-text)" };
-  if (label === "complete" || label === "completed") return { bg: "var(--color-success-accent)", border: "var(--color-text)", text: "var(--color-text)" };
-  if (label === "confirmed") return { bg: "var(--color-warning-border)", border: "var(--color-text)", text: "var(--color-text)" };
-  if (label === "first pencil") return { bg: "var(--color-info-border)", border: "var(--color-text)", text: "var(--color-text)" };
-  if (label === "second pencil") return { bg: "var(--color-warning)", border: "var(--color-text)", text: "var(--color-white)" };
-  if (label === "dnh") return { bg: "var(--color-border-strong)", border: "var(--color-border-strong)", text: "var(--color-text)" };
-  if (label === "cancelled" || label === "canceled") return { bg: "var(--color-border)", border: "var(--color-border)", text: "var(--color-text)" };
-  if (label === "paid") return { bg: "var(--color-success-soft)", border: "var(--color-success-border)", text: "var(--color-success)" };
-  return { bg: "var(--color-brand-soft)", border: "var(--color-border)", text: UI.brand };
+  return getFixedJobStatusStyle(status);
 };
 
 const StatusPill = ({ value }) => {
@@ -1035,10 +1024,10 @@ export default function JobInfoPage() {
       );
       setStatusByJob((p) => ({ ...p, [id]: status }));
       setSelectedStatusByJob((p) => ({ ...p, [id]: status }));
-      alert(`Status updated to ${status}`);
+      systemDialogs.showSystemNotification(`Status updated to ${status}`);
     } catch (e) {
       console.error(e);
-      alert("Failed to update status.");
+      systemDialogs.showSystemNotification("Failed to update status.");
     }
   };
 
@@ -1046,22 +1035,22 @@ export default function JobInfoPage() {
     const notes = dayNotes[id]?.general || "";
     try {
       await updateDoc(doc(db, "bookings", id), tenantPayload(dataAccessState, { generalNotes: notes }));
-      alert("Summary saved.");
+      systemDialogs.showSystemNotification("Summary saved.");
     } catch (e) {
       console.error(e);
-      alert("Failed to save summary.");
+      systemDialogs.showSystemNotification("Failed to save summary.");
     }
   };
 
   const deleteJob = async (id) => {
-    if (!window.confirm("Delete this job? This cannot be undone.")) return;
+    if (!await systemDialogs.confirmSystem("Delete this job? This cannot be undone.")) return;
     try {
       await deleteDoc(doc(db, "bookings", id));
-      alert("Job deleted.");
+      systemDialogs.showSystemNotification("Job deleted.");
       router.push("/job-sheet");
     } catch (e) {
       console.error(e);
-      alert("Failed to delete job.");
+      systemDialogs.showSystemNotification("Failed to delete job.");
     }
   };
 
@@ -1129,7 +1118,7 @@ export default function JobInfoPage() {
           setUploadingByJob((p) => ({ ...p, [jid]: false }));
           setProgressByJob((p) => ({ ...p, [jid]: 100 }));
           setPdfFileByJob((p) => ({ ...p, [jid]: null }));
-          alert("PDF uploaded.");
+          systemDialogs.showSystemNotification("PDF uploaded.");
         }
       );
     } catch (e) {

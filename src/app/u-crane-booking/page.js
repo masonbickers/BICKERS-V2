@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useState, useEffect, useMemo } from "react";
 import { db } from "../../../firebaseConfig";
@@ -412,8 +413,8 @@ export default function CreateBookingPage() {
 
   const handleSubmit = async (status = "Confirmed") => {
     if (status !== "Enquiry") {
-      if (!startDate) return alert("Please select a start date.");
-      if (isRange && !endDate) return alert("Please select an end date.");
+      if (!startDate) return systemDialogs.showSystemNotification("Please select a start date.");
+      if (isRange && !endDate) return systemDialogs.showSystemNotification("Please select an end date.");
     }
 
     const isDuplicateJobNumber = allBookings.some(
@@ -431,12 +432,12 @@ export default function CreateBookingPage() {
 
     for (const employee of cleanedEmployees) {
       if (isEmployeeOnHoliday(employee)) {
-        alert(`${employee} is on holiday during the selected dates.`);
+        systemDialogs.showSystemNotification(`${employee} is on holiday during the selected dates.`);
         return;
       }
       const unavailableNote = getEmployeeUnavailableNote(employee);
       if (unavailableNote) {
-        alert(
+        systemDialogs.showSystemNotification(
           `${employee} is marked unavailable on a note during the selected dates.${unavailableNote.text ? `\n\nNote: ${unavailableNote.text}` : ""}`
         );
         return;
@@ -490,7 +491,7 @@ export default function CreateBookingPage() {
           );
         });
       } catch (error) {
-        alert("Failed to upload Excel/CSV: " + error.message);
+        systemDialogs.showSystemNotification("Failed to upload Excel/CSV: " + error.message);
         return;
       }
     }
@@ -545,11 +546,11 @@ export default function CreateBookingPage() {
 
     try {
       await addDoc(collection(db, "bookings"), tenantPayload(authState, booking));
-      alert("Booking Saved ");
+      systemDialogs.showSystemNotification("Booking Saved ");
       router.push("/u-crane?saved=true");
     } catch (err) {
       console.error(" Error saving booking:", err);
-      alert("Failed to save booking \n\n" + err.message);
+      systemDialogs.showSystemNotification("Failed to save booking \n\n" + err.message);
     }
   };
 

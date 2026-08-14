@@ -39,6 +39,7 @@ import {
   Send,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -489,42 +490,8 @@ function extractYardSegments(entry) {
   return [];
 }
 
-/*  Determine whether yard lunch should be deducted (fix) */
-function shouldDeductYardLunch(entry) {
-  if (!entry) return true;
-
-  if (entry?.managerLunchDeduct === true) return true;
-  if (entry?.managerLunchDeduct === false) return false;
-
-  // If you ever add an explicit override in schema, honour it.
-  if (entry?.yardLunchDeduct === false) return false;
-
-  // Common patterns across apps:
-  // - yardLunchSup / lunchSup often means "lunch supplement claimed" / "no lunch provided"
-  //   do NOT deduct lunch from hours.
-  if (entry?.yardLunchSup === true) return false;
-  if (entry?.lunchSup === true) return false;
-
-  // Some schemas use an explicit "noLunch/skipLunch" meaning lunch not taken
-  if (entry?.noLunch === true) return false;
-  if (entry?.skipLunch === true) return false;
-
-  // Some schemas use "lunchTaken" / "lunch" to mean lunch was taken
-  // - if explicitly false, do NOT deduct
-  if (entry?.lunchTaken === false) return false;
-  if (entry?.lunch === false) return false;
-
-  // - if explicitly true, deduct
-  if (entry?.lunchTaken === true) return true;
-  if (entry?.lunch === true) return true;
-
-  // Default behaviour (matches your previous intent):
-  // Deduct lunch unless the user explicitly indicates no lunch / lunch supplement.
-  return true;
-}
-
 /* Calculate yard day hours */
-function computeYardHours(entry) {
+function computeYardHours(entry, day) {
   const segs = extractYardSegments(entry);
   let total = 0;
   segs.forEach((s) => (total += diffHours(s.start, s.end)));
@@ -534,7 +501,7 @@ function computeYardHours(entry) {
   }
 
   //  FIX: only deduct lunch when the data indicates lunch should be deducted
-  if (total > 0 && shouldDeductYardLunch(entry)) total -= LUNCH_DEDUCT_HRS;
+  if (total > 0 && shouldDeductYardLunch(entry, day)) total -= LUNCH_DEDUCT_HRS;
 
   return Math.max(0, total);
 }
@@ -1853,7 +1820,9 @@ export default function TimesheetDetailPage() {
       wrapTime: entry.wrapTime || "",
       arriveBack: entry.arriveBack || "",
       managerLunchDeduct:
-        entry.managerLunchDeduct === true
+        card.day === "Saturday"
+          ? false
+          : entry.managerLunchDeduct === true
           ? true
           : entry.managerLunchDeduct === false
           ? false
@@ -1908,7 +1877,7 @@ export default function TimesheetDetailPage() {
             note: draft?.note || "",
           },
         ],
-        managerLunchDeduct: draft?.managerLunchDeduct !== false,
+        managerLunchDeduct: card?.day === "Saturday" ? false : draft?.managerLunchDeduct !== false,
         overnight: Boolean(draft?.overnight),
       };
     }
@@ -2232,7 +2201,7 @@ export default function TimesheetDetailPage() {
         : 0;
       const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
       if (entryExists) {
-        if (mode === "yard") dayHours = computeYardHours(entry);
+        if (mode === "yard") dayHours = computeYardHours(entry, day);
         if (mode === "travel") dayHours = computeTravelHours(entry);
         if (mode === "onset") dayHours = computeOnSetHours(entry);
         if (mode === "office") dayHours = computeOfficeHours(entry);
@@ -2277,7 +2246,7 @@ export default function TimesheetDetailPage() {
 
       //  For UI label: whether lunch was deducted on yard day
       const yardLunchDeducted =
-        entryExists && mode === "yard" && yardSegs.length > 0 && shouldDeductYardLunch(entry);
+        entryExists && mode === "yard" && yardSegs.length > 0 && shouldDeductYardLunch(entry, day);
 
       return {
         day,
@@ -2351,7 +2320,7 @@ export default function TimesheetDetailPage() {
         hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
       const workshopHrs =
         card.mode === "yard"
-          ? computeYardHours(entry)
+          ? computeYardHours(entry, card.day)
           : card.isPaidHolidayDay
           ? card.paidHolidayHoursToUse || card.paidHolidayHours
           : 0;
@@ -3082,7 +3051,7 @@ export default function TimesheetDetailPage() {
 
                           {["yard", "travel", "onset"].includes(manualEntryDraft.mode) ? (
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
-                              {manualEntryDraft.mode === "yard" ? (
+                              {manualEntryDraft.mode === "yard" && manualEntryDay !== "Saturday" ? (
                                 <label className={layoutStyles.extracted16}>
                                   <input
                                     type="checkbox"
@@ -3371,7 +3340,7 @@ export default function TimesheetDetailPage() {
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
                         </div>
                       )}
-                      {mode === "yard" && (
+                      {mode === "yard" && day !== "Saturday" && (
                         <label
                           style={{
                             display: "inline-flex",

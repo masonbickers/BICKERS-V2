@@ -1,4 +1,5 @@
 "use client";
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../../../firebaseConfig";
 import { doc, getDoc, getDocs, deleteDoc, collection } from "firebase/firestore";
@@ -35,7 +36,7 @@ export default function ViewBookingModal({ id, onClose }) {
       const snap = await getDoc(ref);
       if (!mounted) return;
       if (snap.exists()) setBooking({ id: snap.id, ...snap.data() });
-      else alert("Booking not found");
+      else systemDialogs.showSystemNotification("Booking not found");
     })();
     return () => (mounted = false);
   }, [id]);
@@ -65,10 +66,10 @@ export default function ViewBookingModal({ id, onClose }) {
   }, [booking?.vehicles, allVehicles]);
 
   const handleDelete = async () => {
-    const confirmDelete = confirm("Are you sure you want to delete this booking?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this booking?");
     if (!confirmDelete) return;
     await deleteDoc(doc(db, "bookings", id));
-    alert("Booking deleted");
+    systemDialogs.showSystemNotification("Booking deleted");
     onClose?.();
   };
 

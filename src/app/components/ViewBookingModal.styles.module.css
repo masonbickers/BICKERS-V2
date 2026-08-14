@@ -16,8 +16,9 @@
 .extracted2 {
   background: var(--color-surface-subtle);
   color: var(--color-text);
-  width: min(1240px, 100%);
-  max-height: calc(100dvh - 32px);
+  width: min(1240px, 125%);
+  max-height: min(860px, calc(125dvh - 120px));
+  zoom: 0.8;
   box-sizing: border-box;
   overflow: auto;
   overscroll-behavior: contain;
@@ -719,6 +720,12 @@
 }
 
 @media (max-width: 700px) {
+  .extracted2 {
+    width: 100%;
+    max-height: calc(100dvh - 32px);
+    zoom: 1;
+  }
+
   .extracted86 {
     display: none;
   }

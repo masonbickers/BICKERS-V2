@@ -8,6 +8,7 @@ import { AuthProvider } from "./context/authContext";
 import ProtectedLayout from "./components/ProtectedLayout";
 import GlobalThemeProvider from "./components/GlobalThemeProvider";
 import ContentLabelsProvider from "./components/ContentLabelsProvider";
+import SystemNotificationHost from "./components/SystemNotificationHost";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -18,6 +19,23 @@ const inter = Inter({
 export const metadata = {
   title: "Bickers Booking System",
   description: "Manage your bookings, vehicles and employees",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Bickers",
+  },
+  icons: {
+    icon: "/icons/icon-192x192.png",
+    apple: "/icons/icon-192x192.png",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({ children }) {
@@ -39,6 +57,7 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             <GlobalThemeProvider>
               <ContentLabelsProvider>
+                <SystemNotificationHost />
                 <ProtectedLayout>
                   {children}
                 </ProtectedLayout>

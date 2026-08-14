@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -63,7 +64,7 @@ export default function BookWorkPage() {
 
   const handleSubmit = async () => {
     if (!startDate || (!maintenanceType && mode !== "offroad")) {
-      alert("Please select a date and maintenance type.");
+      systemDialogs.showSystemNotification("Please select a date and maintenance type.");
       return;
     }
 
@@ -81,7 +82,7 @@ export default function BookWorkPage() {
     });
 
     if (conflicts.length > 0) {
-      alert("This vehicle is already booked for maintenance during the selected date(s).");
+      systemDialogs.showSystemNotification("This vehicle is already booked for maintenance during the selected date(s).");
       setExistingBookings(conflicts);
       return;
     }
@@ -98,7 +99,7 @@ export default function BookWorkPage() {
     };
 
     await addDoc(collection(db, "workBookings"), record);
-    alert("Maintenance work booked.");
+    systemDialogs.showSystemNotification("Maintenance work booked.");
     resetForm();
   };
 

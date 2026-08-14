@@ -67,3 +67,181 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.duplicatePanel {
+  margin-bottom: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-warning-border, var(--color-border));
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.duplicateHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--color-warning-soft, var(--color-surface-subtle));
+}
+
+.duplicateHeader h2,
+.possibleSection h3 {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.duplicateHeader h2 {
+  font-size: 16px;
+}
+
+.duplicateHeader p,
+.possibleSection p {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.duplicateTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.duplicateBody {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.groupList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 12px;
+}
+
+.duplicateGroup {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.groupHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.groupHeading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.groupHeading strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.groupHeading span {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.duplicateRecords {
+  display: grid;
+}
+
+.duplicateRecord {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.duplicateRecord + .duplicateRecord {
+  border-top: 1px solid var(--color-border);
+}
+
+.duplicateRecord > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.duplicateRecord strong,
+.duplicateRecord small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.duplicateRecord strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.duplicateRecord small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.possibleSection {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.possibleSection h3 {
+  font-size: 14px;
+}
+
+.possibleGroup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.mergeError {
+  padding: 9px 10px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: 8px;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.noStrongMatches {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .duplicateHeader,
+  .groupHeading,
+  .possibleGroup {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .groupList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

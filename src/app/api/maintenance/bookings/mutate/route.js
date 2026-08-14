@@ -5,7 +5,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
-  const access = await requireActiveUserFromRequest(request, { module: "service" });
+  const access = await requireActiveUserFromRequest(request, {
+    module: "service",
+    requireServiceWorkspace: true,
+  });
   if (access.error) return access.error;
   try {
     const body = await request.json();

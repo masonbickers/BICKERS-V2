@@ -1,6 +1,7 @@
 // src/app/add-equipment/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -224,7 +225,7 @@ export default function AddEquipmentPage() {
 
       await addDoc(collection(db, "equipment"), tenantPayload(dataAccessState, payload));
       clearBookingReferenceCache();
-      alert(" Equipment added.");
+      systemDialogs.showSystemNotification(" Equipment added.");
       if (navigateOnSuccess) {
         router.push("/equipment");
         router.refresh?.();
@@ -232,7 +233,7 @@ export default function AddEquipmentPage() {
       return true;
     } catch (err) {
       console.error("Error saving equipment:", err);
-      alert(" Failed to save.");
+      systemDialogs.showSystemNotification(" Failed to save.");
       return false;
     } finally {
       setSaving(false);

@@ -1,6 +1,7 @@
 // src/app/dashboard/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import "./dashboard.calendar.css";
 import layoutStyles from "./DashboardPageImpl.styles.module.css";
 
@@ -41,7 +42,6 @@ import {
   buildHolidayCalendarTitle,
   buildHolidayEmployeeLabel,
 } from "../utils/dashboardHolidayLabels";
-import { isHgvComplianceVehicle } from "../utils/hgvCompliance";
 import {
   rescheduleMaintenanceBooking,
 } from "../utils/maintenanceMutationClient";
@@ -58,6 +58,7 @@ import {
 import ViewBookingModal from "../components/ViewBookingModal";
 import ViewUCraneBooking from "../components/ViewUCraneBooking";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { OperationsHeaderActions, OperationsPage, OperationsPageHeader } from "@/app/components/OperationsPage";
 import { useAuth } from "@/app/context/authContext";
 import {
   CalendarDays,
@@ -85,7 +86,9 @@ import EditNoteModal from "../components/EditNoteModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
 import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
+import MaintenanceCalendarPanel from "../components/MaintenanceCalendarPanel";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
+import QuotePdfViewer from "../components/QuotePdfViewer";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 import { isAdminEmail } from "@/app/utils/adminAccess";
 import {
@@ -97,8 +100,10 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
-import { Button, Input } from "@/app/components/ui";
+import { Badge, Button, Input, Modal, Spinner } from "@/app/components/ui";
 import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import { findBookingQuoteDocument } from "@/app/utils/bookingQuoteDocument";
+import { hasImportedQuoteSelection, verifiedImportedQuoteNumber } from "@/app/utils/importedQuoteMatch";
 import {
   buildDashboardVehicleRegister,
   resolveDashboardVehicleDisplays,
@@ -869,12 +874,14 @@ const getEventQuoteNumber = (event = {}) => {
         })[0]
     : null;
 
+  const hasImportedSelection = hasImportedQuoteSelection(event);
   return String(
     event.acceptedQuoteNumber ||
       latestQuote?.quoteNumber ||
       event.quote?.quoteNumber ||
-      event.quoteNumber ||
-      (Array.isArray(event.quoteNumbers) ? event.quoteNumbers.at(-1) : "") ||
+      (hasImportedSelection
+        ? verifiedImportedQuoteNumber(event)
+        : event.quoteNumber || (Array.isArray(event.quoteNumbers) ? event.quoteNumbers.at(-1) : "")) ||
       ""
   ).trim();
 };
@@ -918,8 +925,13 @@ const getEventQuoteOptions = (event = {}) => {
 
   addFallback(event.acceptedQuoteNumber);
   addFallback(event.quote?.quoteNumber);
-  addFallback(event.quoteNumber);
-  (Array.isArray(event.quoteNumbers) ? event.quoteNumbers : []).forEach(addFallback);
+  const hasImportedSelection = hasImportedQuoteSelection(event);
+  if (hasImportedSelection) {
+    addFallback(getEventQuoteNumber(event));
+  } else {
+    addFallback(event.quoteNumber);
+    (Array.isArray(event.quoteNumbers) ? event.quoteNumbers : []).forEach(addFallback);
+  }
 
   const acceptedPublicNumber = splitQuoteRevision(event.acceptedQuoteNumber).publicNumber.toLowerCase();
   return Array.from(latestByPublicNumber.values()).sort((a, b) => {
@@ -1043,7 +1055,12 @@ function CalendarEvent({ event, onViewQuote }) {
   const isCrewed = !isMaintenance && !!event.isCrewed;
   const quoteNumberForView = !isMaintenance && !isNote ? getEventQuoteNumber(event) : "";
   const quoteOptionsForView = !isMaintenance && !isNote ? getEventQuoteOptions(event) : [];
-  const canViewQuote = Boolean(quoteNumberForView && quoteOptionsForView.length);
+  const quoteDocumentForView = !isMaintenance && !isNote
+    ? findBookingQuoteDocument(event, quoteNumberForView)
+    : null;
+  const canViewQuote = Boolean(
+    quoteNumberForView && (quoteDocumentForView?.url || quoteOptionsForView.length)
+  );
 
   if (isNote) {
     return (
@@ -1061,7 +1078,7 @@ function CalendarEvent({ event, onViewQuote }) {
   return (
     <div
       title={event.noteToShow || ""}
-      className={layoutStyles.extracted6}
+      className={`${layoutStyles.extracted6} work-diary-event-card-content`}
     >
       {event.status === "Bank Holiday" ? (
         <>
@@ -1110,12 +1127,15 @@ function CalendarEvent({ event, onViewQuote }) {
                     className={layoutStyles.extracted16}
                     title="Crew needed for this job"
                   >
-                    {`Crew Needed: ${crewNeeded}`}
+                    {`CREW: ${crewNeeded}`}
                   </span>
                 )}
               </div>
 
-              <span className={layoutStyles.jobNumber} data-shoot={String(event.shootType || "").toLowerCase()}>
+              <span
+                className={layoutStyles.jobNumber}
+                data-shoot={String(event.shootType || "").toLowerCase()}
+              >
                 {event.jobNumber}
               </span>
               {canViewQuote ? (
@@ -1130,6 +1150,7 @@ function CalendarEvent({ event, onViewQuote }) {
                       client: event.client || event.title || "Quote",
                       quoteOptions: quoteOptionsForView,
                       initialQuoteNumber: quoteNumberForView,
+                      documentUrl: quoteDocumentForView?.url || "",
                     });
                   }}
                   title={`View quote ${quoteNumberForView}`}
@@ -1475,316 +1496,6 @@ function CalendarEvent({ event, onViewQuote }) {
   );
 }
 
-function maintenanceEventPropGetter(event) {
-  const kind = event?.kind || "MAINTENANCE";
-  const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
-  const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
-  const isBookingBlock =
-    kind === "MOT_BOOKING" ||
-    kind === "SERVICE_BOOKING" ||
-    kind === "INSPECTION_BOOKING" ||
-    kind === "MAINTENANCE_APPOINTMENT" ||
-    kind === "MAINTENANCE_BOOKING";
-  const isDueBlock =
-    kind === "MOT" ||
-    kind === "SERVICE" ||
-    kind === "INSPECTION" ||
-    kind === "BRAKE_TEST" ||
-    kind === "PMI";
-  const hasRail = isBookingBlock || isDueBlock || kind === "MAINTENANCE";
-  const isCompleted =
-    bookingStatus === "completed" ||
-    bookingStatus === "complete" ||
-    workflowStatus === "completed" ||
-    workflowStatus === "complete";
-  const outsideLegalWeek =
-    isBookingBlock && isMaintenanceMoveOutsideDueWeek(event, event?.start);
-
-  // Operational maintenance colours are fixed to the live palette from
-  // 0e5b608; decorative global styling must not change their meaning.
-  let bg = "#c4d6e4";
-  let border = "#95b3ca";
-  let text = "#172a3d";
-
-  if (kind === "MOT") {
-    bg = "#fff7ed";
-    border = "#f59e0b";
-    text = "#713f12";
-    if (event?.booked) {
-      bg = "#fef3c7";
-      border = "#d97706";
-      text = "#713f12";
-    }
-  } else if (kind === "MOT_BOOKING") {
-    bg = "#dbeafe";
-    border = "#2563eb";
-    text = "#102a56";
-    if (String(event?.bookingStatus || "").includes("After Expiry")) {
-      bg = "#e4c0bd";
-      border = "#bf847f";
-      text = "#631f1a";
-    }
-  } else if (kind === "SERVICE") {
-    bg = "#ecfdf5";
-    border = "#10b981";
-    text = "#064e3b";
-    if (event?.booked) {
-      bg = "#d1fae5";
-      border = "#059669";
-      text = "#064e3b";
-    }
-  } else if (kind === "SERVICE_BOOKING") {
-    bg = "#dbeafe";
-    border = "#2563eb";
-    text = "#102a56";
-  } else if (kind === "INSPECTION") {
-    bg = "#f5f3ff";
-    border = "#8b5cf6";
-    text = "#3b0764";
-    if (event?.booked) {
-      bg = "#ede9fe";
-      border = "#7c3aed";
-      text = "#3b0764";
-    }
-  } else if (kind === "INSPECTION_BOOKING") {
-    bg = "#f0fdfa";
-    border = "#14b8a6";
-    text = "#134e4a";
-  } else if (kind === "MAINTENANCE_APPOINTMENT") {
-    bg = "#f0fdfa";
-    border = "#14b8a6";
-    text = "#134e4a";
-  } else if (kind === "MAINTENANCE_BOOKING") {
-    bg = "#ccfbf1";
-    border = "#0d9488";
-    text = "#134e4a";
-  } else if (kind === "MAINTENANCE") {
-    bg = "#e2e8f0";
-    border = "#64748b";
-    text = "#1e293b";
-  }
-
-  const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
-  const suppressEscalation = isDueBlock && event?.booked;
-
-  if (!suppressEscalation) {
-    if (tone === "overdue") {
-      bg = "#e4c0bd";
-      border = "#bf847f";
-      text = "#631f1a";
-    } else if (tone === "soon") {
-      bg = "#e1c79c";
-      border = "#c19458";
-      text = "#5a3918";
-    }
-  }
-
-  if (isCompleted) {
-    bg = "#d1fae5";
-    border = "#86efac";
-    text = "#065f46";
-  } else if (outsideLegalWeek) {
-    bg = "#fff7ed";
-    border = "#f97316";
-    text = "#7c2d12";
-  }
-
-  return {
-    style: {
-      borderRadius: 10,
-      border: `1px solid ${border}`,
-      borderLeft: hasRail ? `6px solid ${border}` : `1px solid ${border}`,
-      background: bg,
-      color: text,
-      padding: 0,
-      boxShadow: isBookingBlock
-        ? "0 4px 10px rgba(37,99,235,0.12)"
-        : "0 2px 6px rgba(15,23,42,0.08)",
-      overflow: "hidden",
-      cursor: event?.__collection === "maintenanceBookings" ? "grab" : "pointer",
-    },
-  };
-}
-
-function MaintenanceCalendarEvent({ event }) {
-  const kind = event?.kind || "MAINTENANCE";
-  const displayType = getMaintenanceDisplayType(event);
-  const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
-  const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
-  const isCompleted =
-    bookingStatus === "completed" ||
-    bookingStatus === "complete" ||
-    workflowStatus === "completed" ||
-    workflowStatus === "complete";
-  const outsideLegalWeek =
-    !isCompleted && isMaintenanceMoveOutsideDueWeek(event, event?.start);
-  const vehicleText = Array.isArray(event?.vehicles)
-    ? event.vehicles
-        .map((vehicle) => {
-          if (typeof vehicle === "string") return vehicle.trim();
-          if (!vehicle || typeof vehicle !== "object") return "";
-          const name = String(vehicle.name || [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ") || "").trim();
-          const registration = String(vehicle.registration || vehicle.reg || "").trim().toUpperCase();
-          if (name && registration) return `${name} (${registration})`;
-          return name || registration || "";
-        })
-        .filter(Boolean)
-    : [];
-
-  const equipmentText = Array.isArray(event?.equipment)
-    ? event.equipment
-        .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
-        .map((item) => String(item || "").trim())
-        .filter(Boolean)
-        .join(", ")
-    : "";
-  const locationText = String(event?.location || "").trim();
-
-  const label =
-    kind === "MOT"
-      ? "MOT expiry"
-      : kind === "SERVICE"
-      ? "Service due"
-      : kind === "MOT_BOOKING"
-      ? "MOT appointment"
-      : kind === "SERVICE_BOOKING"
-      ? "Service appointment"
-      : kind === "INSPECTION"
-      ? "8 week inspection due"
-      : kind === "BRAKE_TEST"
-      ? "Brake test due"
-      : kind === "PMI"
-      ? "PMI inspection due"
-      : kind === "INSPECTION_BOOKING"
-      ? `${event?.maintenanceTypeLabel || displayType} appointment`
-      : kind === "MAINTENANCE_APPOINTMENT"
-      ? event?.maintenanceTypeLabel || `${displayType} appointment`
-      : kind === "MAINTENANCE_BOOKING"
-      ? `${displayType} appointment`
-      : kind === "MAINTENANCE"
-      ? event?.maintenanceTypeLabel || "Workshop job card"
-      : `${displayType} booking`;
-
-  const dd = event?.dueDate ? new Date(event.dueDate) : null;
-  const isBookingBlock =
-    kind === "MOT_BOOKING" ||
-    kind === "SERVICE_BOOKING" ||
-    kind === "INSPECTION_BOOKING" ||
-    kind === "MAINTENANCE_APPOINTMENT" ||
-    kind === "MAINTENANCE_BOOKING";
-  const isDueBlock =
-    kind === "MOT" ||
-    kind === "SERVICE" ||
-    kind === "INSPECTION" ||
-    kind === "BRAKE_TEST" ||
-    kind === "PMI";
-  const showTone = !isBookingBlock && !(isDueBlock && event?.booked);
-  const tone = showTone && dd ? dueTone(dd) : "soft";
-  const toneText =
-    tone === "overdue"
-      ? "Overdue"
-      : tone === "soon"
-      ? "Due soon"
-      : tone === "ok" && kind === "SERVICE"
-      ? "Service in date"
-      : tone === "ok" && kind === "MOT"
-      ? "MOT in date"
-      : tone === "ok" && kind === "INSPECTION"
-      ? "Inspection in cycle"
-      : tone === "ok" && kind === "BRAKE_TEST"
-      ? "Brake test in date"
-      : tone === "ok" && kind === "PMI"
-      ? "PMI in date"
-      : "";
-  const cleanTitle = (() => {
-    const title = String(event?.title || "Maintenance").trim();
-    if (kind === "MAINTENANCE_APPOINTMENT" || kind === "INSPECTION_BOOKING") {
-      const suffix = ` - ${String(event?.maintenanceTypeLabel || "").trim()}`;
-      return suffix.trim() && title.toLowerCase().endsWith(suffix.toLowerCase())
-        ? title.slice(0, -suffix.length)
-        : title;
-    }
-    if (!isDueBlock) return title;
-    return title
-      .replace(/\s+-\s+MOT due(?:\s+\(Booked\))?$/i, "")
-      .replace(/\s+-\s+Service due(?:\s+\(Booked\))?$/i, "")
-      .replace(/\s+-\s+8 week inspection due(?:\s+\(Booked(?:\s+-\s+Outside ISO Week)?\))?$/i, "")
-      .replace(/\s+-\s+Brake test due$/i, "")
-      .replace(/\s+-\s+PMI inspection due$/i, "");
-  })();
-  const dueLabelColor =
-    tone === "overdue" ? "var(--color-danger)" : tone === "soon" ? "var(--color-warning)" : null;
-  const labelColor =
-    isDueBlock && dueLabelColor
-      ? dueLabelColor
-      : kind === "MOT"
-      ? "var(--color-warning)"
-      : kind === "SERVICE"
-      ? "var(--color-success)"
-      : kind === "INSPECTION"
-      ? "var(--color-info)"
-      : kind === "BRAKE_TEST"
-      ? "var(--color-info)"
-      : kind === "PMI"
-      ? "var(--color-brand)"
-      : isBookingBlock
-      ? "var(--color-brand)"
-      : kind === "MAINTENANCE"
-      ? "var(--color-text-muted)"
-      : "var(--color-brand)";
-  const nextDueLabel =
-    isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
-      ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
-      : isCompleted && kind === "SERVICE_BOOKING" && event?.nextService
-      ? `Next Service Due: ${new Date(event.nextService).toLocaleDateString("en-GB")}`
-      : "";
-  const subline = isBookingBlock
-    ? outsideLegalWeek
-      ? "Warning — outside legal ISO week"
-      : kind === "INSPECTION_BOOKING" && bookingStatus === "booked"
-      ? "Appointment"
-      : event?.bookingStatus
-      ? String(event.bookingStatus).replace(/^booked$/i, "Booked")
-      : "Booked"
-    : event?.booked && isDueBlock
-    ? event?.bookingStatus
-      ? String(event.bookingStatus).includes("After Expiry")
-        ? "Appointment after expiry"
-        : String(event.bookingStatus).includes("Outside ISO Week")
-        ? "Appointment outside ISO week"
-        : "Appointment booked"
-      : "Appointment booked"
-    : workflowStatus
-    ? workflowStatus.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase())
-    : toneText;
-
-  return (
-    <div
-      title={event?.title || ""}
-      className={layoutStyles.extracted36}
-    >
-      {/* style-audit-allow runtime: status label colour */}
-      <span className={layoutStyles.eventLabel} style={{ "--event-label-color": labelColor }}>{label}</span>
-      <span className={layoutStyles.extracted37}>{cleanTitle}</span>
-      {vehicleText ? (
-        <span className={layoutStyles.extracted38}>{vehicleText}</span>
-      ) : null}
-      {equipmentText ? (
-        <span className={layoutStyles.extracted39}>{equipmentText}</span>
-      ) : null}
-      {locationText ? (
-        <span className={layoutStyles.extracted40}>{locationText}</span>
-      ) : null}
-      {nextDueLabel ? (
-        <span className={layoutStyles.extracted41}>{nextDueLabel}</span>
-      ) : null}
-      {subline ? (
-        <span className={layoutStyles.extracted42}>{subline}</span>
-      ) : null}
-    </div>
-  );
-}
-
 function HolidayNotesCalendarEvent({ event }) {
   const [expanded, setExpanded] = useState(false);
   const isHoliday = event.status === "Holiday";
@@ -1841,7 +1552,9 @@ function holidayNotesEventPropGetter(event) {
   return {
     style: {
       borderRadius: 7,
-      border: `1px solid ${border}`,
+      borderTop: `1px solid ${border}`,
+      borderRight: `1px solid ${border}`,
+      borderBottom: `1px solid ${border}`,
       borderLeft: `4px solid ${border}`,
       background: bg,
       color: text,
@@ -1855,72 +1568,105 @@ function holidayNotesEventPropGetter(event) {
 
 function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
   const router = useRouter();
-  if (!viewer?.bookingId || !Array.isArray(viewer.quoteOptions) || !viewer.quoteOptions.length) return null;
-
-  const currentIndex = Math.max(0, Math.min(Number(viewer.index) || 0, viewer.quoteOptions.length - 1));
-  const currentQuote = viewer.quoteOptions[currentIndex];
+  const quoteOptions = Array.isArray(viewer?.quoteOptions) ? viewer.quoteOptions : [];
+  const hasViewer = Boolean(viewer?.bookingId && quoteOptions.length);
+  const currentIndex = Math.max(0, Math.min(Number(viewer?.index) || 0, Math.max(0, quoteOptions.length - 1)));
+  const currentQuote = quoteOptions[currentIndex] || null;
   const returnTo =
     typeof window !== "undefined"
       ? `${window.location.pathname}${window.location.search || ""}`
       : "/dashboard";
   const quoteSrcParams = new URLSearchParams({
-    quote: currentQuote.quoteNumber,
+    quote: currentQuote?.quoteNumber || "",
     embed: "1",
     returnTo,
   });
   const editBookingParams = new URLSearchParams({ returnTo });
-  const quoteSrc = `/quote-view/${encodeURIComponent(viewer.bookingId)}?${quoteSrcParams.toString()}`;
-  const editBookingHref = `/edit-booking/${encodeURIComponent(viewer.bookingId)}?${editBookingParams.toString()}`;
-  const hasMany = viewer.quoteOptions.length > 1;
+  const quoteSrc = hasViewer
+    ? `/quote-view/${encodeURIComponent(viewer.bookingId)}?${quoteSrcParams.toString()}`
+    : "";
+  const editBookingHref = hasViewer
+    ? `/edit-booking/${encodeURIComponent(viewer.bookingId)}?${editBookingParams.toString()}`
+    : "";
+  const hasMany = quoteOptions.length > 1;
+  const [frameStatus, setFrameStatus] = useState("loading");
+
+  useEffect(() => {
+    setFrameStatus("loading");
+  }, [quoteSrc]);
+
+  useEffect(() => {
+    if (!hasViewer) return undefined;
+    const handleQuoteStatus = (event) => {
+      if (event.origin !== window.location.origin) return;
+      const message = event.data;
+      if (message?.type !== "bickers:quote-view-status") return;
+      if (String(message.bookingId || "") !== String(viewer.bookingId)) return;
+      if (message.status === "ready" || message.status === "not-found") {
+        setFrameStatus(message.status);
+      }
+    };
+    window.addEventListener("message", handleQuoteStatus);
+    return () => window.removeEventListener("message", handleQuoteStatus);
+  }, [hasViewer, viewer?.bookingId]);
+
+  if (!hasViewer || !currentQuote) return null;
+
   const handleEditBooking = () => {
     onClose?.();
     router.push(editBookingHref);
   };
 
   return (
-    <div
-      className={layoutStyles.extracted46}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
-      }}
-    >
-      <div className={layoutStyles.extracted47} onMouseDown={(event) => event.stopPropagation()}>
-        <div className={layoutStyles.extracted48}>
-          <div className={layoutStyles.extracted49}>
-            <div className={layoutStyles.extracted50}>Quote View</div>
-            <div className={layoutStyles.extracted51}>
-              {viewer.jobNumber ? `#${viewer.jobNumber} - ` : ""}
-              {viewer.client || "Quote"}
-            </div>
-            <div className={layoutStyles.extracted52}>
-              {currentQuote.label || currentQuote.quoteNumber}
-              {hasMany ? ` (${currentIndex + 1} of ${viewer.quoteOptions.length})` : ""}
-            </div>
-          </div>
-          <div className={layoutStyles.extracted53}>
-            {hasMany ? (
-              <>
-                <Button bare type="button" className={layoutStyles.extracted54} onClick={() => onMove?.(-1)}>
-                  <ChevronLeft size={15} />
-                  Previous
-                </Button>
-                <Button bare type="button" className={layoutStyles.extracted55} onClick={() => onMove?.(1)}>
-                  Next
-                  <ChevronRight size={15} />
-                </Button>
-              </>
-            ) : null}
-            <Button bare type="button" className={layoutStyles.extracted56} onClick={handleEditBooking}>
-              Edit Booking
-            </Button>
-            <Button bare type="button" className={layoutStyles.extracted57} onClick={onClose} aria-label="Close quote viewer">
-              <X size={18} />
-            </Button>
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      eyebrow="Quote view"
+      title={`${viewer.jobNumber ? `#${viewer.jobNumber} - ` : ""}${viewer.client || "Quote"}`}
+      description={`${currentQuote.label || currentQuote.quoteNumber}${hasMany ? ` (${currentIndex + 1} of ${quoteOptions.length})` : ""}`}
+      size="lg"
+      density="compact"
+      className={layoutStyles.quoteViewerModal}
+      bodyClassName={layoutStyles.quoteViewerBody}
+      headerActions={
+        <div className={layoutStyles.quoteViewerActions}>
+          {hasMany ? (
+            <>
+              <Button variant="secondary" size="sm" type="button" onClick={() => onMove?.(-1)}>
+                <ChevronLeft size={15} /> Previous
+              </Button>
+              <Button variant="secondary" size="sm" type="button" onClick={() => onMove?.(1)}>
+                Next <ChevronRight size={15} />
+              </Button>
+            </>
+          ) : null}
+          <Button size="sm" type="button" onClick={handleEditBooking}>Edit Booking</Button>
         </div>
-        <iframe title="Quote viewer" src={quoteSrc} className={layoutStyles.extracted58} />
+      }
+    >
+      <div className={layoutStyles.quoteViewerFrameWrap}>
+        {frameStatus === "loading" ? (
+          <div className={layoutStyles.quoteViewerStatus} role="status" aria-live="polite">
+            <Spinner />
+            <strong>Loading quote…</strong>
+            <span>Preparing {currentQuote.label || currentQuote.quoteNumber}.</span>
+          </div>
+        ) : null}
+        {frameStatus === "not-found" ? (
+          <div className={layoutStyles.quoteViewerStatus} role="alert">
+            <strong>Quote unavailable</strong>
+            <span>The booking or selected quote could not be loaded.</span>
+          </div>
+        ) : null}
+        <iframe
+          key={quoteSrc}
+          title="Quote viewer"
+          src={quoteSrc}
+          className={layoutStyles.quoteViewerFrame}
+          data-ready={frameStatus === "ready"}
+        />
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1987,9 +1733,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createEnquiryOpening, setCreateEnquiryOpening] = useState(false);
   const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
   const [quoteViewer, setQuoteViewer] = useState(null);
+  const [quotePdfViewer, setQuotePdfViewer] = useState(null);
 
   const [allMaintenanceBookings, setMaintenanceBookings] = useState([]);
-  const [, setMaintenanceJobs] = useState([]);
+  const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [allVehiclesData, setVehiclesData] = useState([]);
   const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
@@ -2050,6 +1797,16 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, []);
 
   const openQuoteViewer = useCallback((payload) => {
+    const documentUrl = String(payload?.documentUrl || "").trim();
+    if (documentUrl) {
+      setQuotePdfViewer({
+        url: documentUrl,
+        quoteNumber: payload?.initialQuoteNumber || "",
+        jobNumber: payload?.jobNumber || "",
+        client: payload?.client || "",
+      });
+      return;
+    }
     const quoteOptions = Array.isArray(payload?.quoteOptions) ? payload.quoteOptions.filter((option) => option?.quoteNumber) : [];
     if (!payload?.bookingId || !quoteOptions.length) return;
     const initialIndex = Math.max(
@@ -2127,6 +1884,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const nextView = normalizeCalendarView(initialView);
       return prev === nextView ? prev : nextView;
     });
+    setMaintenanceView((prev) => {
+      const nextView = normalizeCalendarView(initialView);
+      return prev === nextView ? prev : nextView;
+    });
   }, [initialView]);
 
   useEffect(() => {
@@ -2149,6 +1910,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       window.history.replaceState(window.history.state, "", nextUrl);
     }
   }, [calendarView, currentDate, isUCraneMode]);
+
+  useEffect(() => {
+    router.prefetch(isUCraneMode ? "/u-crane-booking" : "/create-booking");
+  }, [isUCraneMode, router]);
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
   const canSeeDeletedOnCalendar = userEmail
@@ -2235,16 +2000,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     setCreateBookingOpening(true);
     setCreateBookingProgress(8);
 
-    setTimeout(() => {
-      try {
-        router.push(isUCraneMode ? "/u-crane-booking" : "/create-booking");
-      } catch (error) {
-        console.error("Open create booking failed:", error);
-        setCreateBookingOpening(false);
-        setCreateBookingProgress(0);
-        alert("Failed to open create booking. Please try again.");
-      }
-    }, 80);
+    try {
+      router.push(isUCraneMode ? "/u-crane-booking" : "/create-booking");
+    } catch (error) {
+      console.error("Open create booking failed:", error);
+      setCreateBookingOpening(false);
+      setCreateBookingProgress(0);
+      systemDialogs.showSystemNotification("Failed to open create booking. Please try again.");
+    }
   }, [createBookingOpening, createEnquiryOpening, isRestricted, isUCraneMode, router]);
 
   const goToCreateEnquiry = useCallback(() => {
@@ -2259,7 +2022,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         console.error("Open create enquiry failed:", error);
         setCreateEnquiryOpening(false);
         setCreateEnquiryProgress(0);
-        alert("Failed to open create enquiry. Please try again.");
+        systemDialogs.showSystemNotification("Failed to open create enquiry. Please try again.");
       }
     }, 80);
   }, [createBookingOpening, createEnquiryOpening, isRestricted, router]);
@@ -2733,20 +2496,15 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "create booking" })) {
         console.error("Error saving booking:", err);
       }
-      alert("Failed to save booking.");
+      systemDialogs.showSystemNotification("Failed to save booking.");
     }
   };
 
-  const maintenanceBookedMetaByVehicle = useMemo(
-    () => buildBookedMetaByVehicle(maintenanceBookings),
-    [maintenanceBookings]
-  );
-
-  const activeInspectionMetaByVehicle = useMemo(() => {
-    return buildActiveInspectionMetaByVehicle(maintenanceBookings);
-  }, [maintenanceBookings]);
-
-  const motServiceDueEvents = useMemo(() => {
+  // Retained temporarily as a non-executing reference for the legacy planner.
+  // The visible calendars exclusively use MaintenanceCalendarPanel's canonical builder.
+  const buildLegacyVehicleDueEvents = () => {
+    const maintenanceBookedMetaByVehicle = buildBookedMetaByVehicle(maintenanceBookings);
+    const activeInspectionMetaByVehicle = buildActiveInspectionMetaByVehicle(maintenanceBookings);
     if (!Array.isArray(vehiclesData) || !vehiclesData.length) return [];
     const out = [];
     const today = startOfLocalDay(new Date());
@@ -3021,62 +2779,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         });
       });
 
-      const inspectionAnchor =
-        parseLocalDate(v.eightWeekInspectionStart) || parseLocalDate(v.nextEightWeekInspection);
-      if (inspectionAnchor && !isHgvComplianceVehicle(v)) {
-        let occurrence = startOfLocalDay(inspectionAnchor);
-        while (occurrence.getTime() < windowStart.getTime()) {
-          occurrence = addWeeks(occurrence, 8);
-        }
-
-        const inspectionMeta = activeInspectionMetaByVehicle[vehicleId] || null;
-        while (occurrence.getTime() <= windowEnd.getTime()) {
-          const dueKey = ymd(occurrence);
-          const isoLabel = getIsoWeekLabel(occurrence);
-          const bookedBySource = !!inspectionMeta?.sourceDueKeys?.has(
-            `inspection_due__${vehicleId}__${dueKey}`
-          );
-          const bookedInWeek = !!inspectionMeta?.bookedWeeks?.has(isoLabel);
-          const bookedByWeekLink = !!inspectionMeta?.sourceDueWeeks?.has(isoLabel);
-          const inspectionBooked = bookedBySource || bookedInWeek || bookedByWeekLink;
-          const bookedOutsideWeek =
-            inspectionBooked && bookedBySource && !bookedInWeek && !bookedByWeekLink;
-
-          out.push({
-            id: `inspection_due__${vehicleId}__${dueKey}`,
-            __collection: "vehicleDueDates",
-            title: `${label} - 8 week inspection due${
-              inspectionBooked
-                ? bookedOutsideWeek
-                  ? " (Booked - Outside ISO Week)"
-                  : " (Booked)"
-                : ""
-            }`,
-            start: startOfLocalDay(occurrence),
-            end: startOfLocalDay(addDays(occurrence, 1)),
-            allDay: true,
-            status: "Maintenance",
-            kind: "INSPECTION",
-            vehicleId,
-            dueDate: startOfLocalDay(occurrence),
-            booked: inspectionBooked,
-            bookingStatus: inspectionBooked
-              ? bookedOutsideWeek
-                ? "Booked (Outside ISO Week)"
-                : "Booked"
-              : "",
-            maintenanceTypeLabel: "8 WEEK INSPECTION",
-            maintenanceTypeId: "eight_week_inspection",
-            isoWeek: isoLabel,
-          });
-
-          occurrence = addWeeks(occurrence, 8);
-        }
-      }
+      // Legacy eight-week / lorry inspection dates are PMI aliases. Canonical
+      // maintenanceBookings now owns recurrence, so no parallel repeating
+      // calendar series is generated here.
     });
 
     return out;
-  }, [vehiclesData, maintenanceBookedMetaByVehicle, activeInspectionMetaByVehicle]);
+  };
 
   //  Build all calendar events from a single function (jobs + maintenance)
   const allEventsRaw = useMemo(() => {
@@ -3309,14 +3018,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           event?.kind === "MAINTENANCE_APPOINTMENT") &&
         !isMaintenanceCalendarEventDraggable(event)
       ) {
-        alert("Completed or inactive maintenance records cannot be moved.");
+        systemDialogs.showSystemNotification("Completed or inactive maintenance records cannot be moved.");
         return;
       }
 
       if (event?.__collection === "vehicleDueDates") {
         const draft = buildMaintenanceBookingDraftFromDueEvent(event, start);
         if (!draft) {
-          alert("Could not create a maintenance booking from this due reminder.");
+          systemDialogs.showSystemNotification("Could not create a maintenance booking from this due reminder.");
           return;
         }
         setMaintenanceDropDraft(draft);
@@ -3329,7 +3038,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       if (event?.__collection === "maintenanceBookings" && recordStatus === "requested") {
         const draft = buildMaintenanceBookingDraftFromDueEvent(event, start);
         if (!draft) {
-          alert("Could not book this maintenance requirement.");
+          systemDialogs.showSystemNotification("Could not book this maintenance requirement.");
           return;
         }
         setMaintenanceDropDraft(draft);
@@ -3337,13 +3046,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       }
 
       if (event?.__collection !== "maintenanceBookings") {
-        alert("Only saved maintenance bookings can be moved. Due-date reminders stay fixed to the vehicle schedule.");
+        systemDialogs.showSystemNotification("Only saved maintenance bookings can be moved. Due-date reminders stay fixed to the vehicle schedule.");
         return;
       }
 
       const bookingId = String(event.__parentId || event.id || "").trim();
       if (!bookingId) {
-        alert("Could not identify the maintenance booking to move.");
+        systemDialogs.showSystemNotification("Could not identify the maintenance booking to move.");
         return;
       }
 
@@ -3409,7 +3118,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       console.error("Failed to move maintenance booking:", error);
       setMaintenanceBookings(previousBookings);
       setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
-      alert(error?.message || "Could not move this maintenance booking.");
+      systemDialogs.showSystemNotification(error?.message || "Could not move this maintenance booking.");
     }
   }, [dataAccessState, maintenanceBookings, pendingMaintenanceDrop]);
 
@@ -3498,13 +3207,12 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
   return (
     <HeaderSidebarLayout>
-      <div  className={`dashboard-page ${layoutStyles.extracted120}`}>
+      <OperationsPage className={`dashboard-page ${layoutStyles.extracted120}`}>
         {/* Header */}
-        <div className={layoutStyles.extracted59}>
-          <div>
-            <h1 className={layoutStyles.extracted60}>{isUCraneMode ? "U-Crane" : "Dashboard"}</h1>
-          </div>
-          <div className={layoutStyles.extracted61}>
+        <OperationsPageHeader
+          title={isUCraneMode ? "U-Crane" : "Diary"}
+          subtitle={isUCraneMode ? "U-Crane bookings, crew and operational preparation." : "Bookings, availability and maintenance across the working week."}
+          actions={<OperationsHeaderActions className={layoutStyles.extracted61}>
             <div className={layoutStyles.extracted62}>
               <Search
                 size={15}
@@ -3554,8 +3262,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               )}
             </div>
             {isUCraneMode ? (
-              <Button bare
-                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+              <Button variant="secondary"
                 type="button"
                 onClick={() => router.push("/u-crane-crew")}
               >
@@ -3564,38 +3271,34 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </Button>
             ) : (
               <>
-                <Button bare
-                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+                <Button variant="secondary"
                   type="button"
                   onClick={() => router.push("/booking-drafts")}
                 >
                   <FileText size={14} />
                   Drafts
                 </Button>
-                <Button bare
-                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
+                <Button variant="secondary"
                   type="button"
                   onClick={() => {
                     if (isRestricted) return;
                     router.push("/enquiry");
                   }}
-                  aria-disabled={isRestricted}
+                  disabled={isRestricted}
                   title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
                 >
                   <Plus size={14} />
                   Enquiries
                   <span className={layoutStyles.countBadge}>{enquiryCount}</span>
                 </Button>
-                <Button bare
-                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+                <Button variant="secondary"
                   type="button"
                   onClick={() => router.push("/preplist-dashboard")}
                 >
                   <ClipboardList size={14} />
                   Prep Dashboard
                 </Button>
-                <Button bare
-                  className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+                <Button variant="secondary"
                   type="button"
                   onClick={() => router.push("/stunt-prep")}
                 >
@@ -3605,8 +3308,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </>
             )}
             {canSeeDeletedOnCalendar && (
-              <Button bare
-                className={`${layoutStyles.button} ${showDeletedInView ? layoutStyles.buttonSecondary : layoutStyles.buttonDanger}`}
+              <Button variant="secondary"
+                className={!showDeletedInView ? layoutStyles.visibilityFilter : ""}
                 onClick={() => setShowDeletedInView((v) => !v)}
                 type="button"
               >
@@ -3614,8 +3317,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 {showDeletedInView ? "Hide Deleted" : "Show Deleted"}
               </Button>
             )}
-            <Button bare
-              className={`${layoutStyles.button} ${showInactiveInView ? layoutStyles.buttonSecondary : layoutStyles.buttonDanger}`}
+            <Button variant="secondary"
+              className={!showInactiveInView ? layoutStyles.visibilityFilter : ""}
               onClick={() => setShowInactiveInView((v) => !v)}
               type="button"
             >
@@ -3628,8 +3331,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 Booking saved successfully.
               </div>
             )}
-          </div>
-        </div>
+          </OperationsHeaderActions>}
+        />
 
         {/* Work Diary */}
         <section ref={workDiarySectionRef} className={layoutStyles.extracted71}>
@@ -3642,12 +3345,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 <h2 className={layoutStyles.extracted74}>{isUCraneMode ? "U-Crane Work Diary" : "Work Diary"}</h2>
                 <div className={layoutStyles.extracted75}>
                   {isUCraneMode
-                    ? "U-Crane bookings, bank holidays and operational visibility."
+                    ? "U-Crane bookings and operational visibility."
                     : "Bookings, bank holidays and operational visibility."}
                 </div>
               </div>
-              <Button bare
-                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+              <Button variant="secondary"
                 onClick={() => {
                   const today = new Date();
                   setCurrentDate(today);
@@ -3660,8 +3362,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </Button>
             </div>
             <div className={layoutStyles.extracted76}>
-              <Button bare
-                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+              <Button variant="secondary"
                 onClick={() => {
                   setCurrentDate((prev) => shiftByDays(prev, -7));
                   setMaintenanceDate((prev) => shiftByDays(prev, -7));
@@ -3672,8 +3373,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 Previous Week
               </Button>
 
-              <Button bare
-                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
+              <Button variant="secondary"
                 onClick={() => {
                   setCurrentDate((prev) => shiftByDays(prev, 7));
                   setMaintenanceDate((prev) => shiftByDays(prev, 7));
@@ -3684,8 +3384,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 <ChevronRight size={14} />
               </Button>
 
-              <Button bare
-                className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
+              <Button
                 onClick={goToCreateBooking}
                 disabled={isRestricted || createBookingOpening || createEnquiryOpening}
                 aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
@@ -3699,8 +3398,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </Button>
 
               {!isUCraneMode && (
-                <Button bare
-                  className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
+                <Button variant="secondary"
                   onClick={goToCreateEnquiry}
                   disabled={isRestricted || createBookingOpening || createEnquiryOpening}
                   aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
@@ -3713,9 +3411,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               )}
 
               {!isUCraneMode && (
-                <Button bare
-                  className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
+                <Button variant="secondary"
                   onClick={goToCreateMaintenance}
+                  disabled={isRestricted}
                   aria-disabled={isRestricted}
                   title={isRestricted ? "Your account is not allowed to create maintenance" : ""}
                   type="button"
@@ -3725,9 +3423,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 </Button>
               )}
 
-              <div className={`${layoutStyles.chip} ${layoutStyles.brandChip}`}>
+              <Badge className={layoutStyles.calendarDateBadge}>
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-              </div>
+              </Badge>
             </div>
           </div>
 
@@ -3821,7 +3519,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   }
                 }
               }}
-              components={{ event: (props) => <CalendarEvent {...props} onViewQuote={openQuoteViewer} /> }}
+              components={{
+                event: (props) => (
+                  <CalendarEvent
+                    {...props}
+                    onViewQuote={openQuoteViewer}
+                  />
+                ),
+              }}
               eventPropGetter={(event) => {
               //  bank holiday styling
               if (event.status === "Bank Holiday") {
@@ -3833,7 +3538,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                     fontWeight: 800,
                     padding: 0,
                     borderRadius: 8,
-                    border: `1px dashed ${bankHolidayBorder}`,
+                    borderTop: `1px dashed ${bankHolidayBorder}`,
+                    borderRight: `1px dashed ${bankHolidayBorder}`,
+                    borderBottom: `1px dashed ${bankHolidayBorder}`,
                     borderLeft: `6px solid ${bankHolidayBorder}`,
                     boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
                     pointerEvents: "none", //  doesn't steal clicks from jobs
@@ -3842,6 +3549,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               }
 
               const status = normalizeStatusLabel(event.status || "Confirmed");
+              const isJobCard = !["bank holiday", "holiday", "note"].includes(
+                String(event.status || "").trim().toLowerCase()
+              );
+              const jobCardClassName = isJobCard ? "work-diary-job-card" : "";
               const tone = getStatusStyle(status);
               let bg = tone.bg;
               let text = tone.text;
@@ -3861,13 +3572,16 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 text = NIGHT_SHOOT_STYLE.text;
                 border = getWorkDiaryBorder(status, NIGHT_SHOOT_STYLE.border);
                 return {
+                  className: jobCardClassName,
                   style: {
                     backgroundColor: bg,
                     color: text,
                     fontWeight: 700,
                     padding: 0,
                     borderRadius: 8,
-                    border: `1px solid ${border}`,
+                    borderTop: `1px solid ${border}`,
+                    borderRight: `1px solid ${border}`,
+                    borderBottom: `1px solid ${border}`,
                     borderLeft: `6px solid ${border}`,
                     boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                   },
@@ -3875,13 +3589,16 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               }
 
               return {
+                className: jobCardClassName,
                 style: {
                   backgroundColor: bg,
                   color: text,
                   fontWeight: 700,
                   padding: 0,
                   borderRadius: 8,
-                  border: `1px solid ${border}`,
+                  borderTop: `1px solid ${border}`,
+                  borderRight: `1px solid ${border}`,
+                  borderBottom: `1px solid ${border}`,
                   borderLeft: `6px solid ${border}`,
                   boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                 },
@@ -3975,203 +3692,29 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         )}
 
         {/* Maintenance Calendar */}
-        {!isUCraneMode && <section className={layoutStyles.extracted77}>
-          <div className={layoutStyles.extracted78}>
-            <div className={layoutStyles.extracted79}>
-              <div className={`${layoutStyles.iconBox} ${layoutStyles.iconFleet}`}>
-                <Wrench size={17} />
-              </div>
-              <div>
-                <h2 className={layoutStyles.extracted80}>Maintenance Calendar</h2>
-                <div className={layoutStyles.extracted81}>MOT, service, maintenance bookings and active workshop activity.</div>
-              </div>
-            </div>
-
-            <div className={layoutStyles.extracted82}>
-
-              <Button bare
-                type="button"
-                className={`${layoutStyles.button} ${maintenanceView === "week" ? layoutStyles.buttonPrimary : layoutStyles.buttonSecondary}`}
-                onClick={() => setMaintenanceView("week")}
-              >
-                Week
-              </Button>
-
-              <Button bare
-                type="button"
-                className={`${layoutStyles.button} ${maintenanceView === "month" ? layoutStyles.buttonPrimary : layoutStyles.buttonSecondary}`}
-                onClick={() => setMaintenanceView("month")}
-              >
-                Month
-              </Button>
-
-              <div className={layoutStyles.chip}>
-                {maintenanceDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-              </div>
-            </div>
-          </div>
-
-          <DraggableBigCalendar
-            localizer={localizer}
-            events={maintenanceEvents}
-            view={maintenanceView}
-            views={["week", "month"]}
-            onView={(v) => setMaintenanceView((prev) => (prev === v ? prev : v))}
+        {!isUCraneMode && (
+          <MaintenanceCalendarPanel
+            maintenanceBookings={maintenanceBookings}
+            maintenanceJobs={maintenanceJobs}
+            vehicles={vehiclesData}
+            setMaintenanceBookings={setMaintenanceBookings}
             date={maintenanceDate}
-            onNavigate={(d) => setMaintenanceDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
-            startAccessor="start"
-            endAccessor="end"
-            allDayAccessor={allDayTrue}
-            allDaySlot
-            selectable={false}
-            resizable={false}
-            draggableAccessor={maintenanceDraggableAccessor}
-            onEventDrop={handleMaintenanceEventDrop}
-            popup
-            showAllEvents
-            toolbar={false}
-            nowIndicator={false}
-            getNow={getCalendarNow}
-            components={{ event: MaintenanceCalendarEvent }}
-            onSelectEvent={(e) => {
-              if (!e) return;
-              if (e.__collection === "maintenanceJobs") {
-                router.push(`/maintenance-jobs?jobId=${encodeURIComponent(e.id)}`);
-                return;
+            view={maintenanceView}
+            onDateChange={(nextDate) =>
+              {
+                setMaintenanceDate((previous) => sameCalendarDate(previous, nextDate) ? previous : nextDate);
+                setCurrentDate((previous) => sameCalendarDate(previous, nextDate) ? previous : nextDate);
               }
-              setSelectedMaintenanceEvent(e);
-            }}
-            eventPropGetter={maintenanceEventPropGetter}
-            className={`${maintenanceView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"} ${layoutStyles.calendarFrame} ${maintenanceView === "week" ? layoutStyles.calendarCompact : layoutStyles.calendarMonth}`}
-            dayPropGetter={(date) => {
-              const todayD = new Date();
-              const isToday =
-                date.getDate() === todayD.getDate() &&
-                date.getMonth() === todayD.getMonth() &&
-                date.getFullYear() === todayD.getFullYear();
-
-              return {
-                style: {
-                  backgroundColor: isToday ? "rgba(139,94,60,0.12)" : undefined,
-                  border: isToday ? "1px solid rgba(139,94,60,0.34)" : undefined,
-                },
-              };
-            }}
+            }
+            onViewChange={(nextView) =>
+              {
+                setMaintenanceView((previous) => previous === nextView ? previous : nextView);
+                setCalendarView((previous) => previous === nextView ? previous : nextView);
+              }
+            }
+            dataAccessState={dataAccessState}
           />
-
-          {selectedMaintenanceEvent && (
-            <DashboardMaintenanceModal
-              event={selectedMaintenanceEvent}
-              onClose={() => setSelectedMaintenanceEvent(null)}
-            />
-          )}
-
-          {pendingMaintenanceDrop && (
-            <div
-              className={layoutStyles.extracted83}
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget && !pendingMaintenanceDrop.saving) {
-                  cancelPendingMaintenanceDrop();
-                }
-              }}
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="maintenance-drop-confirm-title"
-                className={layoutStyles.extracted84}
-              >
-                <div
-                  className={layoutStyles.extracted85}
-                >
-                  <div className={layoutStyles.extracted86}>
-                    <div className={`${layoutStyles.iconBox} ${layoutStyles.iconFleet}`}>
-                      <Wrench size={17} />
-                    </div>
-                    <h3 id="maintenance-drop-confirm-title" className={layoutStyles.extracted87}>
-                      Confirm Date Change
-                    </h3>
-                  </div>
-                  <Button bare
-                    type="button"
-                    onClick={cancelPendingMaintenanceDrop}
-                    disabled={pendingMaintenanceDrop.saving}
-                    aria-label="Cancel date change"
-                    className={`${layoutStyles.button} ${layoutStyles.buttonSecondary} ${layoutStyles.iconButton}`}
-                  >
-                    <X size={16} />
-                  </Button>
-                </div>
-
-                <div className={layoutStyles.extracted88}>
-                  <div className={layoutStyles.extracted89}>
-                    Move the maintenance appointment{" "}
-                    <span className={layoutStyles.extracted90}>&quot;{pendingMaintenanceDrop.title}&quot;</span>.
-                  </div>
-
-                  <div
-                    className={layoutStyles.extracted91}
-                  >
-                    <div className={layoutStyles.extracted92}>
-                      <div className={layoutStyles.extracted93}>From</div>
-                      <div className={layoutStyles.extracted94}>{pendingMaintenanceDrop.fromLabel}</div>
-                    </div>
-                    <div className={layoutStyles.extracted95}>
-                      <div className={layoutStyles.extracted96}>To</div>
-                      <div className={layoutStyles.extracted97}>{pendingMaintenanceDrop.toLabel}</div>
-                    </div>
-                  </div>
-
-                  <div className={layoutStyles.extracted98}>
-                    <label htmlFor="maintenance-drop-reason">
-                      Reason{pendingMaintenanceDrop.requiresReason ? " (required outside the legal due week)" : " (optional)"}
-                    </label>
-                    <Input
-                      id="maintenance-drop-reason"
-                      value={pendingMaintenanceDrop.reason || ""}
-                      onChange={(event) =>
-                        setPendingMaintenanceDrop((current) =>
-                          current ? { ...current, reason: event.target.value } : current
-                        )
-                      }
-                      placeholder="Why is this appointment moving?"
-                      disabled={pendingMaintenanceDrop.saving}
-                    />
-                  </div>
-                  <div className={layoutStyles.extracted99}>
-                    {pendingMaintenanceDrop.requiresReason
-                      ? "This date is outside the legal ISO due week. The legal deadline will not move."
-                      : "Move this appointment?"}
-                  </div>
-                </div>
-
-                <div
-                  className={layoutStyles.extracted100}
-                >
-                  <Button bare
-                    type="button"
-                    onClick={cancelPendingMaintenanceDrop}
-                    disabled={pendingMaintenanceDrop.saving}
-                    className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
-                  >
-                    Cancel
-                  </Button>
-                  <Button bare
-                    type="button"
-                    onClick={confirmPendingMaintenanceDrop}
-                    disabled={
-                      pendingMaintenanceDrop.saving ||
-                      (pendingMaintenanceDrop.requiresReason && !String(pendingMaintenanceDrop.reason || "").trim())
-                    }
-                    className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`}
-                  >
-                    {pendingMaintenanceDrop.saving ? "Saving..." : "Move appointment"}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>}
+        )}
 
         {/* Holiday + Notes Calendar */}
         {!isUCraneMode && <section className={layoutStyles.extracted101}>
@@ -4186,15 +3729,15 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </div>
             </div>
             <div className={layoutStyles.extracted106}>
-              <Button bare className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`} type="button" onClick={() => setHolidayModalOpen(true)}>
+              <Button type="button" onClick={() => setHolidayModalOpen(true)}>
                 <Plus size={14} />
                 Add Holiday
               </Button>
-              <Button bare className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`} type="button" onClick={() => router.push("/shift-change")}>
+              <Button variant="secondary" type="button" onClick={() => router.push("/shift-change")}>
                 <Clock3 size={14} />
                 Shift Change
               </Button>
-              <Button bare className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`} type="button" onClick={() => setCreateNoteOpen(true)}>
+              <Button type="button" onClick={() => setCreateNoteOpen(true)}>
                 <Plus size={14} />
                 Add Note
               </Button>
@@ -4308,7 +3851,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           onTypeChange={setCreateMaintenanceType}
           onEquipmentChange={setCreateMaintenanceEquipment}
         />
-      </div>
+      </OperationsPage>
 
       {!showCreateMaintenancePicker && (createMaintenanceVehicleId || createMaintenanceEquipment) && (
         <MaintenanceBookingForm
@@ -4336,49 +3879,27 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         />
       )}
 
-      {/*  HolidayForm modal overlay (unchanged logic) */}
+      {/* Holiday modal */}
       {holidayModalOpen && (
-        <div
-          className={layoutStyles.extracted114}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setHolidayModalOpen(false);
+        <HolidayForm
+          onClose={() => setHolidayModalOpen(false)}
+          onSaved={() => {
+            setHolidayModalOpen(false);
+            fetchHolidays();
           }}
-        >
-          <div
-            className={layoutStyles.extracted115}
-          >
-            <HolidayForm
-              onClose={() => setHolidayModalOpen(false)}
-              onSaved={() => {
-                setHolidayModalOpen(false);
-                fetchHolidays();
-              }}
-            />
-          </div>
-        </div>
+        />
       )}
 
-      {/*  CreateNote modal overlay */}
+      {/* Create note modal */}
       {createNoteOpen && (
-        <div
-          className={layoutStyles.extracted116}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setCreateNoteOpen(false);
+        <CreateNote
+          defaultDate={ymd(new Date())}
+          onClose={() => setCreateNoteOpen(false)}
+          onSaved={() => {
+            setCreateNoteOpen(false);
+            fetchNotes();
           }}
-        >
-          <div
-            className={layoutStyles.extracted117}
-          >
-            <CreateNote
-              defaultDate={ymd(new Date())}
-              onClose={() => setCreateNoteOpen(false)}
-              onSaved={() => {
-                setCreateNoteOpen(false);
-                fetchNotes();
-              }}
-            />
-          </div>
-        </div>
+        />
       )}
 
       {/* Existing quick note modal (logic unchanged) */}
@@ -4393,42 +3914,29 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             }}
           />
         ) : (
-          <div
-            className={layoutStyles.extracted118}
-          >
-            <CreateNote
-              defaultDate={createNoteDate || ""}
-              onClose={() => {
-                setNoteModalOpen(false);
-                setCreateNoteDate("");
-              }}
-              onSaved={() => {
-                setNoteModalOpen(false);
-                setCreateNoteDate("");
-                fetchNotes();
-              }}
-            />
-          </div>
+          <CreateNote
+            defaultDate={createNoteDate || ""}
+            onClose={() => {
+              setNoteModalOpen(false);
+              setCreateNoteDate("");
+            }}
+            onSaved={() => {
+              setNoteModalOpen(false);
+              setCreateNoteDate("");
+              fetchNotes();
+            }}
+          />
         ))}
 
       {editingHolidayId && (
-        <div
-          className={layoutStyles.extracted119}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setEditingHolidayId(null);
+        <EditHolidayForm
+          holidayId={editingHolidayId}
+          onClose={() => setEditingHolidayId(null)}
+          onSaved={() => {
+            setEditingHolidayId(null);
+            fetchHolidays();
           }}
-        >
-          <div onMouseDown={(e) => e.stopPropagation()}>
-            <EditHolidayForm
-              holidayId={editingHolidayId}
-              onClose={() => setEditingHolidayId(null)}
-              onSaved={() => {
-                setEditingHolidayId(null);
-                fetchHolidays();
-              }}
-            />
-          </div>
-        </div>
+        />
       )}
 
       {selectedBookingId && (
@@ -4455,6 +3963,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         viewer={quoteViewer}
         onClose={() => setQuoteViewer(null)}
         onMove={moveQuoteViewer}
+      />
+      <QuotePdfViewer
+        viewer={quotePdfViewer}
+        onClose={() => setQuotePdfViewer(null)}
       />
       {createBookingOpening && (
         <RouteLoadingOverlay

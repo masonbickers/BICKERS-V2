@@ -1,10 +1,13 @@
 import {
   HGV_COMPLIANCE_TYPES,
   complianceDateOnly,
-  getHgvComplianceDueDates,
-  isHgvComplianceTypeEnabled,
 } from "./hgvCompliance.js";
-import { getIsoWeekLabel } from "./maintenanceSchema.js";
+import {
+  RECURRING_MAINTENANCE_WORKFLOWS,
+  getIsoWeekLabel,
+} from "./maintenanceSchema.js";
+import { getMaintenanceDueState } from "./maintenanceRecord.js";
+import { isVehicleMaintenanceTypeEnabled } from "./maintenanceForecast.js";
 
 const safeText = (value) => String(value || "").trim();
 
@@ -14,20 +17,6 @@ const asUtcDate = (value) => {
   return match
     ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
     : null;
-};
-
-const isoWeekStart = (value) => {
-  const date = asUtcDate(value);
-  if (!date) return null;
-  const day = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() - day + 1);
-  return date;
-};
-
-const addDays = (date, days) => {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
 };
 
 const alertIdPart = (value) =>
@@ -50,27 +39,29 @@ export const buildMaintenanceWarningAlerts = (
   vehicle = {},
   { asOfDate = new Date(), evaluatedAt = new Date().toISOString() } = {}
 ) => {
-  const today = asUtcDate(asOfDate);
-  if (!today) return [];
-  const dueDates = getHgvComplianceDueDates(vehicle);
+  if (!asUtcDate(asOfDate)) return [];
   const vehicleId = safeText(vehicle.id);
   const registration = safeText(vehicle.registration || vehicle.reg || vehicle.name);
 
-  return HGV_COMPLIANCE_TYPES.filter((type) => ["pmi", "brake_test"].includes(type))
-    .filter((type) => isHgvComplianceTypeEnabled(vehicle, type))
-    .flatMap((type) => {
-      const dueDate = complianceDateOnly(dueDates[type]);
-      const dueWeekStart = isoWeekStart(dueDate);
-      if (!dueDate || !dueWeekStart) return [];
-      const warningStart = addDays(dueWeekStart, -7);
-      const dueWeekEnd = addDays(dueWeekStart, 6);
-      if (today < warningStart || today > dueWeekEnd) return [];
+  return RECURRING_MAINTENANCE_WORKFLOWS.flatMap((workflow) => {
+      if (!isVehicleMaintenanceTypeEnabled(vehicle, workflow)) return [];
+      const dueDate = (workflow.nextFields || [workflow.nextField])
+        .map((field) => complianceDateOnly(vehicle[field]))
+        .find(Boolean) || "";
+      if (!dueDate) return [];
+      const dueState = getMaintenanceDueState({
+        maintenanceTypeId: workflow.maintenanceTypeId,
+        dueDate,
+        asOfDate,
+      });
+      if (!["warning", "due", "overdue"].includes(dueState.state)) return [];
 
-      const label = type === "pmi" ? "PMI" : "Brake test";
+      const type = workflow.maintenanceTypeId;
+      const label = workflow.label;
       return [{
         id: `maintenance-warning-${alertIdPart(vehicleId)}-${type}-${dueDate}`,
         category: "maintenance",
-        severity: today < dueWeekStart ? "warning" : "urgent",
+        severity: dueState.state === "warning" ? "warning" : "urgent",
         alertType: "due_warning",
         state: "open",
         vehicleId,
@@ -80,10 +71,11 @@ export const buildMaintenanceWarningAlerts = (
         maintenanceTypeLabel: label,
         dueDateISO: dueDate,
         dueIsoWeek: getIsoWeekLabel(dueDate),
-        warningStartedDateISO: complianceDateOnly(warningStart),
+        warningStartedDateISO: dueState.warningStartDateISO,
+        dueState: dueState.state,
         detectedAt: evaluatedAt,
         title: `${label} due ISO week ${getIsoWeekLabel(dueDate)}`,
-        message: `${registration || "Vehicle"} ${label.toLowerCase()} is due in ISO week ${getIsoWeekLabel(dueDate)}.`,
+        message: `${registration || "Vehicle"} ${label.toLowerCase()} is ${dueState.state} (ISO week ${getIsoWeekLabel(dueDate)}).`,
       }];
     });
 };

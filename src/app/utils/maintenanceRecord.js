@@ -4,6 +4,12 @@
 // when the work is planned. They are deliberately separate: rescheduling a
 // diary appointment must never silently move a compliance deadline.
 
+import {
+  RECURRING_MAINTENANCE_WORKFLOWS,
+  getConfiguredMaintenanceFrequencyWeeks,
+  getRecurringMaintenanceWorkflow,
+} from "./maintenanceSchema.js";
+
 export const MAINTENANCE_RECORD_SCHEMA_VERSION = 1;
 
 export const MAINTENANCE_TYPE_IDS = Object.freeze([
@@ -17,6 +23,7 @@ export const MAINTENANCE_TYPE_IDS = Object.freeze([
   "tacho_download",
   "tail_lift",
   "loler",
+  "tacho_calibration",
   "other",
 ]);
 
@@ -30,31 +37,18 @@ export const MAINTENANCE_RECORD_STATUSES = Object.freeze([
   "archived",
 ]);
 
-export const MAINTENANCE_SCHEDULE_RULES = Object.freeze({
-  mot: Object.freeze({
-    nextDueSource: "dvsa",
-    warningWeeks: 3,
-    autoVorAfterDueWeek: true,
-  }),
-  service: Object.freeze({
-    nextDueSource: "completion",
-    intervalMonths: 12,
-    warningWeeks: 4,
-    autoVorAfterDueWeek: false,
-  }),
-  pmi: Object.freeze({
-    nextDueSource: "completion",
-    intervalWeeks: 8,
-    warningWeeks: 1,
-    autoVorAfterDueWeek: true,
-  }),
-  brake_test: Object.freeze({
-    nextDueSource: "completion",
-    intervalWeeks: 8,
-    warningWeeks: 1,
-    autoVorAfterDueWeek: true,
-  }),
-});
+export const MAINTENANCE_SCHEDULE_RULES = Object.freeze(
+  Object.fromEntries(
+    RECURRING_MAINTENANCE_WORKFLOWS.map((workflow) => [
+      workflow.maintenanceTypeId,
+      Object.freeze({
+        nextDueSource: workflow.dvsaAuthoritative ? "dvsa" : "completion",
+        warningWeeks: workflow.warningWeeks,
+        autoVorAfterDueWeek: workflow.autoVorAfterDueWeek,
+      }),
+    ])
+  )
+);
 
 const text = (value) => String(value || "").trim();
 const safeArray = (value) => (Array.isArray(value) ? value : []);
@@ -268,6 +262,17 @@ export const maintenanceRequirementDocumentId = (requirementKey) => {
   return `req_${(hash >>> 0).toString(36)}_${value.length.toString(36)}`;
 };
 
+export const formatMaintenanceBickersReference = (sequence) => {
+  const value = Number(sequence);
+  if (!Number.isSafeInteger(value) || value < 1) return "";
+  return String(value).padStart(6, "0");
+};
+
+export const buildMaintenanceBickersReference = (record = {}) => {
+  const stored = text(record.bickersReference);
+  return /^\d{6,}$/.test(stored) ? stored : "";
+};
+
 export const buildRequestedMaintenanceRecord = ({
   companyId = "",
   vehicleId = "",
@@ -427,6 +432,7 @@ export const normalizeMaintenanceRecord = (record = {}, { id = "" } = {}) => {
       history: safeArray(record.history),
     },
     requirementKey,
+    bickersReference: buildMaintenanceBickersReference(record, { id: id || record.id }),
     origin: {
       source: text(record.origin?.source || record.source || record.sourceCollection),
       sourceId: text(record.origin?.sourceId || record.sourceRef || record.sourceId),
@@ -485,32 +491,26 @@ export const calculateNextMaintenanceDue = ({
   dvsaExpiryDate = "",
   frequencyWeeks = 0,
   frequencyMonths = 0,
+  vehicle = null,
 } = {}) => {
   const typeId = normalizeMaintenanceTypeId(maintenanceTypeId);
   const completed = maintenanceDateOnly(completedDate);
-  if (typeId === "mot") return maintenanceDateOnly(dvsaExpiryDate);
-  if (!completed) return "";
-  if (Number(frequencyWeeks) > 0) return addDays(completed, Number(frequencyWeeks) * 7);
-  if (typeId === "service") return addCalendarMonths(completed, 12);
-  if (typeId === "pmi" || typeId === "brake_test") return addDays(completed, 8 * 7);
+  const confirmedMotExpiry = maintenanceDateOnly(dvsaExpiryDate);
+  if (typeId === "mot" && confirmedMotExpiry) return confirmedMotExpiry;
+  if (!completed || !getRecurringMaintenanceWorkflow(typeId)) return "";
+  const configuredWeeks = Number(frequencyWeeks) > 0
+    ? Number(frequencyWeeks)
+    : vehicle
+    ? getConfiguredMaintenanceFrequencyWeeks(vehicle, typeId)
+    : 0;
+  if (configuredWeeks > 0) return addDays(completed, configuredWeeks * 7);
   if (Number(frequencyMonths) > 0) return addCalendarMonths(completed, Number(frequencyMonths));
   return "";
 };
 
 const recurrenceInputForType = (maintenanceTypeId, vehicle = {}) => {
   const typeId = normalizeMaintenanceTypeId(maintenanceTypeId);
-  const frequencyFields = {
-    service: ["serviceFreq"],
-    pmi: ["pmiFreq", "eightWeekInspectionFreq"],
-    brake_test: ["brakeTestFreq"],
-    tacho_inspection: ["tachoFreq", "tachoInspectionFreq"],
-    tacho_download: ["tachoDownloadFreq"],
-    tail_lift: ["tailLiftFreq"],
-    loler: ["lolerFreq", "lOLERFreq"],
-  }[typeId] || [];
-  const frequencyWeeks = frequencyFields
-    .map((field) => Number(vehicle?.[field] || 0))
-    .find((value) => value > 0) || 0;
+  const frequencyWeeks = getConfiguredMaintenanceFrequencyWeeks(vehicle, typeId);
   const dvsaExpiryDate = [
     vehicle?.nextMOT,
     vehicle?.nextMot,
@@ -535,6 +535,9 @@ export const buildNextRequestedMaintenanceRecords = ({
   const nextItems = safeArray(canonicalRecord.items)
     .filter((item) => selected.has(item.maintenanceTypeId))
     .map((item) => {
+      // MOT completion is not enough to establish the new legal expiry. The
+      // DVSA reconciliation flow creates its successor after confirmation.
+      if (item.maintenanceTypeId === "mot") return null;
       const recurrence = recurrenceInputForType(item.maintenanceTypeId, vehicle);
       const nextDueDateISO = calculateNextMaintenanceDue({
         maintenanceTypeId: item.maintenanceTypeId,
@@ -551,6 +554,32 @@ export const buildNextRequestedMaintenanceRecords = ({
     })
     .filter(Boolean);
 
+  // If the other half of an Inspection was completed earlier, fold its
+  // already-advanced due date into the successor only when both dates now sit
+  // in the same ISO week.
+  const selectedInspectionItem = nextItems.find((item) =>
+    ["pmi", "brake_test"].includes(item.maintenanceTypeId)
+  );
+  if (selectedInspectionItem) {
+    const counterpartType = selectedInspectionItem.maintenanceTypeId === "pmi" ? "brake_test" : "pmi";
+    const counterpartWorkflow = getRecurringMaintenanceWorkflow(counterpartType);
+    const counterpartDate = (counterpartWorkflow?.nextFields || [counterpartWorkflow?.nextField])
+      .filter(Boolean)
+      .map((field) => maintenanceDateOnly(vehicle?.[field]))
+      .find(Boolean) || "";
+    if (
+      counterpartDate > completedDate &&
+      maintenanceIsoWeekLabel(counterpartDate) === selectedInspectionItem.legalDueIsoWeek &&
+      !nextItems.some((item) => item.maintenanceTypeId === counterpartType)
+    ) {
+      nextItems.push({
+        maintenanceTypeId: counterpartType,
+        legalDueDateISO: counterpartDate,
+        legalDueIsoWeek: maintenanceIsoWeekLabel(counterpartDate),
+      });
+    }
+  }
+
   const groups = new Map();
   nextItems.forEach((item) => {
     const combineInspection = ["pmi", "brake_test"].includes(item.maintenanceTypeId);
@@ -561,12 +590,11 @@ export const buildNextRequestedMaintenanceRecords = ({
   });
 
   return [...groups.values()].map((items) =>
-    buildScheduledMaintenanceBooking({
+    buildRequestedMaintenanceRecord({
       companyId: canonicalRecord.companyId,
       vehicleId: canonicalRecord.vehicleId,
       vehicleLabel: canonicalRecord.vehicleLabel,
       items,
-      appointmentDateISO: items.map((item) => item.legalDueDateISO).filter(Boolean).sort()[0] || "",
       source: "completion_recurrence",
       sourceId: canonicalRecord.id,
     })

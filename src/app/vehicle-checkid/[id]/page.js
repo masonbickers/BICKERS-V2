@@ -9,6 +9,7 @@ import { doc, getDoc } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* UI tokens (unchanged) */
 const UI = UI_TOKENS;
@@ -20,18 +21,21 @@ const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, 
 const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
 const value = { fontSize: 14, color: UI.text, fontWeight: 700 };
 const itemRow = { display: "grid", gridTemplateColumns: "58px 1fr 110px", alignItems: "center", gap: 10, borderBottom: "1px solid var(--color-brand-soft)", padding: "8px 0" };
-const badge = (variant) => ({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 10px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 800,
-  border: "1px solid var(--color-border)",
-  background: variant === "submitted" ? "var(--color-success-soft)" : variant === "draft" ? "var(--color-surface-subtle)" : "var(--color-surface)",
-  color: variant === "submitted" ? "var(--color-success)" : "var(--color-text)",
-});
+const badge = (variant) => {
+  const tone = getSemanticStatusStyle(variant);
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    border: `1px solid ${tone.border}`,
+    background: tone.bg,
+    color: tone.text,
+  };
+};
 const statusChip = (s) => ({
   display: "inline-flex",
   justifyContent: "center",

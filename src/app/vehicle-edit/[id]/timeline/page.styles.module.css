@@ -79,11 +79,11 @@
 }
 
 .statusActive {
-  color: var(--color-success);
+  color: var(--status-green-border);
 }
 
 .statusVor {
-  color: var(--color-danger);
+  color: var(--status-orange-border);
 }
 
 .filters {

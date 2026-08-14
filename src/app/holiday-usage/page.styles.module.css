@@ -372,13 +372,152 @@
   flex-wrap: wrap;
 }
 
-.extracted54 {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
+.yearSelect {
+  width: 174px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.calendarCard,
+.filterCard,
+.upcomingCard,
+.employeeCard {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.calendarCard {
+  padding: var(--space-4) !important;
+}
+
+.carryCard {
+  margin-top: var(--space-3);
+}
+
+.rightRail {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.railHeading {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-  padding: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.filterCard,
+.upcomingCard,
+.employeeCard {
+  padding: var(--space-3) !important;
+}
+
+.searchInput {
+  padding-left: 36px !important;
+}
+
+.upcomingCard button,
+.employeeCard button {
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+
+.upcomingCard button:hover,
+.employeeCard button:hover {
+  background: var(--color-surface-subtle) !important;
+  border-color: var(--color-brand-border) !important;
+}
+
+.employeeCard .extracted31 {
+  max-height: min(52vh, 520px);
+  scrollbar-gutter: stable;
+}
+
+.page :global(.holiday-calendar .rbc-month-view),
+.page :global(.holiday-calendar .rbc-time-view) {
+  background: var(--color-surface);
+}
+
+.page :global(.holiday-calendar .rbc-day-bg + .rbc-day-bg),
+.page :global(.holiday-calendar .rbc-month-row + .rbc-month-row) {
+  border-color: color-mix(in srgb, var(--color-border) 72%, transparent);
+}
+
+.page :global(.holiday-calendar .rbc-off-range-bg) {
+  background: color-mix(in srgb, var(--color-surface-subtle) 78%, transparent);
+}
+
+.page :global(.holiday-calendar .rbc-today) {
+  background: color-mix(in srgb, var(--color-brand-soft) 68%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 18%, transparent);
+}
+
+.page :global(.holiday-calendar .rbc-event) {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+  transition: filter .14s ease, transform .14s ease;
+}
+
+.page :global(.holiday-calendar .rbc-event:hover) {
+  filter: saturate(1.08) brightness(.98);
+  transform: translateY(-1px);
+}
+
+.page :global(.holiday-calendar .rbc-row-content-scrollable .rbc-row-content-scroll-container) {
+  overflow-y: visible;
+}
+
+@media (max-width: 1180px) {
+  .rightRail {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filterCard {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rightRail {
+    grid-template-columns: 1fr;
+  }
+
+  .filterCard {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .yearSelect {
+    width: 100%;
+  }
+
+  .summaryGrid {
+    gap: 8px;
+  }
+
+  .calendarCard {
+    padding: var(--space-3) !important;
+  }
+
+  .page :global(.holiday-calendar .rbc-toolbar) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page :global(.holiday-calendar .rbc-toolbar-label) {
+    order: -1;
+    padding: 4px 0;
+  }
 }

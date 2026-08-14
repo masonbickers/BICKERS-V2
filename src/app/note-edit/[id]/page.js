@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -77,7 +78,7 @@ export default function EditNoteForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!noteDate || !noteText) {
-      alert("Please fill in the date and note text.");
+      systemDialogs.showSystemNotification("Please fill in the date and note text.");
       return;
     }
 
@@ -89,11 +90,11 @@ export default function EditNoteForm() {
         text: noteText,
         updatedAt: new Date(),
       }));
-      alert("Note updated successfully!");
+      systemDialogs.showSystemNotification("Note updated successfully!");
       router.push("/dashboard");
     } catch (err) {
       console.error("Error updating note: ", err);
-      alert("Failed to update note. Please try again.");
+      systemDialogs.showSystemNotification("Failed to update note. Please try again.");
     }
   };
 
@@ -107,16 +108,16 @@ export default function EditNoteForm() {
   };
 
   const handleDelete = async () => {
-    const confirmDelete = confirm("Are you sure you want to delete this note?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this note?");
     if (!confirmDelete) return;
 
     try {
       await deleteDoc(doc(db, "notes", noteId));
-      alert("Note deleted successfully!");
+      systemDialogs.showSystemNotification("Note deleted successfully!");
       router.push("/dashboard");
     } catch (error) {
       console.error("Error deleting note:", error);
-      alert("Failed to delete the note. Please try again.");
+      systemDialogs.showSystemNotification("Failed to delete the note. Please try again.");
     }
   };
 

@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
@@ -134,7 +135,7 @@ export default function InvoiceDocumentPage() {
     const previousTitle = document.title;
     document.title = `${invoice.invoiceNumber || getInvoiceDraftReferenceDisplay(invoice)} - Bickers Action`;
     const timer = window.setTimeout(() => {
-      window.alert("Choose “Save as PDF” in the print dialog to download this A4 invoice.");
+      systemDialogs.showSystemNotification("Choose “Save as PDF” in the print dialog to download this A4 invoice.");
       window.print();
       window.setTimeout(() => {
         document.title = previousTitle;

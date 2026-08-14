@@ -36,17 +36,23 @@ async function main() {
   const { listFirestoreDocuments } = await import("./lib/firebase-admin-readonly.mjs");
   const companyArg = process.argv.find((argument) => argument.startsWith("--company="));
   const companyId = companyArg ? companyArg.slice("--company=".length).trim() : "";
+  if (!companyId) {
+    throw new Error("A trusted company context is required. Run with --company=<company-id>.");
+  }
   const entries = await Promise.all(
     COLLECTIONS.map(async (collectionName) => {
       const documents = await listFirestoreDocuments(collectionName);
       const rows = documents
         .map(({ id, data }) => ({ id, ...(data || {}) }))
-        .filter((row) => !companyId || String(row.companyId || "").trim() === companyId);
+        .filter((row) => {
+          const rowCompanyId = String(row.companyId || "").trim();
+          return !rowCompanyId || rowCompanyId === companyId;
+        });
       return [collectionName, rows];
     })
   );
-  const report = auditMaintenanceDataset(Object.fromEntries(entries));
-  console.log(JSON.stringify({ ...report, companyId: companyId || "all" }, null, 2));
+  const report = auditMaintenanceDataset({ ...Object.fromEntries(entries), companyId });
+  console.log(JSON.stringify({ ...report, companyId }, null, 2));
 }
 
 main().catch((error) => {

@@ -34,6 +34,48 @@ export const rescheduleCrossesLegalIsoWeek = (legalWeeks = [], bookingDates = []
   );
 };
 
+export const getMaintenanceScheduleRule = ({
+  type,
+  legalDueDate,
+  legalDueWeeks = [],
+  bookingDates = [],
+} = {}) => {
+  const normalizedType = String(type || "").trim().toUpperCase();
+  const dates = (Array.isArray(bookingDates) ? bookingDates : [])
+    .map(maintenanceDateOnly)
+    .filter(Boolean)
+    .sort();
+  const dueDate = maintenanceDateOnly(legalDueDate);
+  const outsideLegalWeek = rescheduleCrossesLegalIsoWeek(legalDueWeeks, dates);
+
+  if (normalizedType === "MOT") {
+    const afterExpiry = Boolean(dueDate && dates.some((date) => date > dueDate));
+    return {
+      outsideLegalWeek,
+      requiresExceptionReason: false,
+      blocked: afterExpiry,
+      state: afterExpiry ? "after_expiry" : "allowed",
+    };
+  }
+
+  if (normalizedType === "SERVICE") {
+    return {
+      outsideLegalWeek,
+      requiresExceptionReason: false,
+      blocked: false,
+      state: outsideLegalWeek ? "service_advisory" : "allowed",
+    };
+  }
+
+  const requiresExceptionReason = normalizedType === "INSPECTION" && outsideLegalWeek;
+  return {
+    outsideLegalWeek,
+    requiresExceptionReason,
+    blocked: false,
+    state: requiresExceptionReason ? "inspection_exception" : "allowed",
+  };
+};
+
 export const isDvsaResultForCompletion = (testCompletedDate, maintenanceCompletedDate) => {
   const testDate = maintenanceDateOnly(testCompletedDate);
   const completedDate = maintenanceDateOnly(maintenanceCompletedDate);

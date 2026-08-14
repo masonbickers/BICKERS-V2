@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { PeopleFleetHeaderActions, PeopleFleetPage, PeopleFleetPageHeader } from "@/app/components/PeopleFleetPage";
+import { Badge, Button, MetricCard as SharedMetricCard, NavigationCard } from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 import {
@@ -27,7 +29,6 @@ import {
   BriefcaseBusiness,
   CalendarClock,
   ClipboardList,
-  FileUp,
   RotateCcw,
   UserPlus,
   Users,
@@ -36,18 +37,6 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 /* Mini design system */
 const UI = UI_TOKENS;
-
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
@@ -91,63 +80,6 @@ const chipSoft = {
   background: UI.brandSoft,
   borderColor: UI.brandBorder,
   color: UI.brand,
-};
-
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  if (kind === "pill") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      padding: "6px 9px",
-      borderRadius: 999,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "var(--color-surface)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-    color: "var(--color-white)",
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
 };
 
 const inputBase = {
@@ -775,7 +707,6 @@ export default function EmployeesHomePage() {
       { title: "Add Employee", description: "Register a new person.", link: "/add-employee", icon: UserPlus },
       { title: "Holiday Tracker", description: "Review leave usage.", link: "/holiday-usage", icon: CalendarClock },
       { title: "Quick Shift Change", description: "Request or approve adjusted working hours.", link: "/shift-change", icon: ClipboardList },
-      { title: "Upload Documents", description: "Contracts and certificates.", link: "/upload-contract", icon: FileUp },
     ],
     []
   );
@@ -900,24 +831,21 @@ export default function EmployeesHomePage() {
         button:disabled { opacity: .55; cursor: not-allowed; }
       `}</style>
 
-      <div style={pageWrap}>
+      <PeopleFleetPage>
         {/* Header */}
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <h1 style={h1}>Employees</h1>
-            <div style={sub}>Crew availability, work credits, leave and document admin for the selected reporting period.</div>
-          </div>
-
-          <div className={layoutStyles.extracted4}>
-            <div style={chip}>{loading ? "Loading..." : `${kpiEmployeeRecords} records`}</div>
-            <div style={chipSoft}>
+        <PeopleFleetPageHeader
+          title="Employees"
+          subtitle="Crew availability, work credits, leave and document admin for the selected reporting period."
+          actions={<PeopleFleetHeaderActions>
+            <Badge>{loading ? "Loading..." : `${kpiEmployeeRecords} records`}</Badge>
+            <Badge variant="info">
               Period: <b className={layoutStyles.extracted5}>{effectiveRange.label}</b>
-            </div>
-            <div style={chipSoft}>
+            </Badge>
+            <Badge variant="info">
               Leave days: <b className={layoutStyles.extracted6}>{kpiHolidayDays}</b>
-            </div>
-          </div>
-        </div>
+            </Badge>
+          </PeopleFleetHeaderActions>}
+        />
 
         <section style={{ ...cardBase, marginBottom: UI.gap }}>
           <div className={layoutStyles.extracted7}>
@@ -925,9 +853,9 @@ export default function EmployeesHomePage() {
               <h2 style={titleMd}>Workforce Snapshot</h2>
               <div style={hint}>Confirmed, completed and stunt bookings only. Freelancers are excluded from credit totals.</div>
             </div>
-            <button
+            <Button
               type="button"
-              style={btn("ghost")}
+              variant="secondary"
               onClick={() => {
                 setMode("lastNDays");
                 setRangeDays(30);
@@ -936,43 +864,27 @@ export default function EmployeesHomePage() {
               }}
             >
               <RotateCcw size={14} /> Reset
-            </button>
+            </Button>
           </div>
           <div className={layoutStyles.extracted8}>
-            <MetricCard label="Total Credits" value={fmtMetric(kpiTotal)} tone={UI.brand} icon={BarChart3} />
-            <MetricCard label="People Used" value={kpiPeople} tone={UI.green} icon={Users} />
-            <MetricCard label="Full Time" value={kpiFullTime} tone={UI.blue} icon={BriefcaseBusiness} />
-            <MetricCard label="Yard Based" value={kpiYardDays} tone={UI.teal} icon={ClipboardList} />
-            <MetricCard label="Weekend Days" value={kpiWeekendDays} tone={UI.amber} icon={CalendarClock} />
+            <SharedMetricCard label="Total Credits" value={fmtMetric(kpiTotal)} tone="info" icon={<BarChart3 size={19} />} />
+            <SharedMetricCard label="People Used" value={kpiPeople} tone="success" icon={<Users size={19} />} />
+            <SharedMetricCard label="Full Time" value={kpiFullTime} tone="neutral" icon={<BriefcaseBusiness size={19} />} />
+            <SharedMetricCard label="Yard Based" value={kpiYardDays} tone="info" icon={<ClipboardList size={19} />} />
+            <SharedMetricCard label="Weekend Days" value={kpiWeekendDays} tone="warning" icon={<CalendarClock size={19} />} />
           </div>
         </section>
 
         {/* Quick links */}
         <div style={grid(4)}>
           {employeeSections.map((section, idx) => (
-            <div
+            <NavigationCard
               key={idx}
-              style={cardBase}
+              icon={React.createElement(section.icon, { size: 20 })}
+              title={section.title}
+              description={section.description}
               onClick={() => router.push(section.link)}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? router.push(section.link) : null)}
-            >
-              <div
-                className={layoutStyles.extracted9}
-              >
-                <span style={iconBox(UI.brand, UI.brandSoft)}>{React.createElement(section.icon, { size: 17 })}</span>
-                <div className={layoutStyles.extracted10}>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: UI.text, minWidth: 0 }}>{section.title}</div>
-                  <div style={{ marginTop: 5, color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {section.description}
-                  </div>
-                </div>
-                <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>&gt;</span>
-              </div>
-            </div>
+            />
           ))}
         </div>
 
@@ -988,9 +900,9 @@ export default function EmployeesHomePage() {
 
             <div className={layoutStyles.extracted12}>
               <span style={chipSoft}>{effectiveRange.label}</span>
-              <button type="button" style={btn("ghost")} onClick={() => { setMode("lastNDays"); setRangeDays(30); setFromDate(""); setToDate(""); }}>
+              <Button variant="secondary" size="sm" onClick={() => { setMode("lastNDays"); setRangeDays(30); setFromDate(""); setToDate(""); }}>
                 Reset
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -998,12 +910,12 @@ export default function EmployeesHomePage() {
           <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 10, background: "var(--color-surface)" }}>
             <div className={layoutStyles.extracted13}>
               <div className={layoutStyles.extracted14}>
-                <button type="button" style={btn("pill")} onClick={() => setMode("lastNDays")}>
+                <Button variant={mode === "lastNDays" ? "primary" : "secondary"} size="sm" onClick={() => setMode("lastNDays")}>
                   Last N days
-                </button>
-                <button type="button" style={btn("pill")} onClick={() => setMode("customRange")}>
+                </Button>
+                <Button variant={mode === "customRange" ? "primary" : "secondary"} size="sm" onClick={() => setMode("customRange")}>
                   Custom range
-                </button>
+                </Button>
               </div>
 
               {mode === "lastNDays" ? (
@@ -1026,19 +938,14 @@ export default function EmployeesHomePage() {
                   {[30, 60, 90].map((n) => {
                     const active = rangeDays === n;
                     return (
-                      <button
+                      <Button
                         key={n}
-                        type="button"
-                        style={{
-                          ...btn("pill"),
-                          borderColor: active ? "var(--color-info-border)" : "var(--color-border)",
-                          background: active ? UI.brandSoft : "var(--color-surface)",
-                          color: active ? UI.brand : UI.text,
-                        }}
+                        variant={active ? "primary" : "secondary"}
+                        size="sm"
                         onClick={() => setRangeDays(n)}
                       >
                         {n}d
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -1435,7 +1342,7 @@ export default function EmployeesHomePage() {
             </div>
           )}
         </section>
-      </div>
+      </PeopleFleetPage>
     </HeaderSidebarLayout>
   );
 }

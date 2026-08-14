@@ -1,10 +1,12 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./ViewMaintenanceModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../../../firebaseConfig";
 import { doc, getDoc, getDocs, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { Button, Modal } from "@/app/components/ui";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   dataAccessKey,
@@ -118,13 +120,6 @@ export default function ViewMaintenanceModal({
   const [showFullHistory, setShowFullHistory] = useState(false);
   const router = useRouter();
 
-  // close on ESC
-  useEffect(() => {
-    const onEsc = (e) => e.key === "Escape" && onClose?.();
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [onClose]);
-
   // load maintenance booking (now supports either collection)
   useEffect(() => {
     let mounted = true;
@@ -138,11 +133,11 @@ export default function ViewMaintenanceModal({
         if (snap.exists()) {
           setBooking({ id: snap.id, ...snap.data(), __collection: collectionName });
         } else {
-          alert(`Maintenance booking not found (looked in "${collectionName}")`);
+          systemDialogs.showSystemNotification(`Maintenance booking not found (looked in "${collectionName}")`);
         }
       } catch (err) {
         console.error("[ViewMaintenanceModal] getDoc error:", err);
-        alert("Failed to load maintenance booking.");
+        systemDialogs.showSystemNotification("Failed to load maintenance booking.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -184,11 +179,11 @@ export default function ViewMaintenanceModal({
   }, [booking?.vehicles, allVehicles]);
 
   const handleDelete = async () => {
-    const confirmDelete = confirm("Are you sure you want to delete this maintenance booking?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this maintenance booking?");
     if (!confirmDelete) return;
 
     await deleteDoc(doc(db, collectionName, id));
-    alert("Maintenance booking deleted");
+    systemDialogs.showSystemNotification("Maintenance booking deleted");
     onClose?.();
   };
 
@@ -232,14 +227,12 @@ export default function ViewMaintenanceModal({
     : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
   return (
-    <div className={layoutStyles.extracted1} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div className={layoutStyles.extracted2}>
-        {/* Header */}
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <div className={layoutStyles.extracted4}>Maintenance #{booking.jobNumber || booking.maintenanceJobNumber || "—"}</div>
-            <h2 className={layoutStyles.extracted5}>{maintenanceTitle}</h2>
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      eyebrow={`Maintenance #${booking.jobNumber || booking.maintenanceJobNumber || "—"}`}
+      title={maintenanceTitle}
+      headerActions={
           <span
             style={{
               ...badge,
@@ -249,9 +242,22 @@ export default function ViewMaintenanceModal({
           >
             {booking.status || "Maintenance"}
           </span>
-        </div>
-
-
+      }
+      size="lg"
+      density="compact"
+      footer={
+        <>
+          <Button onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)} size="sm">
+            Edit maintenance
+          </Button>
+          <Button onClick={handleDelete} variant="danger" size="sm">Delete</Button>
+          <Button onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)} variant="secondary" size="sm">
+            Open full page
+          </Button>
+          <Button onClick={onClose} variant="secondary" size="sm">Close</Button>
+        </>
+      }
+    >
 
         <div className={layoutStyles.extracted6}>
           <Section title="Overview">
@@ -408,32 +414,7 @@ export default function ViewMaintenanceModal({
           )}
         </div>
 
-        <div className={layoutStyles.extracted29}>
-<button
-  onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-  className={layoutStyles.extracted30}
->
-  Edit Maintenance
-</button>
-
-
-          <button onClick={handleDelete} className={layoutStyles.extracted31}>
-            Delete
-          </button>
-
-          <button
-            onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-            className={layoutStyles.extracted32}
-          >
-            Open full page
-          </button>
-
-          <button onClick={onClose} className={layoutStyles.extracted33}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

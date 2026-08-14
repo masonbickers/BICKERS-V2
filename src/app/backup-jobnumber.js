@@ -1,10 +1,12 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./backup-jobnumber.styles.module.css";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   doc,
   getDoc,
@@ -649,9 +651,9 @@ const renderTimesheet = (ts, job) => {
     const summary = dayNotes?.[jobId]?.general || "";
     try {
       await updateDoc(doc(db, "bookings", jobId), { generalSummary: summary });
-      alert("Summary saved.");
+      systemDialogs.showSystemNotification("Summary saved.");
     } catch (e) {
-      alert("Failed to save summary: " + (e?.message || e));
+      systemDialogs.showSystemNotification("Failed to save summary: " + (e?.message || e));
     }
   };
 
@@ -704,21 +706,21 @@ const renderTimesheet = (ts, job) => {
       });
 
       setStatusByJob((prev) => ({ ...prev, [jobId]: newStatus }));
-      alert("Status saved.");
+      systemDialogs.showSystemNotification("Status saved.");
     } catch (e) {
-      alert(e?.message || "Failed to update status.");
+      systemDialogs.showSystemNotification(e?.message || "Failed to update status.");
     }
   };
 
   //  Delete Booking
   const deleteJob = async (jobId) => {
-    if (!confirm("Are you sure you want to delete this booking?")) return;
+    if (!await systemDialogs.confirmSystem("Are you sure you want to delete this booking?")) return;
     try {
       await deleteDoc(doc(db, "bookings", jobId));
-      alert("Booking deleted.");
+      systemDialogs.showSystemNotification("Booking deleted.");
       router.push("/job-sheet"); // redirect
     } catch (e) {
-      alert("Failed to delete booking: " + (e?.message || e));
+      systemDialogs.showSystemNotification("Failed to delete booking: " + (e?.message || e));
     }
   };
 
@@ -727,7 +729,7 @@ const renderTimesheet = (ts, job) => {
     const loadJobs = async () => {
       const singleDoc = await getDoc(doc(db, "bookings", id));
       if (!singleDoc.exists()) {
-        alert("Booking not found");
+        systemDialogs.showSystemNotification("Booking not found");
         return;
       }
 
@@ -947,18 +949,7 @@ const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart
   }, [id]);
 
   // ---------- status colours ----------
-  const statusColor = (s) => {
-    switch (s) {
-      case "Ready to Invoice":
-        return "var(--color-brand)"; // blue
-      case "Needs Action":
-        return "var(--color-danger)"; // red
-      case "Complete":
-        return "var(--color-success-accent)"; // green
-      default:
-        return "var(--color-accent)"; // fallback amber for unknown statuses (e.g., "Pending")
-    }
-  };
+  const statusColor = (s) => getFixedJobStatusStyle(s);
 
   const StatusPill = ({ value }) => (
     <span
@@ -968,9 +959,9 @@ const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart
         borderRadius: 999,
         fontSize: 12,
         fontWeight: 600,
-        background: `${statusColor(value)}20`,
-        color: statusColor(value),
-        border: `1px solid ${statusColor(value)}66`,
+        background: statusColor(value).bg,
+        color: statusColor(value).text,
+        border: `1px solid ${statusColor(value).border}`,
       }}
     >
       {value}
@@ -1410,6 +1401,7 @@ return list.map((ts) => (
                  <div className={layoutStyles.extracted72}>
   {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
     const active = selected === opt;
+    const tone = statusColor(opt);
     return (
       <button
         key={opt}
@@ -1424,9 +1416,9 @@ return list.map((ts) => (
         style={{
           padding: "8px 12px",
           borderRadius: 8,
-          border: active ? `2px solid ${statusColor(opt)}` : "1px solid var(--color-info-border)",
-          background: active ? `${statusColor(opt)}20` : "var(--color-info-soft)",
-          color: active ? statusColor(opt) : "var(--color-text)",
+          border: active ? `2px solid ${tone.border}` : "1px solid var(--color-info-border)",
+          background: active ? tone.bg : "var(--color-info-soft)",
+          color: active ? tone.text : "var(--color-text)",
           fontWeight: 600,
           cursor: isPaid ? "not-allowed" : "pointer",
           opacity: isPaid ? 0.5 : 1,
@@ -1481,14 +1473,14 @@ return list.map((ts) => (
 
                   <div className={layoutStyles.extracted74}>
   <button
-    onClick={() => alert("Download PDF feature coming soon")}
+    onClick={() => systemDialogs.showSystemNotification("Download PDF feature coming soon")}
     className={layoutStyles.extracted75}
   >
     Download Summary
   </button>
 
   <button
-    onClick={() => alert("Share function coming soon")}
+    onClick={() => systemDialogs.showSystemNotification("Share function coming soon")}
     className={layoutStyles.extracted76}
   >
     Share Job
@@ -1504,15 +1496,15 @@ return list.map((ts) => (
           "state_changed",
           null,
           (err) => {
-            alert(`Debug upload failed (${err.code}): ${err.message}`);
+            systemDialogs.showSystemNotification(`Debug upload failed (${err.code}): ${err.message}`);
           },
           async () => {
             const u = await getDownloadURL(t.snapshot.ref);
-            alert("Debug upload OK:\n" + u);
+            systemDialogs.showSystemNotification("Debug upload OK:\n" + u);
           }
         );
       } catch (e) {
-        alert("Debug upload threw: " + (e.message || e));
+        systemDialogs.showSystemNotification("Debug upload threw: " + (e.message || e));
       }
     }}
     className={layoutStyles.extracted77}

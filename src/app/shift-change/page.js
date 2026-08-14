@@ -30,6 +30,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 const ADMIN_EMAILS = new Set([
   "mason@bickers.co.uk",
@@ -382,12 +383,8 @@ function Stat({ label, value, icon: Icon, tone }) {
 
 function ShiftCard({ row, isAdmin, saving, onApprove, onDecline }) {
   const status = String(row.status || "requested").toLowerCase();
-  const statusStyle =
-    status === "approved"
-      ? pill(UI.green, UI.greenSoft, UI.greenBorder)
-      : status === "declined"
-      ? pill(UI.red, UI.redSoft, UI.redBorder)
-      : pill(UI.amber, UI.amberSoft, UI.amberBorder);
+  const semanticTone = getSemanticStatusStyle(status);
+  const statusStyle = pill(semanticTone.text, semanticTone.bg, semanticTone.border);
 
   return (
     <div style={requestCard}>

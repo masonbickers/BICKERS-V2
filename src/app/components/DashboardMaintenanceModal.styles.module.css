@@ -12,10 +12,10 @@
 }
 
 .extracted2 {
-  width: min(820px, calc(100vw - 32px));
+  width: min(760px, calc(100vw - 32px));
   max-height: 90vh;
   overflow: auto;
-  background: var(--color-canvas);
+  background: var(--color-surface-subtle);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 22px 60px rgba(15,23,42,0.28);
@@ -28,7 +28,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 18px 20px;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
@@ -37,13 +37,13 @@
   font-size: 11px;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .1em;
   font-weight: 900;
 }
 
 .extracted5 {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1.08;
   color: var(--color-text);
   font-weight: 900;
@@ -56,7 +56,7 @@
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-surface);
-  font-size: 14px;
+  font-size: 24px;
   line-height: 1;
   color: var(--color-text-muted);
   font-weight: 900;
@@ -64,7 +64,7 @@
 }
 
 .extracted7 {
-  margin: 12px;
+  margin: 14px;
 }
 
 .extracted8 {
@@ -124,11 +124,11 @@
 .extracted14 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-border);
+  gap: 10px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .extracted14 > :last-child:nth-child(odd) {
@@ -196,17 +196,17 @@
 }
 
 .extracted22 {
-  margin: 0 12px 12px;
+  margin: 0 14px 14px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 12px;
+  padding: 16px;
   background: var(--color-surface);
   box-shadow: 0 1px 2px rgba(15,23,42,0.05);
 }
 
 .extracted23 {
-  font-size: 16px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 900;
   color: var(--color-text);
   margin-bottom: 6px;
 }
@@ -221,7 +221,7 @@
 .extracted25 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .savedDocumentList {
@@ -340,8 +340,10 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 0 12px 12px;
+  padding: 14px;
   margin-top: 0;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .extracted33 {
@@ -369,12 +371,12 @@
 .extracted35 {
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid var(--color-brand);
-  background: var(--color-brand);
-  color: var(--color-white);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-weight: 900;
   cursor: pointer;
-  box-shadow: 0 6px 12px rgba(31,75,122,0.16);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05);
 }
 
 .extracted36 {
@@ -436,12 +438,12 @@
   margin-left: auto;
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid var(--color-danger);
-  background: var(--color-danger);
-  color: var(--color-white);
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
   font-weight: 900;
   cursor: pointer;
-  box-shadow: 0 6px 12px rgba(185,28,28,0.14);
+  box-shadow: none;
 }
 
 .extracted42 {
@@ -688,8 +690,10 @@
   display: grid;
   gap: 3px;
   min-width: 0;
-  padding: 8px 9px;
+  padding: 11px 12px;
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
 }
 
 .extracted69 {
@@ -746,8 +750,100 @@
 .extracted74 {
   margin-top: 4px;
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
+}
+
+.documentPicker {
+  display: flex;
+  min-height: 76px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--color-brand);
+  cursor: pointer;
+  text-align: center;
+}
+
+.documentPicker:hover {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+
+.documentPicker span { font-size: 13px; font-weight: 900; }
+.documentPicker small { color: var(--color-text-muted); font-size: 11px; font-weight: 700; }
+.documentPicker input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.completionPanel {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) minmax(190px, auto);
+  align-items: end;
+  gap: 10px;
+  margin: 0 14px 14px;
+  padding: 14px;
+  border: 1px solid var(--color-success-border);
+  border-radius: 8px;
+  background: var(--color-success-soft);
+}
+
+.completionDateField {
+  display: grid;
+  gap: 5px;
+}
+
+.completionDateField span {
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+
+.completionDateField input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.primaryCompletionButton {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid var(--color-success);
+  border-radius: 8px;
+  background: var(--color-success);
+  color: var(--color-white);
+  cursor: pointer;
+  font-weight: 900;
+  box-shadow: 0 6px 14px rgba(21,128,61,.16);
+}
+
+.primaryCompletionButton:disabled { cursor: not-allowed; opacity: .52; box-shadow: none; }
+
+.partialCompletion {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.partialCompletion summary { width: fit-content; cursor: pointer; font-weight: 850; }
+.partialCompletion div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.partialCompletion button {
+  padding: 7px 10px;
+  border: 1px solid var(--color-success-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-success);
+  cursor: pointer;
+  font-weight: 850;
 }
 
 @media (max-width: 620px) {
@@ -763,6 +859,8 @@
   .extracted41 {
     margin-left: 0;
   }
+
+  .completionPanel { grid-template-columns: 1fr; }
 }
 
 .extracted71 {

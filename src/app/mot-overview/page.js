@@ -314,7 +314,7 @@ export default function MOTOverviewPage() {
   }, [vehicles]);
 
   const rowBg = (status) => {
-    if (status === "overdue") return { background: "var(--color-danger-soft)" };
+    if (status === "overdue") return { background: "var(--color-warning-soft)" };
     if (status === "soon") return { background: "var(--color-warning-soft)" };
     if (status === "ok") return { background: "var(--color-success-soft)" };
     return {};

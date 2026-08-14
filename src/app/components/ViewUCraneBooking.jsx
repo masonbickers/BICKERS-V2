@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./ViewUCraneBooking.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { db, auth } from "../../../firebaseConfig";
@@ -13,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import RouteLoadingOverlay from "./RouteLoadingOverlay";
+import { Button, Modal } from "@/app/components/ui";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -199,15 +201,6 @@ export default function ViewUCraneBookingModal({
   const [editProgress, setEditProgress] = useState(0);
   const router = useRouter();
 
-  // close on ESC
-  useEffect(() => {
-    const onEsc = (e) => {
-      if (e.key === "Escape" && !editOpening) onClose?.();
-    };
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [editOpening, onClose]);
-
   useEffect(() => {
     if (!editOpening) return undefined;
 
@@ -242,7 +235,7 @@ export default function ViewUCraneBookingModal({
           if (!mounted) return;
 
           if (!delSnap.exists()) {
-            alert("Deleted booking not found");
+            systemDialogs.showSystemNotification("Deleted booking not found");
             onClose?.();
             return;
           }
@@ -271,10 +264,10 @@ export default function ViewUCraneBookingModal({
         if (!mounted) return;
 
         if (snap.exists()) setBooking({ id: snap.id, ...snap.data() });
-        else alert("Booking not found");
+        else systemDialogs.showSystemNotification("Booking not found");
       } catch (e) {
         console.error("Load booking failed:", e);
-        alert("Failed to load booking. Check console.");
+        systemDialogs.showSystemNotification("Failed to load booking. Check console.");
       }
     })();
 
@@ -364,7 +357,7 @@ export default function ViewUCraneBookingModal({
 
   //  delete (store copy -> delete original)
   const handleDelete = async () => {
-    const confirmDelete = confirm("Are you sure you want to delete this U-Crane booking?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this U-Crane booking?");
     if (!confirmDelete) return;
 
     try {
@@ -372,7 +365,7 @@ export default function ViewUCraneBookingModal({
       const snap = await getDoc(bookingRef);
 
       if (!snap.exists()) {
-        alert("Booking not found (already deleted?)");
+        systemDialogs.showSystemNotification("Booking not found (already deleted?)");
         onClose?.();
         return;
       }
@@ -389,11 +382,11 @@ export default function ViewUCraneBookingModal({
 
       await deleteDoc(bookingRef);
 
-      alert("Booking deleted (stored in Deleted Bookings)");
+      systemDialogs.showSystemNotification("Booking deleted (stored in Deleted Bookings)");
       onClose?.();
     } catch (err) {
       console.error("Delete failed:", err);
-      alert("Delete failed. Check console.");
+      systemDialogs.showSystemNotification("Delete failed. Check console.");
     }
   };
 
@@ -401,7 +394,7 @@ export default function ViewUCraneBookingModal({
   const handleRestore = async () => {
     if (!fromDeleted) return;
 
-    const ok = confirm("Restore this booking back into Bookings?");
+    const ok = await systemDialogs.confirmSystem("Restore this booking back into Bookings?");
     if (!ok) return;
 
     try {
@@ -422,11 +415,11 @@ export default function ViewUCraneBookingModal({
       const delDocId = booking?.__deletedDocId || deletedId || id;
       await deleteDoc(doc(db, "deletedBookings", String(delDocId)));
 
-      alert("Restored ");
+      systemDialogs.showSystemNotification("Restored ");
       onClose?.();
     } catch (e) {
       console.error("Restore failed:", e);
-      alert("Restore failed. Check console.");
+      systemDialogs.showSystemNotification("Restore failed. Check console.");
     }
   };
 
@@ -470,30 +463,23 @@ export default function ViewUCraneBookingModal({
     uCraneVehiclesPrettyWithStatus.length > 0;
 
   return (
-    <div
-      className={layoutStyles.extracted1}
-      onClick={(e) => e.target === e.currentTarget && !editOpening && onClose?.()}
-    >
-      <div style={modal}>
-        {/* Header */}
-        <div style={header}>
-          <div>
-            <div style={eyebrow}>
-              U-Crane Booking • Job #{booking.jobNumber || "—"}
-              {!isLikelyUCraneBooking && (
-                <span className={layoutStyles.extracted2}>
-                  (No U-Crane vehicle found)
-                </span>
-              )}
-            </div>
-            <h2 style={title}>{booking.client || "U-Crane Booking Details"}</h2>
-            {fromDeleted && (
+    <>
+      <Modal
+        open
+        onClose={() => !editOpening && onClose?.()}
+        eyebrow={`U-Crane booking • Job #${booking.jobNumber || "—"}`}
+        title={booking.client || "U-Crane booking details"}
+        description={!isLikelyUCraneBooking ? (
+          <span className={layoutStyles.extracted2}>(No U-Crane vehicle found)</span>
+        ) : null}
+        headerActions={
+          <>
+            {fromDeleted ? (
               <div className={layoutStyles.extracted3}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
               </div>
-            )}
-          </div>
+            ) : null}
           <span
             style={{
               ...badge,
@@ -503,7 +489,25 @@ export default function ViewUCraneBookingModal({
           >
             {booking.status || "—"}
           </span>
-        </div>
+          </>
+        }
+        size="xl"
+        density="compact"
+        footer={fromDeleted ? (
+          <>
+            <Button onClick={handleRestore} variant="success" size="sm">Restore</Button>
+            <Button onClick={onClose} variant="secondary" size="sm">Close</Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={handleOpenEdit} disabled={editOpening} loading={editOpening} size="sm">
+              {editOpening ? `Opening ${editProgress}%` : "Edit"}
+            </Button>
+            <Button onClick={handleDelete} disabled={editOpening} variant="danger" size="sm">Delete</Button>
+            <Button onClick={onClose} disabled={editOpening} variant="secondary" size="sm">Close</Button>
+          </>
+        )}
+      >
 
         {/* Quick chips */}
         <div className={layoutStyles.extracted4}>
@@ -746,36 +750,7 @@ export default function ViewUCraneBookingModal({
           )}
         </div>
 
-        {/* Actions */}
-        <div style={actions}>
-          {fromDeleted ? (
-            <>
-              <button onClick={handleRestore} style={{ ...btn, background: "var(--shell-sidebar-bg)" }}>
-                Restore
-              </button>
-              <button onClick={onClose} style={{ ...btn, ...btnSecondary }}>
-                Close
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={handleOpenEdit}
-                disabled={editOpening}
-                style={{ ...btn, ...(editOpening ? btnBusy : null) }}
-              >
-                {editOpening ? `Opening ${editProgress}%` : "Edit"}
-              </button>
-              <button onClick={handleDelete} disabled={editOpening} style={{ ...btn, ...btnDanger }}>
-                Delete
-              </button>
-              <button onClick={onClose} disabled={editOpening} style={{ ...btn, ...btnSecondary }}>
-                Close
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      </Modal>
 
       {editOpening && (
         <RouteLoadingOverlay
@@ -784,7 +759,7 @@ export default function ViewUCraneBookingModal({
           hint="Loading the booking editor..."
         />
       )}
-    </div>
+    </>
   );
 }
 

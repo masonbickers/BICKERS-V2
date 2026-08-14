@@ -28,5 +28,8 @@ export const deleteMaintenanceBooking = (payload) => mutationRequest("archive", 
 export const createMaintenanceWorkBooking = (payload) => mutationRequest("create_work", { payload });
 export const updateMaintenanceWorkBooking = (payload) => mutationRequest("update_work", { payload });
 export const commitVehicleVorTransition = (payload) => mutationRequest("vor_transition", { payload });
+export const addHistoricVehicleVorWithInspection = (payload) => mutationRequest("add_historic_vor", { payload });
+export const linkHistoricVorFirstUseInspection = (payload) => mutationRequest("link_historic_vor_inspection", { payload });
 export const syncVehicleAnnualMaintenanceForecast = (payload) => mutationRequest("sync_forecast", { payload });
 export const updateMaintenanceDocuments = (payload) => mutationRequest("update_documents", { payload });
+export const updateVehicleVorState = (payload) => mutationRequest("vehicle_vor", { payload });

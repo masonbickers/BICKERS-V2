@@ -14,6 +14,8 @@ const vehicle = {
   registration: "AB12 CDE",
   nextPMI: "2026-08-17",
   nextBrakeTest: "2026-08-17",
+  pmiFreq: 8,
+  brakeTestFreq: 8,
 };
 
 test("PMI and brake warnings open in the ISO week before the due week", () => {
@@ -22,10 +24,24 @@ test("PMI and brake warnings open in the ISO week before the due week", () => {
   assert.ok(alerts.every((alert) => alert.severity === "warning"));
 });
 
-test("warnings remain urgent during the due week and are absent outside the window", () => {
+test("warnings remain urgent during the due week and stay visible when overdue", () => {
   assert.ok(buildMaintenanceWarningAlerts(vehicle, { asOfDate: "2026-08-18" }).every((alert) => alert.severity === "urgent"));
   assert.equal(buildMaintenanceWarningAlerts(vehicle, { asOfDate: "2026-08-09" }).length, 0);
-  assert.equal(buildMaintenanceWarningAlerts(vehicle, { asOfDate: "2026-08-24" }).length, 0);
+  const overdue = buildMaintenanceWarningAlerts(vehicle, { asOfDate: "2026-08-24" });
+  assert.equal(overdue.length, 2);
+  assert.ok(overdue.every((alert) => alert.dueState === "overdue"));
+});
+
+test("removed PMI and brake-test lines do not produce stale expiry warnings", () => {
+  const alerts = buildMaintenanceWarningAlerts(
+    {
+      ...vehicle,
+      hiddenAdditionalMaintenance: ["pmiInspection", "brakeTest"],
+    },
+    { asOfDate: "2026-08-18" }
+  );
+
+  assert.deepEqual(alerts, []);
 });
 
 test("automatic VOR alert has a stable id and unresolved reasons", () => {

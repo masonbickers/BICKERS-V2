@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildMaintenanceBickersReference,
   buildNextRequestedMaintenanceRecords,
   buildRequestedMaintenanceRecord,
   buildScheduledMaintenanceBooking,
   buildMaintenanceReschedule,
   calculateNextMaintenanceDue,
   completeCanonicalMaintenanceItems,
+  formatMaintenanceBickersReference,
   getMaintenanceDueState,
   maintenanceCompletionEvidenceIssues,
   maintenanceRequirementDocumentId,
@@ -15,6 +17,14 @@ import {
   normalizeMaintenanceRecord,
   validateMaintenanceRecord,
 } from "../src/app/utils/maintenanceRecord.js";
+
+test("Bickers maintenance references accept only permanent numeric sequences", () => {
+  assert.equal(formatMaintenanceBickersReference(1), "000001");
+  assert.equal(formatMaintenanceBickersReference(999999), "999999");
+  assert.equal(buildMaintenanceBickersReference({ bickersReference: "000123" }), "000123");
+  assert.equal(buildMaintenanceBickersReference({ bickersReference: "WH31TMQKMX" }), "");
+  assert.equal(buildMaintenanceBickersReference({}), "");
+});
 
 test("requested maintenance records have deterministic idempotency keys without booking dates", () => {
   const requested = buildRequestedMaintenanceRecord({
@@ -33,6 +43,7 @@ test("requested maintenance records have deterministic idempotency keys without 
     maintenanceRequirementKey({ companyId: "company-1", vehicleId: "vehicle-1", items: requested.items })
   );
   assert.match(maintenanceRequirementDocumentId(requested.requirementKey), /^req_[a-z0-9]+_[a-z0-9]+$/);
+  assert.equal(requested.bickersReference, undefined);
 });
 
 test("scheduled maintenance records are booked automatically on the legal schedule date", () => {
@@ -51,7 +62,7 @@ test("scheduled maintenance records are booked automatically on the legal schedu
   assert.deepEqual(scheduled.items.map((item) => item.legalDueDateISO), ["2026-08-05", "2026-08-07"]);
 });
 
-test("completed PMI and brake items create one next booked appointment using configured frequency", () => {
+test("completed PMI and brake items create one next unarranged due item using configured frequency", () => {
   const canonicalRecord = normalizeMaintenanceRecord({
     id: "booking-1",
     companyId: "company-1",
@@ -68,8 +79,9 @@ test("completed PMI and brake items create one next booked appointment using con
     vehicle: { pmiFreq: 8, brakeTestFreq: 8 },
   });
   assert.equal(next.length, 1);
-  assert.equal(next[0].status, "booked");
-  assert.equal(next[0].schedule.appointmentDateISO, "2026-09-28");
+  assert.equal(next[0].status, "requested");
+  assert.equal(next[0].schedule.appointmentDateISO, "");
+  assert.deepEqual(next[0].schedule.bookingDates, []);
   assert.deepEqual(next[0].items.map((item) => item.maintenanceTypeId), ["pmi", "brake_test"]);
   assert.deepEqual(next[0].items.map((item) => item.legalDueDateISO), ["2026-09-28", "2026-09-28"]);
 });
@@ -116,13 +128,13 @@ test("canonical records keep legal due dates separate from booked diary dates", 
   assert.equal(moved.items[0].legalDueIsoWeek, "2026-W32");
 });
 
-test("PMI and brake test restart exactly eight weeks from successful completion", () => {
+test("PMI and brake test use their configured frequency from successful completion", () => {
   assert.equal(
-    calculateNextMaintenanceDue({ maintenanceTypeId: "pmi", completedDate: "2026-08-18" }),
+    calculateNextMaintenanceDue({ maintenanceTypeId: "pmi", completedDate: "2026-08-18", frequencyWeeks: 8 }),
     "2026-10-13"
   );
   assert.equal(
-    calculateNextMaintenanceDue({ maintenanceTypeId: "brake_test", completedDate: "2026-08-18" }),
+    calculateNextMaintenanceDue({ maintenanceTypeId: "brake_test", completedDate: "2026-08-18", frequencyWeeks: 8 }),
     "2026-10-13"
   );
 });
@@ -144,6 +156,45 @@ test("combined PMI and brake-test items can be completed independently", () => {
 
   const complete = completeCanonicalMaintenanceItems(partial, ["brake_test"], "2026-08-19");
   assert.equal(complete.allCompleted, true);
+});
+
+test("partial inspection recurrence recombines only when resulting due dates share an ISO week", () => {
+  const canonicalRecord = normalizeMaintenanceRecord({
+    id: "inspection-partial",
+    companyId: "company-1",
+    vehicleId: "vehicle-1",
+    type: "INSPECTION",
+    status: "Booked",
+    appointmentDateISO: "2026-08-18",
+    maintenanceTypeIds: ["pmi", "brake_test"],
+  });
+  const combined = buildNextRequestedMaintenanceRecords({
+    canonicalRecord,
+    completedTypeIds: ["brake_test"],
+    completionDateISO: "2026-08-19",
+    vehicle: {
+      pmiFreq: 8,
+      brakeTestFreq: 8,
+      nextPMI: "2026-10-13",
+    },
+  });
+  assert.equal(combined.length, 1);
+  assert.deepEqual(
+    combined[0].items.map((item) => item.maintenanceTypeId).sort(),
+    ["brake_test", "pmi"]
+  );
+
+  const separate = buildNextRequestedMaintenanceRecords({
+    canonicalRecord,
+    completedTypeIds: ["brake_test"],
+    completionDateISO: "2026-08-19",
+    vehicle: {
+      pmiFreq: 8,
+      brakeTestFreq: 8,
+      nextPMI: "2026-10-20",
+    },
+  });
+  assert.deepEqual(separate[0].items.map((item) => item.maintenanceTypeId), ["brake_test"]);
 });
 
 test("PMI and brake work can complete before delayed paperwork arrives", () => {
@@ -173,15 +224,20 @@ test("PMI and brake work can complete before delayed paperwork arrives", () => {
   );
 });
 
-test("annual service restarts one calendar year from completion", () => {
+test("service recurrence uses the configured number of weeks", () => {
   assert.equal(
-    calculateNextMaintenanceDue({ maintenanceTypeId: "service", completedDate: "2026-08-18" }),
-    "2027-08-18"
+    calculateNextMaintenanceDue({ maintenanceTypeId: "service", completedDate: "2026-08-18", frequencyWeeks: 52 }),
+    "2027-08-17"
   );
   assert.equal(
-    calculateNextMaintenanceDue({ maintenanceTypeId: "service", completedDate: "2024-02-29" }),
-    "2025-02-28"
+    calculateNextMaintenanceDue({ maintenanceTypeId: "service", completedDate: "2024-02-29", frequencyWeeks: 52 }),
+    "2025-02-27"
   );
+});
+
+test("missing or zero frequency does not create recurrence", () => {
+  assert.equal(calculateNextMaintenanceDue({ maintenanceTypeId: "service", completedDate: "2026-08-18" }), "");
+  assert.equal(calculateNextMaintenanceDue({ maintenanceTypeId: "pmi", completedDate: "2026-08-18", frequencyWeeks: 0 }), "");
 });
 
 test("MOT next due date comes only from the DVSA expiry", () => {

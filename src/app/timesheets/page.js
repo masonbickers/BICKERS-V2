@@ -18,6 +18,7 @@ import {
 import {
   AlertTriangle,
   BarChart3,
+  BellRing,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -33,6 +34,8 @@ import {
   Users,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getPreviousTimesheetWeekStart } from "@/app/utils/timesheetNotifications";
+import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
 
 const DAYS = [
   "Monday",
@@ -197,19 +200,7 @@ function extractYardSegments(entry) {
   return [];
 }
 
-function shouldDeductYardLunch(entry) {
-  if (!entry) return true;
-  if (entry?.managerLunchDeduct === true) return true;
-  if (entry?.managerLunchDeduct === false) return false;
-  if (entry?.yardLunchDeduct === false) return false;
-  if (entry?.yardLunchSup === true || entry?.lunchSup === true) return false;
-  if (entry?.noLunch === true || entry?.skipLunch === true) return false;
-  if (entry?.lunchTaken === false || entry?.lunch === false) return false;
-  if (entry?.lunchTaken === true || entry?.lunch === true) return true;
-  return true;
-}
-
-function computeYardHours(entry) {
+function computeYardHours(entry, day) {
   const segs = extractYardSegments(entry);
   let total = 0;
   segs.forEach((s) => {
@@ -218,7 +209,7 @@ function computeYardHours(entry) {
   if (entry?.yardTravelEnabled) {
     total += diffHours(entry?.yardTravelLeaveTime, entry?.yardTravelArriveTime);
   }
-  if (total > 0 && shouldDeductYardLunch(entry)) total -= LUNCH_DEDUCT_HRS;
+  if (total > 0 && shouldDeductYardLunch(entry, day)) total -= LUNCH_DEDUCT_HRS;
   return Math.max(0, total);
 }
 
@@ -382,7 +373,7 @@ function getTimesheetWeekHours(ts, employee) {
     const entry = dayMap[day];
     if (!entry) return total;
     const mode = detectMode(entry, day === "Saturday" || day === "Sunday");
-    if (mode === "yard") return total + computeYardHours(entry);
+    if (mode === "yard") return total + computeYardHours(entry, day);
     if (mode === "travel") return total + computeTravelHours(entry);
     if (mode === "onset") return total + computeOnSetHours(entry);
     if (mode === "office") return total + computeOfficeHours(entry);
@@ -732,6 +723,8 @@ export default function TimesheetListPage() {
   const [error, setError] = useState("");
   const [approvingId, setApprovingId] = useState("");
   const [manualCreatingKey, setManualCreatingKey] = useState("");
+  const [notifyingKey, setNotifyingKey] = useState("");
+  const [reminderMessage, setReminderMessage] = useState("");
 
   const [searchTerm, setSearchTerm] = useState(() => searchParams?.get("q") || "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams?.get("status") || "all");
@@ -1078,6 +1071,17 @@ export default function TimesheetListPage() {
       return !hidden.has(getTimesheetEmployeeHideKey(employeeGroup.employee || employeeGroup));
     });
   }, [grouped, hiddenEmployeeKeys, isAdmin]);
+  const previousWeekStart = getPreviousTimesheetWeekStart();
+  const outstandingPreviousWeekEmployees = useMemo(
+    () =>
+      employees.filter((employee) => {
+        const timesheet = employee.timesheets.find(
+          (item) => item.weekStart === previousWeekStart
+        );
+        return ["missing", "draft"].includes(getTimesheetStatus(timesheet).key);
+      }),
+    [employees, previousWeekStart]
+  );
 
   useEffect(() => {
     if (weekFilter === "all") return;
@@ -1211,6 +1215,64 @@ export default function TimesheetListPage() {
     updateFiltersInUrl({ week: nextWeek }, { history: "push" });
   };
 
+  const sendTimesheetReminders = async (employeeIds, key) => {
+    if (!isAdmin || notifyingKey || !employeeIds.length) return;
+    setNotifyingKey(key);
+    setError("");
+    setReminderMessage("");
+
+    try {
+      const token = await authState.user?.getIdToken?.();
+      if (!token) throw new Error("Your session has expired. Please sign in again.");
+      const response = await fetch("/api/timesheets/reminders", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ employeeIds }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to send timesheet reminders.");
+      }
+
+      if (data.saved > 0) {
+        setReminderMessage(
+          `${data.saved} timesheet reminder${data.saved === 1 ? "" : "s"} added to the app inbox for ${formatWeekRange(
+            data.weekStart
+          )}${data.sent ? `; push sent to ${data.sent}.` : "."}`
+        );
+      } else {
+        setReminderMessage(
+          "No reminder was needed because the selected timesheet is already submitted."
+        );
+      }
+    } catch (err) {
+      console.error("Error sending timesheet reminder:", err);
+      setError(err?.message || "Unable to send timesheet reminders.");
+    } finally {
+      setNotifyingKey("");
+    }
+  };
+
+  const handleNotifyEmployee = (event, emp) => {
+    event.stopPropagation();
+    const employeeId = emp.employeeId || emp.employee?.id;
+    if (!employeeId) {
+      setError("This employee is not linked to a valid employee record.");
+      return;
+    }
+    sendTimesheetReminders([employeeId], employeeId);
+  };
+
+  const handleNotifyAll = () => {
+    const employeeIds = outstandingPreviousWeekEmployees
+      .map((employee) => employee.employeeId || employee.employee?.id)
+      .filter(Boolean);
+    sendTimesheetReminders(employeeIds, "all");
+  };
+
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
@@ -1303,7 +1365,48 @@ export default function TimesheetListPage() {
               >
                 Older <ChevronRight size={14} />
               </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={handleNotifyAll}
+                  disabled={!outstandingPreviousWeekEmployees.length || Boolean(notifyingKey)}
+                  style={{
+                    ...btn("primary"),
+                    marginLeft: "auto",
+                    cursor:
+                      outstandingPreviousWeekEmployees.length && !notifyingKey
+                        ? "pointer"
+                        : "not-allowed",
+                  }}
+                  title={`Notify users with an unsubmitted timesheet for ${formatWeekRange(
+                    previousWeekStart
+                  )}`}
+                >
+                  <BellRing size={14} />
+                  {notifyingKey === "all"
+                    ? "Sending reminders..."
+                    : `Notify outstanding (${outstandingPreviousWeekEmployees.length})`}
+                </button>
+              ) : null}
             </div>
+
+            {reminderMessage ? (
+              <div
+                role="status"
+                style={{
+                  marginBottom: UI.gap,
+                  padding: "9px 11px",
+                  borderRadius: UI.radiusSm,
+                  border: `1px solid ${UI.greenBorder}`,
+                  background: UI.greenSoft,
+                  color: UI.green,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {reminderMessage}
+              </div>
+            ) : null}
 
             <div
               className="timesheet-stat-grid"
@@ -1726,6 +1829,10 @@ export default function TimesheetListPage() {
                       const showWeeklyHours = !!ts && (ts.submitted || status.key === "approved");
                       const canApprove = isAdmin && !!ts && status.key === "submitted";
                       const canCreateManual = isAdmin && !ts && status.key === "missing";
+                      const canNotify =
+                        isAdmin &&
+                        weekStart === previousWeekStart &&
+                        ["missing", "draft"].includes(status.key);
                       const isApproving = approvingId === ts?.id;
                       const manualCreateKey = `${emp.code}_${weekStart}`;
                       const isCreatingManual = manualCreatingKey === manualCreateKey;
@@ -1916,60 +2023,82 @@ export default function TimesheetListPage() {
                             >
                               {status.clickable ? "Open timesheet" : "Awaiting submission"}
                             </span>
-                            {canApprove ? (
-                              <button
-                                type="button"
-                                onClick={(event) => handleApproveTimesheet(event, ts)}
-                                disabled={isApproving}
-                                style={{
-                                  ...btn("primary"),
-                                  padding: compactReviewView ? "5px 8px" : "6px 10px",
-                                  fontSize: compactReviewView ? 11.5 : 12.5,
-                                  borderColor: "var(--color-success)",
-                                  background: isApproving
-                                    ? UI.greenSoft
-                                    : "linear-gradient(180deg, var(--color-success-accent) 0%, var(--color-success) 100%)",
-                                  color: isApproving ? UI.green : "var(--color-white)",
-                                  boxShadow: isApproving
-                                    ? UI.shadowSm
-                                    : "0 8px 18px rgba(21,128,61,0.22)",
-                                }}
-                              >
-                                <CheckCircle2 size={14} />
-                                {isApproving ? "Approving..." : "Approve"}
-                              </button>
-                            ) : canCreateManual ? (
-                              <button
-                                type="button"
-                                onClick={(event) => handleCreateManualTimesheet(event, emp, weekStart)}
-                                disabled={isCreatingManual}
-                                style={{
-                                  ...btn("primary"),
-                                  padding: compactReviewView ? "5px 8px" : "6px 10px",
-                                  fontSize: compactReviewView ? 11.5 : 12.5,
-                                  background: isCreatingManual
-                                    ? UI.brandSoft
-                                    : "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-                                  color: isCreatingManual ? UI.brand : "var(--color-white)",
-                                  boxShadow: isCreatingManual
-                                    ? UI.shadowSm
-                                    : "0 8px 18px rgba(31,75,122,0.18)",
-                                }}
-                              >
-                                <PencilLine size={14} />
-                                {isCreatingManual ? "Creating..." : "Add manual entry"}
-                              </button>
-                            ) : (
-                              <span
-                                style={{
-                                  fontSize: 16,
-                                  fontWeight: 800,
-                                  color: status.clickable ? UI.brand : "var(--shell-muted)",
-                                }}
-                              >
-                                {status.clickable ? <ChevronRight size={16} /> : "-"}
-                              </span>
-                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              {canNotify ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => handleNotifyEmployee(event, emp)}
+                                  disabled={Boolean(notifyingKey)}
+                                  style={{
+                                    ...btn("ghost"),
+                                    padding: compactReviewView ? "5px 8px" : "6px 10px",
+                                    fontSize: compactReviewView ? 11.5 : 12.5,
+                                    color: UI.brand,
+                                    cursor: notifyingKey ? "not-allowed" : "pointer",
+                                  }}
+                                  title={`Send a reminder for ${formatWeekRange(weekStart)}`}
+                                >
+                                  <BellRing size={14} />
+                                  {notifyingKey === (emp.employeeId || emp.employee?.id)
+                                    ? "Sending..."
+                                    : "Notify"}
+                                </button>
+                              ) : null}
+                              {canApprove ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => handleApproveTimesheet(event, ts)}
+                                  disabled={isApproving}
+                                  style={{
+                                    ...btn("primary"),
+                                    padding: compactReviewView ? "5px 8px" : "6px 10px",
+                                    fontSize: compactReviewView ? 11.5 : 12.5,
+                                    borderColor: "var(--color-success)",
+                                    background: isApproving
+                                      ? UI.greenSoft
+                                      : "linear-gradient(180deg, var(--color-success-accent) 0%, var(--color-success) 100%)",
+                                    color: isApproving ? UI.green : "var(--color-white)",
+                                    boxShadow: isApproving
+                                      ? UI.shadowSm
+                                      : "0 8px 18px rgba(21,128,61,0.22)",
+                                  }}
+                                >
+                                  <CheckCircle2 size={14} />
+                                  {isApproving ? "Approving..." : "Approve"}
+                                </button>
+                              ) : canCreateManual ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => handleCreateManualTimesheet(event, emp, weekStart)}
+                                  disabled={isCreatingManual}
+                                  style={{
+                                    ...btn("primary"),
+                                    padding: compactReviewView ? "5px 8px" : "6px 10px",
+                                    fontSize: compactReviewView ? 11.5 : 12.5,
+                                    background: isCreatingManual
+                                      ? UI.brandSoft
+                                      : "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+                                    color: isCreatingManual ? UI.brand : "var(--color-white)",
+                                    boxShadow: isCreatingManual
+                                      ? UI.shadowSm
+                                      : "0 8px 18px rgba(31,75,122,0.18)",
+                                  }}
+                                >
+                                  <PencilLine size={14} />
+                                  {isCreatingManual ? "Creating..." : "Add manual entry"}
+                                </button>
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: 16,
+                                    fontWeight: 800,
+                                    color: status.clickable ? UI.brand : "var(--shell-muted)",
+                                  }}
+                                >
+                                  {status.clickable ? <ChevronRight size={16} /> : "-"}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );

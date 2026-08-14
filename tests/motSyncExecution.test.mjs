@@ -7,6 +7,10 @@ import {
   runMotSyncBatch,
   withBoundedRetry,
 } from "../src/app/utils/motSyncExecution.js";
+import {
+  buildMotDvsaReconciliationPlan,
+  motReconciliationJobId,
+} from "../src/app/utils/motMaintenanceReconciliation.js";
 
 test("DVSA cron authentication fails closed", () => {
   assert.equal(isDvsaCronAuthorized("Bearer correct", "correct"), true);
@@ -46,6 +50,36 @@ test("MOT completion stays awaiting when DVSA only has the previous test", () =>
     motAwaitingDvsaConfirmation: true,
     motDvsaConfirmationStatus: "awaiting",
   });
+});
+
+test("DVSA confirmation creates one deterministic requested MOT successor", () => {
+  const vehicle = {
+    id: "vehicle-1",
+    companyId: "company-1",
+    registration: "AB12 CDE",
+    motAwaitingDvsaCompletionDate: "2026-08-04",
+    motAwaitingDvsaBookingId: "mot-booking-1",
+  };
+  const patch = buildMotConfirmationFields(vehicle, {
+    lastMOT: "2026-08-04",
+    nextMOT: "2027-08-03",
+    latestPassedMot: { completedDate: "2026-08-04" },
+  }, "2026-08-05T09:00:00.000Z").patch;
+  const first = buildMotDvsaReconciliationPlan({
+    vehicle,
+    vehiclePatch: patch,
+    nowISO: "2026-08-05T09:00:00.000Z",
+  });
+  const second = buildMotDvsaReconciliationPlan({
+    vehicle,
+    vehiclePatch: patch,
+    nowISO: "2026-08-05T09:00:00.000Z",
+  });
+  assert.equal(first.requestedRecord.status, "Requested");
+  assert.deepEqual(first.requestedRecord.bookingDates, []);
+  assert.equal(first.requestedRecord.items[0].legalDueDateISO, "2027-08-03");
+  assert.equal(first.dueItemId, second.dueItemId);
+  assert.equal(first.jobId, motReconciliationJobId("mot-booking-1", "2026-08-04"));
 });
 
 test("cron reports partial upstream failure while updating healthy vehicles", async () => {

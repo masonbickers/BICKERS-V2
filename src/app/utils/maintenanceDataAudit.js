@@ -11,6 +11,7 @@ import {
 } from "./maintenanceForecast.js";
 import {
   ADDITIONAL_MAINTENANCE_WORKFLOWS,
+  RECURRING_MAINTENANCE_WORKFLOWS,
   isVehicleOutOfUse,
 } from "./maintenanceSchema.js";
 import {
@@ -31,6 +32,9 @@ const AUTOMATIC_SCHEDULE_SOURCES = new Set([
 const ACTIVE_SCHEDULE_STATUSES = new Set(["requested", "booked", "in_progress", "deferred"]);
 const TERMINAL_SCHEDULE_STATUSES = new Set(["completed", "cancelled", "archived"]);
 const CORE_PRESERVED_TYPE_IDS = new Set(["mot", "service"]);
+const RECURRING_TYPE_IDS = new Set(
+  RECURRING_MAINTENANCE_WORKFLOWS.map((workflow) => workflow.maintenanceTypeId)
+);
 export const FUTURE_SCHEDULE_RESET_GENERATION = "next_inspection_only_v2";
 export const FUTURE_PMI_HISTORY_CLEANUP_POLICY = "remove_future_pmi_completion_history_only_v1";
 const PMI_HISTORY_FIELDS = ["pmiHistory", "eightWeekInspectionHistory"];
@@ -118,6 +122,7 @@ const vehicleDueDate = (vehicle = {}, typeId) => {
     tacho_download: ["nextTachoDownload"],
     tail_lift: ["nextTailLift", "nextTailLiftInspection"],
     loler: ["nextLoler", "nextLOLER", "nextLOLERInspection"],
+    tacho_calibration: ["nextTachoCalibration"],
   }[typeId] || [];
   return fields.map((field) => maintenanceDateOnly(vehicle[field])).find(Boolean) || "";
 };
@@ -213,6 +218,9 @@ export const classifyFutureMaintenanceResetBooking = (
   if (hasHumanScheduleEdit(source)) {
     return { ...result, classification: "protected", protectionReason: "human_edited" };
   }
+  if (["booked", "in_progress", "deferred"].includes(canonical.status)) {
+    return { ...result, classification: "protected", protectionReason: "confirmed_booking" };
+  }
   if (!ACTIVE_SCHEDULE_STATUSES.has(canonical.status)) {
     return { ...result, classification: "protected", protectionReason: "non_active_status" };
   }
@@ -230,6 +238,13 @@ export const classifyFutureMaintenanceResetBooking = (
     return {
       ...result,
       classification: "eligible_inspection",
+    };
+  }
+  if (maintenanceTypeIds.every((typeId) => RECURRING_TYPE_IDS.has(typeId))) {
+    return {
+      ...result,
+      classification: "protected",
+      protectionReason: "canonical_recurring_due_item",
     };
   }
   return { ...result, classification: "archive" };
@@ -632,6 +647,7 @@ export const auditMaintenanceDataset = ({
   defectReports = [],
   serviceRecords = [],
   vehicles = [],
+  companyId = "",
   forecastYear = new Date().getFullYear(),
   asOfDate = maintenanceDateOnly(new Date()),
 } = {}) => {
@@ -690,7 +706,7 @@ export const auditMaintenanceDataset = ({
     const forecast = buildAnnualMaintenanceForecast({
       vehicle,
       year: Number(forecastYear),
-      companyId: text(vehicle.companyId),
+      companyId: text(vehicle.companyId) || text(companyId),
     });
     return {
       vehicle,
@@ -731,8 +747,8 @@ export const auditMaintenanceDataset = ({
     result.create.map((record) => ({
       collection: "maintenanceBookings",
       documentId: record.id,
-      action: "create_missing_booked_appointment",
-      reason: `${record.items.map((item) => item.maintenanceTypeId).join(" + ")} has no canonical ${forecastYear} appointment`,
+      action: "create_missing_requested_due_item",
+      reason: `${record.items.map((item) => item.maintenanceTypeId).join(" + ")} has no canonical ${forecastYear} due item`,
       idempotentKey: record.requirementKey,
       automaticPatch: buildAnnualMaintenancePersistencePayload(record, {
         createdBy: "safe_reconciliation",
@@ -757,6 +773,15 @@ export const auditMaintenanceDataset = ({
       documentId: record.id,
       action: "review_duplicate_requirement_key",
       reason: "More than one saved appointment uses the same legal requirement key",
+      automaticPatch: null,
+    }))
+  );
+  const ambiguousLegacyMatches = annualForecastReviews.flatMap(({ result }) =>
+    safeArray(result.ambiguous).map((record) => ({
+      collection: "maintenanceBookings",
+      documentId: record.id,
+      action: "review_ambiguous_legacy_requirement_match",
+      reason: "More than one confirmed legacy booking could cover the same legal requirement",
       automaticPatch: null,
     }))
   );
@@ -816,6 +841,7 @@ export const auditMaintenanceDataset = ({
     ...scheduledAppointmentCandidates,
     ...reforecastCandidates,
     ...suppressedDuplicateReviews,
+    ...ambiguousLegacyMatches,
   ];
   const futureScheduleReset = buildFutureMaintenanceResetPreview({
     maintenanceBookings,
@@ -858,6 +884,7 @@ export const auditMaintenanceDataset = ({
       .filter(([, ids]) => ids.length > 1)
       .map(([key, ids]) => ({ key, ids }))
       .sort((left, right) => left.key.localeCompare(right.key)),
+    ambiguousLegacyMatches,
     reconciliationPreview,
     futureScheduleReset,
     futurePmiHistoryCleanup,
@@ -874,6 +901,33 @@ export const auditMaintenanceDataset = ({
       vorInspectionCancellationCount: vorInspectionCancellationCandidates.length,
       exactLegacyLinkCount: exactLegacyJobLinks.length,
       completedWithoutEvidenceCount: completedWithoutEvidence.length,
+      ambiguousLegacyMatchCount: ambiguousLegacyMatches.length,
     },
   };
+};
+
+export const selectSafeMaintenanceReconciliationActions = (report = {}) => {
+  const conflictingVehicleTypes = new Set(
+    safeArray(report.dueDateConflicts).map((conflict) =>
+      `${text(conflict?.vehicleId)}|${text(conflict?.maintenanceTypeId).toLowerCase()}`
+    )
+  );
+  const safeActionNames = new Set([
+    "create_missing_booked_appointment",
+    "create_missing_requested_due_item",
+    "supersede_untouched_automatic_appointment",
+    "link_exact_canonical_record",
+    "cancel_invalid_vor_inspection_requirement",
+  ]);
+
+  return safeArray(report.reconciliationPreview).filter((item) => {
+    if (!safeActionNames.has(item?.action) || !item?.automaticPatch) return false;
+    if (item.action !== "create_missing_requested_due_item") return true;
+    const vehicleId = text(item.automaticPatch.vehicleId);
+    return !safeArray(item.automaticPatch.items).some((maintenanceItem) =>
+      conflictingVehicleTypes.has(
+        `${vehicleId}|${text(maintenanceItem?.maintenanceTypeId).toLowerCase()}`
+      )
+    );
+  });
 };

@@ -3,8 +3,9 @@
 import layoutStyles from "./VehicleCategorySettingsModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
-import { AlertTriangle, ArrowDown, ArrowUp, Plus, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Plus, Save, Trash2 } from "lucide-react";
 import { db } from "../../../firebaseConfig";
+import { Modal } from "@/app/components/ui";
 import {
   DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
   normalizeVehicleCategoryColor,
@@ -19,40 +20,6 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
 
 const UI = UI_TOKENS;
-
-const overlay = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 1000,
-  background: "rgba(15,23,42,0.38)",
-  display: "grid",
-  placeItems: "center",
-  padding: 18,
-};
-
-const modal = {
-  width: "min(1040px, 100%)",
-  maxHeight: "calc(100vh - 36px)",
-  overflow: "auto",
-  background: UI.card,
-  border: UI.border,
-  borderRadius: UI.radius,
-  boxShadow: "0 24px 60px rgba(15,23,42,0.24)",
-  color: UI.text,
-};
-
-const header = {
-  position: "sticky",
-  top: 0,
-  zIndex: 1,
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  padding: 14,
-  borderBottom: UI.border,
-  background: UI.card,
-};
 
 const body = { padding: 14, display: "grid", gap: 12 };
 
@@ -139,8 +106,14 @@ export default function VehicleCategorySettingsModal({
   onSaved,
 }) {
   const baseCategories = useMemo(
-    () => uniqueVehicleCategoryNames(settings?.categories?.length ? settings.categories : categories),
-    [categories, settings?.categories]
+    () =>
+      uniqueVehicleCategoryNames([
+        ...(settings?.categories || []),
+        ...categories,
+        ...vehicles.map((vehicle) => vehicle?.category),
+        RETENTION_PLATE_CATEGORY,
+      ]),
+    [categories, settings?.categories, vehicles]
   );
   const initialCategoryMeta = useMemo(
     () => normalizeVehicleCategoryMeta(baseCategories, settings?.categoryMeta || {}),
@@ -368,22 +341,15 @@ export default function VehicleCategorySettingsModal({
   ];
 
   return (
-    <div className={layoutStyles.extracted1} role="dialog" aria-modal="true" aria-label="Fleet settings">
-      <div style={modal}>
-        <div style={header}>
-          <div>
-            <h2 className={layoutStyles.extracted2}>Fleet settings</h2>
-            <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>
-              Manage category names, display order, list colours, and compliance defaults.
-            </div>
-          </div>
-          <button type="button" style={btn("ghost")} onClick={onClose}>
-            <X size={15} />
-            Close
-          </button>
-        </div>
-
-        <div className={layoutStyles.extracted3}>
+    <Modal
+      open
+      onClose={onClose}
+      title="Fleet settings"
+      description="Manage category names, display order, list colours, and compliance defaults."
+      size="xl"
+      density="compact"
+    >
+      <div className={layoutStyles.extracted3}>
           <section style={{ border: UI.border, borderRadius: UI.radius, padding: 12, background: UI.bg }}>
             <div style={label}>Add category</div>
             <div className={layoutStyles.extracted4}>
@@ -423,8 +389,9 @@ export default function VehicleCategorySettingsModal({
             </div>
           ) : null}
 
-          <section style={{ border: UI.border, borderRadius: UI.radius, overflowX: "auto", overflowY: "hidden" }}>
+          <section className={layoutStyles.categoryList}>
             <div
+              className={layoutStyles.categoryListHeader}
               style={{
                 display: "grid",
                 gridTemplateColumns: "88px minmax(170px, 0.9fr) 76px 92px minmax(220px, 1fr) auto auto",
@@ -461,7 +428,7 @@ export default function VehicleCategorySettingsModal({
                       gap: 8,
                       alignItems: "center",
                       minWidth: 930,
-                      padding: "9px 10px",
+                      padding: "2px 10px",
                       borderTop: UI.border,
                     }}
                   >
@@ -530,38 +497,42 @@ export default function VehicleCategorySettingsModal({
             )}
           </section>
 
-          <section style={{ border: UI.border, borderRadius: UI.radius, padding: 12, background: UI.bg }}>
-            <div className={layoutStyles.extracted7}>
+          <details className={layoutStyles.complianceDetails}>
+            <summary className={layoutStyles.complianceSummary}>
               <div>
                 <div style={label}>Compliance settings</div>
                 <div style={{ color: UI.muted, fontSize: 13 }}>
                   Controls warning colours and trade plate default renewal frequency.
                 </div>
               </div>
-              <button type="button" style={btn("primary")} onClick={handleSaveCompliance} disabled={savingKey === "compliance"}>
-                <Save size={14} />
-                Save Compliance
-              </button>
-            </div>
+              <span className={layoutStyles.complianceSummaryHint}>Open settings</span>
+            </summary>
 
-            <div
-              className={layoutStyles.extracted8}
-            >
-              {complianceFields.map(([field, fieldLabel]) => (
-                <div key={field}>
-                  <label style={label}>{fieldLabel}</label>
-                  <input
-                    value={compliance[field] ?? ""}
-                    onChange={(event) => handleComplianceChange(field, event.target.value)}
-                    style={input}
-                    inputMode="numeric"
-                  />
-                </div>
-              ))}
+            <div className={layoutStyles.complianceBody}>
+              <div className={layoutStyles.extracted7}>
+                <span />
+                <button type="button" style={btn("primary")} onClick={handleSaveCompliance} disabled={savingKey === "compliance"}>
+                  <Save size={14} />
+                  Save Compliance
+                </button>
+              </div>
+
+              <div className={layoutStyles.extracted8}>
+                {complianceFields.map(([field, fieldLabel]) => (
+                  <div key={field}>
+                    <label style={label}>{fieldLabel}</label>
+                    <input
+                      value={compliance[field] ?? ""}
+                      onChange={(event) => handleComplianceChange(field, event.target.value)}
+                      style={input}
+                      inputMode="numeric"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </section>
-        </div>
+          </details>
       </div>
-    </div>
+    </Modal>
   );
 }

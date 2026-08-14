@@ -9,15 +9,18 @@
 
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./EditMaintenanceBookingForm.styles.module.css";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Button, Modal } from "@/app/components/ui";
 import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
-import { ADDITIONAL_MAINTENANCE_WORKFLOWS, getIsoWeekLabel } from "../utils/maintenanceSchema";
+import { ADDITIONAL_MAINTENANCE_WORKFLOWS } from "../utils/maintenanceSchema";
 import {
   bookingToDateKeys as serviceBookingToDateKeys,
   normalizeMaintenanceType,
 } from "../utils/maintenanceBookingPresentation";
+import { buildMaintenanceBickersReference } from "../utils/maintenanceRecord";
 import {
   cancelMaintenanceBooking,
   deleteMaintenanceBooking,
@@ -25,9 +28,12 @@ import {
   updateMaintenanceBooking,
 } from "../utils/maintenanceMutationClient";
 import {
+  arrayUnion,
   doc,
   getDoc,
   getDocs,
+  serverTimestamp,
+  setDoc,
   where,
 } from "firebase/firestore";
 import {
@@ -38,6 +44,12 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import {
+  maintenanceBookingParticipatesInConflict,
+  maintenanceBookingsCompete,
+} from "@/app/utils/maintenanceBookingFormState";
+import { getMaintenanceScheduleRule } from "@/app/utils/maintenanceMutationPolicy";
+import { buildCommonMaintenanceProviders } from "@/app/utils/maintenanceProviders";
 
 const INSPECTION_WORK_OPTIONS = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
   value: workflow.maintenanceTypeId,
@@ -58,8 +70,7 @@ export default function EditMaintenanceBookingForm({
   onClose,
   onSaved,
 }) {
-  const dialogRef = useRef(null);
-  const dialogTitleId = useId();
+  const notesRef = useRef(null);
   const fieldPrefix = useId();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
@@ -69,6 +80,7 @@ export default function EditMaintenanceBookingForm({
     ).trim().toLowerCase();
     return ["admin", "platformadmin", "platform_admin"].includes(role);
   }, [dataAccessState?.userDoc?.platformRole, dataAccessState?.userDoc?.role]);
+  const canManageProviderOptions = canArchiveRequirement;
   const [vehicleId, setVehicleId] = useState(vehicleIdProp || "");
   const [vehicle, setVehicle] = useState(null);
   const [booking, setBooking] = useState(null);
@@ -87,9 +99,9 @@ export default function EditMaintenanceBookingForm({
   const [customDates, setCustomDates] = useState([]);
 
   const [provider, setProvider] = useState("");
+  const [providerOptions, setProviderOptions] = useState([]);
   const [bookingRef, setBookingRef] = useState("");
   const [location, setLocation] = useState("");
-  const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
   const [scheduleExceptionReason, setScheduleExceptionReason] = useState("");
   const [equipmentGroups, setEquipmentGroups] = useState({});
@@ -105,6 +117,15 @@ export default function EditMaintenanceBookingForm({
   // conflict checks
   const [existing, setExisting] = useState([]);
   const [conflictMsg, setConflictMsg] = useState("");
+
+  useEffect(() => {
+    const field = notesRef.current;
+    if (!field) return;
+    field.style.height = "auto";
+    const nextHeight = Math.min(field.scrollHeight, 160);
+    field.style.height = `${Math.max(nextHeight, 42)}px`;
+    field.style.overflowY = field.scrollHeight > 160 ? "auto" : "hidden";
+  }, [notes]);
 
   /* ───────────────── helpers ───────────────── */
   const ymdToDate = (ymd) => {
@@ -186,6 +207,9 @@ export default function EditMaintenanceBookingForm({
   }, [safeType]);
 
   const title = `Edit ${typeLabel} booking`;
+  const bookingSettingsSummary = `${typeLabel} · ${status} · ${
+    useCustomDates ? "Selected dates" : isMultiDay ? "Multi-day" : "Single day"
+  }`;
 
   const vehicleLabel = useMemo(() => {
     if (vehicle) return vehicle.name || vehicle.registration || vehicle.reg || "Unknown vehicle";
@@ -209,19 +233,13 @@ export default function EditMaintenanceBookingForm({
     [booking?.sourceDueDate]
   );
 
-  const selectedInspectionWeek = useMemo(() => {
-    const seed = useCustomDates
-      ? customDates[0] || ""
-      : isMultiDay
-      ? startDate || ""
-      : appointmentDate || "";
-    return seed ? getIsoWeekLabel(seed) : "";
-  }, [useCustomDates, customDates, isMultiDay, startDate, appointmentDate]);
-
-  const outsideDueWeek =
-    !!booking?.sourceDueIsoWeek &&
-    !!selectedInspectionWeek &&
-    selectedInspectionWeek !== booking.sourceDueIsoWeek;
+  const scheduleRule = useMemo(() => getMaintenanceScheduleRule({
+    type: safeType,
+    legalDueDate: booking?.sourceDueDate,
+    legalDueWeeks: booking?.sourceDueIsoWeek ? [booking.sourceDueIsoWeek] : [],
+    bookingDates: selectedDateKeys,
+  }), [safeType, booking?.sourceDueDate, booking?.sourceDueIsoWeek, selectedDateKeys]);
+  const outsideDueWeek = scheduleRule.outsideLegalWeek;
 
   const equipmentOptions = useMemo(
     () =>
@@ -247,12 +265,10 @@ export default function EditMaintenanceBookingForm({
     setConflictMsg("");
     if (!bookingDates.keys.length) return null;
 
-    const conflict = existing.find((b) => {
+    const overlaps = existing.filter((b) => {
       if (b.id === bookingId) return false;
 
-      const st = String(b.status || "").toLowerCase();
-      if (st.includes("cancel")) return false;
-      if (st.includes("declin")) return false;
+      if (!maintenanceBookingParticipatesInConflict(b)) return false;
 
       const existingKeys = serviceBookingToDateKeys(b);
       if (!existingKeys.length) return false;
@@ -260,18 +276,26 @@ export default function EditMaintenanceBookingForm({
       return existingKeys.some((key) => selectedKeySet.has(key));
     });
 
+    const conflict =
+      overlaps.find((candidate) =>
+        maintenanceBookingsCompete(candidate, safeType, inspectionTypeIds)
+      ) || overlaps[0];
+
     if (!conflict) return null;
+    const conflictKeys = serviceBookingToDateKeys(conflict);
 
     const bs =
       toDate(conflict.startDate) ||
       toDate(conflict.date) ||
       toDate(conflict.appointmentDate) ||
+      ymdToDate(conflictKeys[0]) ||
       null;
 
     const be =
       toDate(conflict.endDate) ||
       toDate(conflict.date) ||
       toDate(conflict.appointmentDate) ||
+      ymdToDate(conflictKeys[conflictKeys.length - 1]) ||
       bs;
 
     return {
@@ -281,8 +305,9 @@ export default function EditMaintenanceBookingForm({
       from: bs,
       to: be,
       provider: conflict.provider || "",
+      blocking: maintenanceBookingsCompete(conflict, safeType, inspectionTypeIds),
     };
-  }, [existing, bookingDates.keys, bookingId]);
+  }, [existing, bookingDates.keys, bookingId, safeType, inspectionTypeIds]);
 
   useEffect(() => {
     if (!activeConflict) {
@@ -290,11 +315,11 @@ export default function EditMaintenanceBookingForm({
       return;
     }
     setConflictMsg(
-      `Warning Conflict: This vehicle already has a maintenance booking overlapping ${fmt(
+      `${activeConflict.blocking ? "Conflict" : "Allowed overlap"}: This vehicle already has a maintenance booking overlapping ${fmt(
         activeConflict.from
       )} → ${fmt(activeConflict.to)} (${activeConflict.type}, ${activeConflict.status})${
         activeConflict.provider ? ` — ${activeConflict.provider}` : ""
-      }.`
+      }.${activeConflict.blocking ? "" : " Different maintenance types can be completed during the same visit."}`
     );
   }, [activeConflict]);
 
@@ -309,6 +334,7 @@ export default function EditMaintenanceBookingForm({
       });
       setLoading(false);
       setExisting([]);
+      setProviderOptions([]);
       setLoadError("Could not load booking access.");
       return;
     }
@@ -319,9 +345,11 @@ export default function EditMaintenanceBookingForm({
       setLoading(true);
       setLoadError("");
 
-      const [bSnap, equipmentSnap] = await Promise.all([
+      const [bSnap, equipmentSnap, providerSnap, providerSettingsSnap] = await Promise.all([
         getDoc(doc(db, "maintenanceBookings", bookingId)),
         getDocs(tenantCollectionQuery(db, "equipment", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "maintenanceBookings", dataAccessState)),
+        getDoc(doc(db, "settings", "maintenanceProviders")).catch(() => null),
       ]);
       if (!bSnap.exists()) {
         setLoading(false);
@@ -380,7 +408,6 @@ export default function EditMaintenanceBookingForm({
       setAppointmentTime(b.appointmentTime || "");
       setBookingRef(b.bookingRef || "");
       setLocation(b.location || "");
-      setCost(b.cost ? String(b.cost) : "");
       setNotes(b.notes || "");
       setSelectedEquipment(
         Array.isArray(b.equipment)
@@ -405,6 +432,11 @@ export default function EditMaintenanceBookingForm({
       });
 
       setEquipmentGroups(groupedEquipment);
+      setProviderOptions(
+        buildCommonMaintenanceProviders(providerSnap.docs.map((d) => d.data()), {
+          excludedProviders: providerSettingsSnap?.data()?.hiddenProviders,
+        })
+      );
 
       // vehicle
       if (resolvedVehicleId) {
@@ -440,9 +472,39 @@ export default function EditMaintenanceBookingForm({
       }
       setLoading(false);
       setExisting([]);
+      setProviderOptions([]);
       setLoadError("Could not load booking. Please refresh.");
     });
-  }, [accessKey, bookingId, dataAccessState, vehicleIdProp]);
+  }, [accessKey, bookingId, canManageProviderOptions, dataAccessState, vehicleIdProp]);
+
+  const selectedProviderOption = providerOptions.find(
+    (option) => option.toLocaleLowerCase("en-GB") === provider.trim().toLocaleLowerCase("en-GB")
+  );
+
+  const removeSelectedProviderOption = async () => {
+    if (!canManageProviderOptions || !selectedProviderOption) return;
+    if (!await systemDialogs.confirmSystem(`Remove “${selectedProviderOption}” from the garage suggestions?\n\nHistorical maintenance bookings will not be changed.`)) return;
+
+    const previousOptions = providerOptions;
+    setProviderOptions((current) => current.filter((option) => option !== selectedProviderOption));
+    try {
+      await setDoc(
+        doc(db, "settings", "maintenanceProviders"),
+        {
+          hiddenProviders: arrayUnion(selectedProviderOption),
+          updatedAt: serverTimestamp(),
+          updatedBy: dataAccessState.user?.email || "Unknown",
+        },
+        { merge: true }
+      );
+    } catch (error) {
+      setProviderOptions(previousOptions);
+      if (!handleFirestoreAccessError(error, { collectionName: "settings", operation: "remove maintenance provider suggestion" })) {
+        console.error("Failed removing maintenance provider suggestion:", error);
+        systemDialogs.showSystemNotification("Could not remove this garage suggestion. Please try again.");
+      }
+    }
+  };
 
   // keep date fields in sync when toggling modes
   useEffect(() => {
@@ -477,8 +539,9 @@ export default function EditMaintenanceBookingForm({
       if (+s > +e) return false;
     }
 
-    if (activeConflict) return false;
-    if (outsideDueWeek && !scheduleExceptionReason.trim()) return false;
+    if (activeConflict?.blocking) return false;
+    if (scheduleRule.blocked) return false;
+    if (scheduleRule.requiresExceptionReason && !scheduleExceptionReason.trim()) return false;
     return true;
   }, [
     saving,
@@ -495,31 +558,13 @@ export default function EditMaintenanceBookingForm({
     startDate,
     endDate,
     activeConflict,
-    outsideDueWeek,
+    scheduleRule,
     scheduleExceptionReason,
   ]);
 
   const handleClose = () => {
     if (typeof onClose === "function") onClose();
   };
-
-  useEffect(() => {
-    const previousFocus = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    dialogRef.current?.focus();
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") handleClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previousFocus?.focus?.();
-    };
-  }, []);
 
   const toggleEquipment = (name, checked) => {
     setSelectedEquipment((prev) =>
@@ -571,7 +616,7 @@ export default function EditMaintenanceBookingForm({
         provider,
         bookingRef,
         location,
-        cost: safeType === "SERVICE" ? "" : cost,
+        cost: booking?.cost || "",
         notes,
         equipment: selectedEquipment,
         authState: dataAccessState,
@@ -596,7 +641,7 @@ export default function EditMaintenanceBookingForm({
 
   const handleCancel = async () => {
     if (!bookingId) return;
-    if (!confirm("Cancel this appointment and return its legal requirement to Due — not booked?")) return;
+    if (!await systemDialogs.confirmSystem("Cancel this appointment and return its legal requirement to Due — not booked?")) return;
 
     setFormError("");
     setSaving(true);
@@ -625,8 +670,8 @@ export default function EditMaintenanceBookingForm({
 
   const handleDelete = async () => {
     if (!bookingId) return;
-    if (!confirm("Archive this maintenance booking? Its audit history will be retained.")) return;
-    const reason = window.prompt("Reason for cancelling this legal maintenance requirement:", "");
+    if (!await systemDialogs.confirmSystem("Archive this maintenance booking? Its audit history will be retained.")) return;
+    const reason = await systemDialogs.promptSystem("Reason for cancelling this legal maintenance requirement:", "");
     if (!String(reason || "").trim()) return;
 
     setFormError("");
@@ -656,30 +701,34 @@ export default function EditMaintenanceBookingForm({
   if (!bookingId) return null;
 
   return (
-    <div className={layoutStyles.extracted1} onMouseDown={(event) => event.target === event.currentTarget && handleClose()}>
-      <div
-        ref={dialogRef}
-        className={layoutStyles.extracted2}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={dialogTitleId}
-        tabIndex={-1}
-      >
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <h2 id={dialogTitleId} className={layoutStyles.extracted4}>{title}</h2>
-            <div className={layoutStyles.extracted5}>
-              Vehicle: <b className={layoutStyles.extracted6}>{vehicleLabel || "—"}</b>
-            </div>
-            <div className={layoutStyles.extracted7}>
-              Booking ID: <b>{bookingId}</b>
-            </div>
-          </div>
-
-          <button onClick={handleClose} className={layoutStyles.extracted8} aria-label="Close" type="button">
-            x
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={handleClose}
+      eyebrow="Maintenance booking"
+      title={title}
+      description={
+            <span className={layoutStyles.extracted5}>
+              <b className={layoutStyles.extracted6}>{vehicleLabel || "—"}</b>
+              <span className={layoutStyles.statusBadge}>{status}</span>
+              {buildMaintenanceBickersReference(booking || {}) ? (
+                <span className={layoutStyles.dueWeekBadge}>
+                  {buildMaintenanceBickersReference(booking)}
+                </span>
+              ) : null}
+              {booking?.sourceDueIsoWeek ? (
+                <span className={layoutStyles.dueWeekBadge}>Due {booking.sourceDueIsoWeek}</span>
+              ) : null}
+            </span>
+      }
+      size="lg"
+      density="compact"
+      footer={
+        <>
+          <Button type="button" variant="secondary" size="sm" onClick={handleClose} disabled={saving}>Close</Button>
+          <Button type="submit" form={`${fieldPrefix}-form`} size="sm" disabled={!canSubmit || loading} loading={saving}>Save changes</Button>
+        </>
+      }
+    >
 
         {loadError ? (
           <div
@@ -699,126 +748,101 @@ export default function EditMaintenanceBookingForm({
         {loading ? (
           <div className={layoutStyles.extracted11}>Loading booking...</div>
         ) : (
-          <form onSubmit={handleSubmit} className={layoutStyles.extracted12}>
-            {/* Type */}
-            <div className={layoutStyles.extracted13}>
-              <label htmlFor={`${fieldPrefix}-type`} className={layoutStyles.extracted14}>Maintenance type</label>
-              <select
-                id={`${fieldPrefix}-type`}
-                className={layoutStyles.extracted18}
-                value={safeType}
-                onChange={(e) => setType(e.target.value)}
-              >
-                <option value="MOT">MOT</option>
-                <option value="SERVICE">Service</option>
-                <option value="INSPECTION">Inspection / Compliance</option>
-                <option value="WORK">Work / Maintenance</option>
-              </select>
-            </div>
-
-            {safeType === "INSPECTION" ? (
-              <fieldset className={layoutStyles.extracted13} style={{ gridColumn: "1 / -1" }}>
-                <legend className={layoutStyles.extracted14}>Inspection / compliance work</legend>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 8 }}>
-                  {INSPECTION_WORK_OPTIONS.map(({ value, label }) => (
-                    <label key={value} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 800 }}>
-                      <input
-                        type="checkbox"
-                        checked={inspectionTypeIds.includes(value)}
-                        onChange={(event) =>
-                          setInspectionTypeIds((current) =>
-                            event.target.checked
-                              ? [...new Set([...current, value])]
-                              : current.filter((item) => item !== value)
-                          )
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
+          <form id={`${fieldPrefix}-form`} onSubmit={handleSubmit} className={layoutStyles.extracted12}>
+            <section className={layoutStyles.bookingSettings}>
+              <div className={layoutStyles.sectionHeader}>Booking settings <span>{bookingSettingsSummary}</span></div>
+              <div className={layoutStyles.bookingSettingsGrid}>
+                <div className={layoutStyles.extracted13}>
+                  <label htmlFor={`${fieldPrefix}-type`} className={layoutStyles.extracted14}>Maintenance type</label>
+                  <select id={`${fieldPrefix}-type`} className={layoutStyles.extracted18} value={safeType} onChange={(e) => setType(e.target.value)}>
+                    <option value="MOT">MOT</option>
+                    <option value="SERVICE">Service</option>
+                    <option value="INSPECTION">Inspection / Compliance</option>
+                    <option value="WORK">Work / Maintenance</option>
+                  </select>
                 </div>
-              </fieldset>
-            ) : null}
 
-            {/* Status */}
-            <div className={layoutStyles.extracted16}>
-              <label htmlFor={`${fieldPrefix}-status`} className={layoutStyles.extracted17}>Status</label>
-              <select id={`${fieldPrefix}-status`} value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted18}>
-                <option value="Booked">Booked</option>
-                <option value="In Progress">In Progress</option>
-              </select>
-            </div>
+                <div className={layoutStyles.extracted16}>
+                  <label htmlFor={`${fieldPrefix}-status`} className={layoutStyles.extracted17}>Status</label>
+                  <select id={`${fieldPrefix}-status`} value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted18}>
+                    <option value="Booked">Booked</option>
+                    <option value="In Progress">In Progress</option>
+                  </select>
+                </div>
 
-            {/* Single vs multi */}
-            <div className={layoutStyles.extracted19}>
-              <label htmlFor={`${fieldPrefix}-booking-mode`} className={layoutStyles.extracted20}>Booking type</label>
-              <select
-                id={`${fieldPrefix}-booking-mode`}
-                value={useCustomDates ? "custom" : isMultiDay ? "multi" : "single"}
-                onChange={(e) => {
-                  const mode = e.target.value;
-                  if (mode === "custom") {
-                    const seed = bookingDates.keys.length ? bookingDates.keys.slice() : [];
-                    setUseCustomDates(true);
-                    setIsMultiDay(false);
-                    setCustomDates(seed);
-                    if (seed[0]) {
-                      setAppointmentDate(seed[0]);
-                      setStartDate(seed[0]);
-                      setEndDate(seed[seed.length - 1] || seed[0]);
-                    }
-                    return;
-                  }
+                <div className={layoutStyles.extracted19}>
+                  <label htmlFor={`${fieldPrefix}-booking-mode`} className={layoutStyles.extracted20}>Booking type</label>
+                  <select
+                    id={`${fieldPrefix}-booking-mode`}
+                    value={useCustomDates ? "custom" : isMultiDay ? "multi" : "single"}
+                    onChange={(e) => {
+                      const mode = e.target.value;
+                      if (mode === "custom") {
+                        const seed = bookingDates.keys.length ? bookingDates.keys.slice() : [];
+                        setUseCustomDates(true);
+                        setIsMultiDay(false);
+                        setCustomDates(seed);
+                        if (seed[0]) {
+                          setAppointmentDate(seed[0]);
+                          setStartDate(seed[0]);
+                          setEndDate(seed[seed.length - 1] || seed[0]);
+                        }
+                        return;
+                      }
+                      if (useCustomDates) {
+                        const first = (customDates?.[0] || "").slice(0, 10);
+                        setAppointmentDate(first || appointmentDate || "");
+                        setStartDate(first || "");
+                        setEndDate(first || "");
+                        setCustomDates([]);
+                      }
+                      setUseCustomDates(false);
+                      setIsMultiDay(mode === "multi");
+                    }}
+                    className={layoutStyles.extracted21}
+                  >
+                    <option value="single">Single day</option>
+                    <option value="multi">Multi-day workshop</option>
+                    <option value="custom">Non-consecutive dates</option>
+                  </select>
+                </div>
 
-                  if (useCustomDates) {
-                    const first = (customDates?.[0] || "").slice(0, 10);
-                    setAppointmentDate(first || appointmentDate || "");
-                    setStartDate(first || "");
-                    setEndDate(first || "");
-                    setCustomDates([]);
-                  }
+                {safeType === "INSPECTION" ? (
+                  <fieldset className={layoutStyles.inspectionOptions}>
+                    <legend className={layoutStyles.extracted14}>Inspection work</legend>
+                    <div>
+                      {INSPECTION_WORK_OPTIONS.map(({ value, label }) => (
+                        <label key={value}>
+                          <input
+                            type="checkbox"
+                            checked={inspectionTypeIds.includes(value)}
+                            onChange={(event) => setInspectionTypeIds((current) => event.target.checked ? [...new Set([...current, value])] : current.filter((item) => item !== value))}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                ) : null}
+              </div>
+            </section>
 
-                  setUseCustomDates(false);
-                  setIsMultiDay(mode === "multi");
-                }}
-                className={layoutStyles.extracted21}
-              >
-                <option value="single">Single day (appointment)</option>
-                <option value="multi">Multi-day (off-road / workshop)</option>
-                <option value="custom">Multi-day (non-consecutive)</option>
-              </select>
-            </div>
-
-            {booking?.sourceDueIsoWeek ? (
-              <div
-                style={{
-                  gridColumn: "1 / -1",
-                  border: `1px solid ${outsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
-                  background: outsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
-                  color: "var(--color-text)",
-                  borderRadius: 8,
-                  padding: "10px 12px",
-                  fontSize: 13,
-                  lineHeight: 1.4,
-                  fontWeight: 750,
-                }}
-              >
-                The legal due week stays fixed when an appointment is moved.
-                {sourceDueDateObj ? (
-                  <>
-                    {" "}Due week: <b>{booking?.sourceDueIsoWeek || "Unknown"}</b> for{" "}
-                    <b>{sourceDueDateObj.toLocaleDateString("en-GB")}</b>.
-                    {outsideDueWeek
-                      ? " This booking sits outside the due ISO week."
-                      : " This booking is inside the due ISO week."}
-                  </>
-                ) : (
-                  " The configured vehicle maintenance frequency remains authoritative."
-                )}
-                {outsideDueWeek ? (
-                  <div style={{ marginTop: 10 }}>
+            {booking?.sourceDueIsoWeek && (outsideDueWeek || scheduleRule.blocked) ? (
+              <div className={layoutStyles.isoWarning}>
+                <strong>
+                  {scheduleRule.state === "after_expiry"
+                    ? "MOT appointment is after the legal expiry date."
+                    : scheduleRule.state === "service_advisory"
+                    ? "Service is outside its planned week — allowed."
+                    : "Inspection is outside the legal due week."}
+                </strong>
+                <span>
+                  Due {booking.sourceDueIsoWeek}
+                  {sourceDueDateObj ? ` (${sourceDueDateObj.toLocaleDateString("en-GB")})` : ""}.
+                </span>
+                {scheduleRule.requiresExceptionReason ? <div>
                     <label htmlFor={`${fieldPrefix}-schedule-exception-reason`}>
-                      Reason for moving outside the legal due week
+                      Reason for moving outside the due week
                     </label>
                     <input
                       id={`${fieldPrefix}-schedule-exception-reason`}
@@ -827,10 +851,8 @@ export default function EditMaintenanceBookingForm({
                       placeholder="Required"
                       required
                       className={layoutStyles.extracted18}
-                      style={{ width: "100%", marginTop: 6 }}
                     />
-                  </div>
-                ) : null}
+                </div> : null}
               </div>
             ) : null}
 
@@ -936,21 +958,44 @@ export default function EditMaintenanceBookingForm({
             {/* Conflict */}
             {conflictMsg ? (
               <div
-                className={layoutStyles.extracted43}
+                className={`${layoutStyles.extracted43} ${!activeConflict?.blocking ? layoutStyles.allowedOverlap : ""}`}
               >
-                <div className={layoutStyles.extracted44}>Booking conflict</div>
+                <div className={layoutStyles.extracted44}>
+                  {activeConflict?.blocking ? "Booking conflict" : "Existing maintenance on this date — allowed"}
+                </div>
                 <div>{conflictMsg}</div>
               </div>
             ) : null}
 
             {/* Details */}
+            <section className={layoutStyles.additionalDetails}>
+              <div className={layoutStyles.sectionHeader}>Optional workshop details</div>
+              <div className={layoutStyles.additionalDetailsGrid}>
             <div className={layoutStyles.extracted45}>
               <label htmlFor={`${fieldPrefix}-provider`} className={layoutStyles.extracted46}>Provider / garage</label>
-              <input id={`${fieldPrefix}-provider`} value={provider} onChange={(e) => setProvider(e.target.value)} className={layoutStyles.extracted47} />
+              <div className={layoutStyles.providerInputRow}>
+                <input
+                  id={`${fieldPrefix}-provider`}
+                  list={`${fieldPrefix}-provider-options`}
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value)}
+                  placeholder={providerOptions.length ? "Select or type a garage" : "Type a garage"}
+                  autoComplete="off"
+                  className={layoutStyles.extracted47}
+                />
+                {canManageProviderOptions && selectedProviderOption ? (
+                  <button type="button" className={layoutStyles.removeProviderButton} onClick={removeSelectedProviderOption}>
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+              <datalist id={`${fieldPrefix}-provider-options`}>
+                {providerOptions.map((option) => <option key={option} value={option} />)}
+              </datalist>
             </div>
 
             <div className={layoutStyles.extracted48}>
-              <label htmlFor={`${fieldPrefix}-booking-ref`} className={layoutStyles.extracted49}>Booking reference</label>
+              <label htmlFor={`${fieldPrefix}-booking-ref`} className={layoutStyles.extracted49}>Garage booking reference</label>
               <input id={`${fieldPrefix}-booking-ref`} value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} className={layoutStyles.extracted50} />
             </div>
 
@@ -962,13 +1007,6 @@ export default function EditMaintenanceBookingForm({
               <label htmlFor={`${fieldPrefix}-location`} className={layoutStyles.extracted52}>Location</label>
               <input id={`${fieldPrefix}-location`} value={location} onChange={(e) => setLocation(e.target.value)} className={layoutStyles.extracted53} />
             </div>
-
-            {safeType !== "SERVICE" ? (
-              <div className={layoutStyles.extracted54}>
-                <label htmlFor={`${fieldPrefix}-cost`} className={layoutStyles.extracted55}>Cost (optional)</label>
-                <input id={`${fieldPrefix}-cost`} value={cost} onChange={(e) => setCost(e.target.value)} className={layoutStyles.extracted56} />
-              </div>
-            ) : null}
 
             <div className={layoutStyles.extracted57}>
               <label htmlFor={`${fieldPrefix}-equipment-search`} className={layoutStyles.extracted58}>Book equipment off</label>
@@ -1052,76 +1090,37 @@ export default function EditMaintenanceBookingForm({
             <div className={layoutStyles.extracted72}>
               <label htmlFor={`${fieldPrefix}-notes`} className={layoutStyles.extracted73}>Notes</label>
               <textarea
+                ref={notesRef}
                 id={`${fieldPrefix}-notes`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={3}
+                rows={1}
                 placeholder="Drop-off times, contact, what to fix, etc…"
                 className={layoutStyles.extracted74}
               />
             </div>
+              </div>
+            </section>
 
             <div className={layoutStyles.bookingActionGrid}>
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                style={{
-                  ...primaryBtn,
-                  opacity: canSubmit ? 1 : 0.55,
-                  cursor: canSubmit ? "pointer" : "not-allowed",
-                }}
-              >
-                {saving ? "Saving..." : "Save changes"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCancel}
-                style={{
-                  ...dangerBtn,
-                  opacity: saving ? 0.65 : 1,
-                  cursor: saving ? "not-allowed" : "pointer",
-                }}
-                disabled={saving}
-              >
-                Cancel Appointment
-              </button>
-
-              {canArchiveRequirement ? (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  style={{
-                    ...dangerBtn,
-                    border: "1px solid rgba(239,68,68,0.85)",
-                    background: "linear-gradient(180deg, var(--color-danger) 0%, var(--color-danger) 100%)",
-                    opacity: saving ? 0.65 : 1,
-                    cursor: saving ? "not-allowed" : "pointer",
-                  }}
-                  disabled={saving}
-                >
-                  Archive Booking
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={handleClose}
-                className={`${layoutStyles.extracted75} ${layoutStyles.bookingActionClose}`}
-                disabled={saving}
-              >
-                Close
-              </button>
-            </div>
-
-            <div className={layoutStyles.extracted76}>
-              Updates <b>maintenanceBookings</b> and keeps the linked fields on the vehicle document in sync.
-              Completion, evidence and next-due creation are handled from the maintenance record modal.
+              <details className={layoutStyles.destructiveActions}>
+                <summary>Cancel or archive</summary>
+                <p>Cancel keeps the legal requirement active. Archive is only for an incorrect requirement.</p>
+                <div>
+                  <button type="button" onClick={handleCancel} disabled={saving}>
+                    Cancel appointment
+                  </button>
+                  {canArchiveRequirement ? (
+                    <button type="button" onClick={handleDelete} disabled={saving}>
+                      Archive requirement
+                    </button>
+                  ) : null}
+                </div>
+              </details>
             </div>
           </form>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1353,41 +1352,4 @@ const primaryBtn = {
   fontWeight: 900,
   fontSize: 14,
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
-};
-
-const successBtn = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid var(--color-success)",
-  background: "var(--color-success)",
-  color: "var(--color-white)",
-  fontWeight: 900,
-  fontSize: 14,
-  boxShadow: "0 6px 12px rgba(22,101,52,0.14)",
-};
-
-const dangerBtn = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid var(--color-danger)",
-  background: "var(--color-danger)",
-  color: "var(--color-white)",
-  fontWeight: 900,
-  fontSize: 14,
-  cursor: "pointer",
-  boxShadow: "0 6px 12px rgba(185,28,28,0.14)",
-};
-
-const ghostBtn = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid var(--shell-muted)",
-  background: "var(--color-surface)",
-  color: "var(--color-brand)",
-  fontWeight: 900,
-  fontSize: 14,
-  cursor: "pointer",
 };

@@ -1,141 +1,39 @@
 "use client";
 
-import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  FileText,
+  HardDrive,
+  LayoutDashboard,
+  PencilLine,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { Clock3, FileText, LayoutDashboard, PencilLine, Plus, Trash2 } from "lucide-react";
-import { UI_TOKENS } from "@/app/utils/uiTokens";
+import {
+  OperationsHeaderActions,
+  OperationsPage,
+  OperationsPageHeader,
+  OperationsToolbar,
+} from "@/app/components/OperationsPage";
+import {
+  Button,
+  EmptyState,
+  Input,
+  Modal,
+  Table,
+  TableContainer,
+} from "@/app/components/ui";
+import styles from "./page.styles.module.css";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 
-const UI = UI_TOKENS;
-
-const pageWrap = {
-  padding: "16px 16px 32px",
-  background: UI.bg,
-  minHeight: "100vh",
-};
-
-const card = {
-  background: UI.card,
-  border: UI.border,
-  borderRadius: UI.radius,
-  boxShadow: UI.shadow,
-  padding: 12,
-};
-
-const btn = (kind = "ghost") => ({
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  padding: "8px 11px",
-  borderRadius: UI.radiusSm,
-  border:
-    kind === "primary"
-      ? `1px solid ${UI.brand}`
-      : kind === "danger"
-      ? "1px solid var(--color-danger-border)"
-      : `1px solid ${UI.brandBorder}`,
-  background:
-    kind === "primary"
-      ? UI.brand
-      : kind === "danger"
-      ? UI.dangerSoft
-      : "var(--color-surface)",
-  color: kind === "primary" ? "var(--color-white)" : kind === "danger" ? UI.danger : UI.text,
-  fontWeight: 800,
-  fontSize: 13,
-  cursor: "pointer",
-  boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadow,
-});
-
-const pageHeader = {
-  ...card,
-  marginBottom: UI.gap,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: UI.gap,
-  flexWrap: "wrap",
-};
-
-const h1Style = {
-  margin: 0,
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 800,
-  color: UI.text,
-};
-
-const pageSub = {
-  marginTop: 6,
-  color: UI.muted,
-  fontSize: 13.5,
-  lineHeight: 1.45,
-};
-
-const statGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: UI.gap,
-  marginBottom: UI.gap,
-};
-
-const statCard = {
-  ...card,
-  display: "flex",
-  alignItems: "flex-start",
-  gap: 10,
-};
-
-const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: bg,
-  color,
-  border: `1px solid ${border}`,
-  flex: "0 0 auto",
-});
-
-const statLabel = {
-  fontSize: 11,
-  fontWeight: 900,
-  color: UI.muted,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-};
-
-const statValue = {
-  marginTop: 4,
-  fontSize: 22,
-  lineHeight: 1,
-  fontWeight: 900,
-  color: UI.text,
-};
-
-const draftRow = {
-  border: UI.border,
-  borderRadius: UI.radiusSm,
-  padding: 12,
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 10,
-  alignItems: "center",
-  flexWrap: "wrap",
-  background: "var(--color-surface)",
-  boxShadow: UI.shadow,
-};
-
 const fmtDateTime = (iso) => {
-  const d = iso ? new Date(iso) : null;
-  if (!d || Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString("en-GB", {
+  const date = iso ? new Date(iso) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -143,19 +41,6 @@ const fmtDateTime = (iso) => {
     minute: "2-digit",
   });
 };
-
-function DraftStat({ icon, label, value, detail }) {
-  return (
-    <div style={statCard}>
-      <span style={iconBox()}>{icon}</span>
-      <div>
-        <div style={statLabel}>{label}</div>
-        <div style={statValue}>{value}</div>
-        {detail ? <div style={{ marginTop: 5, color: UI.muted, fontSize: 12 }}>{detail}</div> : null}
-      </div>
-    </div>
-  );
-}
 
 const readDrafts = () => {
   try {
@@ -172,122 +57,198 @@ const writeDrafts = (map) => {
   try {
     localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(map || {}));
   } catch {
-    // noop
+    // Draft updates should not prevent the page from continuing to work.
   }
 };
 
 export default function BookingDraftsPage() {
   const router = useRouter();
   const [draftMap, setDraftMap] = useState({});
-
-  const refresh = () => setDraftMap(readDrafts());
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [draftPendingDelete, setDraftPendingDelete] = useState(null);
 
   useEffect(() => {
+    const refresh = () => {
+      setDraftMap(readDrafts());
+      setHasLoaded(true);
+    };
+
     refresh();
-    const onStorage = (e) => {
-      if (e.key === DRAFTS_STORAGE_KEY) refresh();
+    const onStorage = (event) => {
+      if (event.key === DRAFTS_STORAGE_KEY) refresh();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const drafts = useMemo(() => {
-    return Object.values(draftMap || {}).sort((a, b) => {
-      const at = new Date(a?.updatedAt || 0).getTime();
-      const bt = new Date(b?.updatedAt || 0).getTime();
-      return bt - at;
-    });
-  }, [draftMap]);
-  const latestDraft = drafts[0] || null;
+  const drafts = useMemo(
+    () =>
+      Object.values(draftMap || {}).sort((a, b) => {
+        const at = new Date(a?.updatedAt || 0).getTime();
+        const bt = new Date(b?.updatedAt || 0).getTime();
+        return bt - at;
+      }),
+    [draftMap]
+  );
 
-  const removeDraft = (id) => {
+  const filteredDrafts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return drafts;
+    return drafts.filter((draft) => {
+      const title = String(draft?.title || "Untitled Draft").toLowerCase();
+      return title.includes(query) || fmtDateTime(draft?.updatedAt).toLowerCase().includes(query);
+    });
+  }, [drafts, searchQuery]);
+
+  const removeDraft = () => {
+    const id = draftPendingDelete?.id;
     if (!id) return;
     const next = { ...(draftMap || {}) };
     delete next[id];
     writeDrafts(next);
     setDraftMap(next);
+    setDraftPendingDelete(null);
+  };
+
+  const openDraft = (id) => {
+    router.push(`/create-booking?draft=${encodeURIComponent(id)}`);
   };
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <div style={pageHeader}>
-          <div>
-            <h1 style={h1Style}>Booking Drafts</h1>
-            <div style={pageSub}>
-              Reopen unfinished booking forms saved automatically.
-            </div>
+      <OperationsPage>
+        <OperationsPageHeader
+          title="Booking Drafts"
+          subtitle="Continue unfinished bookings that were saved automatically on this device."
+          actions={
+            <OperationsHeaderActions>
+              <Button type="button" onClick={() => router.push("/create-booking")}>
+                <Plus size={14} />
+                New Booking
+              </Button>
+              <Button variant="secondary" type="button" onClick={() => router.push("/dashboard")}>
+                <LayoutDashboard size={14} />
+                Back to Diary
+              </Button>
+            </OperationsHeaderActions>
+          }
+        />
+
+        <OperationsToolbar className={styles.toolbar}>
+          <div className={styles.searchField}>
+            <Search size={16} aria-hidden="true" />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search drafts…"
+              aria-label="Search booking drafts"
+            />
           </div>
-          <div className={layoutStyles.extracted1}>
-            <button type="button" style={btn("primary")} onClick={() => router.push("/create-booking")}>
-              <Plus size={14} />
-              New Booking
-            </button>
-            <button type="button" style={btn()} onClick={() => router.push("/dashboard")}>
-              <LayoutDashboard size={14} />
-              Back to Dashboard
-            </button>
-          </div>
+        </OperationsToolbar>
+
+        <div className={styles.resultSummary} aria-live="polite">
+          {filteredDrafts.length} of {drafts.length} drafts shown
         </div>
 
-        <div style={statGrid}>
-          <DraftStat icon={<FileText size={17} />} label="Drafts" value={drafts.length} detail="saved locally on this device" />
-          <DraftStat
-            icon={<Clock3 size={17} />}
-            label="Latest Update"
-            value={latestDraft ? fmtDateTime(latestDraft.updatedAt) : "-"}
-            detail={latestDraft ? String(latestDraft.title || "Untitled Draft") : "no saved drafts"}
+        {hasLoaded && drafts.length === 0 ? (
+          <EmptyState
+            icon={<FileText size={28} aria-hidden="true" />}
+            title="No booking drafts"
+            description="Drafts appear here automatically after you start a new booking."
+            action={
+              <Button type="button" onClick={() => router.push("/create-booking")}>
+                <Plus size={14} />
+                Start a booking
+              </Button>
+            }
           />
-        </div>
-
-        <div style={card}>
-          {drafts.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13.5 }}>No drafts found.</div>
-          ) : (
-            <div className={layoutStyles.extracted2}>
-              {drafts.map((d) => (
-                <div
-                  key={d.id}
-                  style={draftRow}
-                >
-                  <div className={layoutStyles.extracted3}>
-                    <span style={iconBox()}>
-                      <PencilLine size={17} />
-                    </span>
-                    <div>
-                      <div style={{ fontWeight: 900, color: UI.text }}>
-                        {String(d.title || "Untitled Draft")}
+        ) : hasLoaded && filteredDrafts.length === 0 ? (
+          <EmptyState
+            icon={<Search size={28} aria-hidden="true" />}
+            title="No matching drafts"
+            description={`No drafts match “${searchQuery.trim()}”.`}
+            action={
+              <Button variant="secondary" type="button" onClick={() => setSearchQuery("")}>
+                Clear search
+              </Button>
+            }
+          />
+        ) : (
+          <TableContainer className={styles.tableContainer}>
+            <Table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Draft</th>
+                  <th>Last updated</th>
+                  <th>Saved to</th>
+                  <th className={styles.actionsHeading}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDrafts.map((draft) => (
+                  <tr key={draft.id}>
+                    <td>
+                      <div className={styles.draftIdentity}>
+                        <span className={styles.draftIcon} aria-hidden="true">
+                          <PencilLine size={16} />
+                        </span>
+                        <strong>{String(draft.title || "Untitled Draft")}</strong>
                       </div>
-                      <div style={{ color: UI.muted, fontSize: 12, marginTop: 3 }}>
-                        Updated: {fmtDateTime(d.updatedAt)}
+                    </td>
+                    <td className={styles.updatedAt}>{fmtDateTime(draft.updatedAt)}</td>
+                    <td>
+                      <span className={styles.storageLabel}>
+                        <HardDrive size={14} aria-hidden="true" />
+                        This device
+                      </span>
+                    </td>
+                    <td>
+                      <div className={styles.rowActions}>
+                        <Button size="sm" type="button" onClick={() => openDraft(draft.id)}>
+                          <PencilLine size={13} />
+                          Open Draft
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          type="button"
+                          className={styles.deleteButton}
+                          aria-label={`Delete ${String(draft.title || "Untitled Draft")}`}
+                          onClick={() => setDraftPendingDelete(draft)}
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </Button>
                       </div>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableContainer>
+        )}
 
-                  <div className={layoutStyles.extracted4}>
-                    <button
-                      type="button"
-                      style={btn("primary")}
-                      onClick={() => router.push(`/create-booking?draft=${encodeURIComponent(d.id)}`)}
-                    >
-                      <PencilLine size={14} />
-                      Open Draft
-                    </button>
-                    <button
-                      type="button"
-                      style={btn("danger")}
-                      onClick={() => removeDraft(d.id)}
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+        <Modal
+          open={Boolean(draftPendingDelete)}
+          onClose={() => setDraftPendingDelete(null)}
+          title="Delete booking draft?"
+          description={`“${String(draftPendingDelete?.title || "Untitled Draft")}” will be permanently removed from this device.`}
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" type="button" onClick={() => setDraftPendingDelete(null)}>
+                Keep Draft
+              </Button>
+              <Button variant="danger" type="button" onClick={removeDraft}>
+                <Trash2 size={14} />
+                Delete Draft
+              </Button>
+            </>
+          }
+        />
+      </OperationsPage>
     </HeaderSidebarLayout>
   );
 }

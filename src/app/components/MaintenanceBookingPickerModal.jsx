@@ -1,6 +1,7 @@
 "use client";
 
 import layoutStyles from "./MaintenanceBookingPickerModal.styles.module.css";
+import { Button, FormField, Modal, Select } from "@/app/components/ui";
 export default function MaintenanceBookingPickerModal({
   open,
   vehicles = [],
@@ -19,25 +20,25 @@ export default function MaintenanceBookingPickerModal({
   const canContinue = !!vehicleId || !!equipment;
 
   return (
-    <div
-      className={layoutStyles.extracted1}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && typeof onClose === "function") onClose();
-      }}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Add Maintenance Booking"
+      description="Choose a vehicle and/or equipment, then the new maintenance booking form will open."
+      size="sm"
+      density="compact"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="button" onClick={() => canContinue && onContinue?.()} disabled={!canContinue}>Continue</Button>
+        </>
+      }
     >
-      <div className={layoutStyles.extracted2}>
-        <h3 className={layoutStyles.extracted3}>Add Maintenance Booking</h3>
-        <div className={layoutStyles.extracted4}>
-          Choose a vehicle and/or equipment, then the new maintenance booking form will open.
-        </div>
-
         <div className={layoutStyles.extracted5}>
-          <div>
-            <label className={layoutStyles.extracted6}>Vehicle</label>
-            <select
+          <FormField label="Vehicle">
+            <Select
               value={vehicleId}
               onChange={(e) => onVehicleChange?.(e.target.value)}
-              className={layoutStyles.extracted7}
             >
               <option value="">Select vehicle...</option>
               {vehicles
@@ -63,28 +64,24 @@ export default function MaintenanceBookingPickerModal({
                     </option>
                   );
                 })}
-            </select>
-          </div>
+            </Select>
+          </FormField>
 
-          <div>
-            <label className={layoutStyles.extracted8}>Booking type</label>
-            <select
+          <FormField label="Booking type">
+            <Select
               value={maintenanceType}
               onChange={(e) => onTypeChange?.(e.target.value)}
-              className={layoutStyles.extracted9}
             >
               <option value="WORK">Work / Inspection</option>
               <option value="MOT">MOT</option>
               <option value="SERVICE">Service</option>
-            </select>
-          </div>
+            </Select>
+          </FormField>
 
-          <div>
-            <label className={layoutStyles.extracted10}>Equipment</label>
-            <select
+          <FormField label="Equipment">
+            <Select
               value={equipment}
               onChange={(e) => onEquipmentChange?.(e.target.value)}
-              className={layoutStyles.extracted11}
             >
               <option value="">No equipment</option>
               {equipmentOptions.map((equipmentName) => (
@@ -92,28 +89,10 @@ export default function MaintenanceBookingPickerModal({
                   {equipmentName}
                 </option>
               ))}
-            </select>
-          </div>
-
-          <div className={layoutStyles.extracted12}>
-            <button type="button" onClick={onClose} className={layoutStyles.extracted13}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (!canContinue) return;
-                onContinue?.();
-              }}
-              disabled={!canContinue}
-              style={canContinue ? primaryBtn : disabledBtn}
-            >
-              Continue
-            </button>
-          </div>
+            </Select>
+          </FormField>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

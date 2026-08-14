@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -217,11 +218,11 @@ export default function AddEmployeePage() {
         createdAt: serverTimestamp(),
       });
       clearBookingReferenceCache();
-      alert("Employee added");
+      systemDialogs.showSystemNotification("Employee added");
       router.push("/employees");
     } catch (err) {
       console.error("Error adding employee:", err);
-      alert("Failed to add employee");
+      systemDialogs.showSystemNotification("Failed to add employee");
     } finally {
       setSaving(false);
     }

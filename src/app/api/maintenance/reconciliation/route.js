@@ -13,6 +13,7 @@ import {
   buildFuturePmiHistoryCleanupPatch,
   buildFuturePmiHistoryCleanupPreview,
   classifyFutureMaintenanceResetBooking,
+  selectSafeMaintenanceReconciliationActions,
 } from "@/app/utils/maintenanceDataAudit";
 import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import { isVorInspectionCancellationCandidate } from "@/app/utils/vorBookingPolicy";
@@ -51,6 +52,16 @@ const sha256Fingerprint = (value) =>
   createHash("sha256")
     .update(JSON.stringify(stableFingerprintValue(value)))
     .digest("hex");
+const safeReconciliationFingerprint = (actions = []) =>
+  sha256Fingerprint(
+    actions.map((action) => ({
+      collection: text(action.collection),
+      documentId: text(action.documentId),
+      action: text(action.action),
+      idempotentKey: text(action.idempotentKey),
+      automaticPatch: action.automaticPatch || null,
+    }))
+  );
 const assetValue = (value, fields = []) => {
   if (Array.isArray(value)) return assetValue(value[0], fields);
   if (value && typeof value === "object") {
@@ -527,32 +538,26 @@ export async function POST(request) {
     if (body?.action === FUTURE_PMI_HISTORY_CLEANUP_ACTION) {
       return applyFuturePmiHistoryCleanup({ admin, body, report, requestedYear });
     }
-    const safeActions = report.reconciliationPreview.filter((item) =>
-      [
-        "create_missing_booked_appointment",
-        "supersede_untouched_automatic_appointment",
-        "link_exact_canonical_record",
-        "cancel_invalid_vor_inspection_requirement",
-      ].includes(item.action) &&
-      item.automaticPatch
-    );
+    const safeActions = selectSafeMaintenanceReconciliationActions(report);
+    const expectedFingerprint = safeReconciliationFingerprint(safeActions);
     if (!apply) {
-      return Response.json({ dryRun: true, applied: [], safeActions, report });
+      return Response.json({ dryRun: true, applied: [], safeActions, expectedFingerprint, report });
     }
     if (
       body?.exportConfirmed !== true ||
-      body?.confirmation !== "APPLY_SAFE_MAINTENANCE_RECONCILIATION"
+      body?.confirmation !== "APPLY_SAFE_MAINTENANCE_RECONCILIATION" ||
+      text(body?.expectedFingerprint) !== expectedFingerprint
     ) {
       return jsonError(
-        "Export the data first, then confirm the safe reconciliation explicitly.",
-        400
+        "The dry-run is stale or the export and confirmation safeguards are incomplete. Refresh and export the preview before applying it.",
+        409
       );
     }
 
     const applied = [];
     const skipped = [];
     for (const action of safeActions) {
-      if (action.action === "create_missing_booked_appointment") {
+      if (["create_missing_booked_appointment", "create_missing_requested_due_item"].includes(action.action)) {
         const existing = await adminReadDocument(action.collection, action.documentId);
         if (existing) {
           skipped.push({ ...action, skipReason: "record_already_exists" });
@@ -572,7 +577,11 @@ export async function POST(request) {
               createdBy: admin.userData?.email || "admin",
               updatedAt: now,
               updatedBy: admin.userData?.email || "admin",
-              history: [{ action: "Booked", timestamp: now, source: "safe_reconciliation" }],
+              history: [{
+                action: action.action === "create_missing_requested_due_item" ? "Due item created" : "Booked",
+                timestamp: now,
+                source: "safe_reconciliation",
+              }],
             },
           },
           { mustNotExist: true }

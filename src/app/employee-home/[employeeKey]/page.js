@@ -7,74 +7,27 @@ import { getDocs } from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  MetricCard,
+  Page,
+  PageHeader,
+  Section,
+  Skeleton,
+  Table,
+  TableContainer,
+  Tabs,
+} from "@/app/components/ui";
+import {
   dataAccessKey,
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
-import { UI_TOKENS } from "@/app/utils/uiTokens";
-
-const UI = UI_TOKENS;
-
-const pageWrap = { padding: "14px 12px 20px", background: UI.bg, minHeight: "100vh" };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 6,
-  flexWrap: "wrap",
-};
-const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
-const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
-const inputBase = {
-  width: "100%",
-  padding: "8px 9px",
-  borderRadius: 12,
-  border: "1px solid var(--color-border)",
-  outline: "none",
-  fontSize: 13.5,
-  background: "var(--color-surface)",
-};
-const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      padding: "9px 11px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "var(--color-surface)",
-      color: UI.text,
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-    };
-  }
-  if (kind === "pill") {
-    return {
-      padding: "7px 9px",
-      borderRadius: 999,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "var(--color-surface)",
-      color: UI.text,
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-    };
-  }
-  return {
-    padding: "9px 11px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: UI.brand,
-    color: "var(--color-white)",
-    fontWeight: 900,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  };
-};
+import { ArrowLeft, BriefcaseBusiness, CalendarDays, Coins, LayoutList } from "lucide-react";
 
 const BREAKDOWN_COLUMNS = [
   { key: "onSet", label: "On Set" },
@@ -107,6 +60,16 @@ function dayNameUTC(yyyyMmDd) {
   const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const index = dayOfWeekUTC(yyyyMmDd);
   return index == null ? "" : names[index] || "";
+}
+
+function formatDisplayDate(yyyyMmDd, options = {}) {
+  const date = parseYyyyMmDd(yyyyMmDd);
+  if (!date) return yyyyMmDd || "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: options.year === false ? undefined : "numeric",
+  }).format(date);
 }
 
 function isDateInRange(yyyyMmDd, from, to) {
@@ -275,16 +238,6 @@ function eachDateYMD(startRaw, endRaw) {
   return out;
 }
 
-const summaryCard = {
-  background: "var(--color-surface)",
-  border: UI.border,
-  borderRadius: 10,
-  padding: "6px 9px",
-  display: "grid",
-  gap: 1,
-  minHeight: 0,
-};
-
 export default function EmployeeWorkBreakdownPage() {
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
@@ -332,7 +285,8 @@ export default function EmployeeWorkBreakdownPage() {
     if (gate.checking) return undefined;
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load employee work breakdown" });
-      setRows([]);
+      setDayRows([]);
+      setJobCreditRows([]);
       setLoading(false);
       return undefined;
     }
@@ -577,277 +531,222 @@ export default function EmployeeWorkBreakdownPage() {
     [jobCreditRows]
   );
 
+  const bookedDays = useMemo(
+    () => dayRows.filter((row) => row.source === "booking").length,
+    [dayRows]
+  );
+
+  const rangeLabel = `${formatDisplayDate(formatYyyyMmDd(effectiveRange.since))} – ${formatDisplayDate(formatYyyyMmDd(effectiveRange.until))}`;
+
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted1}>
-          <div>
-            <h1 style={{ color: UI.text, fontSize: 25, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
-              {titleCase(employeeName)}
-            </h1>
-            <div style={{ color: UI.muted, fontSize: 12, marginTop: 3 }}>
-              Detailed work breakdown for the selected reporting window.
-            </div>
-          </div>
-          <button type="button" onClick={() => router.push("/employee-home")} style={btn("ghost")}>
-            Back to Employee Home
-          </button>
+      <Page width="fluid" className={layoutStyles.page}>
+        <PageHeader
+          title={titleCase(employeeName)}
+          subtitle={`Work activity, job credits and daily detail for ${rangeLabel}.`}
+          actions={(
+            <Button variant="secondary" onClick={() => router.push("/employee-home")}>
+              <ArrowLeft size={16} aria-hidden="true" />
+              Employee home
+            </Button>
+          )}
+        />
+
+        <div className={layoutStyles.overviewGrid}>
+          <MetricCard label="Reporting days" value={loading ? "—" : dayRows.length} hint={rangeLabel} icon={<CalendarDays size={20} />} tone="info" />
+          <MetricCard label="Booked days" value={loading ? "—" : bookedDays} hint="Days linked to bookings" icon={<LayoutList size={20} />} tone="success" />
+          <MetricCard label="Jobs" value={loading ? "—" : jobCreditRows.length} hint="Jobs with credit activity" icon={<BriefcaseBusiness size={20} />} />
+          <MetricCard label="Total credits" value={loading ? "—" : totalJobCredits} hint="Applied credits in this range" icon={<Coins size={20} />} tone="info" />
         </div>
 
-        <section style={{ ...surface, padding: 10 }}>
-          <div className={layoutStyles.extracted2}>
-            <div>
-              <h2 style={titleMd}>Reporting Window</h2>
-              <div style={hint}>Change the date range for this employee only.</div>
-            </div>
-          </div>
-
-          <div className={layoutStyles.extracted3}>
-            <div className={layoutStyles.extracted4}>
-              <button type="button" onClick={() => setMode("lastNDays")} style={{ ...btn("pill"), background: mode === "lastNDays" ? UI.brandSoft : "var(--color-surface)", color: mode === "lastNDays" ? UI.brand : UI.text }}>
-                Last N Days
-              </button>
-              <button type="button" onClick={() => setMode("customRange")} style={{ ...btn("pill"), background: mode === "customRange" ? UI.brandSoft : "var(--color-surface)", color: mode === "customRange" ? UI.brand : UI.text }}>
-                Custom Range
-              </button>
-            </div>
+        <Section
+          title="Reporting window"
+          description="Choose a preset period or enter exact dates. Results update automatically."
+          actions={<Badge variant="info">{rangeLabel}</Badge>}
+          className={layoutStyles.controlSection}
+        >
+          <div className={layoutStyles.controlPanel}>
+            <Tabs
+              label="Reporting window type"
+              value={mode}
+              onChange={setMode}
+              items={[
+                { value: "lastNDays", label: "Recent days" },
+                { value: "customRange", label: "Custom dates" },
+              ]}
+            />
 
             {mode === "lastNDays" ? (
-              <div className={layoutStyles.extracted5}>
-                <div className={layoutStyles.extracted6}>
-                  <span style={smallLabel}>Days</span>
-                  <input
+              <div className={layoutStyles.rangeControls}>
+                <label className={layoutStyles.field}>
+                  <span>Number of days</span>
+                  <Input
                     type="number"
                     min={1}
                     max={365}
                     value={rangeDays}
-                    onChange={(e) => setRangeDays(Math.max(1, Math.min(365, Number(e.target.value) || 30)))}
-                    className={layoutStyles.extracted7}
+                    onChange={(event) => setRangeDays(Math.max(1, Math.min(365, Number(event.target.value) || 30)))}
                   />
+                </label>
+                <div className={layoutStyles.presets} aria-label="Quick date ranges">
+                  {[30, 60, 90].map((days) => (
+                    <Button
+                      key={days}
+                      variant={rangeDays === days ? "primary" : "secondary"}
+                      size="sm"
+                      onClick={() => setRangeDays(days)}
+                    >
+                      {days} days
+                    </Button>
+                  ))}
                 </div>
-                {[30, 60, 90].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    style={{ ...btn("pill"), background: rangeDays === n ? UI.brandSoft : "var(--color-surface)", color: rangeDays === n ? UI.brand : UI.text }}
-                    onClick={() => setRangeDays(n)}
-                  >
-                    {n}d
-                  </button>
-                ))}
               </div>
             ) : (
-              <div className={layoutStyles.extracted8}>
-                <div className={layoutStyles.extracted9}>
-                  <span style={smallLabel}>From</span>
-                  <input type="date" max={todayISO} value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={layoutStyles.extracted10} />
-                </div>
-                <div className={layoutStyles.extracted11}>
-                  <span style={smallLabel}>To</span>
-                  <input type="date" max={todayISO} value={toDate} onChange={(e) => setToDate(e.target.value)} className={layoutStyles.extracted12} />
-                </div>
+              <div className={layoutStyles.dateControls}>
+                <label className={layoutStyles.field}>
+                  <span>From</span>
+                  <Input type="date" max={todayISO} value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+                </label>
+                <label className={layoutStyles.field}>
+                  <span>To</span>
+                  <Input type="date" max={todayISO} value={toDate} onChange={(event) => setToDate(event.target.value)} />
+                </label>
               </div>
             )}
           </div>
-        </section>
+        </Section>
 
-        <section
-          style={{
-            ...surface,
-            padding: 10,
-            marginTop: 10,
-          }}
+        <Section title="Activity summary" description="Days by work type. Zero-value categories are de-emphasised for faster scanning.">
+          <div className={layoutStyles.summaryGrid}>
+            {BREAKDOWN_COLUMNS.map((column) => {
+              const value = summary[column.key] || 0;
+              return (
+                <div key={column.key} className={layoutStyles.summaryCard} data-has-value={value > 0}>
+                  <span>{column.label}</span>
+                  <strong>{loading ? "—" : value}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section
+          title="Credits by job"
+          description="Claimed and applied credits are grouped by work day to avoid duplicate date columns."
+          actions={<Badge variant="info">{totalJobCredits} total credits</Badge>}
         >
-          <div className={layoutStyles.extracted13}>
-            <div>
-              <h2 style={titleMd}>Summary</h2>
-              <div style={hint}>Compact work-type totals for this employee.</div>
-            </div>
-          </div>
-          <div
-            className={layoutStyles.extracted14}
-          >
-          {BREAKDOWN_COLUMNS.map((column) => (
-            <div key={column.key} style={summaryCard}>
-              <div style={{ fontSize: 10.5, color: UI.muted, fontWeight: 800, lineHeight: 1.2 }}>{column.label}</div>
-              <div style={{ fontSize: 16, color: UI.text, fontWeight: 900, lineHeight: 1 }}>{summary[column.key] || 0}</div>
-            </div>
-          ))}
-          </div>
-        </section>
-
-        <section style={{ ...surface, padding: 10, marginTop: 10 }}>
-          <div className={layoutStyles.extracted15}>
-            <div>
-              <h2 style={titleMd}>Credits By Job</h2>
-              <div style={hint}>Per-job credit breakdown for this employee in the selected range.</div>
-            </div>
-            <div
-              style={{
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: `1px solid ${UI.brandBorder}`,
-                background: UI.brandSoft,
-                color: UI.brand,
-                fontSize: 12,
-                fontWeight: 900,
-              }}
-            >
-              Total credits: {totalJobCredits}
-            </div>
-          </div>
-
           {loading ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>Loading job credits...</div>
+            <div className={layoutStyles.loadingPanel} aria-label="Loading job credits">
+              <Skeleton height={48} />
+              <Skeleton height={72} />
+              <Skeleton height={72} />
+            </div>
           ) : jobCreditRows.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>No job credits found for this range.</div>
+            <EmptyState title="No job credits" description="There are no job credits for this employee in the selected reporting window." />
           ) : (
-            <div className={layoutStyles.extracted16}>
-              <table className={layoutStyles.extracted17}>
+            <TableContainer>
+              <Table className={layoutStyles.creditsTable}>
                 <thead>
                   <tr>
-                    <th style={tableHeadLeft}>Job</th>
-                    <th style={tableHead}>Status</th>
-                    <th style={tableHead}>Days</th>
-                    <th style={tableHead}>Weekend / Credit Rule</th>
-                    <th style={tableHead}>Day Credits</th>
-                    <th style={tableHead}>Applied Credits</th>
-                      <th style={tableHead}>Night Turnaround</th>
-                      <th style={tableHead}>Total Credits</th>
+                    <th>Job</th>
+                    <th>Status</th>
+                    <th>Work days and credit rules</th>
+                    <th>Night turnaround</th>
+                    <th>Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobCreditRows.map((row) => (
                     <tr key={row.key}>
-                      <td style={tableCellLeft}>{row.bookingLabel}</td>
-                      <td style={tableCell}>{row.status || "-"}</td>
-                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal" }}>
-                        {row.dayCredits.map((item) => (
-                          <div key={`${row.key}-${item.date}`}>{item.date} {item.dayName ? `(${item.dayName})` : ""}: {item.note}</div>
-                        ))}
+                      <td className={layoutStyles.jobName}>{row.bookingLabel}</td>
+                      <td>
+                        <Badge variant={String(row.status).toLowerCase().startsWith("complete") ? "success" : "info"}>
+                          {row.status || "Unknown"}
+                        </Badge>
                       </td>
-                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal" }}>
-                        {row.dayCredits.map((item) => (
-                          <div key={`${row.key}-${item.date}-rule`}>{item.date}: {item.rule}</div>
-                        ))}
+                      <td>
+                        <div className={layoutStyles.workDays}>
+                          {row.dayCredits.map((item) => (
+                            <div className={layoutStyles.workDay} key={`${row.key}-${item.date}`}>
+                              <div className={layoutStyles.workDate}>
+                                <strong>{formatDisplayDate(item.date)}</strong>
+                                <span>{item.dayName}</span>
+                              </div>
+                              <div className={layoutStyles.workDetail}>
+                                <strong>{item.note}</strong>
+                                <span>{item.rule}</span>
+                              </div>
+                              <div className={layoutStyles.creditValues}>
+                                <span>Claimed {item.credit}</span>
+                                <strong>Applied {item.appliedCredit}</strong>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </td>
-                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal" }}>
-                        {row.dayCredits.map((item) => (
-                          <div key={`${row.key}-${item.date}-credit`}>{item.date}: {item.credit}</div>
-                        ))}
-                      </td>
-                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal", fontWeight: 900 }}>
-                        {row.dayCredits.map((item) => (
-                          <div key={`${row.key}-${item.date}-applied`}>{item.date}: {item.appliedCredit}</div>
-                        ))}
-                      </td>
-                      <td style={tableCell}>{row.turnaroundCredit || 0}</td>
-                      <td style={{ ...tableCell, fontWeight: 900 }}>{row.total}</td>
+                      <td className={layoutStyles.numberCell}>{row.turnaroundCredit || 0}</td>
+                      <td className={layoutStyles.totalCell}>{row.total}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableContainer>
           )}
-        </section>
+        </Section>
 
-        <section style={{ ...surface, padding: 10, marginTop: 10 }}>
-          <div className={layoutStyles.extracted18}>
-            <div>
-              <h2 style={titleMd}>Day By Day</h2>
-              <div style={hint}>
-                Weekdays without a booking or holiday are counted as yard/base days.
-              </div>
-            </div>
-          </div>
-
+        <Section
+          title="Day-by-day detail"
+          description="Weekdays without a booking or holiday are recorded as yard/base days."
+          actions={<Badge>{dayRows.length} days</Badge>}
+        >
           {loading ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>Loading breakdown…</div>
+            <div className={layoutStyles.loadingPanel} aria-label="Loading daily breakdown">
+              <Skeleton height={48} />
+              <Skeleton height={48} />
+              <Skeleton height={48} />
+            </div>
+          ) : dayRows.length === 0 ? (
+            <EmptyState title="No daily activity" description="No activity was found in the selected reporting window." />
           ) : (
-            <div className={layoutStyles.extracted19}>
-              <table className={layoutStyles.extracted20}>
+            <TableContainer>
+              <Table className={layoutStyles.dailyTable}>
                 <thead>
                   <tr>
-                    <th style={tableHeadLeft}>Date</th>
-                    <th style={tableHead}>Day</th>
-                    <th style={tableHead}>Type</th>
-                    <th style={tableHead}>Source</th>
-                    <th style={tableHead}>Job / Context</th>
-                    <th style={tableHead}>Note</th>
-                    <th style={tableHead}>Credit Rule</th>
-                    <th style={tableHead}>Credit</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Source</th>
+                    <th>Job / context</th>
+                    <th>Note and credit rule</th>
+                    <th>Credit</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dayRows.map((row) => (
                     <tr key={row.date}>
-                      <td style={tableCellLeft}>{row.date}</td>
-                      <td style={tableCell}>{dayNameUTC(row.date) || "-"}</td>
-                      <td style={tableCell}>{row.typeLabel}</td>
-                      <td style={tableCell}>
-                        <span
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: 999,
-                            border: `1px solid ${row.source === "holiday" ? "var(--color-warning-border)" : row.source === "booking" ? UI.brandBorder : "var(--color-border)"}`,
-                            background: row.source === "holiday" ? UI.warnSoft : row.source === "booking" ? UI.brandSoft : "var(--color-surface-subtle)",
-                            color: row.source === "holiday" ? UI.warn : row.source === "booking" ? UI.brand : UI.muted,
-                            fontSize: 12,
-                            fontWeight: 800,
-                          }}
-                        >
-                          {titleCase(row.source)}
-                        </span>
+                      <td className={layoutStyles.dateCell}>
+                        <strong>{formatDisplayDate(row.date)}</strong>
+                        <span>{dayNameUTC(row.date) || "-"}</span>
                       </td>
-                      <td style={{ ...tableCell, textAlign: "left" }}>{row.bookingLabel}</td>
-                      <td style={{ ...tableCell, textAlign: "left" }}>{row.note}</td>
-                      <td style={tableCell}>{row.creditRule || "-"}</td>
-                      <td style={tableCell}>{typeof row.credit === "number" ? row.credit : "-"}</td>
+                      <td className={layoutStyles.typeCell}>{row.typeLabel}</td>
+                      <td>
+                        <Badge variant={row.source === "holiday" ? "warning" : row.source === "booking" ? "info" : "neutral"}>
+                          {titleCase(row.source)}
+                        </Badge>
+                      </td>
+                      <td className={layoutStyles.contextCell}>{row.bookingLabel}</td>
+                      <td className={layoutStyles.noteCell}>
+                        <strong>{row.note}</strong>
+                        <span>{row.creditRule || "No credit rule"}</span>
+                      </td>
+                      <td className={layoutStyles.totalCell}>{typeof row.credit === "number" ? row.credit : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableContainer>
           )}
-        </section>
-      </div>
+        </Section>
+      </Page>
     </HeaderSidebarLayout>
   );
 }
-
-const tableHead = {
-  padding: "8px 10px",
-  background: "var(--color-surface-subtle)",
-  borderTop: UI.border,
-  borderBottom: UI.border,
-  borderRight: UI.border,
-  fontSize: 11.5,
-  fontWeight: 900,
-  color: UI.text,
-  textAlign: "center",
-  whiteSpace: "nowrap",
-};
-
-const tableHeadLeft = {
-  ...tableHead,
-  borderLeft: UI.border,
-  textAlign: "left",
-};
-
-const tableCell = {
-  padding: "7px 10px",
-  borderBottom: UI.border,
-  borderRight: UI.border,
-  fontSize: 12.5,
-  color: UI.text,
-  textAlign: "center",
-  background: "var(--color-surface)",
-  whiteSpace: "nowrap",
-};
-
-const tableCellLeft = {
-  ...tableCell,
-  borderLeft: UI.border,
-  textAlign: "left",
-  fontWeight: 800,
-};

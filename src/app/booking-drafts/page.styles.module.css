@@ -1,25 +1,157 @@
-
-
-.extracted1 {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.toolbar {
+  margin-bottom: 16px;
 }
 
-.extracted2 {
-  display: grid;
-  gap: 10px;
+.searchField {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 360px;
+  max-width: 560px;
 }
 
-.extracted3 {
-  min-width: 240px;
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
+.searchField > svg {
+  position: absolute;
+  left: 11px;
+  z-index: 1;
+  color: var(--color-text-muted);
+  pointer-events: none;
 }
 
-.extracted4 {
+.searchField input {
+  padding-left: 34px;
+}
+
+.resultSummary {
+  margin: -7px 0 8px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.tableContainer {
+  box-shadow: var(--shadow-sm);
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 12.5px;
+}
+
+.table th {
+  height: 31px;
+  padding: 6px 8px;
+  font-size: 10.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.table td {
+  height: auto;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+}
+
+.table th:first-child {
+  width: 44%;
+}
+
+.table th:nth-child(2) {
+  width: 23%;
+}
+
+.table th:nth-child(3) {
+  width: 18%;
+}
+
+.table th:last-child {
+  width: 180px;
+}
+
+.table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.draftIdentity {
+  min-width: 0;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.draftIdentity strong {
+  overflow: hidden;
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draftIcon {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+  border: 1px solid var(--color-brand-border);
+  border-radius: var(--radius-sm);
+}
+
+.updatedAt {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.storageLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.actionsHeading {
+  text-align: left !important;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.rowActions [data-ui-button] {
+  min-height: 24px;
+  padding: 3px 7px;
+  font-size: 11px;
+  box-shadow: none;
+}
+
+.deleteButton {
+  color: var(--color-danger) !important;
+}
+
+@media (max-width: 840px) {
+  .table {
+    min-width: 760px;
+  }
+}
+
+@media (max-width: 600px) {
+  .searchField {
+    max-width: none;
+    flex-basis: 100%;
+  }
+
 }

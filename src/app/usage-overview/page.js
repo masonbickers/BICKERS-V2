@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { Button, Modal } from "@/app/components/ui";
 import { db, auth } from "../../../firebaseConfig";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import {
@@ -619,7 +621,7 @@ export default function UsageOverviewPage() {
       setEditModal(null);
     } catch (error) {
       console.error("save usage note error:", error);
-      alert("Could not save. Please try again.");
+      systemDialogs.showSystemNotification("Could not save. Please try again.");
     } finally {
       setSavingKey(null);
     }
@@ -1022,35 +1024,16 @@ export default function UsageOverviewPage() {
       </div>
 
       {editModal ? (
-        <div
-          className={layoutStyles.extracted24}
-          role="dialog"
-          aria-modal="true"
+        <Modal
+          open
+          onClose={() => setEditModal(null)}
+          eyebrow="Vehicle usage"
+          title="Set day note"
+          description={`${fmtDate(editModal.dateISO)} - ${vehicles.find((vehicle) => vehicle.id === editModal.vehicleId)?.label || editModal.vehicleId}`}
+          size="md"
+          density="compact"
+          footer={<><Button variant="secondary" size="sm" onClick={() => setEditModal(null)} disabled={!!savingKey}>Cancel</Button><Button size="sm" onClick={saveEdit} disabled={!!savingKey} loading={!!savingKey}><Save size={14} />Save</Button></>}
         >
-          <div
-            style={{
-              width: "min(94vw, 640px)",
-              background: "var(--color-surface)",
-              border: UI.border,
-              borderRadius: UI.radius,
-              boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
-              padding: 16,
-            }}
-          >
-            <div className={layoutStyles.extracted25}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 950, color: UI.text }}>Set Day Note</div>
-                <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                  {fmtDate(editModal.dateISO)} - {vehicles.find((vehicle) => vehicle.id === editModal.vehicleId)?.label || editModal.vehicleId}
-                </div>
-              </div>
-              <button type="button" className="usage-overview-action" style={btn()} onClick={() => setEditModal(null)}>
-                <X size={14} />
-                Close
-              </button>
-            </div>
-
-            <div className={layoutStyles.extracted26} />
 
             <div className={layoutStyles.extracted27}>
               <Field label="Note">
@@ -1102,17 +1085,7 @@ export default function UsageOverviewPage() {
               Leave note as <b>No note</b> to clear the visible cell. Existing job text is kept unless you clear it.
             </div>
 
-            <div className={layoutStyles.extracted28}>
-              <button type="button" className="usage-overview-action" style={btn()} onClick={() => setEditModal(null)} disabled={!!savingKey}>
-                Cancel
-              </button>
-              <button type="button" className="usage-overview-action" style={btn("primary")} onClick={saveEdit} disabled={!!savingKey}>
-                <Save size={14} />
-                {savingKey ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       ) : null}
     </HeaderSidebarLayout>
   );

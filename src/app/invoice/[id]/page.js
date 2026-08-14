@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { Fragment, useCallback, useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -453,7 +454,7 @@ export default function InvoiceJobPage() {
   const persistInvoice = async (nextInvoice, successMessage) => {
     const errors = validateInvoice(nextInvoice);
     if (errors.length) {
-      alert(errors.join("\n"));
+      systemDialogs.showSystemNotification(errors.join("\n"));
       return false;
     }
     setSaving(true);
@@ -487,10 +488,10 @@ export default function InvoiceJobPage() {
         parseInvoiceRecord(data.invoice, job)
       );
       setInvoice(payload);
-      if (successMessage) alert(successMessage);
+      if (successMessage) systemDialogs.showSystemNotification(successMessage);
       return payload;
     } catch (e) {
-      alert("Failed to save invoice: " + (e?.message || e));
+      systemDialogs.showSystemNotification("Failed to save invoice: " + (e?.message || e));
       return null;
     } finally {
       setSaving(false);
@@ -535,7 +536,7 @@ export default function InvoiceJobPage() {
       }
       const needsReason = ["return_to_draft", "void"].includes(action);
       const reason = needsReason
-        ? window.prompt(
+        ? await systemDialogs.promptSystem(
             action === "void"
               ? "Reason for voiding this invoice:"
               : "Reason for returning this invoice to draft:",
@@ -562,7 +563,7 @@ export default function InvoiceJobPage() {
         throw new Error(data.error || "Invoice lifecycle action failed.");
       }
       setInvoice(parseInvoiceRecord(data.invoice, job));
-      alert(
+      systemDialogs.showSystemNotification(
         action === "approve"
           ? "Invoice approved."
           : action === "return_to_draft"
@@ -572,7 +573,7 @@ export default function InvoiceJobPage() {
           : "Invoice voided."
       );
     } catch (error) {
-      alert(error?.message || String(error));
+      systemDialogs.showSystemNotification(error?.message || String(error));
     } finally {
       setSaving(false);
     }
@@ -594,9 +595,9 @@ export default function InvoiceJobPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.job) throw new Error(data.error || "Invoice could not be queued.");
       setExportJob(data.job);
-      alert(data.created ? "Invoice queued for the Sage 50 connector." : "This invoice is already queued.");
+      systemDialogs.showSystemNotification(data.created ? "Invoice queued for the Sage 50 connector." : "This invoice is already queued.");
     } catch (error) {
-      alert(error?.message || String(error));
+      systemDialogs.showSystemNotification(error?.message || String(error));
     } finally {
       setSaving(false);
     }
@@ -621,9 +622,9 @@ export default function InvoiceJobPage() {
       }
       setInvoice(parseInvoiceRecord(data.invoice, job));
       await loadExportJobStatus();
-      alert(data.idempotent ? "Invoice was already reconciled." : "Invoice issued from the confirmed Sage 50 result.");
+      systemDialogs.showSystemNotification(data.idempotent ? "Invoice was already reconciled." : "Invoice issued from the confirmed Sage 50 result.");
     } catch (error) {
-      alert(error?.message || String(error));
+      systemDialogs.showSystemNotification(error?.message || String(error));
     } finally {
       setSaving(false);
     }
@@ -632,11 +633,11 @@ export default function InvoiceJobPage() {
   const sendIssuedInvoice = async () => {
     const recipient = String(invoice.issuedSnapshot?.customer?.email || "").trim();
     if (!recipient) {
-      alert("The issued customer snapshot does not contain an accounts-payable email.");
+      systemDialogs.showSystemNotification("The issued customer snapshot does not contain an accounts-payable email.");
       return;
     }
     if (
-      !window.confirm(
+      !await systemDialogs.confirmSystem(
         `${invoice.delivery?.status === "failed" ? "Retry delivery" : "Send invoice"} ${invoice.invoiceNumber} to ${recipient}?`
       )
     ) return;
@@ -657,9 +658,9 @@ export default function InvoiceJobPage() {
         throw new Error(data.error || "Invoice delivery failed.");
       }
       setInvoice((current) => ({ ...current, delivery: data.delivery }));
-      alert(data.idempotent ? "This invoice was already delivered." : "Issued invoice sent.");
+      systemDialogs.showSystemNotification(data.idempotent ? "This invoice was already delivered." : "Issued invoice sent.");
     } catch (error) {
-      alert(error?.message || String(error));
+      systemDialogs.showSystemNotification(error?.message || String(error));
       const invoiceSnap = await getDoc(doc(db, "invoiceQueue", id)).catch(() => null);
       if (invoiceSnap?.exists()) {
         setInvoice(parseInvoiceRecord({ id: invoiceSnap.id, ...invoiceSnap.data() }, job));

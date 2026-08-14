@@ -1,6 +1,7 @@
 // src/app/add-vehicle/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -43,6 +44,7 @@ import {
   Modal,
   Textarea,
 } from "@/app/components/ui";
+import { syncVehicleAnnualMaintenanceForecast } from "@/app/utils/maintenanceMutationClient";
 
 /* UI tokens */
 const UI = UI_TOKENS;
@@ -234,6 +236,17 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
       { type: "text", label: "LOLER ISO Week", name: "lolerISOWeek" },
     ],
   },
+  {
+    key: "tachoCalibration",
+    workflowKey: "tacho_calibration",
+    label: "Tacho Calibration",
+    fields: [
+      { type: "date", label: "Last Tacho Calibration", name: "lastTachoCalibration" },
+      { type: "text", label: "Tacho Calibration Freq (weeks)", name: "tachoCalibrationFreq" },
+      { type: "date", label: "Next Tacho Calibration", name: "nextTachoCalibration" },
+      { type: "text", label: "Tacho Calibration ISO Week", name: "tachoCalibrationISOWeek" },
+    ],
+  },
 ];
 
 const parseLocalDateOnly = (s) => {
@@ -255,18 +268,6 @@ const addWeeksToISO = (isoDate, weeks) => {
   if (!d || !w) return "";
   d.setDate(d.getDate() + w * 7);
   return clampISODate(d);
-};
-const calcNextEightWeekFromCycle = (baseISO, currentNextISO) => {
-  const base = parseLocalDateOnly(baseISO);
-  if (!base) return "";
-
-  const currentNext = parseLocalDateOnly(currentNextISO);
-  if (currentNext && currentNext.getTime() > base.getTime()) {
-    const diffDays = Math.round((currentNext.getTime() - base.getTime()) / 86400000);
-    if (diffDays > 0 && diffDays % 56 === 0) return clampISODate(currentNext);
-  }
-
-  return addWeeksToISO(baseISO, 8);
 };
 const isPastISODate = (isoDate) => {
   const d = parseLocalDateOnly(isoDate);
@@ -397,7 +398,7 @@ export default function AddVehiclePage() {
     const { name, value } = e.target;
 
     if (/^last/i.test(name) && value && value > clampISODate(new Date())) {
-      alert("A last-completed date cannot be in the future. Create the vehicle, book the work, then mark it complete when it has been done.");
+      systemDialogs.showSystemNotification("A last-completed date cannot be in the future. Create the vehicle, book the work, then mark it complete when it has been done.");
       return;
     }
 
@@ -508,7 +509,7 @@ export default function AddVehiclePage() {
     ];
     const missing = required.find(([field]) => !String(vorPrompt?.[field] || "").trim());
     if (missing) {
-      alert(`Enter the ${missing[1]} before marking this vehicle VOR.`);
+      systemDialogs.showSystemNotification(`Enter the ${missing[1]} before marking this vehicle VOR.`);
       return;
     }
     const startedAt = new Date().toISOString();
@@ -559,11 +560,6 @@ export default function AddVehiclePage() {
       const calc = addWeeksToISO(formData.lastRFL, formData.rflFreq);
       if (calc && formData.nextRFL !== calc) updates.nextRFL = calc;
     }
-    if (formData.eightWeekInspectionStart) {
-      const calc = calcNextEightWeekFromCycle(formData.eightWeekInspectionStart, formData.nextEightWeekInspection);
-      if (calc && formData.nextEightWeekInspection !== calc) updates.nextEightWeekInspection = calc;
-    }
-
     [
       ["lastTacho", "tachoFreq", "nextTacho"],
       ["lastBrakeTest", "brakeTestFreq", "nextBrakeTest"],
@@ -572,7 +568,6 @@ export default function AddVehiclePage() {
       ["lastTailLift", "tailLiftFreq", "nextTailLift"],
       ["lastLoler", "lolerFreq", "nextLoler"],
       ["lastTachoCalibration", "tachoCalibrationFreq", "nextTachoCalibration"],
-      ["lastLorryInspection", "lorryInspectionFreq", "nextLorryInspection"],
     ].forEach(([lastKey, freqKey, nextKey]) => {
       if (!formData[lastKey] || !formData[freqKey]) return;
       const calc = addWeeksToISO(formData[lastKey], formData[freqKey]);
@@ -581,6 +576,13 @@ export default function AddVehiclePage() {
 
     const nextMot = updates.nextMOT ?? formData.nextMOT;
     const nextService = updates.nextService ?? formData.nextService;
+    const nextPmi = updates.nextPMI ?? formData.nextPMI;
+    if (nextPmi && formData.nextEightWeekInspection !== nextPmi) {
+      updates.nextEightWeekInspection = nextPmi;
+    }
+    if (nextPmi && formData.nextLorryInspection !== nextPmi) {
+      updates.nextLorryInspection = nextPmi;
+    }
     const nextInspection = updates.nextEightWeekInspection ?? formData.nextEightWeekInspection;
     const motIso = getIsoWeekLabel(nextMot);
     const serviceIso = getIsoWeekLabel(nextService);
@@ -692,7 +694,7 @@ export default function AddVehiclePage() {
     const gate = resolveDataAccess(authState);
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "add vehicle" });
-      alert(gate.reason || "You do not have permission to add vehicles.");
+      systemDialogs.showSystemNotification(gate.reason || "You do not have permission to add vehicles.");
       return false;
     }
 
@@ -902,9 +904,47 @@ export default function AddVehiclePage() {
         Object.assign(payload, syncCanonicalPmiAliases(payload));
       }
 
-      await addDoc(collection(db, "vehicles"), tenantPayload(authState, payload));
+      const createdVehicle = await addDoc(
+        collection(db, "vehicles"),
+        tenantPayload(authState, payload)
+      );
+      let forecastSyncFailed = false;
+      if (!isNumberPlateMode) {
+        const scheduleYears = new Set();
+        [
+          payload.nextMOT,
+          payload.nextService,
+          payload.nextTacho,
+          payload.nextBrakeTest,
+          payload.nextPMI,
+          payload.nextTachoDownload,
+          payload.nextTailLift,
+          payload.nextLoler,
+          payload.nextTachoCalibration,
+        ].forEach((date) => {
+          const dueYear = Number(String(date || "").slice(0, 4));
+          if (Number.isInteger(dueYear) && dueYear > 0) scheduleYears.add(dueYear);
+        });
+        try {
+          for (const forecastYear of [...scheduleYears].sort()) {
+            await syncVehicleAnnualMaintenanceForecast({
+              vehicle: { ...payload, id: createdVehicle.id },
+              year: forecastYear,
+            });
+          }
+        } catch (forecastError) {
+          forecastSyncFailed = true;
+          console.error("Could not create initial maintenance due items:", forecastError);
+        }
+      }
 
-      alert(isNumberPlateMode ? "Number plate added" : "Vehicle added");
+      systemDialogs.showSystemNotification(
+        isNumberPlateMode
+          ? "Number plate added"
+          : forecastSyncFailed
+          ? "Vehicle added, but its maintenance due items could not be created. Ask a Service, Workshop or Admin user to run maintenance reconciliation."
+          : "Vehicle added"
+      );
       if (navigateOnSuccess) {
         router.push("/vehicles");
         router.refresh?.();
@@ -912,11 +952,11 @@ export default function AddVehiclePage() {
       return true;
     } catch (err) {
       if (handleFirestoreAccessError(err, { collectionName: "vehicles", operation: "add vehicle" })) {
-        alert("You do not have permission to add vehicles.");
+        systemDialogs.showSystemNotification("You do not have permission to add vehicles.");
         return false;
       }
       console.error("Error adding vehicle:", err);
-      alert("Failed to add vehicle");
+      systemDialogs.showSystemNotification("Failed to add vehicle");
       return false;
     } finally {
       setSaving(false);
