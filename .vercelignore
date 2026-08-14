@@ -2,6 +2,7 @@
 .vercel
 .codex*
 .next
+.next 2
 .next-dev
 node_modules
 tmp
@@ -11,5 +12,6 @@ tests
 firestore-debug.log
 *.log
 *.tsbuildinfo
+**/* 2.*
 .env*
 !.env.example
