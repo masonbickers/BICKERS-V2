@@ -2,6 +2,12 @@
 
 Use this checklist for the controlled pilot before final rollout.
 
+Release candidate: `v3.1.0-rc.1`
+
+Named tester: _pending_
+
+Completion date: _pending_
+
 ## Automated Checks
 
 - `npm.cmd run lint` passes.

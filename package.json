@@ -1,6 +1,6 @@
 {
   "name": "bickers-booking",
-  "version": "3.0.5",
+  "version": "3.1.0-rc.1",
   "private": true,
   "scripts": {
     "predev": "node scripts/prepare-next-dev-cache.mjs",
@@ -25,13 +25,15 @@
     "test:storage-rules": "firebase emulators:exec --only firestore,storage --project demo-bickers-storage-access-rules \"node --test tests/storageAccess.rules.test.mjs\"",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
     "test:dates": "node --test tests/dateNormalization.test.mjs",
+    "test:activity-tracking": "node --test tests/activityTracking.test.mjs",
     "test:vehicle-maintenance-flow": "node --test tests/vehicleMaintenanceFlow.test.mjs tests/maintenanceRecord.test.mjs tests/maintenanceMutationPolicy.test.mjs tests/maintenanceDataAudit.test.mjs tests/maintenanceAlerts.test.mjs",
     "test:unit": "node scripts/run-node-test-suite.mjs",
     "test:rules": "node scripts/run-with-jdk21.mjs -- npm run test:firestore-rules && node scripts/run-with-jdk21.mjs -- npm run test:storage-rules",
     "test:browser": "playwright test",
     "verify:production": "npm run test:unit && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:browser",
     "verify:clean-checkout": "node scripts/verify-clean-checkout.mjs",
-    "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
+    "migrate:employee-access": "node scripts/migrate-employee-access.mjs",
+    "migrate:receipt-groups": "node scripts/migrate-receipt-groups.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.18",
