@@ -42,6 +42,7 @@ export const PLATFORM_MODULES = [
   ["timesheets", "Timesheets"],
   ["holidays", "Holidays"],
   ["finance", "Finance"],
+  ["receipts", "Receipts"],
   ["invoices", "Invoices"],
   ["vehicles", "Vehicles"],
   ["equipment", "Equipment"],
@@ -121,7 +122,7 @@ export const SHARED_FLEET_PATH_PREFIXES = [
 export const ADMIN_PATH_PREFIXES = [
   "/admin",
   "/platform-admin",
-  "/settings",
+  "/settings/ai-business-rules",
 ];
 
 export const DEFAULT_FEATURE_FLAGS = {
@@ -139,6 +140,7 @@ export const DEFAULT_FEATURE_FLAGS = {
   timesheets: true,
   holidays: true,
   finance: true,
+  receipts: true,
   invoices: true,
   assistant: true,
   mobileApp: true,
@@ -151,19 +153,20 @@ export const DEFAULT_FEATURE_FLAGS = {
 
 export const MODULE_ROUTE_PREFIXES = {
   diary: ["/dashboard", "/booking-page"],
-  bookings: ["/bookings", "/create-booking", "/edit-booking", "/booking-drafts", "/book-work", "/deleted-bookings", "/dashboard", "/booking-page"],
+  bookings: ["/bookings", "/create-booking", "/edit-booking", "/booking-drafts", "/book-work", "/deleted-bookings", "/dashboard", "/booking-page", "/enquiry", "/create-enquiry", "/saved-contacts"],
   workshop: ["/workshop", "/service", "/service-home", "/service-overview", "/maintenance", "/maintenance-jobs", "/mot-overview", "/mot-history-sync", "/hgv-compliance", "/defects", "/general", "/immediate", "/usage-overview"],
   vehicles: ["/vehicle-home", "/vehicles", "/vehicle-edit", "/vehicle-info", "/vehicle-activity", "/vehicle-checks", "/vehicle-checkid", "/equipment", "/add-equipment", "/edit-equipment", "/mot-overview", "/mot-history-sync", "/hgv-compliance", "/preplist", "/preplist-dashboard"],
   equipment: ["/equipment", "/add-equipment", "/edit-equipment"],
   hr: ["/hr", "/hr-policies", "/holiday-allowance", "/holiday-form", "/holiday-usage", "/sick-leave", "/timesheets", "/timesheet-id"],
   employees: ["/employees", "/employee-home", "/add-employee", "/edit-employee"],
   uCrane: ["/u-crane", "/u-crane-booking", "/u-crane-crew", "/u-crane-edit"],
-  jobSheets: ["/job-home", "/job-sheet", "/job-numbers", "/job-summary", "/stunt-prep", "/preplist", "/preplist-dashboard"],
+  jobSheets: ["/job-home", "/job-sheet", "/job-numbers", "/job-summary", "/stunt-prep", "/preplist", "/preplist-dashboard", "/review-queue"],
   hAndS: ["/h-and-s", "/defects"],
   statistics: ["/statistics"],
   timesheets: ["/timesheets", "/timesheet-id"],
   holidays: ["/holiday-allowance", "/holiday-form", "/holiday-usage"],
-  finance: ["/finance-dashboard", "/finance-home", "/finance-queue", "/invoice", "/invoice-view", "/ready-invoice", "/invoiced", "/paid"],
+  finance: ["/finance-dashboard", "/finance-home", "/finance-queue", "/quote-insights", "/invoice", "/invoice-view", "/ready-invoice", "/invoiced", "/paid"],
+  receipts: ["/receipts"],
   invoices: ["/finance-dashboard", "/finance-queue", "/invoice", "/invoice-view", "/ready-invoice", "/invoiced", "/paid"],
   assistant: ["/assistant"],
   settings: ["/settings"],
@@ -441,6 +444,10 @@ export function isAdminPath(pathname = "") {
   return ADMIN_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
+export function isPersonalSettingsPath(pathname = "") {
+  return String(pathname || "").toLowerCase() === "/settings";
+}
+
 export function isWorkspaceAllowed(access, workspace) {
   if (!access) return false;
   if (workspace === "service") return !!access.hasServiceAccess;
@@ -468,6 +475,9 @@ export function isCalendarPath(pathname = "") {
 }
 
 export function isPathAllowedForAccess(pathname, access) {
+  if (isPersonalSettingsPath(pathname)) {
+    return isWorkspaceAllowed(access, "user") || isWorkspaceAllowed(access, "service");
+  }
   if (isCalendarPath(pathname)) return true;
   if (isSharedFleetPath(pathname)) {
     return isWorkspaceAllowed(access, "user") || isWorkspaceAllowed(access, "service");

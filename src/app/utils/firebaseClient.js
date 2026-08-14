@@ -25,11 +25,12 @@ let storageToolsPromise = null;
 export async function getFirebaseStorageTools() {
   if (!storageToolsPromise) {
     storageToolsPromise = import("firebase/storage").then(
-      ({ getStorage, ref, uploadBytesResumable, getDownloadURL }) => ({
+      ({ getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject }) => ({
         storage: getStorage(app),
         ref,
         uploadBytesResumable,
         getDownloadURL,
+        deleteObject,
       })
     );
   }

@@ -1,5 +1,10 @@
 import { adminCreateDocument, adminReadDocument } from "../_firebaseAdminRest";
-import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
+import {
+  hasCanonicalAccessRecord,
+  hasCompanyAccess,
+  hasServiceWorkspaceAccess,
+  isAccountDisabled,
+} from "@/app/utils/accountAccess";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -255,6 +260,10 @@ export async function requireActiveUserFromRequest(req, options = {}) {
   if (moduleKey && userData?.featureFlags?.[moduleKey] === false) {
     await writeBlockedAccessLog(req, verifiedUser, `${moduleKey} module disabled`);
     return { error: jsonError("Required module access is disabled.", 403) };
+  }
+  if (options.requireServiceWorkspace === true && !hasServiceWorkspaceAccess(userData)) {
+    await writeBlockedAccessLog(req, verifiedUser, "Service workspace access required");
+    return { error: jsonError("Service or Workshop access is required.", 403) };
   }
   return { idToken, verifiedUser, userData: { ...userData, role: normalizedRole } };
 }

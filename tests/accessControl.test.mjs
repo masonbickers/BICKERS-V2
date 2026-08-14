@@ -7,6 +7,7 @@ import {
   isAdminPath,
   isFinanceHandoffPath,
   isPathAllowedForAccess,
+  isPersonalSettingsPath,
   normalizeAppAccess,
   normalizePlatformRole,
   resolveEmployeeAccess,
@@ -18,6 +19,15 @@ import {
   isAdminEmail,
   isPlatformAdminEmail,
 } from "../src/app/utils/adminAccess.js";
+import { hasServiceWorkspaceAccess } from "../src/app/utils/accountAccess.js";
+
+test("maintenance mutations require service/workshop access unless the user is an admin", () => {
+  assert.equal(hasServiceWorkspaceAccess({ role: "user", appAccess: { service: false } }), false);
+  assert.equal(hasServiceWorkspaceAccess({ role: "user", appAccess: { service: true } }), true);
+  assert.equal(hasServiceWorkspaceAccess({ role: "service", isService: true }), true);
+  assert.equal(hasServiceWorkspaceAccess({ role: "admin", appAccess: { service: false } }), true);
+  assert.equal(hasServiceWorkspaceAccess({ role: "platformAdmin", appAccess: { service: false } }), true);
+});
 
 test("infers service-only access from legacy isService", () => {
   assert.deepEqual(inferAccessFromLegacyFields({ isService: true }), {
@@ -76,11 +86,28 @@ test("maps service paths to service workspace", () => {
 
 test("identifies admin-only routes", () => {
   assert.equal(isAdminPath("/admin"), true);
-  assert.equal(isAdminPath("/settings"), true);
+  assert.equal(isAdminPath("/settings"), false);
+  assert.equal(isAdminPath("/settings/ai-business-rules"), true);
   assert.equal(isAdminPath("/employees"), false);
   assert.equal(isAdminPath("/edit-employee/abc123"), false);
   assert.equal(isAdminPath("/deleted-bookings"), false);
   assert.equal(isAdminPath("/dashboard"), false);
+});
+
+test("keeps personal settings available without exposing admin settings", () => {
+  const userOnly = resolveEmployeeAccess({
+    appAccess: { user: true, service: false },
+    defaultWorkspace: "user",
+  });
+  const serviceOnly = resolveEmployeeAccess({
+    appAccess: { user: false, service: true },
+    defaultWorkspace: "service",
+  });
+
+  assert.equal(isPersonalSettingsPath("/settings"), true);
+  assert.equal(isPersonalSettingsPath("/settings/ai-business-rules"), false);
+  assert.equal(isPathAllowedForAccess("/settings", userOnly), true);
+  assert.equal(isPathAllowedForAccess("/settings", serviceOnly), true);
 });
 
 test("keeps admin and platform-admin allowlists explicit", () => {

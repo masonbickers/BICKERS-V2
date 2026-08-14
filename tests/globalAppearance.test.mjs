@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   applyGlobalTheme,
+  createMonochromeDarkPalette,
   DEFAULT_GLOBAL_THEME,
   contrastRatio,
   deriveDarkTheme,
+  deriveLightTheme,
   normalizeGlobalTheme,
   resolveColorMode,
   themeToCssVariables,
@@ -26,6 +28,10 @@ import {
   resolvePublishedAppearance,
 } from "../src/app/utils/appearanceModel.js";
 import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "../src/app/utils/jobStatusColors.js";
+import {
+  INTERFACE_SCALE_OPTIONS,
+  normalizeInterfaceScale,
+} from "../src/app/utils/interfaceScale.js";
 
 test("theme normalization validates colours and clamps component values", () => {
   const theme = normalizeGlobalTheme({ brandColor: "#ABCDEF", inputHeight: 999, pageWidth: 10, density: "invalid" });
@@ -44,16 +50,55 @@ test("derived dark mode produces readable surfaces and complete CSS variables", 
   assert.equal(variables["--input-height"], "38px");
 });
 
+test("dark mode palette can be edited independently from light colours", () => {
+  const theme = normalizeGlobalTheme({
+    ...DEFAULT_GLOBAL_THEME,
+    darkCanvasColor: "#05070d",
+    darkSurfaceColor: "#111827",
+    darkBrandColor: "#7dd3fc",
+    darkPrimaryTextColor: "#000000",
+  });
+  const dark = deriveDarkTheme(theme);
+  const variables = themeToCssVariables(theme, { mode: "dark" });
+  assert.equal(dark.canvasColor, "#05070d");
+  assert.equal(dark.surfaceColor, "#111827");
+  assert.equal(variables["--color-brand"], "#7dd3fc");
+  assert.equal(variables["--color-text-inverse"], "#000000");
+});
+
+test("legacy themes without dark fields retain generated dark colours", () => {
+  const legacy = normalizeGlobalTheme({ brandColor: "#112233", canvasColor: "#eeeeee", surfaceColor: "#ffffff" });
+  assert.equal(legacy.darkBrandColor, "#f5f5f5");
+  assert.equal(legacy.darkCanvasColor, "#111111");
+  assert.equal(deriveDarkTheme(legacy).brandColor, legacy.darkBrandColor);
+});
+
+test("monochrome dark preset creates a black grey and white structural palette", () => {
+  const preset = normalizeGlobalTheme(createMonochromeDarkPalette({ ...DEFAULT_GLOBAL_THEME, darkCanvasColor: "#123456" }));
+  assert.equal(preset.darkBrandColor, "#f5f5f5");
+  assert.equal(preset.darkCanvasColor, "#111111");
+  assert.equal(preset.darkSurfaceColor, "#242424");
+  assert.equal(preset.darkBorderColor, "#666666");
+  assert.equal(preset.darkShellColor, "#000000");
+  assert.equal(preset.darkPrimaryTextColor, "#111111");
+});
+
 test("critical contrast failures block publishing while advisory checks warn", () => {
   const invalid = validateThemeContrast({ ...DEFAULT_GLOBAL_THEME, brandColor: "#ffffff", primaryTextColor: "#ffffff" });
   assert.equal(invalid.valid, false);
   assert.ok(invalid.blocking.some((check) => check.id === "primary-button"));
 });
 
-test("light dark and system preferences resolve deterministically", () => {
-  assert.equal(resolveColorMode("system", true, true), "dark");
-  assert.equal(resolveColorMode("system", false, true), "light");
-  assert.equal(resolveColorMode("dark", true, false), "light");
+test("critical dark contrast failures block publishing", () => {
+  const invalid = validateThemeContrast({ ...DEFAULT_GLOBAL_THEME, darkBrandColor: "#ffffff", darkPrimaryTextColor: "#ffffff" });
+  assert.equal(invalid.valid, false);
+  assert.ok(invalid.blocking.some((check) => check.id === "dark-primary-button"));
+});
+
+test("dark normal and light preferences resolve deterministically", () => {
+  assert.equal(resolveColorMode("normal", true, true), "normal");
+  assert.equal(resolveColorMode("light", false, true), "light");
+  assert.equal(resolveColorMode("dark", true, false), "normal");
 });
 
 test("legacy platform branding migrates into theme and safe labels", () => {
@@ -71,8 +116,8 @@ test("company published appearance resolves over platform defaults", () => {
   assert.equal(resolved.theme.brandColor, "#445566");
 });
 
-test("default light theme preserves the current live colour palette", () => {
-  const variables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "light" });
+test("default normal theme preserves the current live colour palette", () => {
+  const variables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "normal" });
   assert.equal(variables["--color-brand"], "#1f4b7a");
   assert.equal(variables["--color-brand-hover"], "#173b62");
   assert.equal(variables["--color-surface-subtle"], "#f8fafc");
@@ -83,7 +128,7 @@ test("default light theme preserves the current live colour palette", () => {
   assert.equal(variables["--shell-gradient"], "radial-gradient(circle at top left,#cfd8e3 0%,#bcc7d4 34%,#aebac7 100%)");
 });
 
-test("applying the default light theme clears runtime colour overrides", () => {
+test("applying the default normal theme clears runtime colour overrides", () => {
   const removed = [];
   const set = [];
   global.document = {
@@ -96,11 +141,23 @@ test("applying the default light theme clears runtime colour overrides", () => {
       },
     },
   };
-  applyGlobalTheme(DEFAULT_GLOBAL_THEME, { mode: "light" });
+  applyGlobalTheme(DEFAULT_GLOBAL_THEME, { mode: "normal" });
   delete global.document;
   assert.ok(removed.includes("--color-brand"));
   assert.ok(removed.includes("--shell-sidebar-bg"));
   assert.equal(set.length, 0);
+});
+
+test("extra-light mode derives a complete bright structural palette", () => {
+  const light = deriveLightTheme(DEFAULT_GLOBAL_THEME);
+  const variables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "light" });
+  assert.equal(light.surfaceColor, "#ffffff");
+  assert.equal(light.shellColor, "#ffffff");
+  assert.ok(contrastRatio(light.shellTextColor, light.shellColor) >= 4.5);
+  assert.equal(variables["--color-canvas"], light.canvasColor);
+  assert.equal(variables["--shell-sidebar-bg"], "#ffffff");
+  assert.equal(variables["--shell-text"], light.shellTextColor);
+  assert.notEqual(variables["--color-canvas"], DEFAULT_GLOBAL_THEME.canvasColor);
 });
 
 test("platform appearance uses a Firestore-safe document ID", () => {
@@ -120,11 +177,18 @@ test("content labels are allow-listed, HTML-free and retain fallbacks", () => {
 });
 
 test("job status colours remain fixed outside editable global appearance", () => {
-  const lightVariables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "light" });
+  const lightVariables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "normal" });
   const darkVariables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "dark" });
   assert.equal(Object.keys(lightVariables).some((key) => key.startsWith("--job-status-")), false);
   assert.equal(Object.keys(darkVariables).some((key) => key.startsWith("--job-status-")), false);
   assert.deepEqual(getFixedJobStatusStyle("confirmed"), FIXED_JOB_STATUS_STYLES.Confirmed);
   assert.deepEqual(getFixedJobStatusStyle("completed"), FIXED_JOB_STATUS_STYLES.Complete);
   assert.equal(lightVariables["--job-status-confirmed"], undefined);
+});
+
+test("interface size supports compact, standard and large device preferences", () => {
+  assert.deepEqual(INTERFACE_SCALE_OPTIONS.map((option) => option.percent), [80, 100, 115]);
+  assert.equal(normalizeInterfaceScale("compact"), "compact");
+  assert.equal(normalizeInterfaceScale("large"), "large");
+  assert.equal(normalizeInterfaceScale("unsupported"), "standard");
 });

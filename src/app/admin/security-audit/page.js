@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -154,7 +155,7 @@ export default function SecurityAuditPage() {
       row.status === "disabled" || row.status === "device"
         ? ""
         : "\n\nThis is not a disabled/device row. Make sure this account is genuinely unwanted.";
-    const confirmed = window.confirm(
+    const confirmed = await systemDialogs.confirmSystem(
       `Delete access record for ${label}?\n\nThis deletes only this selected Firestore users record and matching MFA/passkey security records for its UID. It does not delete bookings, employees, timesheets, or the Firebase Authentication login.${activeWarning}`
     );
     if (!confirmed) return;
@@ -195,7 +196,7 @@ export default function SecurityAuditPage() {
   const bulkDeleteRows = async (rows, label) => {
     if (!rows.length) return;
 
-    const confirmed = window.confirm(
+    const confirmed = await systemDialogs.confirmSystem(
       `Delete ${rows.length} ${label} access record${rows.length === 1 ? "" : "s"}?\n\nThis only deletes disabled/device users records and matching MFA/passkey records. Live fail, warn, and pass accounts are not included.`
     );
     if (!confirmed) return;

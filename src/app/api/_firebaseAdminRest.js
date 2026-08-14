@@ -2,6 +2,7 @@ import "server-only";
 
 import crypto from "node:crypto";
 import { buildFirestoreCommitWrites } from "@/app/utils/firestoreCommitPlanning";
+import { flattenFirestoreArrayValues } from "@/app/utils/firestoreValueEncoding";
 
 const FIREBASE_PROJECT_ID =
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
@@ -152,7 +153,13 @@ export function jsToFirestoreValue(value) {
     return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
   }
   if (value instanceof Date) return { timestampValue: value.toISOString() };
-  if (Array.isArray(value)) return { arrayValue: { values: value.map(jsToFirestoreValue) } };
+  if (Array.isArray(value)) {
+    return {
+      arrayValue: {
+        values: flattenFirestoreArrayValues(value).map(jsToFirestoreValue),
+      },
+    };
+  }
   if (typeof value === "object") {
     return {
       mapValue: {
@@ -261,6 +268,76 @@ export async function adminCommitDocumentPatches(writes = []) {
     throw new Error(`Admin Firestore commit failed: ${res.status} ${await res.text()}`);
   }
   return res.json();
+}
+
+export async function adminCommitDocumentPatchesWithSequence({
+  writes = [],
+  counterCollection,
+  counterDocumentId,
+  counterField = "lastNumber",
+  allocationCount = 0,
+  applySequence,
+}) {
+  if (!allocationCount) return adminCommitDocumentPatches(writes);
+  const token = await getFirebaseAdminAccessToken();
+  const counterPath = `${counterCollection}/${encodeURIComponent(counterDocumentId)}`;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const begin = await fetch(`${FIRESTORE_BASE_URL}:beginTransaction`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+    });
+    if (!begin.ok) throw new Error(`Admin Firestore transaction failed: ${begin.status} ${await begin.text()}`);
+    const { transaction } = await begin.json();
+    const counterResponse = await fetch(
+      `${FIRESTORE_BASE_URL}/${counterPath}?transaction=${encodeURIComponent(transaction)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+    );
+    if (![200, 404].includes(counterResponse.status)) {
+      throw new Error(`Admin Firestore counter read failed: ${counterResponse.status} ${await counterResponse.text()}`);
+    }
+    const counterDocument = counterResponse.status === 200 ? await counterResponse.json() : null;
+    const counter = counterDocument ? firestoreFieldsToJs(counterDocument.fields || {}) : {};
+    const firstSequence = Math.max(0, Number(counter[counterField]) || 0) + 1;
+    const sequencedWrites = typeof applySequence === "function"
+      ? applySequence(writes, firstSequence)
+      : writes;
+    const counterPatch = {
+      [counterField]: firstSequence + allocationCount - 1,
+      updatedAt: new Date().toISOString(),
+    };
+    const allWrites = [
+      ...sequencedWrites,
+      {
+        collection: counterCollection,
+        documentId: counterDocumentId,
+        patch: counterPatch,
+        ...(counterDocument ? {} : { exists: false }),
+      },
+    ];
+    const commitWrites = buildFirestoreCommitWrites(
+      allWrites.map((write) => ({
+        ...write,
+        patch: Object.fromEntries(
+          Object.entries(write.patch).map(([key, value]) => [key, jsToFirestoreValue(value)])
+        ),
+      })),
+      FIRESTORE_DOCUMENT_ROOT
+    );
+    const commit = await fetch(`${FIRESTORE_BASE_URL}:commit`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ writes: commitWrites, transaction }),
+      cache: "no-store",
+    });
+    if (commit.ok) return commit.json();
+    const message = await commit.text();
+    if ((commit.status === 409 || /ABORTED/i.test(message)) && attempt < 4) continue;
+    throw new Error(`Admin Firestore sequence commit failed: ${commit.status} ${message}`);
+  }
+  throw new Error("Could not allocate a maintenance reference after repeated transaction conflicts.");
 }
 
 export async function adminCreateDocument(collection, data) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock3, History, Moon, RotateCcw, Save, Send, Sun, Type, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, History, Moon, RotateCcw, Save, Send, Sun, Type, WandSparkles, XCircle } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAppearance } from "@/app/components/GlobalThemeProvider";
 import { Alert, Badge, Button, Card, Checkbox, Page, PageHeader, Select, Spinner } from "@/app/components/ui";
@@ -10,7 +10,7 @@ import { useAuth } from "@/app/context/authContext";
 import { auth } from "@/app/utils/firebaseClient";
 import { PLATFORM_APPEARANCE_ID } from "@/app/utils/appearanceModel";
 import { contentLabelGroups, DEFAULT_CONTENT_LABELS, normalizeContentLabels, validateContentLabels } from "@/app/utils/contentLabels";
-import { DEFAULT_GLOBAL_THEME, DENSITY_OPTIONS, FONT_OPTIONS, normalizeGlobalTheme, SHADOW_OPTIONS, themeToCssVariables, validateThemeContrast } from "@/app/utils/globalTheme";
+import { createMonochromeDarkPalette, DEFAULT_GLOBAL_THEME, DENSITY_OPTIONS, FONT_OPTIONS, normalizeGlobalTheme, SHADOW_OPTIONS, themeToCssVariables, validateThemeContrast } from "@/app/utils/globalTheme";
 import { normalizePlatformRole } from "@/app/utils/accessControl";
 import styles from "./AppearanceAdminEditor.module.css";
 
@@ -24,7 +24,10 @@ const THEME_GROUPS = [
   { title: "Navigation", fields: [["sidebarWidth", "Sidebar width", "number", 180, 320, 5, "px"], ["collapsedSidebarWidth", "Collapsed sidebar", "number", 48, 90, 2, "px"], ["topbarHeight", "Top bar height", "number", 50, 84, 2, "px"]] },
   { title: "Cards and elevation", fields: [["radius", "Corner radius", "number", 0, 20, 1, "px"], ["shadowPreset", "Shadow preset", "shadow"]] },
   { title: "Tables", fields: [["tableRowHeight", "Row height", "number", 34, 64, 2, "px"], ["tableHeaderColor", "Header background", "color"], ["tableAlternateColor", "Alternate row", "color"], ["tableZebra", "Alternating rows", "boolean"]] },
-  { title: "Dark mode", fields: [["darkModeEnabled", "Enable generated dark mode", "boolean"]] },
+  { title: "Dark mode", fields: [["darkModeEnabled", "Enable dark mode", "boolean"]] },
+  { title: "Dark mode colours", fields: [["darkBrandColor", "Primary accent", "color"], ["darkAccentColor", "Secondary accent", "color"], ["darkTextColor", "Main text", "color"], ["darkMutedTextColor", "Muted text", "color"], ["darkCanvasColor", "Page background", "color"], ["darkSurfaceColor", "Surface", "color"], ["darkBorderColor", "Borders", "color"], ["darkShellColor", "Navigation background", "color"], ["darkShellTextColor", "Navigation text", "color"], ["darkPrimaryTextColor", "Primary button text", "color"]] },
+  { title: "Dark semantic states", fields: [["darkSuccessColor", "Success", "color"], ["darkWarningColor", "Warning", "color"], ["darkDangerColor", "Danger", "color"], ["darkInfoColor", "Information", "color"]] },
+  { title: "Dark tables", fields: [["darkTableHeaderColor", "Header background", "color"], ["darkTableAlternateColor", "Alternate row", "color"]] },
 ];
 
 function changedCount(draft, published) {
@@ -45,12 +48,13 @@ function FieldControl({ field, value, onChange }) {
 }
 
 function ThemePreview({ theme }) {
-  const [mode, setMode] = useState("light");
+  const [mode, setMode] = useState("normal");
   const [mobile, setMobile] = useState(false);
   const variables = useMemo(() => themeToCssVariables(theme, { mode }), [mode, theme]);
   return <div className={styles.previewWrap}>
     <div className={styles.previewTools}>
-      <Button size="sm" variant={mode === "light" ? "primary" : "secondary"} onClick={() => setMode("light")}><Sun size={14} /> Light</Button>
+      <Button size="sm" variant={mode === "normal" ? "primary" : "secondary"} onClick={() => setMode("normal")}><Sun size={14} /> Normal</Button>
+      <Button size="sm" variant={mode === "light" ? "primary" : "secondary"} onClick={() => setMode("light")}><WandSparkles size={14} /> Light</Button>
       <Button size="sm" variant={mode === "dark" ? "primary" : "secondary"} onClick={() => setMode("dark")} disabled={!theme.darkModeEnabled}><Moon size={14} /> Dark</Button>
       <Button size="sm" variant="secondary" onClick={() => setMobile((value) => !value)}>{mobile ? "Desktop" : "Mobile"}</Button>
     </div>
@@ -151,7 +155,7 @@ export default function AppearanceAdminEditor({ section }) {
     {notice && <Alert className={styles.notice} variant={notice.type}>{notice.text}</Alert>}
     <div className={styles.actionBar}><Button variant="secondary" onClick={() => setDraft(defaults)}><RotateCcw size={15} /> Restore defaults</Button><Button variant="secondary" onClick={() => mutate("POST", { action: "discard" }, "discard")} disabled={busy || !changes}>Discard draft</Button><Button variant="secondary" loading={busy === "save"} onClick={() => mutate("PATCH", { draft }, "save")} disabled={!dirty}><Save size={15} /> Save draft</Button><Button loading={busy === "publish"} onClick={() => mutate("POST", { action: "publish", draft }, "publish")} disabled={changes === 0 || !validation.valid}><Send size={15} /> Publish</Button></div>
     {section === "theme" && <div className={styles.validation}>{validation.checks.map((check) => <span key={check.id} data-pass={check.pass}><span>{check.pass ? <CheckCircle2 size={14} /> : <XCircle size={14} />}</span>{check.label}: {check.ratio}:1 {check.critical && !check.pass ? "(blocks publish)" : ""}</span>)}</div>}
-    <div className={styles.editorLayout}><div className={styles.editorColumn}>{section === "theme" ? THEME_GROUPS.map((group) => <Card className={styles.groupCard} key={group.title}><h2>{group.title}</h2><div className={styles.fieldGrid}>{group.fields.map((field) => <FieldControl key={field[0]} field={field} value={draft[field[0]]} onChange={(name, value) => setDraft((current) => ({ ...current, [name]: value }))} />)}</div></Card>) : Object.entries(contentLabelGroups()).map(([group, fields]) => <Card className={styles.groupCard} key={group}><h2>{group}</h2><div className={styles.labelGrid}>{fields.map((field) => <label key={field.key}><span>{field.label}</span><input value={draft[field.key] || ""} onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))} /><small>Default: {field.fallback}</small></label>)}</div></Card>)}</div>
+    <div className={styles.editorLayout}><div className={styles.editorColumn}>{section === "theme" ? THEME_GROUPS.map((group) => <Card className={styles.groupCard} key={group.title}><h2>{group.title}</h2><div className={styles.fieldGrid}>{group.fields.map((field) => <FieldControl key={field[0]} field={field} value={draft[field[0]]} onChange={(name, value) => setDraft((current) => ({ ...current, [name]: value }))} />)}{group.title === "Dark mode" && <Button variant="secondary" onClick={() => setDraft((current) => createMonochromeDarkPalette(current))}><WandSparkles size={15} /> Create black & grey palette</Button>}</div></Card>) : Object.entries(contentLabelGroups()).map(([group, fields]) => <Card className={styles.groupCard} key={group}><h2>{group}</h2><div className={styles.labelGrid}>{fields.map((field) => <label key={field.key}><span>{field.label}</span><input value={draft[field.key] || ""} onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))} /><small>Default: {field.fallback}</small></label>)}</div></Card>)}</div>
       <aside className={styles.sideColumn}>{section === "theme" ? <ThemePreview theme={normalizeGlobalTheme(draft)} /> : <Card className={styles.labelPreview}><h2>Label preview</h2><strong>{draft["app.name"]}</strong><nav>{["navigation.home", "navigation.bookings", "navigation.vehicles", "navigation.employees"].map((key) => <span key={key}>{draft[key]}</span>)}</nav><div><button>{draft["actions.save"]}</button><button>{draft["actions.cancel"]}</button></div><p>{draft["empty.noResults"]}</p></Card>}
         <Card className={styles.historyCard}><h2><History size={16} /> Version history</h2><Button size="sm" variant="secondary" onClick={toggleHistory} loading={historyLoading}>{historyOpen ? "Hide history" : "Load history"}</Button>{historyOpen && (state?.history?.length ? state.history.map((item) => <div key={item.version}><span><strong>Version {item.version}</strong><small><Clock3 size={12} /> {item.publishedAt ? new Date(item.publishedAt).toLocaleString() : "Published"}<br />{item.publishedBy}</small></span><Button size="sm" variant="secondary" onClick={() => mutate("POST", { action: "restore", version: item.version }, "restore")}>Restore to draft</Button></div>) : <p>No published versions yet.</p>)}</Card>
       </aside></div>

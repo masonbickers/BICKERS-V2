@@ -103,6 +103,296 @@
   flex-wrap: wrap;
 }
 
+.sickHistoryToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.sickHistorySummary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: max-content;
+}
+
+.sickHistorySummary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.sickSummaryValue {
+  color: var(--color-text);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.sickSummaryLabel {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sickHistoryControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1;
+}
+
+.sickSearchField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(340px, 100%);
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.sickSearchField:focus-within {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px var(--color-brand-soft);
+}
+
+.sickSearchField input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.sickSearchField input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.sickSortSelect {
+  min-height: 38px;
+  padding: 0 32px 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sickHistoryTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.sickHistoryTable {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.sickHistoryTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sickHistoryRow {
+  background: var(--color-surface);
+  transition: background 140ms ease;
+}
+
+.sickHistoryRow:hover {
+  background: var(--color-surface-hover);
+}
+
+.sickEmployee {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 210px;
+}
+
+.sickEmployeeAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid var(--color-brand-border);
+  border-radius: 10px;
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.03em;
+}
+
+.sickEmployeeText {
+  min-width: 0;
+}
+
+.sickEmployeeName {
+  color: var(--color-text);
+  font-size: 13.5px;
+  font-weight: 950;
+}
+
+.sickEmployeeEmail {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sickDateRange {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+  color: var(--color-text-muted);
+}
+
+.sickDatePrimary {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.sickDateSecondary {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sickDurationBadge,
+.sickReasonBadge,
+.sickPayBadge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.sickDurationBadge {
+  padding: 5px 9px;
+  border: 1px solid var(--color-brand-border);
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+
+.sickReasonBadge {
+  max-width: 160px;
+  overflow: hidden;
+  padding: 5px 9px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  text-overflow: ellipsis;
+}
+
+.sickNotesCell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 210px;
+  max-width: 380px;
+}
+
+.sickPayBadge {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+}
+
+.sickPayBadgePaid {
+  border: 1px solid var(--color-success-border);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.sickPayBadgeUnpaid {
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.sickNotesText {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sickActions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: nowrap;
+}
+
+.sickEmptyState {
+  padding: 28px 16px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 750;
+  text-align: center;
+}
+
+@media (max-width: 1050px) {
+  .sickHistoryToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sickHistoryControls {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .sickHistorySummary {
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .sickHistoryControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sickSearchField,
+  .sickSortSelect {
+    width: 100%;
+  }
+}
+
 .extracted18 {
   display: flex;
   justify-content: space-between;

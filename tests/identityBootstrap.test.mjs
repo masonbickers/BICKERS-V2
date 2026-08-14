@@ -222,6 +222,7 @@ async function loadVerifier(payload) {
     "@/app/utils/accountAccess": synthetic(ctx, {
       hasCanonicalAccessRecord: () => true,
       hasCompanyAccess: () => true,
+      hasServiceWorkspaceAccess: () => true,
       isAccountDisabled: () => false,
     }),
   };

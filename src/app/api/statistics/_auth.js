@@ -21,13 +21,15 @@ export async function requireStatisticsUser(req) {
 
   const role = normalizeServerRole(userData.role);
   const management = role === "admin" || role === "platformAdmin";
+  const financeManagement = role === "platformAdmin" || (management && enabled(userData, "finance"));
   return {
     idToken,
     verifiedUser,
     userData,
     companyId: String(userData.companyId || "bickers-action").trim() || "bickers-action",
     role,
-    variant: management && enabled(userData, "finance") ? "management" : "booking",
+    // Platform admins must retain oversight even when a company module is disabled.
+    variant: financeManagement ? "management" : "booking",
     canManageRules: management,
   };
 }

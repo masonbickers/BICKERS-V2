@@ -2,7 +2,7 @@ import test, { after, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
-import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 
 const projectId = "demo-bickers-service-access-rules";
 let env;
@@ -24,6 +24,7 @@ async function seed() {
       setDoc(doc(db, "users", "service-a"), { uid: "service-a", isEnabled: true, companyId: "company-a", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "disabled-a"), { uid: "disabled-a", isEnabled: false, companyId: "company-a", role: "user", appAccess: { user: true, service: true } }),
       setDoc(doc(db, "users", "admin-a"), { uid: "admin-a", isEnabled: true, companyId: "company-a", role: "admin", appAccess: { user: true, service: true } }),
+      setDoc(doc(db, "users", "finance-a"), { uid: "finance-a", isEnabled: true, companyId: "company-a", role: "user", financeAccess: true, appAccess: { user: true, service: false } }),
       setDoc(doc(db, "users", "service-b"), { uid: "service-b", isEnabled: true, companyId: "company-b", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "platform"), { uid: "platform", isEnabled: true, role: "platformAdmin", appAccess: { user: true, service: true } }),
       setDoc(doc(db, "bookings", "booking-a"), { companyId: "company-a", title: "A" }),
@@ -53,6 +54,16 @@ async function seed() {
         pmiHistory: [],
         eightWeekInspectionHistory: [],
       }),
+      setDoc(doc(db, "userActivityBuckets", "bucket-a"), { companyId: "company-a", uid: "user-a", activeSeconds: 300 }),
+      setDoc(doc(db, "userActivitySessions", "session-a"), { companyId: "company-a", uid: "user-a", activeSeconds: 300 }),
+      setDoc(doc(db, "activityReviews", "review-a"), { companyId: "company-a", status: "unreviewed" }),
+      setDoc(doc(db, "activityTrackingSettings", "company-a"), { companyId: "company-a", enabled: true }),
+      setDoc(doc(db, "receiptGroups", "group-a"), { companyId: "company-a", submitterUid: "user-a", monthKey: "2026-08", status: "draft", declaredNoReceipts: false }),
+      setDoc(doc(db, "receiptGroups", "group-other-a"), { companyId: "company-a", submitterUid: "service-a", monthKey: "2026-08", status: "submitted", declaredNoReceipts: false }),
+      setDoc(doc(db, "receiptGroups", "group-b"), { companyId: "company-b", submitterUid: "service-b", monthKey: "2026-08", status: "submitted", declaredNoReceipts: false }),
+      setDoc(doc(db, "receipts", "receipt-a"), { companyId: "company-a", submitterUid: "user-a", monthKey: "2026-08", groupId: "group-a", purpose: "Fuel A", valuePence: 1200, suggestedVatPence: 200, status: "pending" }),
+      setDoc(doc(db, "receipts", "receipt-other-a"), { companyId: "company-a", submitterUid: "service-a", monthKey: "2026-08", groupId: "group-other-a", purpose: "Parts A", valuePence: 2400, suggestedVatPence: 400, status: "pending" }),
+      setDoc(doc(db, "receipts", "receipt-b"), { companyId: "company-b", submitterUid: "service-b", monthKey: "2026-08", groupId: "group-b", purpose: "Fuel B", valuePence: 1200, suggestedVatPence: 200, status: "pending" }),
     ]);
   });
 }
@@ -94,6 +105,63 @@ test("admin and platform admin can both read the single Bickers data set", async
   await seed();
   await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "bookings", "booking-b")));
   await assertSucceeds(getDoc(doc(env.authenticatedContext("platform").firestore(), "bookings", "booking-b")));
+});
+
+test("activity tracking collections are server-only even for administrators", async () => {
+  await seed();
+  for (const uid of ["user-a", "admin-a", "platform"]) {
+    const db = env.authenticatedContext(uid).firestore();
+    await assertFails(getDoc(doc(db, "userActivityBuckets", "bucket-a")));
+    await assertFails(getDoc(doc(db, "userActivitySessions", "session-a")));
+    await assertFails(getDoc(doc(db, "activityReviews", "review-a")));
+    await assertFails(getDoc(doc(db, "activityTrackingSettings", "company-a")));
+    await assertFails(setDoc(doc(db, "userActivityBuckets", `spoof-${uid}`), { companyId: "company-a", uid, activeSeconds: 9999 }));
+  }
+});
+
+test("receipt records are private to the submitter and available to company finance", async () => {
+  await seed();
+  const userDb = env.authenticatedContext("user-a").firestore();
+  await assertSucceeds(getDoc(doc(userDb, "receipts", "receipt-a")));
+  await assertFails(getDoc(doc(userDb, "receipts", "receipt-other-a")));
+  const ownRows = await assertSucceeds(getDocs(query(collection(userDb, "receipts"), where("companyId", "==", "company-a"), where("submitterUid", "==", "user-a"))));
+  assert.equal(ownRows.size, 1);
+  await assertFails(getDocs(collection(userDb, "receipts")));
+  const batch = writeBatch(userDb);
+  batch.set(doc(userDb, "receiptGroups", "new-group"), {
+    companyId: "company-a",
+    submitterUid: "user-a",
+    monthKey: "2026-07",
+    status: "draft",
+    declaredNoReceipts: false,
+  });
+  batch.set(doc(userDb, "receipts", "new-receipt"), {
+    companyId: "company-a",
+    submitterUid: "user-a",
+    monthKey: "2026-07",
+    groupId: "new-group",
+    purpose: "Hotel for job 2451",
+    valuePence: 12500,
+    suggestedVatPence: 2083,
+    status: "pending",
+  });
+  await assertSucceeds(batch.commit());
+  await assertFails(setDoc(doc(userDb, "receipts", "missing-details"), {
+    companyId: "company-a",
+    submitterUid: "user-a",
+    status: "pending",
+  }));
+  await assertFails(updateDoc(doc(userDb, "receipts", "receipt-a"), { status: "approved" }));
+
+  const financeDb = env.authenticatedContext("finance-a").firestore();
+  await assertSucceeds(getDoc(doc(financeDb, "receipts", "receipt-other-a")));
+  await assertSucceeds(getDoc(doc(financeDb, "receiptGroups", "group-other-a")));
+  await assertFails(getDoc(doc(financeDb, "receipts", "receipt-b")));
+  const companyRows = await assertSucceeds(getDocs(query(collection(financeDb, "receipts"), where("companyId", "==", "company-a"))));
+  assert.equal(companyRows.size, 3);
+  await assertFails(updateDoc(doc(financeDb, "receipts", "receipt-a"), { status: "checked" }));
+  await assertSucceeds(updateDoc(doc(userDb, "receipts", "receipt-a"), { purpose: "Corrected fuel", valuePence: 1300, suggestedVatPence: 217 }));
+  await assertFails(updateDoc(doc(userDb, "receiptGroups", "group-a"), { status: "submitted" }));
 });
 
 test("browser clients cannot manufacture or transition legal maintenance records", async () => {

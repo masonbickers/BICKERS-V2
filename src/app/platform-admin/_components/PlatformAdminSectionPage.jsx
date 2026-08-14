@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./PlatformAdminSectionPage.styles.module.css";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -432,7 +433,7 @@ function CompaniesView({ data, load }) {
       setNotice(`Archive ${company.name} instead. It has ${userCount} users and ${employeeCount} employees linked.`);
       return;
     }
-    if (!confirm(`Delete ${company.name || company.id}? This cannot be undone.`)) return;
+    if (!await systemDialogs.confirmSystem(`Delete ${company.name || company.id}? This cannot be undone.`)) return;
 
     setBusyCompanyId(company.id);
     setNotice("");
@@ -1563,7 +1564,7 @@ function CleanupView({ data, load }) {
       setNotice(`Type ${task.id} to confirm this cleanup.`);
       return;
     }
-    if (!confirm(`${task.label}: apply cleanup to ${task.count} row(s)?`)) return;
+    if (!await systemDialogs.confirmSystem(`${task.label}: apply cleanup to ${task.count} row(s)?`)) return;
 
     setBusyTaskId(task.id);
     setNotice("");

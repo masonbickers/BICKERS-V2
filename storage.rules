@@ -81,6 +81,25 @@ service firebase.storage {
         && isAdminData(data);
     }
 
+    function isFinanceReviewerData(data) {
+      return isAdminData(data)
+        || data.get("role", "") in [
+          "finance",
+          "Finance",
+          "financeManager",
+          "finance manager",
+          "Finance Manager"
+        ]
+        || data.get("financeAccess", false) == true;
+    }
+
+    function isFinanceReviewer() {
+      let data = userData();
+      return isSignedIn()
+        && isActiveUserData(data)
+        && isFinanceReviewerData(data);
+    }
+
     function canUseSoftware() {
       return isNotDisabled();
     }
@@ -166,6 +185,18 @@ service firebase.storage {
         && hasUserAccess()
         && isSafeFileSize(25 * 1024 * 1024)
         && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
+    match /companies/{companyId}/receipts/{uid}/{receiptId}/{fileName} {
+      allow read: if canAccessCompany(companyId)
+        && (request.auth.uid == uid || isFinanceReviewer());
+      allow create: if canAccessCompany(companyId)
+        && request.auth.uid == uid
+        && isSafeFileSize(15 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*');
+      allow update: if false;
+      allow delete: if canAccessCompany(companyId)
+        && (request.auth.uid == uid || isFinanceReviewer());
     }
 
     match /companies/{companyId}/maintenance-quotes/{allPaths=**} {
