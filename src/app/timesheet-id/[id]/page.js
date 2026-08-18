@@ -854,6 +854,7 @@ function jobFromBooking(booking = {}, ymd = "") {
     id: booking.id || "",
     jobNumber: booking.jobNumber || "",
     client: booking.client || "",
+    production: booking.production || "",
     location: booking.location || "",
     vehicles: Array.isArray(booking.vehicles) ? booking.vehicles : [],
     dayNote: dayNoteMeta.text,
@@ -1010,11 +1011,11 @@ function resolveVehicleLabel(vehicle, lookup = {}) {
 
 function getPayAdviceJobName(card, primaryJob) {
   if (primaryJob?.jobNumber) {
-    return `#${primaryJob.jobNumber}${primaryJob.client ? ` - ${primaryJob.client}` : ""}`;
+    return `#${primaryJob.jobNumber}${primaryJob.production ? ` - ${primaryJob.production}` : ""}`;
   }
 
-  if (primaryJob?.client || primaryJob?.title) {
-    return primaryJob.client || primaryJob.title;
+  if (primaryJob?.production || primaryJob?.title) {
+    return primaryJob.production || primaryJob.title;
   }
 
   if (card.hasLiveHoliday) {
@@ -1716,6 +1717,7 @@ export default function TimesheetDetailPage() {
               ...j,
               jobNumber: j.jobNumber || b.jobNumber || "",
               client: j.client || b.client || "",
+              production: j.production || b.production || "",
               location: j.location || b.location || "",
               vehicles: Array.isArray(b.vehicles) ? b.vehicles : [],
               dayNote: dayNoteMeta.text,
@@ -2984,7 +2986,7 @@ export default function TimesheetDetailPage() {
                                     />
                                     <span>
                                       <strong>{job.jobNumber || job.bookingId || "Job"}</strong>
-                                      {job.client ? ` - ${job.client}` : ""}
+                                      {job.production ? ` - ${job.production}` : ""}
                                       {job.location ? ` - ${job.location}` : ""}
                                     </span>
                                   </label>
@@ -3154,7 +3156,7 @@ export default function TimesheetDetailPage() {
                         {hasTurnaroundJob
                           ? `Turnaround for job: ${
                               turnaroundJob.jobNumber || turnaroundJob.bookingId
-                            } - ${turnaroundJob.client || "Client"}`
+                            } - ${turnaroundJob.production || "Production"}`
                           : "Turnaround for job: (not selected)"}
                       </div>
                       {hasTurnaroundJob && turnaroundJob.location ? (
@@ -3261,9 +3263,9 @@ export default function TimesheetDetailPage() {
                               {job.jobNumber || job.id || job.bookingId}
                             </strong>
 
-                            {job.client && (
+                            {job.production && (
                               <span className={layoutStyles.extracted32}>
-                                - {job.client}
+                                - {job.production}
                               </span>
                             )}
 
