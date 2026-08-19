@@ -57,11 +57,11 @@ import {
   validateEmployeeAccessDraft,
 } from "@/app/utils/accessControl";
 import {
+  DEFAULT_COMPANY_ID,
   buildEmployeeAccessPatch,
   buildUserAccessPatch,
   cleanAccessEmail,
 } from "@/app/utils/appAccessRecords";
-import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import WorkScheduleEditor from "@/app/components/WorkScheduleEditor";
 import { DEFAULT_WORK_SCHEDULE, normalizeWorkSchedule } from "@/app/utils/activityTracking";
@@ -80,6 +80,10 @@ import {
   pickPrivateEmployeeFields,
   withoutPrivateEmployeeFields,
 } from "@/app/utils/employeePersonnel";
+
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+];
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -371,7 +375,6 @@ export default function EditEmployeePage() {
   const params = useParams();
   const employeeId = params?.id;
   const authAccess = useAuth() || {};
-  const deployment = useDeploymentConfig();
 
   const jobOptions = useMemo(
     () => [
@@ -439,7 +442,7 @@ export default function EditEmployeePage() {
     code: "",
     uid: "",
     authUid: "",
-    companyId: deployment.companyId,
+    companyId: DEFAULT_COMPANY_ID,
     archived: false,
     active: true,
     appDisabled: false,
@@ -492,8 +495,8 @@ export default function EditEmployeePage() {
   }, []);
 
   const isAdmin = useMemo(
-    () => ["admin", "platformadmin"].includes(userRole),
-    [userRole]
+    () => ADMIN_EMAILS.includes(userEmail) || userRole === "admin",
+    [userEmail, userRole]
   );
 
   useEffect(() => {
@@ -674,7 +677,7 @@ export default function EditEmployeePage() {
           code: asStr(data.code || data.userCode || data.employeeCode || ""),
           uid: asStr(data.uid || ""),
           authUid: asStr(data.authUid || ""),
-          companyId: asStr(data.companyId || deployment.companyId),
+          companyId: asStr(data.companyId || DEFAULT_COMPANY_ID),
           archived: data.archived === true || data.isArchived === true,
           active: data.active !== false && data.archived !== true && data.isArchived !== true,
           appDisabled: data.appDisabled === true,
@@ -755,7 +758,7 @@ export default function EditEmployeePage() {
     };
 
     fetchEmployee();
-  }, [authAccess.accessReady, authAccess.isAdmin, authAccess.isEnabled, authAccess.user, authAccess.userDoc, deployment.companyId, employeeId, router]);
+  }, [authAccess.accessReady, authAccess.isAdmin, authAccess.isEnabled, authAccess.user, authAccess.userDoc, employeeId, router]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -1247,7 +1250,7 @@ export default function EditEmployeePage() {
         email: employeeEmail,
         mobile: formData.mobile || "",
         phoneNumber: formData.phoneNumber || formData.mobile || "",
-        companyId: formData.companyId || deployment.companyId,
+        companyId: formData.companyId || DEFAULT_COMPANY_ID,
         uid: linkedUserId,
         authUid: linkedUserId,
         active: formData.archived ? false : formData.active !== false,
@@ -1262,10 +1265,9 @@ export default function EditEmployeePage() {
             uid: linkedUserId,
             employeeId,
             employee: accessEmployeeDraft,
-            defaultCompanyId: deployment.companyId,
           })
         : {
-            companyId: formData.companyId || deployment.companyId,
+            companyId: formData.companyId || DEFAULT_COMPANY_ID,
             email: employeeEmail,
             emails: [employeeEmail].filter(Boolean),
             isEnabled: formData.archived ? false : formData.active !== false && !formData.appDisabled,
@@ -1280,7 +1282,6 @@ export default function EditEmployeePage() {
             employeeId,
             employee: accessEmployeeDraft,
             user: { role: effectiveRole },
-            defaultCompanyId: deployment.companyId,
           })
         : null;
 
@@ -1314,7 +1315,7 @@ export default function EditEmployeePage() {
           payrollRateHistory: nextEmployeeRateHistory,
         }),
         employeeId,
-        companyId: formData.companyId || deployment.companyId,
+        companyId: formData.companyId || DEFAULT_COMPANY_ID,
         schemaVersion: 1,
         updatedAt: serverTimestamp(),
         updatedBy,
@@ -1390,7 +1391,7 @@ export default function EditEmployeePage() {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
             body: JSON.stringify({
               employeeId,
-              companyId: formData.companyId || deployment.companyId,
+              companyId: formData.companyId || DEFAULT_COMPANY_ID,
               workSchedule: normalizeWorkSchedule(formData.workSchedule),
             }),
           });
@@ -1519,7 +1520,7 @@ export default function EditEmployeePage() {
       const privateLifecyclePatch = {
         ...pickPrivateEmployeeFields(lifecyclePatch),
         employeeId,
-        companyId: formData.companyId || deployment.companyId,
+        companyId: formData.companyId || DEFAULT_COMPANY_ID,
         offboardingChecklist: deriveOffboardingChecklist({ ...formData, ...lifecyclePatch }),
         updatedAt: serverTimestamp(),
         updatedBy: changedBy,

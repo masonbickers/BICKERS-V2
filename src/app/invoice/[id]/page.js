@@ -37,7 +37,6 @@ import {
 import { formatVehicleList } from "@/app/utils/vehicleDisplay";
 import { useVehicleLookup } from "@/app/utils/useVehicleLookup";
 import { invoiceTimesheetRows } from "@/app/utils/timesheetBookingLink";
-import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 
 /* ───────────────────────────────────────────
    Mini design system
@@ -205,7 +204,6 @@ function collectTimesheetDocs(ts) {
 export default function InvoiceJobPage() {
   const { id } = useParams();
   const router = useRouter();
-  const deployment = useDeploymentConfig();
   const dataAccessState = useDataAccessState();
   const vehicleLookup = useVehicleLookup(dataAccessState);
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
@@ -886,7 +884,7 @@ export default function InvoiceJobPage() {
             <div className={layoutStyles.invoiceDocumentHeader}>
               <div className={layoutStyles.invoiceBrand}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={deployment.companyLogoUrl} alt={deployment.legalName} />
+                <img src="/bickers-action-logo.png" alt="Bickers Action" />
               </div>
               <div className={layoutStyles.invoiceIdentity}>
                 <span>{invoiceIdentity.documentLabel.toUpperCase()}</span>

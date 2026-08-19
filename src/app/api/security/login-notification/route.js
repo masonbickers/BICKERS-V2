@@ -1,7 +1,5 @@
 import { requireActiveUserFromRequest } from "../../admin/_lib";
 import { adminCreateDocument } from "../../_firebaseAdminRest";
-import { getDeploymentConfig } from "@/app/config/deploymentConfig";
-import { formatEmailFrom } from "@/app/utils/emailIdentity";
 
 export const runtime = "nodejs";
 
@@ -61,8 +59,6 @@ async function sendLoginEmail({ to, ip, location, userAgent, timestamp, manageUr
   if (!RESEND_API_KEY || !SECURITY_EMAIL_FROM || !to) {
     return { sent: false, reason: "Email provider not configured." };
   }
-  const deployment = getDeploymentConfig();
-  const appName = deployment.displayName;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -71,12 +67,12 @@ async function sendLoginEmail({ to, ip, location, userAgent, timestamp, manageUr
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: formatEmailFrom(deployment.emailFromName, SECURITY_EMAIL_FROM),
+      from: SECURITY_EMAIL_FROM,
       to,
-      subject: `Security alert: new ${appName} login`,
+      subject: "Security alert: new Bickers Booking login",
       html: `
         <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-          <h2 style="margin:0 0 12px">New login to ${htmlEscape(appName)}</h2>
+          <h2 style="margin:0 0 12px">New login to Bickers Booking</h2>
           <p>Your account was just used to sign in.</p>
           <table style="border-collapse:collapse;margin:16px 0">
             <tr><td style="padding:6px 12px;font-weight:bold">Time</td><td style="padding:6px 12px">${htmlEscape(timestamp)}</td></tr>
@@ -86,11 +82,11 @@ async function sendLoginEmail({ to, ip, location, userAgent, timestamp, manageUr
           </table>
           <p>If this was you, no action is needed.</p>
           <p><strong>If this was not you:</strong> contact an administrator immediately and change your password.</p>
-          ${manageUrl ? `<p><a href="${htmlEscape(manageUrl)}">Open ${htmlEscape(appName)}</a></p>` : ""}
+          ${manageUrl ? `<p><a href="${htmlEscape(manageUrl)}">Open Bickers Booking</a></p>` : ""}
         </div>
       `,
       text: [
-        `New login to ${appName}`,
+        "New login to Bickers Booking",
         "",
         `Time: ${timestamp}`,
         `Approx location: ${location}`,

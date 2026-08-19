@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isPublicPage = createRouteMatcher(["/", "/login(.*)", "/manifest.json(.*)"]);
+const isPublicPage = createRouteMatcher(["/", "/login(.*)"]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 const maintenanceE2EMode =
   process.env.NODE_ENV !== "production" && process.env.MAINTENANCE_E2E_HARNESS === "1";

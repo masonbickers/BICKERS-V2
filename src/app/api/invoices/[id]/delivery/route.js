@@ -105,8 +105,7 @@ export async function POST(req, context) {
 
     actor = actorSnapshot(auth);
     attemptAt = new Date().toISOString();
-    const supplierName = text(invoice.issuedSnapshot.supplier?.legalName) || "Invoice supplier";
-    subject = `Invoice ${text(invoice.issuedSnapshot.invoiceNumber)} from ${supplierName}`;
+    subject = `Invoice ${text(invoice.issuedSnapshot.invoiceNumber)} from Bickers Action`;
     const attemptCount = delivery.attemptCount + 1;
     const sending = {
       ...delivery,
@@ -166,7 +165,7 @@ export async function POST(req, context) {
           <p>Dear ${escapeHtml(customerName)},</p>
           <p>Please find attached invoice <strong>${escapeHtml(invoiceNumber)}</strong>.</p>
           <p>The attached PDF is the final issued invoice for your records.</p>
-          <p>Kind regards,<br>${escapeHtml(supplierName)}</p>
+          <p>Kind regards,<br>Bickers Action</p>
         </div>
       `,
       text: [
@@ -176,7 +175,7 @@ export async function POST(req, context) {
         "The attached PDF is the final issued invoice for your records.",
         "",
         "Kind regards,",
-        supplierName,
+        "Bickers Action",
       ].join("\n"),
       attachments: [{
         filename: invoice.issuedDocument.filename,

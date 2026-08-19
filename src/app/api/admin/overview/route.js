@@ -1,8 +1,5 @@
 import { adminListDocuments } from "../../_firebaseAdminRest";
 import { filterDocsForAdminCompany, jsonError, requireAdminFromRequest } from "../_lib";
-import { getDeploymentConfig } from "@/app/config/deploymentConfig";
-
-const DEFAULT_COMPANY_ID = getDeploymentConfig().companyId;
 
 const withId = ({ id, data }) => ({ id, ...(data || {}) });
 
@@ -30,7 +27,7 @@ const accessUserFromEmployee = (employee = {}) => {
       service: isService,
     },
     defaultWorkspace: isService ? "service" : "user",
-    companyId: employee.companyId || DEFAULT_COMPANY_ID,
+    companyId: employee.companyId || "bickers-action",
     employeeId: employee.id || employee.employeeId || "",
     phoneVerified: employee.phoneVerified === true,
     mfaEnabled: false,

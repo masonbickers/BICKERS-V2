@@ -32,6 +32,10 @@ import {
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
+const ADMIN_EMAILS = new Set([
+  "mason@bickers.co.uk",
+]);
+
 const UI = UI_TOKENS;
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -62,9 +66,7 @@ export default function ShiftChangePage() {
     createApproved: false,
   });
 
-  const isAdmin = ["admin", "platformadmin"].includes(
-    String(dataAccessState.userDoc?.role || "").trim().toLowerCase()
-  );
+  const isAdmin = ADMIN_EMAILS.has(userEmail());
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === form.employeeId) || null,

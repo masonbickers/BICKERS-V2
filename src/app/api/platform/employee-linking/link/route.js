@@ -2,7 +2,6 @@ import { adminPatchDocument, adminReadDocument } from "@/app/api/_firebaseAdminR
 import { jsonError } from "@/app/api/admin/_lib";
 import { buildEmployeeAccessPatch, buildUserAccessPatch } from "@/app/utils/appAccessRecords";
 import { cleanId, jsonOk, requirePlatformAdmin, validateEmployeeUserLink, writePlatformAudit } from "../../_lib";
-import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 export const runtime = "nodejs";
 
@@ -35,14 +34,12 @@ export async function POST(req) {
       employeeId,
       employee: employeeBefore,
       user: userBefore,
-      defaultCompanyId: getDeploymentConfig().companyId,
     });
     const userAccessPatch = buildUserAccessPatch({
       uid,
       employeeId,
       employee: employeeBefore,
       user: userBefore,
-      defaultCompanyId: getDeploymentConfig().companyId,
     });
     const employeeAfter = {
       ...employeeBefore,

@@ -8,14 +8,21 @@ import ProtectedLayout from "./components/ProtectedLayout";
 import GlobalThemeProvider from "./components/GlobalThemeProvider";
 import ContentLabelsProvider from "./components/ContentLabelsProvider";
 import SystemNotificationHost from "./components/SystemNotificationHost";
-import DeploymentConfigProvider from "./components/DeploymentConfigProvider";
-import { getPublicDeploymentConfig } from "./config/deploymentConfig";
-import { deploymentMetadata } from "./config/deploymentConfigCore";
 
-export function generateMetadata() {
-  const deployment = getPublicDeploymentConfig();
-  return deploymentMetadata(deployment);
-}
+export const metadata = {
+  title: "Bickers Booking System",
+  description: "Manage your bookings, vehicles and employees",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Bickers",
+  },
+  icons: {
+    icon: "/icons/icon-192x192.png",
+    apple: "/icons/icon-192x192.png",
+  },
+};
 
 export const viewport = {
   width: "device-width",
@@ -25,7 +32,6 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }) {
-  const deployment = getPublicDeploymentConfig();
   if (process.env.NODE_ENV !== "production" && process.env.MAINTENANCE_E2E_HARNESS === "1") {
     return (
       <html lang="en" suppressHydrationWarning>
@@ -34,21 +40,19 @@ export default function RootLayout({ children }) {
     );
   }
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>
+   <html lang="en" suppressHydrationWarning>
+     <body suppressHydrationWarning>
         <ClerkProvider signInUrl="/login" signUpUrl="/login">
-          <DeploymentConfigProvider config={deployment}>
-            <AuthProvider>
-              <GlobalThemeProvider>
-                <ContentLabelsProvider>
-                  <SystemNotificationHost />
-                  <ProtectedLayout>
-                    {children}
-                  </ProtectedLayout>
-                </ContentLabelsProvider>
-              </GlobalThemeProvider>
-            </AuthProvider>
-          </DeploymentConfigProvider>
+          <AuthProvider>
+            <GlobalThemeProvider>
+              <ContentLabelsProvider>
+                <SystemNotificationHost />
+                <ProtectedLayout>
+                  {children}
+                </ProtectedLayout>
+              </ContentLabelsProvider>
+            </GlobalThemeProvider>
+          </AuthProvider>
         </ClerkProvider>
       </body>
     </html>
