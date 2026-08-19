@@ -19,20 +19,24 @@ service cloud.firestore {
     }
 
     function activeUserDocExists() {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return userDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled == true
         && (
-          !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["active"])
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active != false
+          !userData.keys().hasAny(["isEnabled"])
+          || userData.isEnabled == true
         )
-        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["disabled"])
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.disabled != true)
-        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["appDisabled"])
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appDisabled != true)
-        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["archived"])
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.archived != true)
-        && (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["isArchived"])
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isArchived != true);
+        && (
+          !userData.keys().hasAny(["active"])
+          || userData.active != false
+        )
+        && (!userData.keys().hasAny(["disabled"])
+          || userData.disabled != true)
+        && (!userData.keys().hasAny(["appDisabled"])
+          || userData.appDisabled != true)
+        && (!userData.keys().hasAny(["archived"])
+          || userData.archived != true)
+        && (!userData.keys().hasAny(["isArchived"])
+          || userData.isArchived != true);
     }
 
     function currentUserCompanyId() {
