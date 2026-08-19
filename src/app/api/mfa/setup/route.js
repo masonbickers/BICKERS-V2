@@ -3,6 +3,7 @@ import speakeasy from "speakeasy";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
 import { adminCreateDocument, adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
+import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 export const runtime = "nodejs";
 
@@ -73,9 +74,10 @@ export async function POST(req) {
       return NextResponse.json({ alreadyEnrolled: true });
     }
 
+    const deployment = getDeploymentConfig();
     const secret = speakeasy.generateSecret({
-      name: verifiedUser.email || "Bickers Booking",
-      issuer: "Bickers Booking",
+      name: verifiedUser.email || deployment.displayName,
+      issuer: deployment.displayName,
       length: 20,
     });
 

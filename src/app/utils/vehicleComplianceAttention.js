@@ -65,6 +65,12 @@ const ADDITIONAL = {
     lastField: "lastLoler",
     frequencyField: "lolerFreq",
   },
+  tachoCalibration: {
+    label: "Tacho calibration",
+    dueField: "nextTachoCalibration",
+    lastField: "lastTachoCalibration",
+    frequencyField: "tachoCalibrationFreq",
+  },
 };
 
 const statusRank = {

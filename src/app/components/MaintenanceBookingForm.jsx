@@ -7,17 +7,21 @@
 
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./MaintenanceBookingForm.styles.module.css";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Button, Modal } from "@/app/components/ui";
 import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
-import { getIsoWeekLabel } from "../utils/maintenanceSchema";
+import { ADDITIONAL_MAINTENANCE_WORKFLOWS } from "../utils/maintenanceSchema";
 import {
   bookingToDateKeys as serviceBookingToDateKeys,
-  createMaintenanceBooking,
   normalizeMaintenanceType,
-} from "../utils/maintenanceBookingService";
-import { doc, getDoc, getDocs, where } from "firebase/firestore";
+} from "../utils/maintenanceBookingPresentation";
+import { createMaintenanceBooking } from "../utils/maintenanceMutationClient";
+import { getMaintenanceScheduleRule } from "../utils/maintenanceMutationPolicy";
+import { buildCommonMaintenanceProviders } from "../utils/maintenanceProviders";
+import { arrayUnion, doc, getDoc, getDocs, serverTimestamp, setDoc, where } from "firebase/firestore";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -30,8 +34,16 @@ import {
   EMPTY_EQUIPMENT_SELECTION,
   equipmentSelectionKey,
   equipmentSelectionsEqual,
+  maintenanceBookingsCompete,
+  maintenanceBookingParticipatesInConflict,
   normalizeEquipmentSelection,
 } from "@/app/utils/maintenanceBookingFormState";
+
+const INSPECTION_WORK_OPTIONS = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
+  value: workflow.maintenanceTypeId,
+  label: workflow.label,
+}));
+const INSPECTION_WORK_IDS = new Set(INSPECTION_WORK_OPTIONS.map((option) => option.value));
 
 /**
  * Props:
@@ -40,6 +52,7 @@ import {
  * - defaultDate: "YYYY-MM-DD" (optional)
  * - onClose() (optional)
  * - onSaved(payload) (optional)
+ * - saveBooking(payload) (optional test/integration seam; defaults to trusted mutation client)
  */
 export default function MaintenanceBookingForm({
   vehicleId,
@@ -49,18 +62,35 @@ export default function MaintenanceBookingForm({
   sourceDueDate = "",
   sourceDueIsoWeek = "",
   sourceDueKey = "",
+  requestedRecordId = "",
+  defaultMaintenanceTypeIds = ["pmi", "brake_test"],
   onClose,
   onSaved,
+  saveBooking = createMaintenanceBooking,
 }) {
-  const dialogRef = useRef(null);
-  const dialogTitleId = useId();
+  const notesRef = useRef(null);
   const fieldPrefix = useId();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
+  const canManageProviderOptions = useMemo(() => {
+    const role = String(
+      dataAccessState?.userDoc?.role || dataAccessState?.userDoc?.platformRole || ""
+    ).trim().toLowerCase();
+    return ["admin", "platformadmin", "platform_admin"].includes(role);
+  }, [dataAccessState?.userDoc?.platformRole, dataAccessState?.userDoc?.role]);
   const [vehicle, setVehicle] = useState(null);
 
   // form fields
+  const [maintenanceType, setMaintenanceType] = useState(() =>
+    normalizeMaintenanceType(type)
+  );
   const [status, setStatus] = useState("Booked");
+  const [inspectionTypeIds, setInspectionTypeIds] = useState(() => {
+    const selected = Array.isArray(defaultMaintenanceTypeIds)
+      ? defaultMaintenanceTypeIds.filter((item) => INSPECTION_WORK_IDS.has(item))
+      : [];
+    return selected.length ? selected : ["pmi", "brake_test"];
+  });
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [useCustomDates, setUseCustomDates] = useState(false);
 
@@ -71,10 +101,11 @@ export default function MaintenanceBookingForm({
   const [customDates, setCustomDates] = useState(defaultDate ? [defaultDate] : []);
 
   const [provider, setProvider] = useState("");
+  const [providerOptions, setProviderOptions] = useState([]);
   const [bookingRef, setBookingRef] = useState("");
   const [location, setLocation] = useState("");
-  const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
+  const [scheduleExceptionReason, setScheduleExceptionReason] = useState("");
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentSearchOpen, setEquipmentSearchOpen] = useState(false);
@@ -89,6 +120,15 @@ export default function MaintenanceBookingForm({
   // conflict checks
   const [existing, setExisting] = useState([]);
   const [conflictMsg, setConflictMsg] = useState("");
+
+  useEffect(() => {
+    const field = notesRef.current;
+    if (!field) return;
+    field.style.height = "auto";
+    const nextHeight = Math.min(field.scrollHeight, 160);
+    field.style.height = `${Math.max(nextHeight, 42)}px`;
+    field.style.overflowY = field.scrollHeight > 160 ? "auto" : "hidden";
+  }, [notes]);
 
   /* ───────────────── helpers ───────────────── */
   const ymdToDate = (ymd) => {
@@ -137,33 +177,22 @@ export default function MaintenanceBookingForm({
     });
   };
 
-  const safeType = normalizeMaintenanceType(type);
+  const safeType = normalizeMaintenanceType(maintenanceType);
   const title =
     safeType === "MOT"
       ? "Book MOT"
       : safeType === "SERVICE"
       ? "Book Service"
       : safeType === "INSPECTION"
-      ? "Book 8 Week Inspection"
+      ? "Book Inspection / Compliance Work"
       : "Book Work";
+  const bookingSettingsSummary = `${
+    safeType === "INSPECTION" ? "Inspection / Compliance" : safeType === "SERVICE" ? "Service" : safeType
+  } · ${status} · ${useCustomDates ? "Selected dates" : isMultiDay ? "Multi-day" : "Single day"}`;
   const sourceDueDateObj = useMemo(() => ymdToDate(String(sourceDueDate || "").slice(0, 10)), [sourceDueDate]);
-  const selectedInspectionWeek = useMemo(() => {
-    const seed = useCustomDates
-      ? customDates[0] || ""
-      : isMultiDay
-      ? startDate || ""
-      : appointmentDate || "";
-    return seed ? getIsoWeekLabel(seed) : "";
-  }, [useCustomDates, customDates, isMultiDay, startDate, appointmentDate]);
-  const inspectionOutsideDueWeek =
-    safeType === "INSPECTION" &&
-    !!sourceDueIsoWeek &&
-    !!selectedInspectionWeek &&
-    selectedInspectionWeek !== sourceDueIsoWeek;
-
   const vehicleLabel = useMemo(() => {
     const v = vehicle || {};
-    return v.name || v.registration || v.reg || vehicleId || "";
+    return v.name || v.registration || v.reg || (vehicleId ? "Unknown vehicle" : "");
   }, [vehicle, vehicleId]);
 
   const selectedDateKeys = useMemo(() => {
@@ -171,6 +200,14 @@ export default function MaintenanceBookingForm({
     if (!isMultiDay) return appointmentDate ? [appointmentDate] : [];
     return enumerateDaysYMD(startDate, endDate);
   }, [useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate]);
+
+  const scheduleRule = useMemo(() => getMaintenanceScheduleRule({
+    type: safeType,
+    legalDueDate: sourceDueDate,
+    legalDueWeeks: sourceDueIsoWeek ? [sourceDueIsoWeek] : [],
+    bookingDates: selectedDateKeys,
+  }), [safeType, sourceDueDate, sourceDueIsoWeek, selectedDateKeys]);
+  const outsideDueWeek = scheduleRule.outsideLegalWeek;
 
   const bookingDates = useMemo(() => {
     const first = selectedDateKeys[0] || "";
@@ -187,28 +224,35 @@ export default function MaintenanceBookingForm({
 
     if (!bookingDates.keys.length) return null;
 
-    const conflict = existing.find((b) => {
-      const st = String(b.status || "").toLowerCase();
-      if (st.includes("cancel")) return false;
-      if (st.includes("declin")) return false;
+    const overlaps = existing.filter((b) => {
+      if (requestedRecordId && String(b.id || "") === String(requestedRecordId)) return false;
+      if (!maintenanceBookingParticipatesInConflict(b)) return false;
       const existingKeys = serviceBookingToDateKeys(b);
       if (!existingKeys.length) return false;
       const selectedKeySet = new Set(bookingDates.keys);
       return existingKeys.some((key) => selectedKeySet.has(key));
     });
 
+    const conflict =
+      overlaps.find((booking) =>
+        maintenanceBookingsCompete(booking, safeType, inspectionTypeIds)
+      ) || overlaps[0];
+
     if (!conflict) return null;
+    const conflictKeys = serviceBookingToDateKeys(conflict);
 
     const bs =
       toDate(conflict.startDate) ||
       toDate(conflict.date) ||
       toDate(conflict.appointmentDate) ||
+      ymdToDate(conflictKeys[0]) ||
       null;
 
     const be =
       toDate(conflict.endDate) ||
       toDate(conflict.date) ||
       toDate(conflict.appointmentDate) ||
+      ymdToDate(conflictKeys[conflictKeys.length - 1]) ||
       bs;
 
     return {
@@ -218,8 +262,9 @@ export default function MaintenanceBookingForm({
       from: bs,
       to: be,
       provider: conflict.provider || "",
+      blocking: maintenanceBookingsCompete(conflict, safeType, inspectionTypeIds),
     };
-  }, [existing, bookingDates.keys]);
+  }, [existing, bookingDates.keys, requestedRecordId, safeType, inspectionTypeIds]);
 
   useEffect(() => {
     if (!activeConflict) {
@@ -227,11 +272,11 @@ export default function MaintenanceBookingForm({
       return;
     }
     setConflictMsg(
-      `Warning Conflict: This vehicle already has a maintenance booking overlapping ${fmt(
+      `${activeConflict.blocking ? "Conflict" : "Allowed overlap"}: This vehicle already has a maintenance booking overlapping ${fmt(
         activeConflict.from
       )} → ${fmt(activeConflict.to)} (${activeConflict.type}, ${activeConflict.status})${
         activeConflict.provider ? ` — ${activeConflict.provider}` : ""
-      }.`
+      }.${activeConflict.blocking ? "" : " Different maintenance types can be completed during the same visit."}`
     );
   }, [activeConflict]);
 
@@ -246,6 +291,7 @@ export default function MaintenanceBookingForm({
       });
       setEquipmentGroups({});
       setExisting([]);
+      setProviderOptions([]);
       return;
     }
 
@@ -259,11 +305,19 @@ export default function MaintenanceBookingForm({
             ])
           )
         : Promise.resolve(null);
+      const providerSnapPromise = getDocs(
+        tenantCollectionQuery(db, "maintenanceBookings", dataAccessState)
+      );
+      const providerSettingsPromise = getDoc(
+        doc(db, "settings", "maintenanceProviders")
+      ).catch(() => null);
 
-      const [vSnap, equipmentSnap, existingSnap] = await Promise.all([
+      const [vSnap, equipmentSnap, existingSnap, providerSnap, providerSettingsSnap] = await Promise.all([
         vehicleSnapPromise,
         equipmentSnapPromise,
         existingSnapPromise,
+        providerSnapPromise,
+        providerSettingsPromise,
       ]);
 
       if (vSnap?.exists()) {
@@ -288,6 +342,11 @@ export default function MaintenanceBookingForm({
       setEquipmentGroups(groupedEquipment);
 
       setExisting(existingSnap ? existingSnap.docs.map((d) => ({ id: d.id, ...d.data() })) : []);
+      setProviderOptions(
+        buildCommonMaintenanceProviders(providerSnap.docs.map((d) => d.data()), {
+          excludedProviders: providerSettingsSnap?.data()?.hiddenProviders,
+        })
+      );
     };
 
     run().catch((e) => {
@@ -300,8 +359,38 @@ export default function MaintenanceBookingForm({
         console.error("[MaintenanceBookingForm] load error:", e);
       }
       setExisting([]);
+      setProviderOptions([]);
     });
-  }, [accessKey, dataAccessState, vehicleId]);
+  }, [accessKey, canManageProviderOptions, dataAccessState, vehicleId]);
+
+  const selectedProviderOption = providerOptions.find(
+    (option) => option.toLocaleLowerCase("en-GB") === provider.trim().toLocaleLowerCase("en-GB")
+  );
+
+  const removeSelectedProviderOption = async () => {
+    if (!canManageProviderOptions || !selectedProviderOption) return;
+    if (!await systemDialogs.confirmSystem(`Remove “${selectedProviderOption}” from the garage suggestions?\n\nHistorical maintenance bookings will not be changed.`)) return;
+
+    const previousOptions = providerOptions;
+    setProviderOptions((current) => current.filter((option) => option !== selectedProviderOption));
+    try {
+      await setDoc(
+        doc(db, "settings", "maintenanceProviders"),
+        {
+          hiddenProviders: arrayUnion(selectedProviderOption),
+          updatedAt: serverTimestamp(),
+          updatedBy: dataAccessState.user?.email || "Unknown",
+        },
+        { merge: true }
+      );
+    } catch (error) {
+      setProviderOptions(previousOptions);
+      if (!handleFirestoreAccessError(error, { collectionName: "settings", operation: "remove maintenance provider suggestion" })) {
+        console.error("Failed removing maintenance provider suggestion:", error);
+        systemDialogs.showSystemNotification("Could not remove this garage suggestion. Please try again.");
+      }
+    }
+  };
 
   useEffect(() => {
     const nextSelection = normalizeEquipmentSelection(initialEquipment);
@@ -349,6 +438,7 @@ export default function MaintenanceBookingForm({
   const canSubmit = useMemo(() => {
     if (saving) return false;
     if (!vehicleId && selectedEquipment.length === 0) return false;
+    if (safeType === "INSPECTION" && inspectionTypeIds.length === 0) return false;
 
     if (useCustomDates) {
       if (!customDates.length) return false;
@@ -362,31 +452,15 @@ export default function MaintenanceBookingForm({
       if (+s > +e) return false;
     }
 
-    if (activeConflict) return false;
+    if (activeConflict?.blocking) return false;
+    if (scheduleRule.blocked) return false;
+    if (scheduleRule.requiresExceptionReason && !scheduleExceptionReason.trim()) return false;
     return true;
-  }, [saving, vehicleId, selectedEquipment, useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
+  }, [saving, vehicleId, selectedEquipment, safeType, inspectionTypeIds, useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate, activeConflict, scheduleRule, scheduleExceptionReason]);
 
   const handleClose = () => {
     if (typeof onClose === "function") onClose();
   };
-
-  useEffect(() => {
-    const previousFocus = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    dialogRef.current?.focus();
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") handleClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previousFocus?.focus?.();
-    };
-  }, []);
 
   const toggleEquipment = (name, checked) => {
     setSelectedEquipment((prev) =>
@@ -405,7 +479,7 @@ export default function MaintenanceBookingForm({
     setSaving(true);
     setFormError("");
     try {
-      const savedBooking = await createMaintenanceBooking({
+      const savedBooking = await saveBooking({
         vehicleId,
         vehicleLabel,
         vehicle,
@@ -421,13 +495,16 @@ export default function MaintenanceBookingForm({
         provider,
         bookingRef,
         location,
-        cost,
+        cost: "",
         notes,
         equipment: selectedEquipment,
         sourceDueDate,
         sourceDueIsoWeek,
         sourceDueKey,
         authState: dataAccessState,
+        maintenanceTypeIds: safeType === "INSPECTION" ? inspectionTypeIds : [],
+        requestedRecordId,
+        scheduleExceptionReason,
       });
 
       if (typeof onSaved === "function") onSaved(savedBooking);
@@ -441,50 +518,44 @@ export default function MaintenanceBookingForm({
   };
 
   return (
-    <div className={layoutStyles.extracted1} onMouseDown={(event) => event.target === event.currentTarget && handleClose()}>
-      <div
-        ref={dialogRef}
-        className={layoutStyles.extracted2}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={dialogTitleId}
-        tabIndex={-1}
-      >
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <h2 id={dialogTitleId} className={layoutStyles.extracted4}>{title}</h2>
-            <div className={layoutStyles.extracted5}>
-              Vehicle: <b className={layoutStyles.extracted6}>{vehicleLabel || "Equipment only"}</b>
-            </div>
-          </div>
-
-          <button onClick={handleClose} className={layoutStyles.extracted7} aria-label="Close" type="button">
-            X
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={handleClose}
+      eyebrow="Maintenance booking"
+      title={title}
+      description={<>Vehicle: <b>{vehicleLabel || "Equipment only"}</b></>}
+      size="lg"
+      density="compact"
+      footer={
+        <>
+          <Button type="button" variant="secondary" size="sm" onClick={handleClose} disabled={saving}>Cancel</Button>
+          <Button type="submit" form={`${fieldPrefix}-form`} size="sm" disabled={!canSubmit} loading={saving}>Create booking</Button>
+        </>
+      }
+    >
 
         {formError ? (
           <div className={layoutStyles.extracted8}>{formError}</div>
         ) : null}
 
-        <form onSubmit={handleSubmit} className={layoutStyles.extracted9}>
+        <form id={`${fieldPrefix}-form`} onSubmit={handleSubmit} className={layoutStyles.extracted9}>
+          <section className={layoutStyles.bookingSettings}>
+            <div className={layoutStyles.sectionHeader}>Booking settings <span>{bookingSettingsSummary}</span></div>
+            <div className={layoutStyles.bookingSettingsGrid}>
           {/* Type */}
           <div className={layoutStyles.extracted10}>
             <label htmlFor={`${fieldPrefix}-type`} className={layoutStyles.extracted11}>Maintenance type</label>
-            <input
+            <select
               id={`${fieldPrefix}-type`}
-              className={layoutStyles.extracted12}
-              value={
-                safeType === "MOT"
-                  ? "MOT"
-                  : safeType === "SERVICE"
-                  ? "Service"
-                  : safeType === "INSPECTION"
-                  ? "8 Week Inspection"
-                  : "Work"
-              }
-              readOnly
-            />
+              className={layoutStyles.extracted15}
+              value={safeType}
+              onChange={(e) => setMaintenanceType(e.target.value)}
+            >
+              <option value="MOT">MOT</option>
+              <option value="SERVICE">Service</option>
+              <option value="INSPECTION">Inspection / Compliance</option>
+              <option value="WORK">Work / Maintenance</option>
+            </select>
           </div>
 
           {/* Status */}
@@ -493,8 +564,6 @@ export default function MaintenanceBookingForm({
             <select id={`${fieldPrefix}-status`} value={status} onChange={(e) => setStatus(e.target.value)} className={layoutStyles.extracted15}>
               <option value="Requested">Requested</option>
               <option value="Booked">Booked</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -542,12 +611,43 @@ export default function MaintenanceBookingForm({
             </select>
           </div>
 
-          {safeType === "INSPECTION" && sourceDueDateObj ? (
+          {safeType === "INSPECTION" ? (
+            <fieldset className={layoutStyles.inspectionOptions}>
+              <legend className={layoutStyles.extracted11}>Inspection / compliance work</legend>
+              <div>
+                {INSPECTION_WORK_OPTIONS.map(({ value, label }) => (
+                  <label key={value}>
+                    <input
+                      type="checkbox"
+                      checked={inspectionTypeIds.includes(value)}
+                      onChange={(event) =>
+                        setInspectionTypeIds((current) =>
+                          event.target.checked
+                            ? [...new Set([...current, value])]
+                            : current.filter((item) => item !== value)
+                        )
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {inspectionTypeIds.length === 0 ? (
+                <div className={layoutStyles.inspectionError}>
+                  Select at least one inspection or compliance item.
+                </div>
+              ) : null}
+            </fieldset>
+          ) : null}
+            </div>
+          </section>
+
+          {sourceDueDateObj ? (
             <div
               style={{
                 gridColumn: "1 / -1",
-                border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
-                background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
+                border: `1px solid ${outsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
+                background: outsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
                 color: "var(--color-text)",
                 borderRadius: 12,
                 padding: "10px 12px",
@@ -555,9 +655,32 @@ export default function MaintenanceBookingForm({
                 lineHeight: 1.4,
               }}
             >
-              Due week: <b>{sourceDueIsoWeek || "Unknown"}</b> for{" "}
-              <b>{sourceDueDateObj.toLocaleDateString("en-GB")}</b>.
-              {inspectionOutsideDueWeek ? " This booking sits outside the due ISO week." : " This booking is inside the due ISO week."}
+              This work is legally due on{" "}
+              <b>{sourceDueDateObj.toLocaleDateString("en-GB")}</b> in week{" "}
+              <b>{sourceDueIsoWeek || "Unknown"}</b>.
+              {scheduleRule.state === "inspection_exception"
+                ? " This inspection sits outside the legal ISO week and requires a reason."
+                : scheduleRule.state === "service_advisory"
+                ? " This service is outside its planned week, which is allowed."
+                : scheduleRule.state === "after_expiry"
+                ? " The MOT appointment is after its legal expiry date and cannot be booked."
+                : safeType === "MOT"
+                ? " The MOT appointment is on or before its legal expiry date."
+                : " This booking is inside the planned ISO week."}
+              {scheduleRule.requiresExceptionReason ? (
+                <div style={{ marginTop: 8 }}>
+                  <label htmlFor={`${fieldPrefix}-schedule-exception-reason`} style={{ display: "block", fontWeight: 800, marginBottom: 5 }}>
+                    Reason for booking outside the due week
+                  </label>
+                  <input
+                    id={`${fieldPrefix}-schedule-exception-reason`}
+                    value={scheduleExceptionReason}
+                    onChange={(event) => setScheduleExceptionReason(event.target.value)}
+                    placeholder="Required for the compliance audit trail"
+                    className={layoutStyles.extracted15}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -663,32 +786,50 @@ export default function MaintenanceBookingForm({
           {/* Conflict */}
           {conflictMsg ? (
             <div
-              className={layoutStyles.extracted40}
+              className={`${layoutStyles.extracted40} ${!activeConflict?.blocking ? layoutStyles.allowedOverlap : ""}`}
             >
-              <div className={layoutStyles.extracted41}>Booking conflict</div>
+              <div className={layoutStyles.extracted41}>
+                {activeConflict?.blocking ? "Booking conflict" : "Existing maintenance on this date — allowed"}
+              </div>
               <div>{conflictMsg}</div>
             </div>
           ) : null}
 
           {/* Details */}
+          <section className={layoutStyles.additionalDetails}>
+            <div className={layoutStyles.sectionHeader}>Optional workshop details</div>
+            <div className={layoutStyles.additionalDetailsGrid}>
           <div className={layoutStyles.extracted42}>
             <label htmlFor={`${fieldPrefix}-provider`} className={layoutStyles.extracted43}>Provider / garage</label>
-            <input id={`${fieldPrefix}-provider`} value={provider} onChange={(e) => setProvider(e.target.value)} className={layoutStyles.extracted44} />
+            <div className={layoutStyles.providerInputRow}>
+              <input
+                id={`${fieldPrefix}-provider`}
+                list={`${fieldPrefix}-provider-options`}
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                placeholder={providerOptions.length ? "Select or type a garage" : "Type a garage"}
+                autoComplete="off"
+                className={layoutStyles.extracted44}
+              />
+              {canManageProviderOptions && selectedProviderOption ? (
+                <button type="button" className={layoutStyles.removeProviderButton} onClick={removeSelectedProviderOption}>
+                  Remove
+                </button>
+              ) : null}
+            </div>
+            <datalist id={`${fieldPrefix}-provider-options`}>
+              {providerOptions.map((option) => <option key={option} value={option} />)}
+            </datalist>
           </div>
 
           <div className={layoutStyles.extracted42}>
-            <label htmlFor={`${fieldPrefix}-booking-ref`} className={layoutStyles.extracted43}>Booking reference</label>
+            <label htmlFor={`${fieldPrefix}-booking-ref`} className={layoutStyles.extracted43}>Garage booking reference</label>
             <input id={`${fieldPrefix}-booking-ref`} value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} className={layoutStyles.extracted44} />
           </div>
 
           <div className={layoutStyles.extracted42}>
             <label htmlFor={`${fieldPrefix}-location`} className={layoutStyles.extracted43}>Location</label>
             <input id={`${fieldPrefix}-location`} value={location} onChange={(e) => setLocation(e.target.value)} className={layoutStyles.extracted44} />
-          </div>
-
-          <div className={layoutStyles.extracted42}>
-            <label htmlFor={`${fieldPrefix}-cost`} className={layoutStyles.extracted43}>Cost (optional)</label>
-            <input id={`${fieldPrefix}-cost`} value={cost} onChange={(e) => setCost(e.target.value)} className={layoutStyles.extracted44} />
           </div>
 
           <div className={layoutStyles.extracted45}>
@@ -773,45 +914,20 @@ export default function MaintenanceBookingForm({
           <div className={layoutStyles.extracted60}>
             <label htmlFor={`${fieldPrefix}-notes`} className={layoutStyles.extracted61}>Notes</label>
             <textarea
+              ref={notesRef}
               id={`${fieldPrefix}-notes`}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={3}
+              rows={1}
               placeholder="Drop-off times, contact, what to fix, etc..."
               className={layoutStyles.extracted62}
             />
           </div>
+            </div>
+          </section>
 
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            style={{
-              ...fullWidth,
-              ...primaryBtn,
-              opacity: canSubmit ? 1 : 0.55,
-              cursor: canSubmit ? "pointer" : "not-allowed",
-            }}
-          >
-            {saving ? "Saving..." : "Create booking"}
-          </button>
-
-          <button type="button" onClick={handleClose} className={layoutStyles.extracted63}>
-            Cancel
-          </button>
-
-          <div className={layoutStyles.extracted64}>
-            Saves to <b>maintenanceBookings</b>
-            {vehicleId ? " and links it back to the vehicle document." : " as an equipment-only booking."}
-            {status === "Completed" ? (
-              <>
-                {" "}
-                Also updates <b>last</b> + <b>next</b> due dates automatically.
-              </>
-            ) : null}
-          </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

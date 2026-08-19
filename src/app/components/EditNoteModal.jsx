@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./EditNoteModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../../../firebaseConfig";
@@ -21,7 +22,8 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
-import { Check, StickyNote, Trash2, X } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
+import { Button, Modal } from "@/app/components/ui";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 export default function EditNoteModal({ id, onClose }) {
@@ -84,7 +86,7 @@ export default function EditNoteModal({ id, onClose }) {
 
     load().catch((error) => {
       console.error("Failed to load note:", error);
-      alert("Failed to load note.");
+      systemDialogs.showSystemNotification("Failed to load note.");
       onClose?.();
     });
   }, [accessKey, dataAccessState, id, onClose]);
@@ -130,7 +132,7 @@ export default function EditNoteModal({ id, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!noteText.trim()) {
-      alert("Note text cannot be empty.");
+      systemDialogs.showSystemNotification("Note text cannot be empty.");
       return;
     }
 
@@ -138,7 +140,7 @@ export default function EditNoteModal({ id, onClose }) {
     try {
       if (isMultiDay) {
         if (!startDate || !endDate) {
-          alert("Select start & end dates.");
+          systemDialogs.showSystemNotification("Select start & end dates.");
           setSaving(false);
           return;
         }
@@ -146,7 +148,7 @@ export default function EditNoteModal({ id, onClose }) {
         const start = new Date(startDate);
         const end = new Date(endDate);
         if (Number.isNaN(+start) || Number.isNaN(+end) || start > end) {
-          alert("End date must be the same or after start date.");
+          systemDialogs.showSystemNotification("End date must be the same or after start date.");
           setSaving(false);
           return;
         }
@@ -183,7 +185,7 @@ export default function EditNoteModal({ id, onClose }) {
         }
       } else {
         if (!noteDate) {
-          alert("Please select a date.");
+          systemDialogs.showSystemNotification("Please select a date.");
           setSaving(false);
           return;
         }
@@ -203,13 +205,13 @@ export default function EditNoteModal({ id, onClose }) {
       onClose?.();
     } catch (error) {
       console.error("Error saving note:", error);
-      alert("Failed to save note. Please try again.");
+      systemDialogs.showSystemNotification("Failed to save note. Please try again.");
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete this note${isMultiDay ? " series" : ""}?`)) return;
+    if (!await systemDialogs.confirmSystem(`Delete this note${isMultiDay ? " series" : ""}?`)) return;
 
     setSaving(true);
     try {
@@ -225,30 +227,36 @@ export default function EditNoteModal({ id, onClose }) {
       onClose?.();
     } catch (error) {
       console.error("Error deleting note:", error);
-      alert("Failed to delete note.");
+      systemDialogs.showSystemNotification("Failed to delete note.");
       setSaving(false);
     }
   };
 
   return (
-    <div className={layoutStyles.extracted1}>
-      <div style={modal}>
-        <div className={layoutStyles.extracted2}>
-          <div className={layoutStyles.extracted3}>
-            <span style={iconBox}>
-              <StickyNote size={18} />
-            </span>
-            <div>
-              <div style={eyebrow}>Dashboard note</div>
-              <h2 style={modalTitle}>Edit Note</h2>
-            </div>
-          </div>
-          <button onClick={onClose} style={closeBtn} aria-label="Close" type="button">
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className={layoutStyles.extracted4}>
+    <Modal
+      open
+      onClose={onClose}
+      eyebrow="Dashboard note"
+      title="Edit note"
+      size="md"
+      density="compact"
+      footer={
+        <>
+          <Button type="button" variant="danger" size="sm" onClick={handleDelete} disabled={saving}>
+            <Trash2 size={15} />
+            Delete note{isMultiDay ? "s" : ""}
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" form="edit-note-form" size="sm" disabled={!canSubmit} loading={saving}>
+            <Check size={15} />
+            Save changes
+          </Button>
+        </>
+      }
+    >
+        <form id="edit-note-form" onSubmit={handleSubmit} className={layoutStyles.extracted4}>
           <div className={layoutStyles.extracted5}>
             <div className={layoutStyles.extracted6}>
               <label className={layoutStyles.extracted7}>Employee</label>
@@ -344,31 +352,8 @@ export default function EditNoteModal({ id, onClose }) {
             />
           </div>
 
-          <div className={layoutStyles.extracted20}>
-            <button type="button" onClick={handleDelete} className={layoutStyles.extracted21} disabled={saving}>
-              <Trash2 size={15} />
-              Delete note{isMultiDay ? "s" : ""}
-            </button>
-            <span className={layoutStyles.extracted22} />
-            <button type="button" onClick={onClose} style={secondaryBtn} disabled={saving}>
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              style={{
-                ...primaryBtn,
-                opacity: canSubmit ? 1 : 0.55,
-                cursor: canSubmit ? "pointer" : "not-allowed",
-              }}
-            >
-              <Check size={15} />
-              {saving ? "Saving..." : "Save changes"}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

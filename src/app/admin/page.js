@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -35,16 +36,24 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
-import { ADMIN_EMAILS } from "@/app/utils/adminAccess";
 import {
   handleFirestoreAccessError,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
+import {
+  buildSickLeaveDisplayRows,
+  employeeInitials,
+  formatSickLeaveDate,
+  sickLeaveNoteText,
+  sickLeavePaymentStatus,
+  summarizeSickLeaveRows,
+} from "@/app/utils/sickLeavePresentation";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import UserActivityPanel from "@/app/admin/_components/UserActivityPanel";
+import SystemActivityPanel from "@/app/admin/_components/SystemActivityPanel";
 
 /* -------------------------------------------
-   Admin gate
-    allow if email is in ADMIN_EMAILS OR users.role === "admin"
+   Admin gate uses canonical server-bootstrapped roles.
 ------------------------------------------- */
 /* -------------------------------------------
    Mini design system (matches your style)
@@ -174,8 +183,97 @@ const dedupeUsersByEmail = (raw = []) => {
   };
 };
 
+const firstActivityText = (...values) => {
+  for (const value of values) {
+    const text = String(value || "").trim();
+    if (text) return text;
+  }
+  return "";
+};
+
+const activityVehicleLabel = (vehicle = {}) => {
+  const name = firstActivityText(
+    vehicle.name,
+    vehicle.vehicleName,
+    vehicle.assetLabel,
+    vehicle.label,
+    vehicle.title,
+    [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ")
+  );
+  const registration = firstActivityText(
+    vehicle.registration,
+    vehicle.reg,
+    vehicle.regNumber,
+    vehicle.regNo,
+    vehicle.plate
+  ).toUpperCase();
+  if (name && registration && !name.toUpperCase().includes(registration)) {
+    return `${name} (${registration})`;
+  }
+  return name || registration;
+};
+
+const activityBookingLabel = (booking = {}) => {
+  const jobNumber = firstActivityText(booking.jobNumber, booking.jobNo, booking.jobRef);
+  const production = firstActivityText(
+    booking.production,
+    booking.productionTitle,
+    booking.client,
+    booking.productionCompany,
+    booking.company
+  );
+  const location = firstActivityText(booking.location, booking.shootLocation);
+  const parts = [];
+  if (jobNumber) parts.push(`Job #${jobNumber.replace(/^#/, "")}`);
+  if (production) parts.push(production);
+  if (!production && location) parts.push(location);
+  return parts.join(" · ") || "Booking record";
+};
+
+const activityEmployeeLabel = (employee = {}) =>
+  firstActivityText(
+    employee.name,
+    employee.fullName,
+    employee.employeeName,
+    [employee.firstName, employee.lastName].filter(Boolean).join(" "),
+    employee.email
+  ) || "Employee";
+
+const buildActivityReferenceLookup = (data = {}) => {
+  const references = new Map();
+  const add = (id, label) => {
+    const key = String(id || "").trim();
+    const cleanLabel = String(label || "").trim();
+    if (key.length >= 5 && cleanLabel && cleanLabel !== key) references.set(key, cleanLabel);
+  };
+
+  (data.vehicles || []).forEach((vehicle) => add(vehicle.id, activityVehicleLabel(vehicle)));
+  (data.bookings || []).forEach((booking) => add(booking.id, activityBookingLabel(booking)));
+  (data.employees || []).forEach((employee) => add(employee.id, activityEmployeeLabel(employee)));
+  return references;
+};
+
+const resolveActivityReferences = (value, references) => {
+  let result = String(value || "").trim();
+  if (!result) return "";
+  [...references.entries()]
+    .sort(([a], [b]) => b.length - a.length)
+    .forEach(([id, label]) => {
+      if (result.includes(id)) result = result.split(id).join(label);
+    });
+  return result;
+};
+
 const buildAdminActivityRows = (data = {}) => {
   const rows = [];
+  const references = buildActivityReferenceLookup(data);
+  const vehicleById = new Map((data.vehicles || []).map((vehicle) => [String(vehicle.id), vehicle]));
+  const employeeById = new Map((data.employees || []).map((employee) => [String(employee.id), employee]));
+  const withContext = (context, details) => {
+    const resolved = resolveActivityReferences(details, references);
+    if (!resolved || resolved === context) return context;
+    return `${context} — ${resolved}`;
+  };
   const pushRow = (row) => {
     const at = toDateSafe(row.at);
     if (!at) return;
@@ -191,18 +289,33 @@ const buildAdminActivityRows = (data = {}) => {
 
   const addHistoryRows = (items = [], areaLabel) => {
     items.forEach((item) => {
+      const context = areaLabel === "Booking"
+        ? activityBookingLabel(item)
+        : (() => {
+            const storedVehicle = item.vehicle && typeof item.vehicle === "object" ? item.vehicle : null;
+            const vehicleId = firstActivityText(item.vehicleId, item.assetId, item.vehicle);
+            const vehicle = storedVehicle || vehicleById.get(vehicleId) || {};
+            const label = firstActivityText(
+              item.vehicleLabel,
+              item.vehicleName,
+              activityVehicleLabel(vehicle),
+              item.registration
+            );
+            return label ? `Maintenance · ${label}` : "Maintenance booking";
+          })();
       const history = Array.isArray(item.history) ? item.history : [];
       history.forEach((entry, index) => {
+        const entryDetails =
+          entry?.details ||
+          (Array.isArray(entry?.changes) ? entry.changes.join(" | ") : "") ||
+          `${areaLabel} updated`;
         pushRow({
           id: `${areaLabel}-${item.id}-${index}`,
           at: entry?.timestamp || entry?.updatedAt || item?.updatedAt || item?.createdAt,
           user: entry?.user || entry?.updatedBy || entry?.by || item?.lastEditedBy || item?.createdBy,
           action: entry?.action || "Updated",
           area: areaLabel,
-          details:
-            entry?.details ||
-            (Array.isArray(entry?.changes) ? entry.changes.join(" | ") : "") ||
-            `${areaLabel} ${item.id}`,
+          details: withContext(context, entryDetails),
         });
       });
 
@@ -213,7 +326,7 @@ const buildAdminActivityRows = (data = {}) => {
           user: item?.lastEditedBy || item?.updatedBy || item?.createdBy,
           action: item?.updatedAt ? "Updated" : "Created",
           area: areaLabel,
-          details: `${areaLabel} ${item.id}`,
+          details: `${context} — ${item?.updatedAt ? "Record updated" : "Record created"}`,
         });
       }
     });
@@ -223,39 +336,62 @@ const buildAdminActivityRows = (data = {}) => {
   addHistoryRows(data.maintenanceBookings || [], "Maintenance");
 
   (data.maintenanceJobs || []).forEach((item) => {
+    const vehicle = vehicleById.get(String(item.assetId || item.vehicleId || "")) || {};
+    const vehicleLabel = firstActivityText(
+      item.vehicleName,
+      item.assetLabel,
+      activityVehicleLabel(vehicle),
+      item.registration
+    );
+    const resolvedTitle = resolveActivityReferences(item.title, references);
+    const usefulTitle = [item.id, item.assetId, item.vehicleId]
+      .map((value) => String(value || "").trim())
+      .includes(resolvedTitle)
+      ? ""
+      : resolvedTitle;
     pushRow({
       id: `Maintenance Job-${item.id}`,
       at: item.updatedAtServer || item.updatedAt || item.createdAt,
       user: item.updatedBy || item.createdBy,
       action: item.updatedAt ? "Updated" : "Created",
       area: "Maintenance Job",
-      details: item.title || item.id,
+      details: firstActivityText(
+        usefulTitle,
+        vehicleLabel ? `Maintenance for ${vehicleLabel}` : "Maintenance job"
+      ),
     });
   });
 
   (data.holidays || []).forEach((item) => {
+    const employee = employeeById.get(String(item.employeeId || item.employee || ""));
+    const employeeLabel = firstActivityText(
+      item.employeeName,
+      employee ? activityEmployeeLabel(employee) : "",
+      item.employeeId ? "" : item.employee
+    );
     pushRow({
       id: `Holiday-${item.id}`,
       at: item.updatedAt || item.createdAt || item.startDate,
       user: item.updatedBy || item.createdByEmail || item.createdByName || item.employee,
       action: item.updatedAt ? "Updated holiday" : "Created holiday",
       area: "Holiday",
-      details: `${item.employee || "Unknown"} ${fmtYMD(item.startDate)} -> ${fmtYMD(
+      details: `${employeeLabel || "Employee"} · ${fmtYMD(item.startDate)} to ${fmtYMD(
         item.endDate || item.startDate
       )}`,
     });
   });
 
   (data.sickLeave || []).forEach((item) => {
+    const employee = employeeById.get(String(item.employeeId || ""));
     pushRow({
       id: `Sick-${item.id}`,
       at: item.updatedAt || item.createdAt || item.startDate,
       user: item.updatedBy || item.createdBy || "Unknown",
       action: item.updatedAt ? "Updated sick leave" : "Created sick leave",
       area: "Sick Leave",
-      details: `${item.employeeName || item.employeeId || "Unknown"} ${fmtYMD(
+      details: `${firstActivityText(item.employeeName, activityEmployeeLabel(employee || {}), "Employee")} · ${fmtYMD(
         item.startDate
-      )} -> ${fmtYMD(item.endDate || item.startDate)}`,
+      )} to ${fmtYMD(item.endDate || item.startDate)}`,
     });
   });
 
@@ -274,11 +410,13 @@ const buildAdminActivityRows = (data = {}) => {
   return rows.slice(0, 500);
 };
 
-const fetchAdminOverviewDataFromServer = async () => {
+const fetchAdminOverviewDataFromServer = async (section = "access", day = "") => {
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error("Not signed in.");
   const idToken = await currentUser.getIdToken();
-  const res = await fetch("/api/admin/overview", {
+  const params = new URLSearchParams({ section });
+  if (day) params.set("day", day);
+  const res = await fetch(`/api/admin/overview?${params.toString()}`, {
     headers: { Authorization: `Bearer ${idToken}` },
     cache: "no-store",
   });
@@ -321,6 +459,8 @@ export default function AdminPage() {
   const [employees, setEmployees] = useState([]);
   const [allowances, setAllowances] = useState([]);
   const [sickLeaves, setSickLeaves] = useState([]);
+  const [sickSearch, setSickSearch] = useState("");
+  const [sickSort, setSickSort] = useState("newest");
   const [activityRows, setActivityRows] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityDay, setActivityDay] = useState(() => fmtYMD(new Date()));
@@ -380,7 +520,7 @@ export default function AdminPage() {
 
   const migrateMfaSecrets = async () => {
     if (
-      !confirm(
+      !await systemDialogs.confirmSystem(
         "Move legacy MFA secrets out of user records?\n\nThis should be run once after deploying the private MFA store."
       )
     ) {
@@ -421,7 +561,6 @@ export default function AdminPage() {
 
   /* -------------------------------------------
      Auth + Admin gate
-      allow if email in ADMIN_EMAILS OR server-bootstrapped role is admin/platformAdmin
   -------------------------------------------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -432,13 +571,11 @@ export default function AdminPage() {
           return;
         }
 
-        const email = String(u.email || "").trim().toLowerCase();
         const access = await refreshServerAccess(u);
         const role = String(access?.role || "").trim().toLowerCase();
         const isAdminRole = ["admin", "platformadmin"].includes(role);
-        const isAllowListed = ADMIN_EMAILS.includes(email);
 
-        if (!isAllowListed && !isAdminRole) {
+        if (!isAdminRole) {
           router.push("/home");
           return;
         }
@@ -464,27 +601,40 @@ export default function AdminPage() {
     setActivityLoading(true);
     setAuditLoading(true);
     try {
-      const overview = await fetchAdminOverviewData();
-      hydrateAdminOverview(overview);
+      const [accessOverview, sickOverview, holidayOverview] = await Promise.all([
+        fetchAdminOverviewData("access"),
+        fetchAdminOverviewData("sick"),
+        fetchAdminOverviewData("holiday"),
+      ]);
+      hydrateAdminOverview(accessOverview, "access");
+      hydrateAdminOverview(sickOverview, "sick");
+      hydrateAdminOverview(holidayOverview, "holiday");
     } finally {
       setActivityLoading(false);
       setAuditLoading(false);
     }
   };
 
-  const fetchAdminOverviewData = async () => {
-    return fetchAdminOverviewDataFromServer();
+  const fetchAdminOverviewData = async (section = "access", day = "") => {
+    return fetchAdminOverviewDataFromServer(section, day);
   };
 
-  const hydrateAdminOverview = (overview = {}) => {
-    const deduped = dedupeUsersByEmail(overview.users || []);
-    setUsers(deduped.users);
-    setUsersMeta(deduped.meta);
-    setEmployees(overview.employees || []);
-    setAllowances(overview.holidayAllowances || []);
-    setSickLeaves(overview.sickLeave || []);
-    setActivityRows(buildAdminActivityRows(overview));
-    setAuditRows(
+  const hydrateAdminOverview = (overview = {}, section = overview.section) => {
+    if (section === "access") {
+      const deduped = dedupeUsersByEmail(overview.users || []);
+      setUsers(deduped.users);
+      setUsersMeta(deduped.meta);
+      setEmployees(overview.employees || []);
+    }
+    if (section === "sick") {
+      setEmployees(overview.employees || []);
+      setSickLeaves(overview.sickLeave || []);
+    }
+    if (section === "holiday") {
+      setAllowances(overview.holidayAllowances || []);
+    }
+    if (section === "activity") setActivityRows(buildAdminActivityRows(overview));
+    if (section === "audit") setAuditRows(
       (overview.adminAuditLogs || []).slice(0, 200).map((data) => ({
         id: data.id,
         ...data,
@@ -494,31 +644,32 @@ export default function AdminPage() {
   };
 
   const fetchUsers = async () => {
-    const overview = await fetchAdminOverviewData();
+    const overview = await fetchAdminOverviewData("access");
     const deduped = dedupeUsersByEmail(overview.users || []);
     setUsers(deduped.users);
     setUsersMeta(deduped.meta);
   };
 
   const fetchEmployees = async () => {
-    const overview = await fetchAdminOverviewData();
+    const overview = await fetchAdminOverviewData("access");
     setEmployees(overview.employees || []);
   };
 
   const fetchAllowances = async () => {
-    const overview = await fetchAdminOverviewData();
+    const overview = await fetchAdminOverviewData("holiday");
     setAllowances(overview.holidayAllowances || []);
   };
 
   const fetchSickLeaves = async () => {
-    const overview = await fetchAdminOverviewData();
+    const overview = await fetchAdminOverviewData("sick");
+    setEmployees(overview.employees || []);
     setSickLeaves(overview.sickLeave || []);
   };
 
   const fetchActivity = async () => {
     setActivityLoading(true);
     try {
-      const overview = await fetchAdminOverviewData();
+      const overview = await fetchAdminOverviewData("activity", activityDay);
       setActivityRows(buildAdminActivityRows(overview));
     } catch (err) {
       console.error("Failed to load activity:", err);
@@ -531,7 +682,7 @@ export default function AdminPage() {
   const fetchAuditLogs = async () => {
     setAuditLoading(true);
     try {
-      const overview = await fetchAdminOverviewData();
+      const overview = await fetchAdminOverviewData("audit");
       setAuditRows(
         (overview.adminAuditLogs || []).slice(0, 200).map((data) => {
           return {
@@ -549,6 +700,15 @@ export default function AdminPage() {
       setAuditLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (checking) return;
+    if (activeTab === Tabs.SICK) void fetchSickLeaves();
+    if (activeTab === Tabs.ACTIVITY) void fetchActivity();
+    if (activeTab === Tabs.AUDIT) void fetchAuditLogs();
+    // Fetch helpers intentionally use the latest authenticated state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activityDay, checking]);
 
   /* -------------------------------------------
      Access management
@@ -578,7 +738,7 @@ export default function AdminPage() {
 
     const label = targetUser.email || targetUser.name || targetUser.id;
     if (
-      !confirm(
+      !await systemDialogs.confirmSystem(
         `Reset MFA for ${label}?\n\nThey will need to log in with their password and set up Authenticator again.`
       )
     ) {
@@ -602,7 +762,7 @@ export default function AdminPage() {
 
     const label = targetUser.email || targetUser.name || targetUser.id;
     if (
-      !confirm(
+      !await systemDialogs.confirmSystem(
         `Delete access account for ${label}?\n\nThis removes their Firestore access record and MFA secret record. It does not delete bookings, employees, timesheets, or the Firebase Authentication login.`
       )
     ) {
@@ -747,7 +907,7 @@ export default function AdminPage() {
   };
 
   const deleteSickLeave = async (id) => {
-    if (!confirm("Delete this sick leave record?")) return;
+    if (!await systemDialogs.confirmSystem("Delete this sick leave record?")) return;
     try {
       await deleteDoc(doc(db, "sickLeave", id));
       showToast("ok", "Deleted");
@@ -756,6 +916,15 @@ export default function AdminPage() {
       showToast("error", e?.message || "Failed to delete");
     }
   };
+
+  const displayedSickLeaves = useMemo(
+    () => buildSickLeaveDisplayRows(sickLeaves, employees, { search: sickSearch, sort: sickSort }),
+    [employees, sickLeaves, sickSearch, sickSort]
+  );
+  const sickLeaveSummary = useMemo(
+    () => summarizeSickLeaveRows(displayedSickLeaves),
+    [displayedSickLeaves]
+  );
 
   const filteredActivityRows = useMemo(() => {
     const q = qText.trim().toLowerCase();
@@ -800,48 +969,6 @@ export default function AdminPage() {
     );
   }, [auditRows, qText]);
 
-  const activityByHour = useMemo(() => {
-    const selectedDay = String(activityDay || "").trim();
-    const counts = Array.from({ length: 24 }, (_, hour) => ({
-      hour,
-      label: `${String(hour).padStart(2, "0")}:00`,
-      value: 0,
-    }));
-
-    filteredActivityRows.forEach((row) => {
-      if (!(row.at instanceof Date) || Number.isNaN(row.at.getTime())) return;
-      const rowDay = fmtYMD(row.at);
-      if (rowDay !== selectedDay) return;
-      const hour = row.at.getHours();
-      if (hour >= 0 && hour <= 23) counts[hour].value += 1;
-    });
-
-    return counts;
-  }, [filteredActivityRows, activityDay]);
-
-  const activityHourMax = useMemo(
-    () => Math.max(1, ...activityByHour.map((item) => item.value || 0)),
-    [activityByHour]
-  );
-  const activitySummary = useMemo(() => {
-    const selectedDay = String(activityDay || "").trim();
-    const rowsForDay = filteredActivityRows.filter((row) => fmtYMD(row.at) === selectedDay);
-    const uniqueUsers = new Set(rowsForDay.map((row) => row.user).filter(Boolean));
-    const byArea = rowsForDay.reduce((acc, row) => {
-      const key = row.area || "Other";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-    const topAreas = Object.entries(byArea)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-
-    return {
-      total: rowsForDay.length,
-      uniqueUsers: uniqueUsers.size,
-      topAreas,
-    };
-  }, [filteredActivityRows, activityDay]);
   const showAprilFools = isAprilFoolsDay();
 
   const aprilFoolsFeed = useMemo(
@@ -1078,7 +1205,7 @@ export default function AdminPage() {
                     ) : (
                       filteredUsers.map((u) => {
                         const email = (u.email || "").toLowerCase();
-                        const locked = ADMIN_EMAILS.includes(email);
+                        const locked = ["admin", "platformadmin"].includes(String(u.role || "").trim().toLowerCase());
                         const enabled = u.isEnabled ?? true;
                         const mfaEnabled = u.mfaEnabled === true && u.mfaMethod === "totp";
                         const resetInProgress = resettingMfaUserId === u.id;
@@ -1403,14 +1530,58 @@ export default function AdminPage() {
               )}
 
               {/* Records table */}
-              <div className={layoutStyles.extracted13}>
-                <table className={layoutStyles.extracted14}>
+              <div className={layoutStyles.sickHistoryToolbar}>
+                <div className={layoutStyles.sickHistorySummary}>
+                  <div>
+                    <span className={layoutStyles.sickSummaryValue}>{displayedSickLeaves.length}</span>
+                    <span className={layoutStyles.sickSummaryLabel}>
+                      {displayedSickLeaves.length === 1 ? "record" : "records"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={layoutStyles.sickSummaryValue}>{sickLeaveSummary.totalDays}</span>
+                    <span className={layoutStyles.sickSummaryLabel}>
+                      {sickLeaveSummary.totalDays === 1 ? "day" : "days"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className={layoutStyles.sickSummaryValue}>{sickLeaveSummary.people}</span>
+                    <span className={layoutStyles.sickSummaryLabel}>
+                      {sickLeaveSummary.people === 1 ? "employee" : "employees"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={layoutStyles.sickHistoryControls}>
+                  <label className={layoutStyles.sickSearchField}>
+                    <Search size={15} aria-hidden="true" />
+                    <input
+                      type="search"
+                      value={sickSearch}
+                      onChange={(event) => setSickSearch(event.target.value)}
+                      placeholder="Search employee, reason or notes"
+                      aria-label="Search sick leave records"
+                    />
+                  </label>
+                  <select
+                    value={sickSort}
+                    onChange={(event) => setSickSort(event.target.value)}
+                    className={layoutStyles.sickSortSelect}
+                    aria-label="Sort sick leave records"
+                  >
+                    <option value="newest">Newest absence first</option>
+                    <option value="oldest">Oldest absence first</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className={layoutStyles.sickHistoryTableWrap}>
+                <table className={layoutStyles.sickHistoryTable}>
                   <thead>
                     <tr>
                       <Th>Employee</Th>
-                      <Th>Start</Th>
-                      <Th>End</Th>
-                      <Th>Days</Th>
+                      <Th>Absence</Th>
+                      <Th>Duration</Th>
                       <Th>Reason</Th>
                       <Th>Notes</Th>
                       <Th>Actions</Th>
@@ -1418,38 +1589,84 @@ export default function AdminPage() {
                   </thead>
 
                   <tbody>
-                    {sickLeaves.length === 0 ? (
+                    {displayedSickLeaves.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={emptyTd}>
-                          No sick leave records yet.
+                        <td colSpan={6} className={layoutStyles.sickEmptyState}>
+                          {sickLeaves.length === 0
+                            ? "No sick leave records yet."
+                            : "No sick leave records match your search."}
                         </td>
                       </tr>
                     ) : (
-                      sickLeaves.map((s) => {
-                        const emp = employees.find((e) => e.id === s.employeeId);
+                      displayedSickLeaves.map(({ record: s, employee: emp }) => {
+                        const payStatus = sickLeavePaymentStatus(s.notes);
+                        const noteText = sickLeaveNoteText(s.notes);
+                        const sameDay = fmtYMD(s.startDate) === fmtYMD(s.endDate);
                         return (
-                          <tr key={s.id} style={rowStyle}>
+                          <tr key={s.id} className={layoutStyles.sickHistoryRow}>
                             <Td>
-                              <div style={{ fontWeight: 900, color: UI.text }}>
-                                {emp?.name || "Unknown"}
-                              </div>
-                              <div style={{ fontSize: 12, color: UI.muted }}>
-                                {emp?.email || ""}
+                              <div className={layoutStyles.sickEmployee}>
+                                <span className={layoutStyles.sickEmployeeAvatar} aria-hidden="true">
+                                  {employeeInitials(emp?.name)}
+                                </span>
+                                <div className={layoutStyles.sickEmployeeText}>
+                                  <div className={layoutStyles.sickEmployeeName}>
+                                    {emp?.name || "Unknown employee"}
+                                  </div>
+                                  <div className={layoutStyles.sickEmployeeEmail}>
+                                    {emp?.email || "No email recorded"}
+                                  </div>
+                                </div>
                               </div>
                             </Td>
 
-                            <Td className={layoutStyles.extracted15}>{fmtYMD(s.startDate)}</Td>
-                            <Td className={layoutStyles.extracted16}>{fmtYMD(s.endDate)}</Td>
-
                             <Td>
-                              <span style={{ fontWeight: 1000, color: UI.text }}>{s.days ?? "-"}</span>
+                              <div className={layoutStyles.sickDateRange}>
+                                <CalendarDays size={16} aria-hidden="true" />
+                                <div>
+                                  <div className={layoutStyles.sickDatePrimary}>
+                                    {formatSickLeaveDate(s.startDate)}
+                                  </div>
+                                  {!sameDay && (
+                                    <div className={layoutStyles.sickDateSecondary}>
+                                      to {formatSickLeaveDate(s.endDate)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </Td>
 
-                            <Td>{s.reason || "-"}</Td>
-                            <Td style={{ color: UI.muted }}>{s.notes || "-"}</Td>
+                            <Td>
+                              <span className={layoutStyles.sickDurationBadge}>
+                                {s.days ?? "-"} {Number(s.days) === 1 ? "day" : "days"}
+                              </span>
+                            </Td>
 
                             <Td>
-                              <div className={layoutStyles.extracted17}>
+                              <span className={layoutStyles.sickReasonBadge}>{s.reason || "Not specified"}</span>
+                            </Td>
+
+                            <Td>
+                              <div className={layoutStyles.sickNotesCell}>
+                                {payStatus && (
+                                  <span
+                                    className={`${layoutStyles.sickPayBadge} ${
+                                      payStatus === "Paid"
+                                        ? layoutStyles.sickPayBadgePaid
+                                        : layoutStyles.sickPayBadgeUnpaid
+                                    }`}
+                                  >
+                                    {payStatus}
+                                  </span>
+                                )}
+                                <span className={layoutStyles.sickNotesText}>
+                                  {noteText || (payStatus ? "No additional notes" : "No notes")}
+                                </span>
+                              </div>
+                            </Td>
+
+                            <Td>
+                              <div className={layoutStyles.sickActions}>
                                 <button
                                   onClick={() => startEditSick(s)}
                                   style={{
@@ -1488,173 +1705,16 @@ export default function AdminPage() {
           )}
 
           {activeTab === Tabs.ACTIVITY && (
-            <Card
-              title="System Activity"
-              subtitle="Recent activity across bookings, maintenance, holidays, sick leave and access changes."
-            >
-              <div
-                className={layoutStyles.extracted18}
-              >
-                <div className={layoutStyles.extracted19}>
-                  <span style={pillStyle}>Showing {filteredActivityRows.length}</span>
-                  <label style={{ display: "flex", gap: 8, alignItems: "center", color: UI.text, fontWeight: 800 }}>
-                    <span>Day</span>
-                    <input
-                      type="date"
-                      value={activityDay === "-" ? "" : activityDay}
-                      onChange={(e) => setActivityDay(e.target.value)}
-                      style={inputStyle}
-                    />
-                  </label>
-                </div>
-                <button onClick={fetchActivity} style={btnStyle}>
-                  Refresh activity
-                </button>
-              </div>
-
-              <div style={{ ...panelStyle, marginBottom: 12 }}>
-                <div className={layoutStyles.extracted20}>
-                  <div style={{ fontWeight: 1000, color: UI.text }}>Activity per Hour</div>
-                  <span style={pillStyle}>{activityDay || "No day selected"}</span>
-                </div>
-
-                <div
-                  className={layoutStyles.extracted21}
-                >
-                  {activityByHour.map((item) => (
-                    <div key={item.hour} className={layoutStyles.extracted22}>
-                      <div
-                        title={`${item.label} - ${item.value} activit${item.value === 1 ? "y" : "ies"}`}
-                        style={{
-                          height: `${Math.max(8, (item.value / activityHourMax) * 160)}px`,
-                          borderRadius: "10px 10px 4px 4px",
-                          border: `1px solid ${item.value ? UI.brand : "var(--color-border)"}`,
-                          background: item.value
-                            ? "linear-gradient(180deg, rgba(29,78,216,0.22) 0%, rgba(29,78,216,0.82) 100%)"
-                            : "var(--color-brand-soft)",
-                          display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: "center",
-                          color: item.value ? "var(--color-white)" : UI.muted,
-                          fontSize: 11,
-                          fontWeight: 900,
-                          paddingTop: 6,
-                        }}
-                      >
-                        {item.value}
-                      </div>
-                      <div style={{ fontSize: 10, color: UI.muted, textAlign: "center", whiteSpace: "nowrap" }}>
-                        {String(item.hour).padStart(2, "0")}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                className={layoutStyles.extracted23}
-              >
-                <div style={panelStyle}>
-                  <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em" }}>
-                    Selected Day
-                  </div>
-                  <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000, color: UI.text }}>
-                    {activitySummary.total}
-                  </div>
-                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>activity events</div>
-                </div>
-
-                <div style={panelStyle}>
-                  <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em" }}>
-                    Active Users
-                  </div>
-                  <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000, color: UI.text }}>
-                    {activitySummary.uniqueUsers}
-                  </div>
-                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>unique users on this day</div>
-                </div>
-
-                <div style={panelStyle}>
-                  <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 6 }}>
-                    Top Areas
-                  </div>
-                  {activitySummary.topAreas.length ? (
-                    <div className={layoutStyles.extracted24}>
-                      {activitySummary.topAreas.map(([area, count]) => (
-                        <span key={area} style={pillStyle}>
-                          {area}: {count}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 12, color: UI.muted }}>No activity on this day.</div>
-                  )}
-                </div>
-              </div>
-
-              <div className={layoutStyles.extracted25}>
-                <table className={layoutStyles.extracted26}>
-                  <thead>
-                    <tr>
-                      <Th>When</Th>
-                      <Th>User</Th>
-                      <Th>Action</Th>
-                      <Th>Area</Th>
-                      <Th>Details</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activityLoading ? (
-                      <tr>
-                        <td colSpan={5} style={emptyTd}>
-                          Loading activity...
-                        </td>
-                      </tr>
-                    ) : filteredActivityRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} style={emptyTd}>
-                          No activity found.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredActivityRows.map((row) => (
-                        <tr key={row.id} style={rowStyle}>
-                                                    <Td>
-                            <div style={{ fontWeight: 900, color: UI.text }}>
-                              {row.at ? row.at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                            </div>
-                            <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
-                              {row.at ? row.at.toLocaleDateString("en-GB") : "—"}
-                            </div>
-                          </Td>
-                          <Td>
-                            <div style={{ fontWeight: 800, color: UI.text }}>{row.user}</div>
-                          </Td>
-                          <Td>
-                            <span style={pillStyle}>{row.action}</span>
-                          </Td>
-                                                    <Td>
-                            <span
-                              style={{
-                                ...pillStyle,
-                                background: UI.brandSoft,
-                                color: UI.brand,
-                                borderColor: "rgba(29, 78, 216, 0.18)",
-                              }}
-                            >
-                              {row.area || "Other"}
-                            </span>
-                          </Td>
-                                                    <Td>
-                            <div style={{ color: UI.text }}>{row.details || "—"}</div>
-                          </Td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <>
+              <UserActivityPanel />
+              <SystemActivityPanel
+                rows={filteredActivityRows}
+                loading={activityLoading}
+                day={activityDay === "-" ? "" : activityDay}
+                onDayChange={setActivityDay}
+                onRefresh={fetchActivity}
+              />
+            </>
           )}
 
           {activeTab === Tabs.AUDIT && (
@@ -2085,7 +2145,7 @@ function EmployeesHolidayAllowancesTab() {
     const load = async () => {
       setLoading(true);
       try {
-        const overview = await fetchAdminOverviewDataFromServer();
+        const overview = await fetchAdminOverviewDataFromServer("holiday");
         const list = (overview.employees || []).map((employee) => {
           const x = employee || {};
           const pattern = x.workPattern || HA_DEFAULT_PATTERN;
@@ -2285,13 +2345,13 @@ function EmployeesHolidayAllowancesTab() {
     const name = (e.name ?? r.name ?? "").trim();
     const pattern = e.workPattern ?? r.workPattern ?? HA_DEFAULT_PATTERN;
 
-    if (!name) return alert("Name is required.");
+    if (!name) return systemDialogs.showSystemNotification("Name is required.");
 
     const allowance = getAllowanceForYear(r, yearView);
     const carry = getCarryForYear(r, yearView);
 
-    if (allowance < 0 || carry < 0) return alert("Numbers must be >= 0.");
-    if (yearView === HA_nextYear && carry > HA_MAX_CARRY) return alert(`Carry over cannot exceed ${HA_MAX_CARRY} days.`);
+    if (allowance < 0 || carry < 0) return systemDialogs.showSystemNotification("Numbers must be >= 0.");
+    if (yearView === HA_nextYear && carry > HA_MAX_CARRY) return systemDialogs.showSystemNotification(`Carry over cannot exceed ${HA_MAX_CARRY} days.`);
 
     const yrKey = String(yearView);
 
@@ -2327,16 +2387,16 @@ function EmployeesHolidayAllowancesTab() {
         )
       );
 
-      alert(`Saved ${name} (${yearView}).`);
+      systemDialogs.showSystemNotification(`Saved ${name} (${yearView}).`);
     } catch (err) {
-      alert(`Failed to save: ${err?.message || err}`);
+      systemDialogs.showSystemNotification(`Failed to save: ${err?.message || err}`);
     } finally {
       setSaving((p) => ({ ...p, [r.id]: false }));
     }
   };
 
   const deleteRow = async (r) => {
-    if (!confirm(`Delete employee "${r.name}"?`)) return;
+    if (!await systemDialogs.confirmSystem(`Delete employee "${r.name}"?`)) return;
 
     setSaving((p) => ({ ...p, [r.id]: true }));
     try {
@@ -2349,9 +2409,9 @@ function EmployeesHolidayAllowancesTab() {
         return cp;
       });
 
-      alert("Deleted.");
+      systemDialogs.showSystemNotification("Deleted.");
     } catch (err) {
-      alert(`Failed to delete: ${err?.message || err}`);
+      systemDialogs.showSystemNotification(`Failed to delete: ${err?.message || err}`);
     } finally {
       setSaving((p) => ({ ...p, [r.id]: false }));
     }
@@ -2360,7 +2420,7 @@ function EmployeesHolidayAllowancesTab() {
   const addEmployee = async () => {
     const name = (newName || "").trim();
     const pattern = newPattern || HA_DEFAULT_PATTERN;
-    if (!name) return alert("Name is required.");
+    if (!name) return systemDialogs.showSystemNotification("Name is required.");
 
     const allowance = HA_entitlementFor(pattern);
     const carry = Math.max(0, HA_asNum(newCarry, 0));
@@ -2405,10 +2465,10 @@ function EmployeesHolidayAllowancesTab() {
       setNewPattern(HA_DEFAULT_PATTERN);
       setNewCarry(0);
 
-      alert("Employee added.");
+      systemDialogs.showSystemNotification("Employee added.");
     } catch (err) {
       handleFirestoreAccessError(err, { collectionName: "employees", operation: "create employee" });
-      alert(`Failed to add: ${err?.message || err}`);
+      systemDialogs.showSystemNotification(`Failed to add: ${err?.message || err}`);
     } finally {
       setAdding(false);
     }

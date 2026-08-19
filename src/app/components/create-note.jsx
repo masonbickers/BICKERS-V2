@@ -1,12 +1,14 @@
 // src/app/components/create-note.jsx
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./create-note.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs } from "firebase/firestore";
-import { Check, StickyNote, X } from "lucide-react";
+import { Check } from "lucide-react";
+import { Button, Modal } from "@/app/components/ui";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -87,7 +89,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
     e.preventDefault();
 
     if (!noteText.trim()) {
-      alert("Note text cannot be empty.");
+      systemDialogs.showSystemNotification("Note text cannot be empty.");
       return;
     }
 
@@ -95,7 +97,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
     try {
       if (isMultiDay) {
         if (!startDate || !endDate) {
-          alert("Select both start and end dates.");
+          systemDialogs.showSystemNotification("Select both start and end dates.");
           setSaving(false);
           return;
         }
@@ -103,7 +105,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
         const s = new Date(startDate);
         const ed = new Date(endDate);
         if (Number.isNaN(+s) || Number.isNaN(+ed) || s > ed) {
-          alert("End date must be the same or after start date.");
+          systemDialogs.showSystemNotification("End date must be the same or after start date.");
           setSaving(false);
           return;
         }
@@ -124,7 +126,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
         }
       } else {
         if (!noteDate) {
-          alert("Please select a date.");
+          systemDialogs.showSystemNotification("Please select a date.");
           setSaving(false);
           return;
         }
@@ -145,30 +147,32 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
       else router.push("/dashboard");
     } catch (err) {
       console.error("Error saving note:", err);
-      alert("Failed to save note. Please try again.");
+      systemDialogs.showSystemNotification("Failed to save note. Please try again.");
       setSaving(false);
     }
   };
 
   return (
-    <div className={layoutStyles.extracted1}>
-      <div style={modal}>
-        <div className={layoutStyles.extracted2}>
-          <div className={layoutStyles.extracted3}>
-            <span style={iconBox}>
-              <StickyNote size={18} />
-            </span>
-            <div>
-              <div style={eyebrow}>Dashboard note</div>
-              <h2 style={modalTitle}>Add Note</h2>
-            </div>
-          </div>
-          <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className={layoutStyles.extracted4}>
+    <Modal
+      open
+      onClose={handleBack}
+      eyebrow="Dashboard note"
+      title="Add note"
+      size="md"
+      density="compact"
+      footer={
+        <>
+          <Button type="button" variant="secondary" size="sm" onClick={handleBack} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-note-form" size="sm" disabled={!canSubmit} loading={saving}>
+            <Check size={15} />
+            Save note
+          </Button>
+        </>
+      }
+    >
+        <form id="create-note-form" onSubmit={handleSubmit} className={layoutStyles.extracted4}>
           <div className={layoutStyles.extracted5}>
             <div className={layoutStyles.extracted6}>
               <label className={layoutStyles.extracted7}>Employee</label>
@@ -265,26 +269,8 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
             />
           </div>
 
-          <div className={layoutStyles.extracted20}>
-            <button type="button" onClick={handleBack} style={secondaryBtn}>
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              style={{
-                ...primaryBtn,
-                opacity: canSubmit ? 1 : 0.55,
-                cursor: canSubmit ? "pointer" : "not-allowed",
-              }}
-            >
-              <Check size={15} />
-              {saving ? "Saving..." : "Save Note"}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

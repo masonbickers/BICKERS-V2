@@ -24,6 +24,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { INTERFACE_SCALE_OPTIONS } from "@/app/utils/interfaceScale";
 
 const UI = UI_TOKENS;
 
@@ -325,8 +326,8 @@ export default function SettingsPage() {
   return (
     <HeaderSidebarLayout>
       <style>{settingsCss}</style>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted5}>
+      <div data-sidebar-page style={pageWrap}>
+        <div data-sidebar-page-header className={layoutStyles.extracted5}>
           <div>
             <h1 style={h1}>Settings</h1>
             <div style={sub}>A clean view of your account, access, and security settings.</div>
@@ -520,9 +521,9 @@ export default function SettingsPage() {
                 <div style={sectionSub}>Choose how the published company theme appears on this device.</div>
                 <div className={`settings-triple ${layoutStyles.extracted23}`} >
                   {[
-                    ["light", "Light", Sun],
                     ["dark", "Dark", Moon],
-                    ["system", "System", Monitor],
+                    ["normal", "Normal", Monitor],
+                    ["light", "Light", Sun],
                   ].map(([value, label, Icon]) => (
                     <button
                       key={value}
@@ -540,6 +541,32 @@ export default function SettingsPage() {
                       <Icon size={14} /> {label}
                     </button>
                   ))}
+                </div>
+
+                <div className={layoutStyles.appearanceDivider} />
+                <div style={fieldLabel}>Interface size</div>
+                <div style={{ ...sectionSub, marginTop: 5 }}>
+                  Change how much of the app fits on screen. This preference is saved on this device.
+                </div>
+                <div className={layoutStyles.interfaceScaleOptions} role="group" aria-label="Interface size">
+                  {INTERFACE_SCALE_OPTIONS.map((option) => {
+                    const selected = appearance.interfaceScale === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => appearance.setInterfaceScale(option.value)}
+                        aria-pressed={selected}
+                        className={layoutStyles.interfaceScaleButton}
+                        data-selected={selected}
+                      >
+                        <span className={layoutStyles.interfaceScaleLabel}>
+                          {option.label} <strong>{option.percent}%</strong>
+                        </span>
+                        <span className={layoutStyles.interfaceScaleDescription}>{option.description}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

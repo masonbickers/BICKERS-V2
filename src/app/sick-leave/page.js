@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* ───────────────────────────────────────────
    Mini design system
@@ -44,6 +46,11 @@ const chip = (kind = "neutral") => {
   if (kind === "warn") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.warnBorder}`, background: UI.warnBg, color: UI.warn, fontSize: 12, fontWeight: 900 };
   if (kind === "danger") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontSize: 12, fontWeight: 900 };
   return { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--color-surface-hover)", color: UI.text, fontSize: 12, fontWeight: 900 };
+};
+
+const statusChip = (status) => {
+  const tone = getSemanticStatusStyle(status);
+  return { ...chip("neutral"), border: `1px solid ${tone.border}`, background: tone.bg, color: tone.text };
 };
 
 const btn = (kind = "primary") => {
@@ -294,7 +301,7 @@ export default function Page() {
 
       await addDoc(collection(db, "sickLeave"), tenantPayload(dataAccessState, payload));
 
-      alert(" Sick leave recorded");
+      systemDialogs.showSystemNotification(" Sick leave recorded");
       setEmployeeId("");
       setEmployeeName("");
       setStartDate("");
@@ -308,7 +315,7 @@ export default function Page() {
       await fetchAll();
     } catch (err) {
       console.error(err);
-      alert(` Could not save sick leave.\n${err?.message || ""}`);
+      systemDialogs.showSystemNotification(` Could not save sick leave.\n${err?.message || ""}`);
     } finally {
       setSaving(false);
     }
@@ -320,18 +327,18 @@ export default function Page() {
       await fetchAll();
     } catch (e) {
       console.error(e);
-      alert(" Failed to update status");
+      systemDialogs.showSystemNotification(" Failed to update status");
     }
   };
 
   const removeRecord = async (id) => {
-    if (!confirm("Delete this sick leave record?")) return;
+    if (!await systemDialogs.confirmSystem("Delete this sick leave record?")) return;
     try {
       await deleteDoc(doc(db, "sickLeave", id));
       await fetchAll();
     } catch (e) {
       console.error(e);
-      alert(" Failed to delete record");
+      systemDialogs.showSystemNotification(" Failed to delete record");
     }
   };
 
@@ -538,8 +545,7 @@ export default function Page() {
                     const toD = toDate(r.endDate) || fromD;
                     const days = daysForRecord(r);
                     const statusLower = String(r.status || "").toLowerCase();
-                    const statusStyle =
-                      statusLower === "certified" ? chip("good") : statusLower === "pending" ? chip("warn") : chip("neutral");
+                    const statusStyle = statusChip(statusLower);
                     const notesText = String(r.notes || "").trim() || "—";
 
                     return (

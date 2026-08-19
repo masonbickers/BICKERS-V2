@@ -1,7 +1,9 @@
 // src/app/components/EditHolidayForm.jsx
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./EditHolidayForm.styles.module.css";
+import sharedStyles from "./HolidayFormShared.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db, auth } from "../../../firebaseConfig";
@@ -14,7 +16,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
-import { isAdminEmail } from "@/app/utils/adminAccess";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -23,6 +24,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { Button, Modal } from "@/app/components/ui";
 
 
 const norm = (v) => String(v ?? "").trim().toLowerCase();
@@ -124,16 +126,10 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         return;
       }
 
-      const allowlisted = isAdminEmail(email);
-      if (allowlisted) {
-        setIsAdmin(true);
-        return;
-      }
-
       try {
         const userSnap = await getDoc(doc(db, "users", u.uid));
         const role = String(userSnap.data()?.role || "").trim().toLowerCase();
-        setIsAdmin(role === "admin");
+        setIsAdmin(role === "admin" || role === "platformadmin");
       } catch {
         setIsAdmin(false);
       }
@@ -176,7 +172,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         const snap = await getDoc(ref);
         if (!snap.exists()) {
           setLoading(false);
-          alert("Holiday not found.");
+          systemDialogs.showSystemNotification("Holiday not found.");
           handleBack();
           return;
         }
@@ -241,7 +237,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       } catch (err) {
         console.error("Failed to load holiday:", err);
         setLoading(false);
-        alert("Failed to load holiday.");
+        systemDialogs.showSystemNotification("Failed to load holiday.");
         handleBack();
       }
     };
@@ -292,13 +288,13 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
     e.preventDefault();
     if (!holidayId) return;
     if (!canEditRecord) {
-      alert("Approved holidays can only be edited by an admin.");
+      systemDialogs.showSystemNotification("Approved holidays can only be edited by an admin.");
       return;
     }
 
-    if (!employee) return alert("Please select an employee.");
-    if (!holidayReason.trim()) return alert("Please enter a reason.");
-    if (!paidStatus) return alert("Please select paid status.");
+    if (!employee) return systemDialogs.showSystemNotification("Please select an employee.");
+    if (!holidayReason.trim()) return systemDialogs.showSystemNotification("Please enter a reason.");
+    if (!paidStatus) return systemDialogs.showSystemNotification("Please select paid status.");
 
     setSaving(true);
 
@@ -309,20 +305,20 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       if (isMultiDay) {
         if (!startDate || !endDate) {
           setSaving(false);
-          return alert("Select both start and end dates.");
+          return systemDialogs.showSystemNotification("Select both start and end dates.");
         }
         const s = new Date(startDate);
         const ed = new Date(endDate);
         if (Number.isNaN(+s) || Number.isNaN(+ed) || s > ed) {
           setSaving(false);
-          return alert("End date must be the same or after start date.");
+          return systemDialogs.showSystemNotification("End date must be the same or after start date.");
         }
         finalStart = startDate;
         finalEnd = endDate;
       } else {
         if (!holidayDate) {
           setSaving(false);
-          return alert("Please select a date.");
+          return systemDialogs.showSystemNotification("Please select a date.");
         }
         finalStart = holidayDate;
         finalEnd = holidayDate;
@@ -376,7 +372,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       else router.push("/dashboard");
     } catch (err) {
       console.error("Error updating holiday:", err);
-      alert("Failed to update holiday. Please try again.");
+      systemDialogs.showSystemNotification("Failed to update holiday. Please try again.");
       setSaving(false);
     }
   };
@@ -392,11 +388,11 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
     if (!holidayId) return;
 
     if (!approved) {
-      alert("You can only request deletion for an APPROVED holiday.");
+      systemDialogs.showSystemNotification("You can only request deletion for an APPROVED holiday.");
       return;
     }
 
-    const ok = confirm(
+    const ok = await systemDialogs.confirmSystem(
       "Request deletion of this APPROVED holiday?\n\nAn admin must approve before it is removed."
     );
     if (!ok) return;
@@ -423,65 +419,61 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       else router.push("/holiday-usage");
     } catch (err) {
       console.error("Delete request failed:", err);
-      alert("Failed to request deletion. Please try again.");
+      systemDialogs.showSystemNotification("Failed to request deletion. Please try again.");
       setSaving(false);
     }
   };
 
   return (
-    <div className={layoutStyles.extracted1}>
-      <div className={layoutStyles.extracted2}>
-        {/* Header */}
-        <div className={layoutStyles.extracted3}>
-          <div className={layoutStyles.extracted4}>
-            <h2 className={layoutStyles.extracted5}>{loading ? "Loading…" : "Edit Holiday"}</h2>
-
-            {!loading ? (
-              <div className={layoutStyles.extracted6}>
-                Status:{" "}
-                <b className={layoutStyles.extracted7}>
-                  {approved ? "Approved" : "Not approved"}
-                </b>
-                {holidayRec?.status ? (
-                  <>
-                    {" "}
-                    • Record:{" "}
-                    <b className={layoutStyles.extracted8}>
-                      {String(holidayRec.status)}
-                    </b>
-                  </>
-                ) : null}
-                {userEmail ? (
-                  <>
-                    {" "}
-                    • Signed in:{" "}
-                    <b className={layoutStyles.extracted9}>{userEmail}</b>{" "}
-                    • {isAdmin ? "Admin" : "Staff"}
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <button onClick={handleBack} className={layoutStyles.extracted10} aria-label="Close" type="button">
-            x
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className={layoutStyles.extracted11}>
+    <Modal
+      open
+      onClose={handleBack}
+      eyebrow="Employee leave"
+      title={loading ? "Loading…" : "Edit holiday"}
+      description={!loading ? (
+        <span className={sharedStyles.statusLine}>
+          Update the employee, dates and leave details.
+          <span className={sharedStyles.statusPill}>{approved ? "Approved" : "Not approved"}</span>
+          {holidayRec?.status ? <span className={sharedStyles.statusPill}>{String(holidayRec.status)}</span> : null}
+        </span>
+      ) : null}
+      size="md"
+      density="compact"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={handleRequestDelete}
+            disabled={!canRequestDelete}
+            title={!approved ? "Only approved holidays can be deletion-requested" : "Request deletion (admin approval required)"}
+          >
+            Request delete
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={handleBack} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" form="edit-holiday-form" size="sm" disabled={!canSubmit} loading={saving}>
+            Update holiday
+          </Button>
+        </>
+      }
+    >
+        <form id="edit-holiday-form" onSubmit={handleSubmit} className={`${layoutStyles.extracted11} ${sharedStyles.form}`}>
           {!canEditRecord ? (
             <div
-              className={layoutStyles.extracted12}
+              className={`${layoutStyles.extracted12} ${sharedStyles.notice}`}
             >
               This holiday has already been approved. Only an admin can edit it now.
             </div>
           ) : null}
           <fieldset
             disabled={loading || saving || !canEditRecord}
-            className={layoutStyles.extracted13}
+            className={`${layoutStyles.extracted13} ${sharedStyles.fieldGrid} ${sharedStyles.full}`}
           >
           {/* Employee */}
-          <div>
+          <div className={sharedStyles.field}>
             <label className={layoutStyles.extracted14}>Employee</label>
             <select
               value={employee}
@@ -499,7 +491,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           </div>
 
           {/* Type toggle */}
-          <div>
+          <div className={sharedStyles.field}>
             <label className={layoutStyles.extracted16}>Holiday Type</label>
             <select
               value={isMultiDay ? "multi" : "single"}
@@ -514,7 +506,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
           {/* Dates */}
           {!isMultiDay ? (
-            <div>
+            <div className={`${sharedStyles.field} ${sharedStyles.full}`}>
               <label className={layoutStyles.extracted18}>Date</label>
               <input
                 type="date"
@@ -527,7 +519,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
             </div>
           ) : (
             <>
-              <div>
+              <div className={sharedStyles.field}>
                 <label className={layoutStyles.extracted20}>Start Date</label>
                 <input
                   type="date"
@@ -539,7 +531,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
                 />
               </div>
 
-              <div>
+              <div className={sharedStyles.field}>
                 <label className={layoutStyles.extracted22}>End Date</label>
                 <input
                   type="date"
@@ -554,17 +546,17 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           )}
 
           {/* Half day controls */}
-          <div className={layoutStyles.extracted24}>
-            <div className={layoutStyles.extracted25}>
+          <div className={`${layoutStyles.extracted24} ${sharedStyles.halfDayPanel} ${sharedStyles.full}`}>
+            <div className={`${layoutStyles.extracted25} ${sharedStyles.halfHeader}`}>
               <div>
-                <div className={layoutStyles.extracted26}>
+                <div className={`${layoutStyles.extracted26} ${sharedStyles.halfTitle}`}>
                   Half day
                 </div>
-                <div className={layoutStyles.extracted27}>
+                <div className={`${layoutStyles.extracted27} ${sharedStyles.halfHint}`}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
-              <label className={layoutStyles.extracted28}>
+              <label className={`${layoutStyles.extracted28} ${sharedStyles.toggle}`}>
                 <input
                   type="checkbox"
                   checked={startHalfDay}
@@ -578,7 +570,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
             </div>
 
             {startHalfDay ? (
-              <div className={layoutStyles.extracted30}>
+              <div className={`${layoutStyles.extracted30} ${sharedStyles.halfOptions}`}>
                 <div>
                   <label className={layoutStyles.extracted31}>Start AM / PM</label>
                   <select
@@ -658,7 +650,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           </div>
 
           {/* Reason */}
-          <div>
+          <div className={`${sharedStyles.field} ${sharedStyles.full}`}>
             <label className={layoutStyles.extracted48}>Reason</label>
             <textarea
               value={holidayReason}
@@ -672,7 +664,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           </div>
 
           {/* Paid vs unpaid */}
-          <div>
+          <div className={`${sharedStyles.field} ${sharedStyles.full}`}>
             <label className={layoutStyles.extracted50}>Paid status</label>
             <select
               value={paidStatus}
@@ -685,49 +677,13 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
             </select>
           </div>
 
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            style={{
-              ...primaryBtn,
-              opacity: canSubmit ? 1 : 0.55,
-              cursor: canSubmit ? "pointer" : "not-allowed",
-            }}
-            >
-              {saving ? "Saving..." : "Update holiday"}
-            </button>
           </fieldset>
 
-          <div className={layoutStyles.extracted52}>
-            <button
-              type="button"
-              onClick={handleRequestDelete}
-              style={{
-                ...dangerBtn,
-                opacity: canRequestDelete ? 1 : 0.45,
-                cursor: canRequestDelete ? "pointer" : "not-allowed",
-              }}
-              disabled={!canRequestDelete}
-              title={
-                !approved
-                  ? "Only approved holidays can be deletion-requested"
-                  : "Request deletion (admin approval required)"
-              }
-            >
-              Request delete (approved only)
-            </button>
-
-            <button type="button" onClick={handleBack} className={layoutStyles.extracted53} disabled={saving}>
-              Cancel
-            </button>
-          </div>
-
-          <div className={layoutStyles.extracted54}>
+          <div className={`${layoutStyles.extracted54} ${sharedStyles.notice} ${sharedStyles.full}`}>
             Deletion requests are reviewed on the HR page. An admin must approve before the holiday is removed.
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -809,8 +765,8 @@ const halfWrap = {
 
 const globalOptionCSS = `
 select option {
-  background: var(--shell-sidebar-bg) !important;
-  color: var(--color-white) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
 }
 `;
 

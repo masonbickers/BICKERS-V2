@@ -7,13 +7,49 @@ export const MAINTENANCE_JOB_STATUSES = [
   "closed",
 ];
 
-export const ADDITIONAL_MAINTENANCE_WORKFLOWS = Object.freeze([
-  { key: "tacho_inspection", maintenanceTypeId: "tacho_inspection", label: "Tacho inspection", dueKey: "tachoInspection", lastField: "lastTacho", nextField: "nextTacho", frequencyField: "tachoFreq", isoWeekField: "tachoISOWeek", historyField: "tachoInspectionHistory", documentsField: "tachoInspectionDocuments" },
-  { key: "brake_test", maintenanceTypeId: "brake_test", label: "Brake test", dueKey: "brakeTest", lastField: "lastBrakeTest", nextField: "nextBrakeTest", frequencyField: "brakeTestFreq", isoWeekField: "brakeISOWeek", historyField: "brakeTestHistory", documentsField: "brakeTestDocuments" },
-  { key: "pmi", maintenanceTypeId: "pmi", label: "PMI inspection", dueKey: "pmi", lastField: "lastPMI", nextField: "nextPMI", frequencyField: "pmiFreq", isoWeekField: "pmiISOWeek", historyField: "pmiHistory", documentsField: "pmiDocuments" },
-  { key: "tacho_download", maintenanceTypeId: "tacho_download", label: "Tacho download", dueKey: "tachoDownload", lastField: "lastTachoDownload", nextField: "nextTachoDownload", frequencyField: "tachoDownloadFreq", isoWeekField: "tachoDownloadISOWeek", historyField: "tachoDownloadHistory", documentsField: "tachoDownloadDocuments" },
-  { key: "tail_lift", maintenanceTypeId: "tail_lift", label: "Tail-lift inspection", dueKey: "tailLift", lastField: "lastTailLift", nextField: "nextTailLift", frequencyField: "tailLiftFreq", isoWeekField: "tailLiftISOWeek", historyField: "tailLiftHistory", documentsField: "tailLiftDocuments" },
-  { key: "loler", maintenanceTypeId: "loler", label: "LOLER", dueKey: "loler", lastField: "lastLoler", nextField: "nextLoler", frequencyField: "lolerFreq", isoWeekField: "lolerISOWeek", historyField: "lolerHistory", documentsField: "lolerDocuments" },
+// One registry owns every genuinely recurring workshop-maintenance workflow.
+// Frequencies are stored as weeks throughout the current vehicle data model.
+// Legacy eight-week / lorry inspection fields are aliases of PMI, not a
+// separate recurring requirement.
+export const RECURRING_MAINTENANCE_WORKFLOWS = Object.freeze([
+  { key: "mot", maintenanceTypeId: "mot", label: "MOT", dueKey: "mot", lastField: "lastMOT", lastFields: ["lastMOT", "lastMot"], nextField: "nextMOT", nextFields: ["nextMOT", "nextMot", "motExpiryDate", "dvsaMotExpiryDate"], frequencyField: "motFreq", frequencyFields: ["motFreq"], isoWeekField: "motISOWeek", historyField: "motHistory", documentsField: "motDocuments", warningWeeks: 3, autoVorAfterDueWeek: true, dvsaAuthoritative: true },
+  { key: "service", maintenanceTypeId: "service", label: "Service", dueKey: "service", lastField: "lastService", lastFields: ["lastService"], nextField: "nextService", nextFields: ["nextService", "nextServiceDate"], frequencyField: "serviceFreq", frequencyFields: ["serviceFreq"], isoWeekField: "serviceISOWeek", historyField: "serviceHistory", documentsField: "serviceDocuments", warningWeeks: 4, autoVorAfterDueWeek: false },
+  { key: "pmi", maintenanceTypeId: "pmi", label: "PMI inspection", dueKey: "pmi", lastField: "lastPMI", lastFields: ["lastPMI", "lastEightWeekInspection", "eightWeekInspectionStart", "lastLorryInspection"], nextField: "nextPMI", nextFields: ["nextPMI", "nextPMIInspection", "nextEightWeekInspection", "nextLorryInspection"], frequencyField: "pmiFreq", frequencyFields: ["pmiFreq", "eightWeekInspectionFreq", "lorryInspectionFreq"], isoWeekField: "pmiISOWeek", historyField: "pmiHistory", documentsField: "pmiDocuments", warningWeeks: 1, autoVorAfterDueWeek: true },
+  { key: "brake_test", maintenanceTypeId: "brake_test", label: "Brake test", dueKey: "brakeTest", lastField: "lastBrakeTest", lastFields: ["lastBrakeTest"], nextField: "nextBrakeTest", nextFields: ["nextBrakeTest"], frequencyField: "brakeTestFreq", frequencyFields: ["brakeTestFreq"], isoWeekField: "brakeISOWeek", historyField: "brakeTestHistory", documentsField: "brakeTestDocuments", warningWeeks: 1, autoVorAfterDueWeek: true },
+  { key: "tacho_inspection", maintenanceTypeId: "tacho_inspection", label: "Tacho inspection", dueKey: "tachoInspection", lastField: "lastTacho", lastFields: ["lastTacho", "lastTachoInspection"], nextField: "nextTacho", nextFields: ["nextTacho", "nextTachoInspection"], frequencyField: "tachoFreq", frequencyFields: ["tachoFreq", "tachoInspectionFreq"], isoWeekField: "tachoISOWeek", historyField: "tachoInspectionHistory", documentsField: "tachoInspectionDocuments", warningWeeks: 3, autoVorAfterDueWeek: false },
+  { key: "tacho_download", maintenanceTypeId: "tacho_download", label: "Tacho download", dueKey: "tachoDownload", lastField: "lastTachoDownload", lastFields: ["lastTachoDownload"], nextField: "nextTachoDownload", nextFields: ["nextTachoDownload"], frequencyField: "tachoDownloadFreq", frequencyFields: ["tachoDownloadFreq"], isoWeekField: "tachoDownloadISOWeek", historyField: "tachoDownloadHistory", documentsField: "tachoDownloadDocuments", warningWeeks: 3, autoVorAfterDueWeek: false },
+  { key: "tail_lift", maintenanceTypeId: "tail_lift", label: "Tail-lift inspection", dueKey: "tailLift", lastField: "lastTailLift", lastFields: ["lastTailLift"], nextField: "nextTailLift", nextFields: ["nextTailLift", "nextTailLiftInspection"], frequencyField: "tailLiftFreq", frequencyFields: ["tailLiftFreq"], isoWeekField: "tailLiftISOWeek", historyField: "tailLiftHistory", documentsField: "tailLiftDocuments", warningWeeks: 3, autoVorAfterDueWeek: false },
+  { key: "loler", maintenanceTypeId: "loler", label: "LOLER", dueKey: "loler", lastField: "lastLoler", lastFields: ["lastLoler", "lastLOLER"], nextField: "nextLoler", nextFields: ["nextLoler", "nextLOLER", "nextLOLERInspection"], frequencyField: "lolerFreq", frequencyFields: ["lolerFreq", "lOLERFreq"], isoWeekField: "lolerISOWeek", historyField: "lolerHistory", documentsField: "lolerDocuments", warningWeeks: 3, autoVorAfterDueWeek: false },
+  { key: "tacho_calibration", maintenanceTypeId: "tacho_calibration", label: "Tacho calibration", dueKey: "tachoCalibration", lastField: "lastTachoCalibration", lastFields: ["lastTachoCalibration"], nextField: "nextTachoCalibration", nextFields: ["nextTachoCalibration"], frequencyField: "tachoCalibrationFreq", frequencyFields: ["tachoCalibrationFreq"], isoWeekField: "tachoCalibrationISOWeek", historyField: "tachoCalibrationHistory", documentsField: "tachoCalibrationDocuments", warningWeeks: 3, autoVorAfterDueWeek: false },
+]);
+
+export const getRecurringMaintenanceWorkflow = (maintenanceTypeId) =>
+  RECURRING_MAINTENANCE_WORKFLOWS.find(
+    (workflow) => workflow.maintenanceTypeId === String(maintenanceTypeId || "").trim().toLowerCase()
+  ) || null;
+
+export const getConfiguredMaintenanceFrequencyWeeks = (vehicle = {}, workflowOrTypeId) => {
+  const workflow = typeof workflowOrTypeId === "object"
+    ? workflowOrTypeId
+    : getRecurringMaintenanceWorkflow(workflowOrTypeId);
+  if (!workflow) return 0;
+  return (workflow.frequencyFields || [workflow.frequencyField])
+    .map((field) => Number(vehicle?.[field] || 0))
+    .find((value) => Number.isFinite(value) && value > 0) || 0;
+};
+
+export const ADDITIONAL_MAINTENANCE_WORKFLOWS = Object.freeze(
+  RECURRING_MAINTENANCE_WORKFLOWS.filter(
+    (workflow) => !["mot", "service"].includes(workflow.maintenanceTypeId)
+  )
+);
+
+// The main diary historically surfaced only these register-derived reminders.
+// Other maintenance workflows remain available in the maintenance system, but
+// must not be presented as booked calendar appointments.
+export const CALENDAR_REMINDER_WORKFLOW_KEYS = Object.freeze([
+  "brake_test",
+  "pmi",
 ]);
 
 export const CORE_MAINTENANCE_TYPE_IDS = Object.freeze({
@@ -40,6 +76,7 @@ const DUE_FIELD_CANDIDATES = {
   tachoDownload: ["nextTachoDownload"],
   tailLift: ["nextTailLift", "nextTailLiftInspection"],
   loler: ["nextLoler", "nextLOLER", "nextLOLERInspection"],
+  tachoCalibration: ["nextTachoCalibration"],
 };
 
 const OUT_OF_USE_STATUS_VALUES = new Set([
@@ -55,6 +92,9 @@ const OUT_OF_USE_STATUS_VALUES = new Set([
 
 export const ACTIVE_VEHICLE_STATUS = "Active";
 export const VOR_VEHICLE_STATUS = "VOR";
+
+export const isSelectableVehicleOperatingStatus = (value) =>
+  [ACTIVE_VEHICLE_STATUS, VOR_VEHICLE_STATUS].includes(String(value || "").trim());
 
 export const normalizeVehicleOperatingStatus = (valueOrAsset = {}) => {
   const values =

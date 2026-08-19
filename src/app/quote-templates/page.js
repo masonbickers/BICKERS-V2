@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -15,6 +16,7 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
+import { mergeQuoteTemplatesWithDefaults } from "@/app/utils/quoteTemplateDefaults";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const UI = UI_TOKENS;
@@ -37,7 +39,7 @@ const slugify = (value) =>
     .slice(0, 80) || `quote-template-${Date.now()}`;
 
 const QUOTE_SECTION_GREY = "var(--shell-muted)";
-const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "50%"];
+const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "25%", "50%"];
 const DEFAULT_DISCOUNT = "10%";
 
 const compact = (value) =>
@@ -877,7 +879,7 @@ export default function QuoteTemplatesPage() {
         const snap = await getDoc(doc(db, "settings", "quoteTemplates"));
         const data = snap.exists() ? snap.data() : {};
         const loaded = Array.isArray(data?.templates)
-          ? data.templates
+          ? mergeQuoteTemplatesWithDefaults(data.templates, FULL_SIZE_TRACKING_QUOTE_TEMPLATES)
           : FULL_SIZE_TRACKING_QUOTE_TEMPLATES;
         const next = clone(loaded);
         setTemplates(next);
@@ -943,7 +945,7 @@ export default function QuoteTemplatesPage() {
     setSelectedId(nextId);
   };
 
-  const updateLineItem = (index, patch) => {
+  const updateLineItem = async (index, patch) => {
     if (!selectedTemplate) return;
     const lineItems = [...(selectedTemplate.lineItems || [])];
     const currentLine = lineItems[index] || {};
@@ -956,7 +958,7 @@ export default function QuoteTemplatesPage() {
       !selectedTemplate.excludeFromSharedRates;
     let nextPatch = patch;
     if (shouldPrompt) {
-      const markCustom = window.confirm(
+      const markCustom = await systemDialogs.confirmSystem(
         "This line is linked to Shared Rates.\n\nChoose OK to mark it as Custom Price so future Shared Rates will skip it.\nChoose Cancel to keep it linked to Shared Rates."
       );
       if (markCustom) {
@@ -1114,8 +1116,8 @@ export default function QuoteTemplatesPage() {
     });
   };
 
-  const addSection = () => {
-    const section = window.prompt("New section name:", "Manual additions");
+  const addSection = async () => {
+    const section = await systemDialogs.promptSystem("New section name:", "Manual additions");
     if (!section?.trim()) return;
     addLine(section.trim());
   };
@@ -1204,9 +1206,9 @@ export default function QuoteTemplatesPage() {
     setSelectedId(id);
   };
 
-  const deleteTemplate = () => {
+  const deleteTemplate = async () => {
     if (!selectedTemplate) return;
-    const confirmed = window.confirm(`Delete template "${selectedTemplate.serviceDescription || selectedTemplate.id}"?\n\nSave templates afterwards to publish this change.`);
+    const confirmed = await systemDialogs.confirmSystem(`Delete template "${selectedTemplate.serviceDescription || selectedTemplate.id}"?\n\nSave templates afterwards to publish this change.`);
     if (!confirmed) return;
     setTemplates((current) => {
       const next = current.filter((template) => template.id !== selectedTemplate.id);

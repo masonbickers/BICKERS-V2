@@ -38,7 +38,7 @@ export default function CompleteClerkLoginPage() {
     return <div style={styles.page}>{authError}</div>;
   }
 
-  return <BrandedLoader label="Preparing your workspace…" compact />;
+  return <BrandedLoader label="Preparing your workspace…" />;
 }
 
 const styles = {

@@ -140,3 +140,150 @@
   gap: 10px;
   min-width: 0;
 }
+
+.yearSelect {
+  width: 132px;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, .8fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.usageCard,
+.queueCard {
+  border-radius: var(--radius-lg);
+}
+
+.usageCard {
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+.queueColumn {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.queueCard {
+  padding: var(--space-3);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.chartLegend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chartViewport {
+  max-height: 590px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: var(--space-1);
+  scrollbar-gutter: stable;
+}
+
+.chartEmpty {
+  min-height: 360px;
+}
+
+.queueEmpty {
+  min-height: 112px;
+  padding: var(--space-4);
+}
+
+.requestItem {
+  padding: var(--space-3);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.requestItem:hover {
+  background: var(--color-surface-subtle);
+  border-color: var(--color-brand-border);
+}
+
+.shortcutsSection {
+  margin-top: var(--space-5);
+}
+
+.shortcutsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.shortcutGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@media (max-width: 1280px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .queueColumn {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shortcutGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .metricsGrid,
+  .queueColumn {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .metricsGrid,
+  .queueColumn,
+  .shortcutGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .yearSelect {
+    width: 100%;
+  }
+
+  .usageCard {
+    padding: var(--space-3);
+  }
+
+  .chartViewport {
+    overflow-x: auto;
+  }
+
+  .chartViewport > div {
+    min-width: 620px;
+  }
+}

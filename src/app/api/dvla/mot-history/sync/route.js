@@ -1,7 +1,20 @@
 import axios from "axios";
-import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
-import { db } from "../../../../../../firebaseConfig";
 import { requireAdminFromRequest } from "@/app/api/admin/_lib";
+import {
+  adminCommitDocumentPatches,
+  adminListDocuments,
+  adminPatchDocument,
+  adminReadDocumentWithMetadata,
+} from "@/app/api/_firebaseAdminRest";
+import { filterDocsForAdminCompany } from "@/app/api/admin/_lib";
+import {
+  buildMotConfirmationFields,
+  isDvsaCronAuthorized,
+  runMotSyncBatch,
+  withBoundedRetry,
+} from "@/app/utils/motSyncExecution";
+import { buildMotDvsaReconciliationPlan } from "@/app/utils/motMaintenanceReconciliation";
+import { maintenanceRequirementDocumentId } from "@/app/utils/maintenanceRecord";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -12,10 +25,13 @@ const MOT_HISTORY_CLIENT_ID = process.env.DVSA_MOT_HISTORY_CLIENT_ID;
 const MOT_HISTORY_CLIENT_SECRET = process.env.DVSA_MOT_HISTORY_CLIENT_SECRET;
 const MOT_HISTORY_API_KEY = process.env.DVSA_MOT_HISTORY_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
-const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "bickers-booking";
+const DVSA_TIMEOUT_MS = 12_000;
+const DVSA_MAX_ATTEMPTS = 3;
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
+
+const retryDvsa = (operation) => withBoundedRetry(operation, { maxAttempts: DVSA_MAX_ATTEMPTS });
 
 const cleanRegistration = (value) => String(value || "").replace(/\s+/g, "").toUpperCase();
 const norm = (value) => String(value || "").trim().toLowerCase();
@@ -119,9 +135,10 @@ async function getAccessToken() {
     scope: MOT_HISTORY_SCOPE,
   });
 
-  const tokenRes = await axios.post(MOT_HISTORY_TOKEN_URL, body, {
+  const tokenRes = await retryDvsa(() => axios.post(MOT_HISTORY_TOKEN_URL, body, {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+    timeout: DVSA_TIMEOUT_MS,
+  }));
 
   const accessToken = tokenRes.data?.access_token;
   const expiresInSeconds = Number(tokenRes.data?.expires_in || 0);
@@ -137,7 +154,7 @@ async function getAccessToken() {
 }
 
 async function fetchMotHistory(vrm, token) {
-  const motRes = await axios.get(
+  const motRes = await retryDvsa(() => axios.get(
     `${MOT_HISTORY_BASE_URL}/v1/trade/vehicles/registration/${encodeURIComponent(vrm)}`,
     {
       headers: {
@@ -145,8 +162,9 @@ async function fetchMotHistory(vrm, token) {
         "X-API-Key": MOT_HISTORY_API_KEY,
         Accept: "application/json",
       },
+      timeout: DVSA_TIMEOUT_MS,
     }
-  );
+  ));
 
   const vehicle = Array.isArray(motRes.data) ? motRes.data[0] : motRes.data;
   const motTests = sortMotTestsNewestFirst(vehicle?.motTests);
@@ -176,139 +194,16 @@ async function fetchMotHistory(vrm, token) {
   };
 }
 
-function firestoreValueToJs(value) {
-  if (!value || typeof value !== "object") return null;
-  if ("stringValue" in value) return value.stringValue;
-  if ("integerValue" in value) return Number(value.integerValue);
-  if ("doubleValue" in value) return Number(value.doubleValue);
-  if ("booleanValue" in value) return Boolean(value.booleanValue);
-  if ("timestampValue" in value) return value.timestampValue;
-  if ("nullValue" in value) return null;
-  if ("arrayValue" in value) return (value.arrayValue.values || []).map(firestoreValueToJs);
-  if ("mapValue" in value) {
-    return Object.fromEntries(
-      Object.entries(value.mapValue.fields || {}).map(([key, child]) => [key, firestoreValueToJs(child)])
-    );
-  }
-  return null;
-}
-
-function firestoreDocToVehicle(docSnap) {
-  const fields = docSnap?.fields || {};
-  const data = Object.fromEntries(
-    Object.entries(fields).map(([key, value]) => [key, firestoreValueToJs(value)])
-  );
-  return {
-    ...data,
-    id: String(docSnap?.name || "").split("/").pop(),
-    __firestoreName: docSnap?.name || "",
-  };
-}
-
-function jsToFirestoreValue(value) {
-  if (value === null || value === undefined) return { nullValue: null };
-  if (typeof value === "boolean") return { booleanValue: value };
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
-  }
-  if (Array.isArray(value)) return { arrayValue: { values: value.map(jsToFirestoreValue) } };
-  if (typeof value === "object") {
-    return {
-      mapValue: {
-        fields: Object.fromEntries(
-          Object.entries(value).map(([key, child]) => [key, jsToFirestoreValue(child)])
-        ),
-      },
-    };
-  }
-  return { stringValue: String(value) };
-}
-
-async function listVehiclesWithUserToken(idToken) {
-  const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/vehicles?pageSize=1000`,
-    {
-      headers: { Authorization: `Bearer ${idToken}` },
-      cache: "no-store",
-    }
-  );
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data?.error?.message || "Could not read vehicles from Firestore.");
-  }
-
-  const data = await res.json();
-  return (data.documents || []).map(firestoreDocToVehicle);
-}
-
-async function updateVehicleWithUserToken(vehicle, patch, idToken) {
-  const fieldPaths = Object.keys(patch);
-  if (!vehicle.__firestoreName || !fieldPaths.length) return;
-
-  const updateMask = fieldPaths.map((fieldPath) => `updateMask.fieldPaths=${encodeURIComponent(fieldPath)}`).join("&");
-  const res = await fetch(`https://firestore.googleapis.com/v1/${vehicle.__firestoreName}?${updateMask}`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      fields: Object.fromEntries(
-        Object.entries(patch).map(([key, value]) => [key, jsToFirestoreValue(value)])
-      ),
-    }),
-  });
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data?.error?.message || "Could not update vehicle in Firestore.");
-  }
-}
-
-async function updateSyncMetadataWithUserToken(results, user, idToken) {
-  const res = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/motHistorySync?updateMask.fieldPaths=lastAllFetchedAt&updateMask.fieldPaths=lastAllFetchStartedAt&updateMask.fieldPaths=lastAllFetchFinishedAt&updateMask.fieldPaths=lastAllFetchDurationMs&updateMask.fieldPaths=lastAllFetchedBy&updateMask.fieldPaths=lastAllFetchSource&updateMask.fieldPaths=lastAllFetchChecked&updateMask.fieldPaths=lastAllFetchUpdated&updateMask.fieldPaths=lastAllFetchUnchanged&updateMask.fieldPaths=lastAllFetchSkipped&updateMask.fieldPaths=lastAllFetchFailed&updateMask.fieldPaths=lastAllFetchFailures&updateMask.fieldPaths=lastAllFetchUpdatedVehicles`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${idToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        fields: {
-          lastAllFetchedAt: jsToFirestoreValue(new Date().toISOString()),
-          lastAllFetchStartedAt: jsToFirestoreValue(results.startedAt || ""),
-          lastAllFetchFinishedAt: jsToFirestoreValue(results.finishedAt || ""),
-          lastAllFetchDurationMs: jsToFirestoreValue(results.durationMs || 0),
-          lastAllFetchedBy: jsToFirestoreValue(user.email || user.uid || ""),
-          lastAllFetchSource: jsToFirestoreValue("manual"),
-          lastAllFetchChecked: jsToFirestoreValue(results.checked || 0),
-          lastAllFetchUpdated: jsToFirestoreValue(results.updated || 0),
-          lastAllFetchUnchanged: jsToFirestoreValue(results.unchanged || 0),
-          lastAllFetchSkipped: jsToFirestoreValue(results.skipped || 0),
-          lastAllFetchFailed: jsToFirestoreValue(results.failed || 0),
-          lastAllFetchFailures: jsToFirestoreValue((results.failures || []).slice(0, 50)),
-          lastAllFetchUpdatedVehicles: jsToFirestoreValue((results.updatedVehicles || []).slice(0, 50)),
-        },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data?.error?.message || "Could not update MOT sync metadata.");
-  }
-}
-
 function buildVehiclePatch(vehicle, motHistory) {
   const patch = {};
   const lastMOT = motHistory.lastMOT;
   const nextMOT = motHistory.nextMOT;
   const latestPassedMot = motHistory.latestPassedMot;
+  const { confirmsNewMot, patch: confirmationPatch } = buildMotConfirmationFields(vehicle, motHistory);
+  Object.assign(patch, confirmationPatch);
 
   if (
-    lastMOT &&
+    confirmsNewMot && lastMOT &&
     (dateOnly(vehicle.lastMOT) !== lastMOT ||
       dateOnly(vehicle.lastMot) !== lastMOT ||
       dateOnly(vehicle.lastMotDate) !== lastMOT)
@@ -319,7 +214,7 @@ function buildVehiclePatch(vehicle, motHistory) {
   }
 
   if (
-    nextMOT &&
+    confirmsNewMot && nextMOT &&
     (dateOnly(vehicle.nextMOT) !== nextMOT ||
       dateOnly(vehicle.nextMot) !== nextMOT ||
       dateOnly(vehicle.nextMotDate) !== nextMOT ||
@@ -375,126 +270,156 @@ function buildVehiclePatch(vehicle, motHistory) {
   return patch;
 }
 
-async function runMotHistorySync() {
-  const snapshot = await getDocs(collection(db, "vehicles"));
-  const vehicles = snapshot.docs.map((vehicleDoc) => ({
-    id: vehicleDoc.id,
-    ...(vehicleDoc.data() || {}),
-  }));
-  const token = await getAccessToken();
-
-  const results = {
-    checked: 0,
-    updated: 0,
-    skipped: 0,
-    failed: 0,
-    failures: [],
-  };
-
-  for (const vehicle of vehicles) {
-    const vrm = cleanRegistration(vehicle.registration || vehicle.reg || vehicle.registrationNumber);
-    if (!isVehicleWorthSyncing(vehicle)) {
-      results.skipped += 1;
-      continue;
-    }
-
-    results.checked += 1;
-
-    try {
-      const motHistory = await fetchMotHistory(vrm, token);
-      const patch = buildVehiclePatch(vehicle, motHistory);
-      if (!Object.keys(patch).length) continue;
-
-      await updateDoc(doc(db, "vehicles", vehicle.id), patch);
-      results.updated += 1;
-    } catch (err) {
-      results.failed += 1;
-      results.failures.push({
-        vehicleId: vehicle.id,
-        vrm,
-        status: err.response?.status || null,
-        message: err.response?.data?.message || err.message,
-      });
-    }
+async function reconcileMotVehicleUpdate(vehicle, patch) {
+  const plan = buildMotDvsaReconciliationPlan({ vehicle, vehiclePatch: patch });
+  if (!plan) {
+    await adminPatchDocument("vehicles", vehicle.id, patch);
+    return;
   }
 
-  return results;
-}
+  let [dueSnapshot, jobSnapshot] = await Promise.all([
+    adminReadDocumentWithMetadata("maintenanceBookings", plan.dueItemId),
+    adminReadDocumentWithMetadata("maintenanceReconciliationJobs", plan.jobId),
+  ]);
+  if (
+    dueSnapshot?.data?.requirementKey &&
+    dueSnapshot.data.requirementKey !== plan.requestedRecord.requirementKey
+  ) {
+    throw new Error("The deterministic MOT requirement ID is already used by a different requirement.");
+  }
 
-async function runMotHistorySyncWithUserToken(idToken) {
-  const startedAtMs = Date.now();
-  const startedAt = new Date(startedAtMs).toISOString();
-  const vehicles = await listVehiclesWithUserToken(idToken);
-  const token = await getAccessToken();
-
-  const results = {
-    checked: 0,
-    updated: 0,
-    skipped: 0,
-    failed: 0,
-    unchanged: 0,
-    failures: [],
-    updatedVehicles: [],
-    startedAt,
-    finishedAt: "",
-    durationMs: 0,
-  };
-
-  for (const vehicle of vehicles) {
-    const vrm = cleanRegistration(vehicle.registration || vehicle.reg || vehicle.registrationNumber);
-    if (!isVehicleWorthSyncing(vehicle)) {
-      results.skipped += 1;
-      continue;
-    }
-
-    results.checked += 1;
-
-    try {
-      const motHistory = await fetchMotHistory(vrm, token);
-      const patch = buildVehiclePatch(vehicle, motHistory);
-      if (!Object.keys(patch).length) {
-        results.unchanged += 1;
-        continue;
+  let dueItemId = plan.dueItemId;
+  const activeStatuses = new Set(["requested", "booked", "in progress", "in_progress", "deferred"]);
+  const baseStatus = String(dueSnapshot?.data?.status || "").trim().toLowerCase();
+  if (dueSnapshot && !activeStatuses.has(baseStatus)) {
+    let attempt = 1;
+    while (attempt < 100) {
+      dueItemId = maintenanceRequirementDocumentId(
+        `${plan.requestedRecord.requirementKey}|active-replacement:${attempt}`
+      );
+      dueSnapshot = await adminReadDocumentWithMetadata("maintenanceBookings", dueItemId);
+      attempt += 1;
+      if (!dueSnapshot) break;
+      if (dueSnapshot.data?.requirementKey !== plan.requestedRecord.requirementKey) {
+        throw new Error("A replacement MOT requirement ID is already used by a different requirement.");
       }
-
-      await updateVehicleWithUserToken(vehicle, patch, idToken);
-      results.updated += 1;
-      results.updatedVehicles.push({
-        vehicleId: vehicle.id,
-        vrm,
-        name: vehicle.name || "",
-        nextMOT: patch.nextMOT || vehicle.nextMOT || "",
-        lastMOT: patch.lastMOT || vehicle.lastMOT || "",
-        odometer: patch.odometer || vehicle.odometer || "",
-        testNumber: patch.motHistoryLatestTestNumber || "",
-        changedFields: Object.keys(patch).filter((key) => !key.startsWith("motHistory")),
-      });
-    } catch (err) {
-      results.failed += 1;
-      results.failures.push({
-        vehicleId: vehicle.id,
-        vrm,
-        status: err.response?.status || null,
-        message: err.response?.data?.message || err.message,
-      });
+      if (activeStatuses.has(String(dueSnapshot.data?.status || "").trim().toLowerCase())) break;
     }
   }
 
-  results.finishedAt = new Date().toISOString();
-  results.durationMs = Date.now() - startedAtMs;
-  return results;
+  const timestamp = new Date().toISOString();
+  const attempts = Number(jobSnapshot?.data?.attempts || 0) + 1;
+  const writes = [{
+    collection: "vehicles",
+    documentId: vehicle.id,
+    patch,
+    exists: true,
+  }];
+  if (!dueSnapshot) {
+    writes.push({
+      collection: "maintenanceBookings",
+      documentId: dueItemId,
+      patch: { ...plan.requestedRecord, id: dueItemId },
+      exists: false,
+    });
+  }
+  writes.push({
+    collection: "maintenanceReconciliationJobs",
+    documentId: plan.jobId,
+    patch: {
+      kind: "maintenance_recurrence",
+      status: "completed",
+      companyId: String(vehicle.companyId || "").trim(),
+      bookingId: plan.bookingId,
+      vehicleId: vehicle.id,
+      completedDateISO: plan.completedDateISO,
+      maintenanceTypeIds: ["mot"],
+      requirementKey: plan.requestedRecord.requirementKey,
+      requestedRecordId: dueItemId,
+      attempts,
+      completedAt: timestamp,
+      updatedAt: timestamp,
+      lastError: "",
+      ...(jobSnapshot ? {} : { createdAt: timestamp }),
+    },
+    ...(jobSnapshot?.updateTime ? { updateTime: jobSnapshot.updateTime } : { exists: false }),
+  });
+
+  try {
+    await adminCommitDocumentPatches(writes);
+  } catch (error) {
+    await adminPatchDocument("maintenanceReconciliationJobs", plan.jobId, {
+      kind: "maintenance_recurrence",
+      status: "pending",
+      companyId: String(vehicle.companyId || "").trim(),
+      bookingId: plan.bookingId,
+      vehicleId: vehicle.id,
+      completedDateISO: plan.completedDateISO,
+      maintenanceTypeIds: ["mot"],
+      attempts,
+      lastAttemptAt: timestamp,
+      updatedAt: timestamp,
+      lastError: error instanceof Error ? error.message : "MOT reconciliation failed",
+    });
+    throw error;
+  }
 }
+
+async function runMotHistorySync(userData = null) {
+  const documents = await adminListDocuments("vehicles");
+  const scopedDocuments = userData ? filterDocsForAdminCompany(documents, userData) : documents;
+  const vehicles = scopedDocuments.map((vehicleDoc) => ({ id: vehicleDoc.id, ...(vehicleDoc.data || {}) }));
+  return runMotSyncBatch({
+    vehicles,
+    getAccessToken,
+    shouldSync: isVehicleWorthSyncing,
+    registrationFor: (vehicle) => cleanRegistration(vehicle.registration || vehicle.reg || vehicle.registrationNumber),
+    fetchHistory: fetchMotHistory,
+    buildPatch: buildVehiclePatch,
+    updateVehicle: reconcileMotVehicleUpdate,
+  });
+}
+
+const recordAdminSyncMetadata = async (results, source, error = "") => {
+  const successful = !error && Number(results.failed || 0) === 0;
+  await adminPatchDocument("settings", "motHistorySync", {
+    lastAllFetchStartedAt: results.startedAt || nowISO(),
+    lastAllFetchFinishedAt: results.finishedAt || nowISO(),
+    lastAllFetchDurationMs: Number(results.durationMs || 0),
+    lastAllFetchSource: source,
+    lastAllFetchChecked: Number(results.checked || 0),
+    lastAllFetchUpdated: Number(results.updated || 0),
+    lastAllFetchUnchanged: Number(results.unchanged || 0),
+    lastAllFetchSkipped: Number(results.skipped || 0),
+    lastAllFetchFailed: Number(results.failed || 0),
+    lastAllFetchFailures: safeFailures(results.failures),
+    lastAllFetchUpdatedVehicles: (results.updatedVehicles || []).slice(0, 50),
+    lastAllFetchError: error,
+    lastAllFetchStatus: successful ? "success" : error ? "failed" : "partial_failure",
+    ...(successful ? { lastSuccessfulSyncAt: results.finishedAt || nowISO() } : {}),
+  });
+};
+
+const nowISO = () => new Date().toISOString();
+const safeFailures = (failures) => (Array.isArray(failures) ? failures.slice(0, 50) : []);
 
 export async function GET(request) {
   const authHeader = request.headers.get("authorization") || "";
-  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (!isDvsaCronAuthorized(authHeader, CRON_SECRET)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const requestStartedAt = nowISO();
   try {
-    return Response.json(await runMotHistorySync(), { status: 200 });
+    const results = await runMotHistorySync();
+    await recordAdminSyncMetadata(results, "cron");
+    return Response.json(results, { status: results.failed ? 207 : 200 });
   } catch (err) {
     console.error("Weekly MOT History sync failed:", err.response?.status, err.message);
+    const finishedAt = nowISO();
+    await recordAdminSyncMetadata({ startedAt: requestStartedAt, finishedAt, failed: 1, failures: [{ message: err.message }] }, "cron", err.message).catch((metadataError) => {
+      console.error("Could not record failed MOT cron metadata:", metadataError);
+    });
     return Response.json(
       {
         error: "Weekly MOT History sync failed",
@@ -508,12 +433,14 @@ export async function GET(request) {
 export async function POST(request) {
   const access = await requireAdminFromRequest(request);
   if (access.error) return access.error;
-  const user = { ...access.verifiedUser, idToken: access.idToken };
 
   try {
-    const results = await runMotHistorySyncWithUserToken(user.idToken);
-    await updateSyncMetadataWithUserToken(results, user, user.idToken);
-    return Response.json({ ...results, triggeredBy: user.email }, { status: 200 });
+    const results = await runMotHistorySync(access.userData);
+    await recordAdminSyncMetadata(results, "manual");
+    return Response.json({
+      ...results,
+      triggeredBy: access.verifiedUser.email || access.verifiedUser.uid,
+    }, { status: results.failed ? 207 : 200 });
   } catch (err) {
     console.error("Manual MOT History sync failed:", err.response?.status, err.message);
     return Response.json(

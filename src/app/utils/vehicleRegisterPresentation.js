@@ -6,11 +6,45 @@ import {
 const text = (value) => String(value ?? "").trim();
 const lower = (value) => text(value).toLowerCase();
 
+const ADDITIONAL_MAINTENANCE_TYPES = Object.freeze({
+  pmi: {
+    hiddenKeys: ["pmi", "pmiInspection"],
+    dateFields: ["nextPMI", "nextEightWeekInspection"],
+  },
+  brake_test: {
+    hiddenKeys: ["brake_test", "brakeTest"],
+    dateFields: ["nextBrakeTest"],
+  },
+  tacho_inspection: {
+    hiddenKeys: ["tacho_inspection", "tachoInspection"],
+    dateFields: ["nextTacho"],
+  },
+  tacho_download: {
+    hiddenKeys: ["tacho_download", "tachoDownload"],
+    dateFields: ["nextTachoDownload"],
+  },
+});
+
 export const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
 
 export const isRetentionPlateRecord = (vehicle = {}) =>
   lower(vehicle.category) === lower(RETENTION_PLATE_CATEGORY) ||
   vehicle.recordType === "numberPlateRetention";
+
+export const getRegisterAdditionalMaintenanceDate = (vehicle = {}, type) => {
+  const config = ADDITIONAL_MAINTENANCE_TYPES[lower(type)];
+  if (!config) return "";
+
+  const hidden = new Set(
+    (Array.isArray(vehicle.hiddenAdditionalMaintenance)
+      ? vehicle.hiddenAdditionalMaintenance
+      : []
+    ).map(lower)
+  );
+  if (config.hiddenKeys.some((key) => hidden.has(lower(key)))) return "";
+
+  return config.dateFields.map((field) => text(vehicle[field])).find(Boolean) || "";
+};
 
 export const getRegisterComplianceState = (vehicle = {}, type) => {
   if (isRetentionPlateRecord(vehicle)) {

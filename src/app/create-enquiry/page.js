@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -492,14 +493,14 @@ export default function CreateEnquiryPage() {
     event.preventDefault();
     if (!canSave) return;
     if (dateKnown && isRange && endDate && endDate < startDate) {
-      alert("End date must be after the start date.");
+      systemDialogs.showSystemNotification("End date must be after the start date.");
       return;
     }
 
     const gate = resolveDataAccess(dataAccessState);
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "create enquiry" });
-      alert(gate.reason || "You do not have access to create enquiries.");
+      systemDialogs.showSystemNotification(gate.reason || "You do not have access to create enquiries.");
       return;
     }
 
@@ -607,7 +608,7 @@ export default function CreateEnquiryPage() {
       router.push(`/job-numbers/${created.id}`);
     } catch (err) {
       console.error("Failed saving enquiry:", err);
-      alert(`Failed to save enquiry\n\n${err.message}`);
+      systemDialogs.showSystemNotification(`Failed to save enquiry\n\n${err.message}`);
     } finally {
       setSaving(false);
     }

@@ -14,26 +14,15 @@ import {
   Search,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { PeopleFleetHeaderActions, PeopleFleetPage, PeopleFleetPageHeader } from "@/app/components/PeopleFleetPage";
+import { Badge, Button, Input, MetricCard as SharedMetricCard, Select } from "@/app/components/ui";
 import { db } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { formatVehicleList } from "@/app/utils/vehicleDisplay";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* UI tokens */
 const UI = UI_TOKENS;
-
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
@@ -59,85 +48,6 @@ const chip = {
   fontSize: 12,
   fontWeight: 800,
   whiteSpace: "nowrap",
-};
-
-const chipSoft = {
-  ...chip,
-  background: UI.brandSoft,
-  borderColor: UI.brandBorder,
-  color: UI.brand,
-};
-
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      textDecoration: "none",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  if (kind === "pill") {
-    return {
-      padding: "5px 8px",
-      borderRadius: 999,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      textDecoration: "none",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12,
-      lineHeight: 1.2,
-    };
-  }
-  return {
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-    color: "var(--color-white)",
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    textDecoration: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
-};
-
-const inputBase = {
-  width: "100%",
-  minHeight: 38,
-  padding: "8px 10px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  outline: "none",
-  fontSize: 13,
-  background: "var(--color-surface)",
 };
 
 const divider = { height: 1, background: "var(--color-border)", margin: "12px 0 0" };
@@ -181,11 +91,8 @@ const pill = (bg, fg, borderColor = "var(--color-border)") => ({
 });
 
 const statusBadge = (state) => {
-  if (state === "OK") return pill("var(--color-success-soft)", "var(--color-success)", "var(--color-success-border)");
-  if (state === "DEFECT") return pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)");
-  if (state === "DRAFT") return pill("var(--color-surface-subtle)", "var(--color-text)", "var(--color-border)");
-  if (state === "MISSING") return pill("var(--color-warning-soft)", "var(--color-warning)", "var(--color-warning-border)");
-  return pill("var(--color-white)", "var(--color-text)");
+  const tone = getSemanticStatusStyle(state);
+  return pill(tone.bg, tone.text, tone.border);
 };
 
 /* Helpers */
@@ -476,43 +383,40 @@ export default function VehicleChecksDashboardPage() {
         }
       `}</style>
 
-      <div style={pageWrap}>
+      <PeopleFleetPage>
         {/* Header */}
-        <div className={layoutStyles.extracted1}>
-          <div>
-            <h1 style={h1}>Vehicle Checks</h1>
-            <div style={sub}>Dashboard of required checks for confirmed jobs (past + today).</div>
-          </div>
-
-          <div className={layoutStyles.extracted2}>
-            <Link href="/vehicle-checks/defects" className="vehicle-checks-action" style={btn("ghost")}>
+        <PeopleFleetPageHeader
+          title="Vehicle Checks"
+          subtitle="Dashboard of required checks for confirmed jobs, including past work and today."
+          actions={<PeopleFleetHeaderActions>
+            <Button as={Link} href="/vehicle-checks/defects" variant="secondary" className="vehicle-checks-action">
               <AlertTriangle size={15} />
               Defects
-            </Link>
-            <Link href="/vehicle-checks/completion" className="vehicle-checks-action" style={btn("ghost")}>
+            </Button>
+            <Button as={Link} href="/vehicle-checks/completion" variant="secondary" className="vehicle-checks-action">
               <ClipboardCheck size={15} />
               Employee Completion
-            </Link>
-            <Link href="/vehicle-checks/vehicles" className="vehicle-checks-action" style={btn("ghost")}>
+            </Button>
+            <Button as={Link} href="/vehicle-checks/vehicles" variant="secondary" className="vehicle-checks-action">
               <CheckCircle2 size={15} />
               Vehicle Health
-            </Link>
-          </div>
-        </div>
+            </Button>
+          </PeopleFleetHeaderActions>}
+        />
 
         {/* KPIs */}
         <div className="vehicle-checks-kpi-grid" style={kpiGrid}>
-          <KPI label="Required" value={kpis.totalRequired} sub="Past confirmed work days" icon={ClipboardCheck} />
-          <KPI
+          <SharedMetricCard label="Required" value={kpis.totalRequired} hint="Past confirmed work days" icon={<ClipboardCheck size={19} />} />
+          <SharedMetricCard
             label="Completion"
             value={`${kpis.completion}%`}
-            sub={`${kpis.submittedOK + kpis.defects}/${kpis.totalRequired} submitted`}
-            tone="soft"
-            icon={CheckCircle2}
+            hint={`${kpis.submittedOK + kpis.defects}/${kpis.totalRequired} submitted`}
+            tone="info"
+            icon={<CheckCircle2 size={19} />}
           />
-          <KPI label="Missing checks" value={kpis.missing} tone="amber" icon={FileClock} />
-          <KPI label="Draft only" value={kpis.drafts} tone="brand" icon={ClipboardCheck} />
-          <KPI label="With defects" value={kpis.defects} tone="danger" icon={AlertTriangle} />
+          <SharedMetricCard label="Missing checks" value={kpis.missing} tone="warning" icon={<FileClock size={19} />} />
+          <SharedMetricCard label="Draft only" value={kpis.drafts} tone="info" icon={<ClipboardCheck size={19} />} />
+          <SharedMetricCard label="With defects" value={kpis.defects} tone="danger" icon={<AlertTriangle size={19} />} />
         </div>
 
         {/* Filters */}
@@ -523,10 +427,10 @@ export default function VehicleChecksDashboardPage() {
               <div style={hint}>Search across job, vehicle, employees, and check notes.</div>
             </div>
             <div className={layoutStyles.extracted4}>
-              <span style={chipSoft}>{rows.length} rows</span>
-              <button
+              <Badge variant="info">{rows.length} rows</Badge>
+              <Button
                 type="button"
-                style={btn("ghost")}
+                variant="secondary"
                 onClick={() => {
                   setQText("");
                   setOnlyShow("all");
@@ -535,7 +439,7 @@ export default function VehicleChecksDashboardPage() {
               >
                 <RotateCcw size={14} />
                 Reset
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -546,24 +450,24 @@ export default function VehicleChecksDashboardPage() {
                   size={16}
                   style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
                 />
-                <input
+                <Input
                   placeholder="Search job, vehicle, employee, notes..."
-                  style={{ ...inputBase, paddingLeft: 34 }}
+                  style={{ paddingLeft: 34 }}
                   value={qText}
                   onChange={(e) => setQText(e.target.value)}
                 />
               </label>
 
-              <select value={onlyShow} onChange={(e) => setOnlyShow(e.target.value)} style={inputBase}>
+              <Select value={onlyShow} onChange={(e) => setOnlyShow(e.target.value)}>
                 <option value="all">Show: All</option>
                 <option value="missing">Show: Missing/Drafts</option>
                 <option value="defects">Show: Defects</option>
-              </select>
+              </Select>
 
-              <select value={dateOrder} onChange={(e) => setDateOrder(e.target.value)} style={inputBase}>
+              <Select value={dateOrder} onChange={(e) => setDateOrder(e.target.value)}>
                 <option value="desc">Order: Newest to oldest</option>
                 <option value="asc">Order: Oldest to newest</option>
-              </select>
+              </Select>
             </div>
 
             <div className={layoutStyles.extracted6} />
@@ -653,9 +557,9 @@ export default function VehicleChecksDashboardPage() {
                         </span>
                       </td>
                       <td className={layoutStyles.extracted16}>
-                        <Link href={openHref} className="vehicle-checks-action" style={btn("pill")}>
+                        <Button as={Link} href={openHref} className="vehicle-checks-action" variant="secondary" size="sm">
                           {openLabel}
-                        </Link>
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -664,7 +568,7 @@ export default function VehicleChecksDashboardPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PeopleFleetPage>
 
       <style jsx global>{`
         .vehicle-checks-action:hover { background: var(--color-surface-subtle) !important; border-color: var(--shell-muted) !important; }

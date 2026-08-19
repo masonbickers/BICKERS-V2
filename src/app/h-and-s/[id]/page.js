@@ -1,7 +1,8 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore";
@@ -279,12 +280,12 @@ function registerState(item) {
   const missingDate = !item.nextDue && (item.area === "inspection" || item.area === "policy" || item.area === "training");
   const missingCertificate = Boolean(item.certificateRequired && !item.certificateUrl);
 
-  if (explicit === "complete") return { label: "Complete", tone: "green" };
   if (explicit === "booked") return { label: "Booked", tone: "brand" };
   if (missingDate) return { label: "Needs date", tone: "amber" };
   if (diff != null && diff < 0) return { label: "Overdue", tone: "danger" };
   if (missingCertificate) return { label: "Needs cert", tone: "amber" };
   if (diff != null && diff <= 30) return { label: "Due soon", tone: "amber" };
+  if (explicit === "complete") return { label: "Complete", tone: "green" };
   return { label: "OK", tone: "green" };
 }
 
@@ -296,7 +297,6 @@ function toneStyle(tone) {
 }
 
 function PpeIssueRegisterPage() {
-  const router = useRouter();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [employees, setEmployees] = useState([]);
@@ -391,6 +391,16 @@ function PpeIssueRegisterPage() {
     return grouped;
   }, [selectedRecords]);
 
+  const selectedPpeSummary = useMemo(() => ({
+    totalIssued: selectedRecords.length,
+    itemTypes: recordsByItem.size,
+  }), [recordsByItem.size, selectedRecords.length]);
+
+  const openPpeHistoryRecords = useMemo(
+    () => (openHistoryItem ? recordsByItem.get(openHistoryItem) || [] : []),
+    [openHistoryItem, recordsByItem]
+  );
+
   const issueToday = async (itemName) => {
     if (!selectedEmployee) return;
     setIssuingItem(itemName);
@@ -407,7 +417,7 @@ function PpeIssueRegisterPage() {
       setToast(`${itemName} issued to ${employeeDisplayName(selectedEmployee)}`);
     } catch (error) {
       console.error("Failed to issue PPE:", error);
-      alert("Could not save PPE issue record.");
+      systemDialogs.showSystemNotification("Could not save PPE issue record.");
     } finally {
       setIssuingItem("");
     }
@@ -416,7 +426,6 @@ function PpeIssueRegisterPage() {
   const ppeTheme = {
     bg: UI.bg,
     panel: UI.card,
-    panel2: "var(--shell-text)",
     border: "var(--color-border)",
     text: UI.text,
     muted: UI.muted,
@@ -427,19 +436,11 @@ function PpeIssueRegisterPage() {
 
   return (
     <HeaderSidebarLayout>
-      <main style={{ minHeight: "100vh", background: ppeTheme.bg, padding: "16px 16px 32px", color: ppeTheme.text }}>
+      <main style={{ minHeight: "100%", background: ppeTheme.bg, padding: "16px 16px 32px", color: ppeTheme.text }}>
         <div className={layoutStyles.extracted1}>
           <div>
-            <button
-              type="button"
-              onClick={() => router.push("/h-and-s")}
-              style={{ ...btn("ghost"), marginBottom: 10 }}
-            >
-              <ArrowLeft size={15} />
-              Back to H&S
-            </button>
             <h1 style={{ ...h1, color: ppeTheme.text }}>PPE Issue Register</h1>
-            <div style={{ ...sub, color: ppeTheme.muted }}>Employee, PPE item, Issue Today. History is kept automatically.</div>
+            <div style={{ ...sub, color: ppeTheme.muted }}>Select an employee, issue equipment, and review their retained history.</div>
           </div>
           {toast ? (
             <div
@@ -452,7 +453,7 @@ function PpeIssueRegisterPage() {
         </div>
 
         <section className="ppe-shell">
-          <aside style={{ ...panel, padding: 12 }}>
+          <aside className={layoutStyles.ppeEmployeePanel} style={{ ...panel, padding: 12 }}>
             {loadNotice ? (
               <div
                 className={layoutStyles.extracted3}
@@ -461,7 +462,10 @@ function PpeIssueRegisterPage() {
               </div>
             ) : null}
             <label className={layoutStyles.extracted4}>
-              <p style={{ ...smallLabel, color: ppeTheme.muted }}>Find employee</p>
+              <div className={layoutStyles.ppeEmployeeHeading}>
+                <p style={{ ...smallLabel, color: ppeTheme.muted }}>Find employee</p>
+                <span>{filteredEmployees.length}</span>
+              </div>
               <div className={layoutStyles.extracted5}>
                 <Search size={15} color={ppeTheme.muted} className={layoutStyles.extracted6} />
                 <input
@@ -479,7 +483,7 @@ function PpeIssueRegisterPage() {
               </div>
             </label>
 
-            <div className={layoutStyles.extracted7}>
+            <div className={`${layoutStyles.extracted7} ${layoutStyles.ppeEmployeeList}`}>
               {filteredEmployees.map((employee) => {
                 const active = employee.id === selectedEmployee?.id;
                 return (
@@ -496,7 +500,7 @@ function PpeIssueRegisterPage() {
                       background: active ? ppeTheme.accentSoft : "var(--color-surface)",
                       color: active ? ppeTheme.accent : ppeTheme.text,
                       borderRadius: 8,
-                      padding: "11px 12px",
+                      padding: "9px 10px",
                       cursor: "pointer",
                       fontWeight: 900,
                       boxShadow: active ? "inset 3px 0 0 var(--color-brand)" : "none",
@@ -515,13 +519,15 @@ function PpeIssueRegisterPage() {
           </aside>
 
           <section className={layoutStyles.extracted8}>
-            <div style={{ ...panel, padding: 14 }}>
+            <div className={layoutStyles.ppeEmployeeSummary} style={{ ...panel, padding: 14 }}>
               <div className={layoutStyles.extracted9}>
                 <div>
                   <h2 style={{ ...titleMd, color: ppeTheme.text }}>{selectedEmployee ? employeeDisplayName(selectedEmployee) : "Select an employee"}</h2>
-                  <div style={{ ...hint, color: ppeTheme.muted }}>Recent PPE activity</div>
+                  <div style={{ ...hint, color: ppeTheme.muted }}>
+                    {selectedPpeSummary.totalIssued} items issued across {selectedPpeSummary.itemTypes} PPE type{selectedPpeSummary.itemTypes === 1 ? "" : "s"}
+                  </div>
                 </div>
-                <History size={18} color={ppeTheme.accent} />
+                <span className={layoutStyles.ppeSummaryBadge}>{selectedPpeSummary.totalIssued} total issues</span>
               </div>
               {selectedRecords.slice(0, 4).length ? (
                 <div className={layoutStyles.extracted10}>
@@ -530,15 +536,15 @@ function PpeIssueRegisterPage() {
                       key={recordItem.id}
                       style={{
                         border: `1px solid ${ppeTheme.border}`,
-                        background: ppeTheme.panel2,
+                        background: "var(--color-surface-subtle)",
                         color: ppeTheme.text,
-                        borderRadius: 999,
-                        padding: "6px 9px",
-                        fontSize: 12.5,
+                        borderRadius: 8,
+                        padding: "6px 8px",
+                        fontSize: 12,
                         fontWeight: 850,
                       }}
                     >
-                      {recordItem.itemName} / {fmtDate(recordItem.issuedAt)}
+                      {recordItem.itemName} <span style={{ color: ppeTheme.muted }}>• {fmtDate(recordItem.issuedAt)}</span>
                     </span>
                   ))}
                 </div>
@@ -546,6 +552,30 @@ function PpeIssueRegisterPage() {
                 <div style={{ color: ppeTheme.muted, fontSize: 13, fontWeight: 800 }}>No PPE has been issued for this employee yet.</div>
               )}
             </div>
+
+            {openHistoryItem ? (
+              <div className={layoutStyles.ppeHistoryPanel} style={{ ...panel, padding: 14 }}>
+                <div className={layoutStyles.ppeHistoryHeader}>
+                  <div>
+                    <h3>{openHistoryItem} history</h3>
+                    <p>{selectedEmployee ? employeeDisplayName(selectedEmployee) : "Selected employee"}</p>
+                  </div>
+                  <button type="button" onClick={() => setOpenHistoryItem("")} className={layoutStyles.ppeHistoryClose}>Close</button>
+                </div>
+                {openPpeHistoryRecords.length ? (
+                  <div className={layoutStyles.ppeHistoryRows}>
+                    {openPpeHistoryRecords.map((recordItem) => (
+                      <div key={recordItem.id}>
+                        <strong>{fmtDate(recordItem.issuedAt)}</strong>
+                        <span>{recordItem.issuedBy || "Unknown user"}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={layoutStyles.ppeEmptyHistory}>No history has been recorded for this item.</div>
+                )}
+              </div>
+            ) : null}
 
             <div className="ppe-card-grid">
               {PPE_ISSUE_ITEMS.map((ppe) => {
@@ -556,92 +586,42 @@ function PpeIssueRegisterPage() {
                 return (
                   <article
                     key={ppe.id}
-                    style={{
-                      ...surface,
-                      padding: 14,
-                      background: "var(--color-surface)",
-                      transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
-                    }}
+                    className={layoutStyles.ppeItemCard}
+                    style={surface}
                   >
                     <div className={layoutStyles.extracted11}>
                       <div>
                         <h3 style={{ margin: 0, color: ppeTheme.text, fontSize: 16, fontWeight: 900 }}>{ppe.label}</h3>
-                        <div style={{ marginTop: 7, color: ppeTheme.muted, fontSize: 13, fontWeight: 750 }}>
-                          Latest: {latest ? fmtDate(latest.issuedAt) : "Never issued"}
-                        </div>
-                        <div style={{ marginTop: 3, color: ppeTheme.muted, fontSize: 13, fontWeight: 750 }}>
-                          Total issued: {itemRecords.length}
+                        <div className={layoutStyles.ppeItemMeta}>
+                          <span>{latest ? `Last issued ${fmtDate(latest.issuedAt)}` : "Never issued"}</span>
+                          <span>{itemRecords.length} total</span>
                         </div>
                       </div>
-                      <ShieldCheck size={18} color={latest ? ppeTheme.green : ppeTheme.muted} />
+                      <span className={latest ? layoutStyles.ppeIssuedBadge : layoutStyles.ppeNeverBadge}>
+                        {latest ? "Issued" : "Not issued"}
+                      </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => issueToday(ppe.label)}
-                      disabled={!selectedEmployee || issuingItem === ppe.label}
-                      style={{
-                        width: "100%",
-                        marginTop: 14,
-                        minHeight: 44,
-                        border: `1px solid ${selectedEmployee ? UI.brand : "var(--color-border-strong)"}`,
-                        borderRadius: 8,
-                        background: selectedEmployee ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)" : "var(--color-border)",
-                        color: "var(--color-white)",
-                        fontWeight: 950,
-                        cursor: selectedEmployee ? "pointer" : "not-allowed",
-                        fontSize: 14,
-                        boxShadow: selectedEmployee ? "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)" : "none",
-                      }}
-                    >
-                      {issuingItem === ppe.label ? "Issuing..." : "Issue Today"}
-                    </button>
+                    <div className={layoutStyles.ppeCardActions}>
+                      <button
+                        type="button"
+                        onClick={() => issueToday(ppe.label)}
+                        disabled={!selectedEmployee || issuingItem === ppe.label}
+                        className={layoutStyles.ppeIssueButton}
+                      >
+                        <Plus size={14} />
+                        {issuingItem === ppe.label ? "Issuing..." : "Issue today"}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setOpenHistoryItem(historyOpen ? "" : ppe.label)}
-                      style={{
-                        marginTop: 9,
-                        border: 0,
-                        background: "transparent",
-                        color: ppeTheme.accent,
-                        padding: 0,
-                        cursor: "pointer",
-                        fontSize: 12.5,
-                        fontWeight: 900,
-                      }}
-                    >
-                      {historyOpen ? "Hide History" : "View History"}
-                    </button>
-
-                    {historyOpen ? (
-                      <div className={layoutStyles.extracted12}>
-                        {itemRecords.length ? (
-                          itemRecords.map((recordItem) => (
-                            <div
-                              key={recordItem.id}
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                gap: 8,
-                                border: UI.border,
-                                borderRadius: 8,
-                                background: "var(--color-surface-subtle)",
-                                padding: "8px 9px",
-                                color: ppeTheme.text,
-                                fontSize: 12.5,
-                                fontWeight: 800,
-                              }}
-                            >
-                              <span>{fmtDate(recordItem.issuedAt)}</span>
-                              <span style={{ color: ppeTheme.muted }}>{recordItem.issuedBy || "-"}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div style={{ color: ppeTheme.muted, fontSize: 12.5, fontWeight: 800 }}>No history for this item.</div>
-                        )}
-                      </div>
-                    ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setOpenHistoryItem(historyOpen ? "" : ppe.label)}
+                        className={layoutStyles.ppeViewHistoryButton}
+                      >
+                        <History size={14} />
+                        History
+                      </button>
+                    </div>
                   </article>
                 );
               })}
@@ -652,14 +632,14 @@ function PpeIssueRegisterPage() {
         <style jsx>{`
           .ppe-shell {
             display: grid;
-            grid-template-columns: 300px minmax(0, 1fr);
+            grid-template-columns: 260px minmax(0, 1fr);
             gap: 12px;
             align-items: start;
           }
 
           .ppe-card-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
           }
 
@@ -719,6 +699,8 @@ function LegacyHsRegisterDetailPage() {
   const [checkHistory, setCheckHistory] = useState([]);
   const [completingCheck, setCompletingCheck] = useState(false);
   const [historyUploadId, setHistoryUploadId] = useState("");
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState("");
 
   const item = useMemo(() => ({ ...(template || {}), ...(record || {}), ...form, id }), [form, id, record, template]);
   const state = registerState(item);
@@ -738,9 +720,42 @@ function LegacyHsRegisterDetailPage() {
   const isCoshhCheck = id === "coshh";
   const isFireRiskAssessmentCheck = id === "fire-risk-assessment";
   const isWorkshopWeeklyCheck = id === "weekly-workshop-check";
+  const isFireExtinguisherInspectionCheck = String(item.item || "").trim().toLowerCase() === "fire extinguisher inspection";
   const isCustomCertificateCheck = Boolean(item.customRegisterItem && item.certificateRequired);
   const isCertificateCheck = isPatTestingCheck || isFireSafetyCheck || isFireAlarmServiceCheck || isMaskFittingCheck || isHealthScreeningCheck || isGasCheck || isEicrPatCheck || isPolicyReviewCheck || isWelfarePolicyCheck || isWorkshopRiskAssessmentCheck || isTrackingRiskAssessmentCheck || isFireRiskAssessmentCheck || isCoshhCheck || isCustomCertificateCheck;
   const isManagedCheck = isCuttingFluidCheck || isCertificateCheck || isWorkshopWeeklyCheck;
+  const isCertificateTaskFocused = isFireAlarmServiceCheck || isMaskFittingCheck || isFireExtinguisherInspectionCheck;
+  const isTaskFocusedCheck = isCuttingFluidCheck || isCertificateTaskFocused || isWorkshopWeeklyCheck;
+  const certificateRecordNoun = isMaskFittingCheck ? "fit test" : isFireExtinguisherInspectionCheck ? "inspection" : "service";
+  const certificateRecordLabel = isMaskFittingCheck ? "Fit test" : isFireExtinguisherInspectionCheck ? "Inspection" : "Service";
+  const certificateRecordPlural = isMaskFittingCheck ? "fit tests" : isFireExtinguisherInspectionCheck ? "inspections" : "services";
+  const dueInDays = daysUntil(item.nextDue);
+  const historyRows = isTaskFocusedCheck && !showAllHistory ? checkHistory.slice(0, 6) : checkHistory;
+  const phSummary = useMemo(() => {
+    const readings = checkHistory
+      .map((entry) => Number.parseFloat(entry.reading))
+      .filter((reading) => Number.isFinite(reading));
+    const recent = readings.slice(0, 6);
+
+    return {
+      latest: readings[0],
+      average: recent.length ? recent.reduce((total, reading) => total + reading, 0) / recent.length : null,
+      total: checkHistory.length,
+    };
+  }, [checkHistory]);
+  const certificateSummary = useMemo(() => ({
+    totalChecks: checkHistory.length,
+    totalDocuments: checkHistory.reduce((total, entry) => total + certificateDocuments(entry).length, 0),
+    latestDate: checkHistory[0]?.checkedAt,
+  }), [checkHistory]);
+  const workshopSummary = useMemo(() => {
+    const issueCount = (entry) => Object.values(entry?.workshopResults || {}).filter((value) => value === "issue").length;
+    return {
+      latestDate: checkHistory[0]?.checkedAt,
+      latestIssues: checkHistory[0] ? issueCount(checkHistory[0]) : null,
+      totalChecks: checkHistory.length,
+    };
+  }, [checkHistory]);
 
   useEffect(() => {
     const run = async () => {
@@ -788,7 +803,7 @@ function LegacyHsRegisterDetailPage() {
         });
       } catch (error) {
         console.error("Failed to load H&S register item:", error);
-        alert("Could not load H&S register item.");
+        systemDialogs.showSystemNotification("Could not load H&S register item.");
       } finally {
         setLoading(false);
       }
@@ -927,7 +942,7 @@ function LegacyHsRegisterDetailPage() {
       setRecord((prev) => ({ ...(prev || {}), ...patch }));
     } catch (error) {
       console.error("Failed to save H&S register item:", error);
-      alert("Could not save H&S register item.");
+      systemDialogs.showSystemNotification("Could not save H&S register item.");
     } finally {
       setSaving(false);
     }
@@ -1016,7 +1031,7 @@ function LegacyHsRegisterDetailPage() {
       }));
     } catch (error) {
       console.error("Failed to complete H&S check:", error);
-      alert(error?.code === "storage/unauthorized" ? "Could not upload certificate. Please check Firebase Storage permissions for H&S certificates." : "Could not complete check.");
+      systemDialogs.showSystemNotification(error?.code === "storage/unauthorized" ? "Could not upload certificate. Please check Firebase Storage permissions for H&S certificates." : "Could not complete check.");
     } finally {
       setCompletingCheck(false);
     }
@@ -1075,7 +1090,7 @@ function LegacyHsRegisterDetailPage() {
       await save(patch);
     } catch (error) {
       console.error("Failed to upload H&S certificate:", error);
-      alert("Could not upload certificate.");
+      systemDialogs.showSystemNotification("Could not upload certificate.");
     } finally {
       setUploading(false);
     }
@@ -1120,7 +1135,7 @@ function LegacyHsRegisterDetailPage() {
       });
     } catch (error) {
       console.error("Failed to upload history certificate:", error);
-      alert(error?.code === "storage/unauthorized" ? "Could not upload certificate. Please check Firebase Storage permissions for H&S certificates." : "Could not upload certificate.");
+      systemDialogs.showSystemNotification(error?.code === "storage/unauthorized" ? "Could not upload certificate. Please check Firebase Storage permissions for H&S certificates." : "Could not upload certificate.");
     } finally {
       setHistoryUploadId("");
     }
@@ -1129,7 +1144,7 @@ function LegacyHsRegisterDetailPage() {
   const deleteCheckHistoryEntry = async (entry) => {
     if (!entry?.id) return;
     const label = fmtDate(entry.checkedAt);
-    if (!window.confirm(`Delete this completed check${label ? ` from ${label}` : ""}?`)) return;
+    if (!await systemDialogs.confirmSystem(`Delete this completed check${label ? ` from ${label}` : ""}?`)) return;
 
     try {
       await deleteDoc(doc(db, "hsCheckRecords", entry.id));
@@ -1154,7 +1169,7 @@ function LegacyHsRegisterDetailPage() {
       setCheckHistory(remaining);
     } catch (error) {
       console.error("Failed to delete H&S check:", error);
-      alert("Could not delete this check.");
+      systemDialogs.showSystemNotification("Could not delete this check.");
     }
   };
 
@@ -1177,16 +1192,32 @@ function LegacyHsRegisterDetailPage() {
       <main style={pageWrap}>
         <div className={layoutStyles.extracted13}>
           <div>
-            <h1 style={h1}>{item.item || "H&S register item"}</h1>
+            <div className={isTaskFocusedCheck ? layoutStyles.detailTitleRow : undefined}>
+              <h1 style={h1}>{item.item || "H&S register item"}</h1>
+              {isTaskFocusedCheck ? (
+                <div className={layoutStyles.headerStatuses}>
+                  <span style={{ ...toneStyle(state.tone), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>
+                    {state.label}{dueInDays != null && dueInDays < 0 ? ` ${Math.abs(dueInDays)}d` : ""}
+                  </span>
+                  {item.certificateRequired ? (
+                    <span style={{ ...toneStyle(item.certificateUrl ? "green" : "amber"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>
+                      Evidence {item.certificateUrl ? "attached" : "missing"}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
             <div style={sub}>
-              {item.section || "-"} / {item.frequency || "-"} / {item.owner || "-"}
+              {[item.section, frequencyLabelFromWeeks(form.frequencyWeeks, item.frequency), item.owner].filter(Boolean).join(" • ") || "-"}
             </div>
           </div>
           <div className={layoutStyles.extracted14}>
-            <button type="button" style={btn("ghost")} onClick={() => router.push("/h-and-s")}>
-              <ArrowLeft size={15} />
-              Back
-            </button>
+            {!isTaskFocusedCheck ? (
+              <button type="button" style={btn("ghost")} onClick={() => router.push("/h-and-s")}>
+                <ArrowLeft size={15} />
+                Back
+              </button>
+            ) : null}
             {isCuttingFluidCheck ? (
               <button type="button" style={btn("ghost")} onClick={downloadCuttingFluidData}>
                 <FileCheck2 size={15} />
@@ -1318,9 +1349,13 @@ function LegacyHsRegisterDetailPage() {
             ) : null}
 
             {isManagedCheck ? (
-              <div style={panel}>
+              <div
+                className={isTaskFocusedCheck ? layoutStyles.completionPanel : undefined}
+                style={isTaskFocusedCheck ? { ...panel, borderColor: UI.brandBorder } : panel}
+              >
                 <div className={layoutStyles.extracted19}>
                   <div>
+                    {isTaskFocusedCheck ? <div className={layoutStyles.sectionEyebrow}>Today&apos;s task</div> : null}
                     <h2 style={titleMd}>
                       Complete {isPatTestingCheck ? "PAT check" : isFireSafetyCheck ? "fire safety check" : isFireAlarmServiceCheck ? "fire alarm service" : isMaskFittingCheck ? "mask fitting" : isHealthScreeningCheck ? "health screening" : isGasCheck ? "gas regulator check" : isEicrPatCheck ? "EICR / PAT check" : isPolicyReviewCheck ? "policy review" : isWelfarePolicyCheck ? "welfare policy" : isWorkshopRiskAssessmentCheck ? "workshop risk assessment" : isTrackingRiskAssessmentCheck ? "tracking risk assessment" : isFireRiskAssessmentCheck ? "Fire RA" : isCoshhCheck ? "COSHH" : isWorkshopWeeklyCheck ? "workshop check" : item.item || "check"}
                     </h2>
@@ -1330,11 +1365,16 @@ function LegacyHsRegisterDetailPage() {
 
                 {isWorkshopWeeklyCheck ? (
                   <div className="workshop-check-grid">
-                    {WORKSHOP_CHECK_ITEMS.map((checkItem) => (
-                      <label key={checkItem.id} style={{ border: UI.border, borderRadius: UI.radius, background: "var(--color-surface-subtle)", padding: 10 }}>
+                    {WORKSHOP_CHECK_ITEMS.map((checkItem) => {
+                      const value = checkDraft.workshopResults?.[checkItem.id] || "ok";
+                      return (
+                      <label
+                        key={checkItem.id}
+                        className={`${layoutStyles.checklistItem} ${value === "issue" ? layoutStyles.checklistIssue : value === "na" ? layoutStyles.checklistNa : layoutStyles.checklistOk}`}
+                      >
                         <p style={smallLabel}>{checkItem.label}</p>
                         <select
-                          value={checkDraft.workshopResults?.[checkItem.id] || "ok"}
+                          value={value}
                           onChange={(event) =>
                             setCheckDraft((prev) => ({
                               ...prev,
@@ -1351,7 +1391,8 @@ function LegacyHsRegisterDetailPage() {
                           <option value="na">N/A</option>
                         </select>
                       </label>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : null}
 
@@ -1388,12 +1429,27 @@ function LegacyHsRegisterDetailPage() {
                     <>
                       <label>
                         <p style={smallLabel}>Certificate</p>
-                        <input
-                          type="file"
-                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
-                          onChange={(event) => setCheckDraft((prev) => ({ ...prev, certificateFile: event.target.files?.[0] || null }))}
-                          style={{ ...input, padding: "6px 8px" }}
-                        />
+                        {isCertificateTaskFocused ? (
+                          <span className={layoutStyles.certificatePicker}>
+                            <Upload size={15} />
+                            <span title={checkDraft.certificateFile?.name || ""}>
+                              {checkDraft.certificateFile?.name || "Choose certificate"}
+                            </span>
+                            <input
+                              type="file"
+                              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                              onChange={(event) => setCheckDraft((prev) => ({ ...prev, certificateFile: event.target.files?.[0] || null }))}
+                              className={layoutStyles.visuallyHidden}
+                            />
+                          </span>
+                        ) : (
+                          <input
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                            onChange={(event) => setCheckDraft((prev) => ({ ...prev, certificateFile: event.target.files?.[0] || null }))}
+                            style={{ ...input, padding: "6px 8px" }}
+                          />
+                        )}
                       </label>
                     </>
                   ) : null}
@@ -1419,7 +1475,7 @@ function LegacyHsRegisterDetailPage() {
               </div>
             ) : null}
 
-            <div style={panel}>
+            <div className={isTaskFocusedCheck ? layoutStyles.registerPanel : undefined} style={panel}>
               <div className={layoutStyles.extracted20}>
                 <div>
                   <h2 style={titleMd}>Register details</h2>
@@ -1431,7 +1487,7 @@ function LegacyHsRegisterDetailPage() {
               </div>
 
               <div className="hs-form-grid">
-                <Field label="Section" value={item.section || "-"} readOnly />
+                <Field label="Section" value={item.section || "-"} readOnly displayOnly={isTaskFocusedCheck} />
                 {isManagedCheck ? (
                   <label>
                     <p style={smallLabel}>Frequency</p>
@@ -1464,17 +1520,17 @@ function LegacyHsRegisterDetailPage() {
                 ) : (
                   <Field label="Frequency" value={item.frequency || "-"} readOnly />
                 )}
-                <Field label="Evidence Type" value={item.evidenceLabel || "-"} readOnly />
+                <Field label="Evidence Type" value={item.evidenceLabel || "-"} readOnly displayOnly={isTaskFocusedCheck} />
                 <Field label="Owner" value={form.owner || ""} onChange={(value) => updateForm("owner", value)} />
-                <Field label="Next Due" value={fmtDate(form.nextDue)} readOnly />
-                <Field label="Last Completed" value={fmtDate(form.lastCompleted)} readOnly />
+                <Field label="Next Due" value={fmtDate(form.nextDue)} readOnly displayOnly={isTaskFocusedCheck} />
+                <Field label="Last Completed" value={fmtDate(form.lastCompleted)} readOnly displayOnly={isTaskFocusedCheck} />
                 <Field label="Status" type="select" value={form.status || ""} onChange={(value) => updateForm("status", value)} />
                 <Field label="Reference" value={form.reference || ""} onChange={(value) => updateForm("reference", value)} />
                 <Field label="Location / Person" value={form.location || ""} onChange={(value) => updateForm("location", value)} />
               </div>
             </div>
 
-            <div style={panel}>
+            <div className={isTaskFocusedCheck ? layoutStyles.informationPanel : undefined} style={panel}>
               <div className={layoutStyles.extracted22}>
                 <div>
                   <h2 style={titleMd}>Information</h2>
@@ -1506,18 +1562,270 @@ function LegacyHsRegisterDetailPage() {
             </div>
 
             {isManagedCheck ? (
-              <div style={panel}>
+              <div className={isTaskFocusedCheck ? layoutStyles.historyPanel : undefined} style={panel}>
                 <div className={layoutStyles.extracted23}>
                   <div>
                     <h2 style={titleMd}>Check history</h2>
-                    <div style={hint}>Newest completed checks first.</div>
+                    <div style={hint}>{isCuttingFluidCheck ? "Recent readings and maintenance notes." : isCertificateTaskFocused ? `${certificateRecordLabel} records, reports and supporting evidence.` : isWorkshopWeeklyCheck ? "Recent inspections, exceptions and corrective notes." : "Newest completed checks first."}</div>
                   </div>
                   <History size={18} color={UI.brand} />
                 </div>
 
                 {checkHistory.length ? (
+                  isCuttingFluidCheck ? (
+                    <>
+                      <div className={layoutStyles.historyStats}>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Latest reading</span>
+                          <strong>{phSummary.latest == null ? "—" : `pH ${phSummary.latest.toFixed(1)}`}</strong>
+                        </div>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Recent average</span>
+                          <strong>{phSummary.average == null ? "—" : `pH ${phSummary.average.toFixed(1)}`}</strong>
+                        </div>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Total checks</span>
+                          <strong>{phSummary.total}</strong>
+                        </div>
+                      </div>
+
+                      <div className={layoutStyles.historyTableWrap}>
+                        <table className={layoutStyles.historyTable}>
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Reading</th>
+                              <th>Notes</th>
+                              <th>Completed by</th>
+                              <th><span className={layoutStyles.visuallyHidden}>Actions</span></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {historyRows.map((entry) => (
+                              <tr key={entry.id}>
+                                <td><strong>{fmtDate(entry.checkedAt)}</strong></td>
+                                <td>
+                                  <span className={layoutStyles.readingBadge}>{entry.reading ? `pH ${entry.reading}` : "—"}</span>
+                                </td>
+                                <td className={layoutStyles.historyNotes} title={entry.notes || ""}>{entry.notes || "—"}</td>
+                                <td>{entry.completedBy || "—"}</td>
+                                <td className={layoutStyles.historyAction}>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteCheckHistoryEntry(entry)}
+                                    className={layoutStyles.deleteIconButton}
+                                    title={`Delete check from ${fmtDate(entry.checkedAt)}`}
+                                    aria-label={`Delete check from ${fmtDate(entry.checkedAt)}`}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {checkHistory.length > 6 ? (
+                        <button type="button" className={layoutStyles.historyToggle} onClick={() => setShowAllHistory((current) => !current)}>
+                          {showAllHistory ? "Show recent checks" : `Show all ${checkHistory.length} checks`}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : isCertificateTaskFocused ? (
+                    <>
+                      <div className={layoutStyles.historyStats}>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Latest {certificateRecordNoun}</span>
+                          <strong>{fmtDate(certificateSummary.latestDate)}</strong>
+                        </div>
+                        <div className={layoutStyles.historyStat}>
+                          <span>{certificateRecordLabel} records</span>
+                          <strong>{certificateSummary.totalChecks}</strong>
+                        </div>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Documents</span>
+                          <strong>{certificateSummary.totalDocuments}</strong>
+                        </div>
+                      </div>
+
+                      <div className={layoutStyles.historyTableWrap}>
+                        <table className={layoutStyles.historyTable}>
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Evidence</th>
+                              <th>Notes</th>
+                              <th>Completed by</th>
+                              <th><span className={layoutStyles.visuallyHidden}>Actions</span></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {historyRows.map((entry) => {
+                              const documents = certificateDocuments(entry);
+                              return (
+                                <tr key={entry.id}>
+                                  <td><strong>{fmtDate(entry.checkedAt)}</strong></td>
+                                  <td>
+                                    {documents.length ? (
+                                      <div className={layoutStyles.documentLinks}>
+                                        {documents.map((docItem, index) => (
+                                          <a key={`${docItem.url}-${index}`} href={docItem.url} target="_blank" rel="noreferrer" title={docItem.name || `${certificateRecordLabel} document`}>
+                                            <FileCheck2 size={14} />
+                                            <span>{docItem.name || `Document ${index + 1}`}</span>
+                                          </a>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className={layoutStyles.completedBadge}>Completed</span>
+                                    )}
+                                  </td>
+                                  <td className={layoutStyles.historyNotes} title={entry.notes || ""}>{entry.notes || "—"}</td>
+                                  <td>{entry.completedBy || "—"}</td>
+                                  <td className={layoutStyles.historyAction}>
+                                    <div className={layoutStyles.rowActions}>
+                                      <label
+                                        className={layoutStyles.rowIconButton}
+                                        title={`Add evidence to this ${certificateRecordNoun}`}
+                                        aria-label={`Add evidence to this ${certificateRecordNoun}`}
+                                      >
+                                        <Upload size={15} />
+                                        <input
+                                          type="file"
+                                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                                          disabled={historyUploadId === entry.id}
+                                          className={layoutStyles.visuallyHidden}
+                                          onChange={(event) => uploadHistoryCertificate(entry, event.target.files?.[0])}
+                                        />
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteCheckHistoryEntry(entry)}
+                                        className={layoutStyles.deleteIconButton}
+                                        title={`Delete ${certificateRecordNoun} from ${fmtDate(entry.checkedAt)}`}
+                                        aria-label={`Delete ${certificateRecordNoun} from ${fmtDate(entry.checkedAt)}`}
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {checkHistory.length > 6 ? (
+                        <button type="button" className={layoutStyles.historyToggle} onClick={() => setShowAllHistory((current) => !current)}>
+                          {showAllHistory
+                            ? `Show recent ${certificateRecordPlural}`
+                            : `Show all ${checkHistory.length} ${certificateRecordPlural}`}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : isWorkshopWeeklyCheck ? (
+                    <>
+                      <div className={layoutStyles.historyStats}>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Latest inspection</span>
+                          <strong>{fmtDate(workshopSummary.latestDate)}</strong>
+                        </div>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Latest result</span>
+                          <strong>{workshopSummary.latestIssues == null ? "—" : workshopSummary.latestIssues ? `${workshopSummary.latestIssues} issue${workshopSummary.latestIssues === 1 ? "" : "s"}` : "All clear"}</strong>
+                        </div>
+                        <div className={layoutStyles.historyStat}>
+                          <span>Checks recorded</span>
+                          <strong>{workshopSummary.totalChecks}</strong>
+                        </div>
+                      </div>
+
+                      <div className={layoutStyles.historyTableWrap}>
+                        <table className={layoutStyles.historyTable}>
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Result</th>
+                              <th>Exceptions</th>
+                              <th>Notes</th>
+                              <th><span className={layoutStyles.visuallyHidden}>Actions</span></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {historyRows.map((entry) => {
+                              const results = entry.workshopResults || {};
+                              const issues = WORKSHOP_CHECK_ITEMS.filter((checkItem) => results[checkItem.id] === "issue");
+                              const notApplicable = WORKSHOP_CHECK_ITEMS.filter((checkItem) => results[checkItem.id] === "na");
+                              const expanded = expandedHistoryId === entry.id;
+                              return (
+                                <Fragment key={entry.id}>
+                                  <tr>
+                                    <td><strong>{fmtDate(entry.checkedAt)}</strong></td>
+                                    <td>
+                                      <span className={issues.length ? layoutStyles.issueBadge : layoutStyles.completedBadge}>
+                                        {issues.length ? `${issues.length} issue${issues.length === 1 ? "" : "s"}` : "All clear"}
+                                      </span>
+                                    </td>
+                                    <td className={layoutStyles.exceptionCell}>
+                                      {issues.length ? issues.map((checkItem) => checkItem.label).join(", ") : "No exceptions"}
+                                    </td>
+                                    <td className={layoutStyles.historyNotes} title={entry.notes || ""}>{entry.notes || "—"}</td>
+                                    <td className={layoutStyles.historyAction}>
+                                      <div className={layoutStyles.rowActions}>
+                                        <button
+                                          type="button"
+                                          className={layoutStyles.detailsButton}
+                                          onClick={() => setExpandedHistoryId(expanded ? "" : entry.id)}
+                                          aria-expanded={expanded}
+                                        >
+                                          {expanded ? "Hide" : "View"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => deleteCheckHistoryEntry(entry)}
+                                          className={layoutStyles.deleteIconButton}
+                                          title={`Delete inspection from ${fmtDate(entry.checkedAt)}`}
+                                          aria-label={`Delete inspection from ${fmtDate(entry.checkedAt)}`}
+                                        >
+                                          <Trash2 size={15} />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {expanded ? (
+                                    <tr className={layoutStyles.expandedChecklistRow}>
+                                      <td colSpan={5}>
+                                        <div className={layoutStyles.compactChecklist}>
+                                          {WORKSHOP_CHECK_ITEMS.map((checkItem) => {
+                                            const value = results[checkItem.id] || "ok";
+                                            return (
+                                              <span key={checkItem.id} className={value === "issue" ? layoutStyles.compactIssue : value === "na" ? layoutStyles.compactNa : layoutStyles.compactOk}>
+                                                {checkItem.label}: {value === "issue" ? "Issue" : value === "na" ? "N/A" : "OK"}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                        {notApplicable.length ? <div className={layoutStyles.expandedNote}>N/A: {notApplicable.map((item) => item.label).join(", ")}</div> : null}
+                                      </td>
+                                    </tr>
+                                  ) : null}
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {checkHistory.length > 6 ? (
+                        <button type="button" className={layoutStyles.historyToggle} onClick={() => setShowAllHistory((current) => !current)}>
+                          {showAllHistory ? "Show recent inspections" : `Show all ${checkHistory.length} inspections`}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : (
                   <div className={layoutStyles.extracted24}>
-                    {checkHistory.map((entry) => (
+                    {historyRows.map((entry) => (
                       <div
                         key={entry.id}
                         style={{
@@ -1604,6 +1912,7 @@ function LegacyHsRegisterDetailPage() {
                       </div>
                     ))}
                   </div>
+                  )
                 ) : (
                   <div style={{ color: UI.muted, fontSize: 13, fontWeight: 750 }}>
                     No completed checks recorded yet.
@@ -1790,7 +2099,7 @@ function LegacyHsRegisterDetailPage() {
   );
 }
 
-function Field({ label, value, onChange, readOnly = false, type = "text" }) {
+function Field({ label, value, onChange, readOnly = false, displayOnly = false, type = "text" }) {
   if (type === "select") {
     return (
       <label>
@@ -1801,6 +2110,15 @@ function Field({ label, value, onChange, readOnly = false, type = "text" }) {
           <option value="complete">Complete</option>
         </select>
       </label>
+    );
+  }
+
+  if (displayOnly) {
+    return (
+      <div>
+        <p style={smallLabel}>{label}</p>
+        <div className={layoutStyles.displayValue}>{value === undefined || value === null || value === "" ? "—" : value}</div>
+      </div>
     );
   }
 

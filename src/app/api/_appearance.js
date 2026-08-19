@@ -9,8 +9,26 @@ import {
 } from "@/app/utils/appearanceModel";
 import { DEFAULT_CONTENT_LABELS } from "@/app/utils/contentLabels";
 import { DEFAULT_GLOBAL_THEME, normalizeGlobalTheme } from "@/app/utils/globalTheme";
+import { getPublicDeploymentConfig } from "@/app/config/deploymentConfig";
+
+function deploymentAppearanceDefaults() {
+  const deployment = getPublicDeploymentConfig();
+  return {
+    theme: normalizeGlobalTheme({
+      ...DEFAULT_GLOBAL_THEME,
+      appName: deployment.displayName,
+      companyLogo: deployment.companyLogoUrl,
+    }),
+    labels: {
+      ...DEFAULT_CONTENT_LABELS,
+      "app.name": deployment.displayName,
+      "login.title": deployment.displayName,
+    },
+  };
+}
 
 export async function loadPlatformAppearanceState({ includeLegacy = false } = {}) {
+  const deploymentDefaults = deploymentAppearanceDefaults();
   const [canonical, legacyTheme, legacyBranding] = await Promise.all([
     adminReadDocument("companyAppearances", appearanceDocumentId(PLATFORM_APPEARANCE_ID)),
     includeLegacy ? adminReadDocument("settings", "globalStyling") : Promise.resolve(null),
@@ -19,8 +37,8 @@ export async function loadPlatformAppearanceState({ includeLegacy = false } = {}
   const branding = legacyBranding?.branding || legacyBranding || {};
   const migratedTheme = includeLegacy
     ? legacyBrandingToTheme(branding, normalizeGlobalTheme(legacyTheme?.theme || DEFAULT_GLOBAL_THEME))
-    : DEFAULT_GLOBAL_THEME;
-  const migratedLabels = includeLegacy ? legacyBrandingToLabels(branding, DEFAULT_CONTENT_LABELS) : DEFAULT_CONTENT_LABELS;
+    : deploymentDefaults.theme;
+  const migratedLabels = includeLegacy ? legacyBrandingToLabels(branding, deploymentDefaults.labels) : deploymentDefaults.labels;
   return createAppearanceState({ companyId: PLATFORM_APPEARANCE_ID, theme: migratedTheme, labels: migratedLabels, existing: canonical || {} });
 }
 

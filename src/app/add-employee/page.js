@@ -1,12 +1,14 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { DEFAULT_COMPANY_ID, cleanAccessEmail } from "@/app/utils/appAccessRecords";
+import { cleanAccessEmail } from "@/app/utils/appAccessRecords";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -172,6 +174,7 @@ const focusCss = `
 
 export default function AddEmployeePage() {
   const router = useRouter();
+  const deployment = useDeploymentConfig();
 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -206,7 +209,7 @@ export default function AddEmployeePage() {
         employeeName: name,
         email,
         emails: [email].filter(Boolean),
-        companyId: DEFAULT_COMPANY_ID,
+        companyId: deployment.companyId,
         isEnabled: true,
         active: true,
         appAccess: { user: true, service: false },
@@ -217,11 +220,11 @@ export default function AddEmployeePage() {
         createdAt: serverTimestamp(),
       });
       clearBookingReferenceCache();
-      alert("Employee added");
+      systemDialogs.showSystemNotification("Employee added");
       router.push("/employees");
     } catch (err) {
       console.error("Error adding employee:", err);
-      alert("Failed to add employee");
+      systemDialogs.showSystemNotification("Failed to add employee");
     } finally {
       setSaving(false);
     }

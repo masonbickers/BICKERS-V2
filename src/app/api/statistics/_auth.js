@@ -1,5 +1,6 @@
 import { adminReadDocument } from "@/app/api/_firebaseAdminRest";
 import { normalizeServerRole, readBearerToken, verifyFirebaseIdToken } from "@/app/api/admin/_lib";
+import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 const enabled = (userData, key) => {
   const flags = userData?.featureFlags || userData?.features || {};
@@ -7,6 +8,7 @@ const enabled = (userData, key) => {
 };
 
 export async function requireStatisticsUser(req) {
+  const defaultCompanyId = getDeploymentConfig().companyId;
   const idToken = readBearerToken(req);
   const verifiedUser = await verifyFirebaseIdToken(idToken);
   if (!verifiedUser?.uid) return { error: Response.json({ error: "Not signed in." }, { status: 401 }) };
@@ -21,13 +23,15 @@ export async function requireStatisticsUser(req) {
 
   const role = normalizeServerRole(userData.role);
   const management = role === "admin" || role === "platformAdmin";
+  const financeManagement = role === "platformAdmin" || (management && enabled(userData, "finance"));
   return {
     idToken,
     verifiedUser,
     userData,
-    companyId: String(userData.companyId || "bickers-action").trim() || "bickers-action",
+    companyId: String(userData.companyId || defaultCompanyId).trim() || defaultCompanyId,
     role,
-    variant: management && enabled(userData, "finance") ? "management" : "booking",
+    // Platform admins must retain oversight even when a company module is disabled.
+    variant: financeManagement ? "management" : "booking",
     canManageRules: management,
   };
 }

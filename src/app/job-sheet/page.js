@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -21,6 +22,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import {
   BriefcaseBusiness,
+  CirclePoundSterling,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -28,12 +30,16 @@ import {
   Filter,
   LayoutGrid,
   List,
+  FileText,
+  Pencil,
+  Plus,
   RefreshCcw,
   Search,
   Table2,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* Mini design system */
 const UI = UI_TOKENS;
@@ -263,35 +269,44 @@ const displayStatusForSection = (job, section) => {
 };
 
 const statusColors = (label) => {
-  switch (label) {
-    case "Ready to Invoice":
-      return { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber };
-    case "Invoiced":
-      return { bg: UI.brandSoft, border: UI.brandBorder, text: UI.brand };
-    case "Paid":
-      return { bg: UI.greenSoft, border: UI.greenBorder, text: UI.green };
-    case "Action Required":
-      return { bg: UI.redSoft, border: UI.redBorder, text: UI.red };
-    case "Complete":
-      return { bg: UI.greenSoft, border: UI.greenBorder, text: UI.green };
-    case "Confirmed":
-      return { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber };
-    case "First Pencil":
-      return { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
-    case "Second Pencil":
-      return { bg: UI.redSoft, border: UI.redBorder, text: UI.red };
-    case "TBC":
-      return { bg: "var(--color-surface-subtle)", border: "var(--color-border)", text: UI.muted };
-    default:
-      return { bg: "var(--color-surface-subtle)", border: "var(--color-border)", text: UI.text };
-  }
+  return getFixedJobStatusStyle(label);
 };
 
 const getCheckState = (job) => ({
   notes: [job?.generalNotes, job?.notes, job?.jobNotes].some((value) => String(value || "").trim().length > 0),
   po: String(job?.po || "").trim().length > 0,
-  quote: String(job?.pdfUrl || "").trim().length > 0 || (Array.isArray(job?.attachments) && job.attachments.length > 0),
+  quote:
+    (Array.isArray(job?.quoteVersions) && job.quoteVersions.length > 0) ||
+    Boolean(job?.quote && typeof job.quote === "object" && (job.quote.quoteNumber || job.quote.savedAt)) ||
+    String(job?.quoteNumber || job?.pdfUrl || "").trim().length > 0,
 });
+
+const quoteMoney = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return number.toLocaleString("en-GB", { style: "currency", currency: "GBP" });
+};
+
+const quoteSavedDate = (value) => {
+  if (!value) return "-";
+  const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const quoteRevision = (quoteNumber = "") => {
+  const match = String(quoteNumber || "").trim().match(/\.(\d+)$/);
+  return match ? `Rev ${match[1]}` : "Original";
+};
+
+const savedQuotesForJob = (job = {}) => {
+  const versions = Array.isArray(job.quoteVersions)
+    ? job.quoteVersions.filter((quote) => quote && typeof quote === "object")
+    : [];
+  if (versions.length) return versions;
+  if (job.quote && typeof job.quote === "object" && (job.quote.quoteNumber || job.quote.savedAt)) return [job.quote];
+  return [];
+};
 
 const CheckBadge = ({ label, ok }) => (
   <span
@@ -355,6 +370,9 @@ export default function JobSheetPage() {
   const [bookings, setBookings] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pageMode, setPageMode] = useState("jobs"); // jobs | quotes
+  const [quoteView, setQuoteView] = useState("saved"); // saved | missing
+  const [quoteStatusFilter, setQuoteStatusFilter] = useState("all");
 
   const [search, setSearch] = useState("");
   const [activeSection, setActiveSection] = useState("Upcoming");
@@ -498,6 +516,67 @@ export default function JobSheetPage() {
 
   /* ---------- Base: 4-digit jobs only ---------- */
   const fourDigitJobs = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
+
+  const quoteRecords = useMemo(
+    () =>
+      fourDigitJobs
+        .flatMap((job) =>
+          savedQuotesForJob(job).map((quote, index) => {
+            const acceptedQuoteNumber = String(job.acceptedQuoteNumber || "").trim();
+            return {
+              ...quote,
+              recordKey: `${job.id}:${quote.quoteNumber || index}`,
+              bookingId: job.id,
+              jobNumber: quote.jobNumber || job.jobNumber || "",
+              client: quote.client || job.client || "",
+              location: quote.location || job.location || "",
+              bookingDates: Array.isArray(quote.bookingDates) && quote.bookingDates.length ? quote.bookingDates : normaliseDates(job),
+              accepted: acceptedQuoteNumber
+                ? acceptedQuoteNumber === String(quote.quoteNumber || "").trim()
+                : String(quote.status || "").trim() === "Accepted",
+            };
+          })
+        )
+        .sort((a, b) => {
+          const aTime = new Date(a.savedAt || a.updatedAt || 0).getTime() || 0;
+          const bTime = new Date(b.savedAt || b.updatedAt || 0).getTime() || 0;
+          return bTime - aTime;
+        }),
+    [fourDigitJobs]
+  );
+
+  const missingQuoteJobs = useMemo(
+    () => fourDigitJobs.filter((job) => savedQuotesForJob(job).length === 0),
+    [fourDigitJobs]
+  );
+
+  const quoteStatuses = useMemo(
+    () => Array.from(new Set(quoteRecords.map((quote) => String(quote.status || "Draft").trim()).filter(Boolean))).sort(),
+    [quoteRecords]
+  );
+
+  const filteredQuoteRecords = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return quoteRecords.filter((quote) => {
+      if (quoteStatusFilter !== "all" && String(quote.status || "Draft") !== quoteStatusFilter) return false;
+      if (!needle) return true;
+      return [quote.quoteNumber, quote.quoteName, quote.templateName, quote.jobNumber, quote.client, quote.location, quote.savedBy]
+        .some((value) => String(value || "").toLowerCase().includes(needle));
+    });
+  }, [quoteRecords, quoteStatusFilter, search]);
+
+  const filteredMissingQuoteJobs = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return missingQuoteJobs;
+    return missingQuoteJobs.filter((job) =>
+      [job.jobNumber, job.client, job.location].some((value) => String(value || "").toLowerCase().includes(needle))
+    );
+  }, [missingQuoteJobs, search]);
+
+  const acceptedQuoteValue = useMemo(
+    () => quoteRecords.filter((quote) => quote.accepted).reduce((sum, quote) => sum + (Number(quote.subtotal) || 0), 0),
+    [quoteRecords]
+  );
 
   /* ---------- Search filter ---------- */
   const searched = useMemo(() => {
@@ -717,7 +796,7 @@ export default function JobSheetPage() {
       await updateDoc(doc(db, "bookings", job.id), { status: "complete", completedAt: serverTimestamp() });
     } catch (e) {
       setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: prev } : j)));
-      alert("Could not mark complete. Please try again.");
+      systemDialogs.showSystemNotification("Could not mark complete. Please try again.");
     }
   };
 
@@ -754,7 +833,7 @@ export default function JobSheetPage() {
             : j
         )
       );
-      alert("Could not update job status. Please try again.");
+      systemDialogs.showSystemNotification("Could not update job status. Please try again.");
     }
   };
 
@@ -1041,6 +1120,141 @@ export default function JobSheetPage() {
     </div>
   );
 
+  const QuoteLibrary = () => {
+    const rows = quoteView === "saved" ? filteredQuoteRecords : filteredMissingQuoteJobs;
+    const actionLink = {
+      ...pillBtn(false),
+      minHeight: 32,
+      padding: "5px 9px",
+      textDecoration: "none",
+    };
+
+    return (
+      <>
+        <div className={layoutStyles.quoteToolbar} style={surface}>
+          <div style={searchWrap} title="Press / to focus">
+            <Search size={17} style={searchIcon} aria-hidden />
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Search quote #, job #, client, location or owner..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              style={searchInput}
+              aria-label="Search quotes"
+            />
+          </div>
+          <div style={tabsWrap}>
+            <button type="button" onClick={() => setQuoteView("saved")} style={pillBtn(quoteView === "saved")}>
+              <FileText size={14} /> Saved quotes <span>{quoteRecords.length}</span>
+            </button>
+            <button type="button" onClick={() => setQuoteView("missing")} style={pillBtn(quoteView === "missing")}>
+              <Plus size={14} /> Jobs needing quotes <span>{missingQuoteJobs.length}</span>
+            </button>
+          </div>
+          {quoteView === "saved" ? (
+            <select value={quoteStatusFilter} onChange={(event) => setQuoteStatusFilter(event.target.value)} style={select} aria-label="Filter quotes by status">
+              <option value="all">Status: All</option>
+              {quoteStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          ) : null}
+        </div>
+
+        <div className={layoutStyles.quoteStats}>
+          <div style={statCard}>
+            <div className={layoutStyles.quoteStatHeading}><span>Saved quote records</span><FileText size={18} /></div>
+            <strong>{quoteRecords.length}</strong>
+            <small>Every saved original and revision</small>
+          </div>
+          <div style={statCard}>
+            <div className={layoutStyles.quoteStatHeading}><span>Accepted value</span><CirclePoundSterling size={18} /></div>
+            <strong>{quoteMoney(acceptedQuoteValue)}</strong>
+            <small>Based on accepted quote subtotals</small>
+          </div>
+          <div style={statCard}>
+            <div className={layoutStyles.quoteStatHeading}><span>Needs a quote</span><Plus size={18} /></div>
+            <strong>{missingQuoteJobs.length}</strong>
+            <small>4-digit jobs with no saved quote</small>
+          </div>
+        </div>
+
+        <div className={layoutStyles.quoteTableWrap}>
+          {loading ? (
+            <div style={emptyWrap}>Loading quotes...</div>
+          ) : !rows.length ? (
+            <div style={emptyWrap}>{quoteView === "saved" ? "No saved quotes match these filters." : "Every matching job has a saved quote."}</div>
+          ) : quoteView === "saved" ? (
+            <table className={layoutStyles.quoteTable} aria-label="Saved quote library">
+              <thead>
+                <tr>
+                  <th>Quote</th>
+                  <th>Job / client</th>
+                  <th>Shoot</th>
+                  <th>Value</th>
+                  <th>Status</th>
+                  <th>Saved</th>
+                  <th aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredQuoteRecords.map((quote) => {
+                  const statusLabel = quote.accepted ? "Accepted" : String(quote.status || "Draft");
+                  const statusStyle = statusColors(statusLabel);
+                  const shootDate = (Array.isArray(quote.bookingDates) ? quote.bookingDates : []).map(parseDate).filter(Boolean).sort((a, b) => a - b)[0];
+                  const query = encodeURIComponent(String(quote.quoteNumber || ""));
+                  return (
+                    <tr key={quote.recordKey}>
+                      <td>
+                        <Link href={`/quote-view/${quote.bookingId}?quote=${query}`} className={layoutStyles.quotePrimaryLink}>
+                          {quote.quoteNumber || "Unnumbered quote"}
+                        </Link>
+                        <span className={layoutStyles.quoteMeta}>{quoteRevision(quote.quoteNumber)}{quote.quoteName || quote.templateName ? ` · ${quote.quoteName || quote.templateName}` : ""}</span>
+                      </td>
+                      <td>
+                        <Link href={`/job-numbers/${quote.bookingId}`} className={layoutStyles.quoteJobLink}>Job #{quote.jobNumber || "-"}</Link>
+                        <span className={layoutStyles.quoteMeta}>{quote.client || "No client"}{quote.location ? ` · ${quote.location}` : ""}</span>
+                      </td>
+                      <td>{shootDate ? fmtDate(shootDate) : "TBC"}</td>
+                      <td className={layoutStyles.quoteValue}>{quoteMoney(quote.subtotal)}</td>
+                      <td><span className={layoutStyles.quoteStatus} style={{ color: statusStyle.text, background: statusStyle.bg, borderColor: statusStyle.border }}>{statusLabel}</span></td>
+                      <td>{quoteSavedDate(quote.savedAt || quote.updatedAt)}<span className={layoutStyles.quoteMeta}>{quote.savedBy || quote.updatedBy || "Unknown"}</span></td>
+                      <td>
+                        <div className={layoutStyles.quoteActions}>
+                          <Link href={`/quote-view/${quote.bookingId}?quote=${query}`} style={actionLink}>View</Link>
+                          <Link href={`/quote/${quote.bookingId}?quote=${query}&returnTo=${encodeURIComponent("/job-sheet")}`} style={actionLink}><Pencil size={13} /> Edit</Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <table className={layoutStyles.quoteTable} aria-label="Jobs needing quotes">
+              <thead><tr><th>Job</th><th>Client</th><th>Location</th><th>Shoot</th><th>Status</th><th aria-label="Actions" /></tr></thead>
+              <tbody>
+                {filteredMissingQuoteJobs.map((job) => {
+                  const jobStatus = prettifyStatus(job.status);
+                  const statusStyle = statusColors(jobStatus);
+                  return (
+                    <tr key={job.id}>
+                      <td><Link href={`/job-numbers/${job.id}`} className={layoutStyles.quotePrimaryLink}>Job #{job.jobNumber}</Link></td>
+                      <td>{job.client || "-"}</td>
+                      <td>{job.location || "-"}</td>
+                      <td>{dateRangeLabel(job)}</td>
+                      <td><span className={layoutStyles.quoteStatus} style={{ color: statusStyle.text, background: statusStyle.bg, borderColor: statusStyle.border }}>{jobStatus}</span></td>
+                      <td><Link href={`/quote/${job.id}?returnTo=${encodeURIComponent("/job-sheet")}`} style={actionLink}><Plus size={13} /> Create quote</Link></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </>
+    );
+  };
+
   /* ---------- Grouping + rendering ---------- */
   const weekGroups = useMemo(() => {
     const byWeek = {};
@@ -1066,15 +1280,25 @@ export default function JobSheetPage() {
         {/* Header */}
         <div className={layoutStyles.extracted44}>
           <div>
-            <h1 style={h1}>Jobs Overview</h1>
-            <div style={sub}>4-digit job view with week dividers, filters, density modes and live status checks.</div>
+            <h1 style={h1}>{pageMode === "quotes" ? "Quote Library" : "Jobs Overview"}</h1>
+            <div style={sub}>
+              {pageMode === "quotes"
+                ? "Quotes live with their job record, with originals and revisions kept together and searchable."
+                : "4-digit job view with week dividers, filters, density modes and live status checks."}
+            </div>
           </div>
-          <div style={{ ...chip, alignSelf: "flex-start" }}>
-            <BriefcaseBusiness size={13} />
-            {loading ? "Loading..." : `${totalVisible} shown`}
+          <div className={layoutStyles.pageModeSwitch}>
+            <button type="button" onClick={() => setPageMode("jobs")} style={pillBtn(pageMode === "jobs")} aria-pressed={pageMode === "jobs"}>
+              <BriefcaseBusiness size={14} /> Jobs
+            </button>
+            <button type="button" onClick={() => setPageMode("quotes")} style={pillBtn(pageMode === "quotes")} aria-pressed={pageMode === "quotes"}>
+              <FileText size={14} /> Quotes <span>{quoteRecords.length}</span>
+            </button>
           </div>
         </div>
 
+        {pageMode === "quotes" ? <QuoteLibrary /> : (
+        <>
         {/* Toolbar */}
         <div className="job-sheet-toolbar" style={toolbar}>
           {/* Search */}
@@ -1279,6 +1503,8 @@ export default function JobSheetPage() {
             })
           )}
         </div>
+        </>
+        )}
       </div>
     </HeaderSidebarLayout>
   );

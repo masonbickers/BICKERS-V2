@@ -495,7 +495,7 @@ export default function ServiceOverviewPage() {
 
   const rowBg = (status, bookedNow) => {
     if (bookedNow) return { background: "var(--color-info-soft)" };
-    if (status === "overdue") return { background: "var(--color-danger-soft)" };
+    if (status === "overdue") return { background: "var(--color-warning-soft)" };
     if (status === "soon") return { background: "var(--color-warning-soft)" };
     if (status === "ok") return { background: "var(--color-success-soft)" };
     return {};
@@ -698,7 +698,12 @@ export default function ServiceOverviewPage() {
                 bookedQueue.map((booking) => (
                   <QueueItem
                     key={booking.id}
-                    title={booking.vehicleLabel || booking.vehicleName || booking.vehicleId || "Vehicle"}
+                    title={
+                      serviceRows.find((vehicle) => String(vehicle.id) === String(booking.vehicleId || ""))?.name ||
+                      booking.vehicleLabel ||
+                      booking.vehicleName ||
+                      "Unknown vehicle"
+                    }
                     meta={`${bookingDateLabel(booking)}${booking.provider ? ` - ${booking.provider}` : ""}`}
                     status={booking.status || "Booked"}
                     tone="booked"

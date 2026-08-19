@@ -29,11 +29,29 @@ function readPackageVersion() {
   }
 }
 
+function normalizeCommit(value) {
+  const commit = String(value || "").trim();
+  return /^[0-9a-f]{7,40}$/i.test(commit) ? commit : "";
+}
+
+export function resolveBuildCommit({
+  env = process.env,
+  gitCommit = runGit(["rev-parse", "HEAD"]),
+} = {}) {
+  return (
+    normalizeCommit(env.RELEASE_COMMIT_SHA) ||
+    normalizeCommit(env.RELEASE_COMMIT) ||
+    normalizeCommit(env.VERCEL_GIT_COMMIT_SHA) ||
+    normalizeCommit(gitCommit)
+  );
+}
+
 export function writeBuildInfo() {
+  const commit = resolveBuildCommit();
   const buildInfo = {
     version: readPackageVersion(),
-    commit: runGit(["rev-parse", "HEAD"]),
-    shortCommit: runGit(["rev-parse", "--short", "HEAD"]),
+    commit,
+    shortCommit: commit ? commit.slice(0, 8) : "",
     committedAt: runGit(["show", "-s", "--format=%cI", "HEAD"]),
   };
 

@@ -277,3 +277,601 @@
   padding: 9px 0;
   border-top: 1px solid var(--color-brand-soft);
 }
+
+.ppeEmployeePanel {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+}
+
+.ppeEmployeeHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ppeEmployeeHeading span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ppeEmployeeList {
+  max-height: calc(100vh - 245px);
+  overflow-y: auto;
+  padding-right: 3px;
+  scrollbar-width: thin;
+}
+
+.ppeEmployeeSummary {
+  border-left: 4px solid var(--color-brand) !important;
+}
+
+.ppeSummaryBadge {
+  display: inline-flex;
+  padding: 4px 8px;
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+  border: 1px solid var(--color-brand-border);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ppeHistoryPanel {
+  border-color: var(--color-brand-border) !important;
+  background: var(--color-surface-subtle) !important;
+}
+
+.ppeHistoryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ppeHistoryHeader h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.ppeHistoryHeader p {
+  margin: 3px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.ppeHistoryClose {
+  padding: 4px 7px;
+  color: var(--color-brand);
+  background: transparent;
+  border: 1px solid var(--color-brand-border);
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ppeHistoryRows {
+  display: grid;
+  gap: 5px;
+}
+
+.ppeHistoryRows > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.ppeHistoryRows span,
+.ppeEmptyHistory {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.ppeItemCard {
+  display: grid;
+  gap: 12px;
+  align-content: space-between;
+  min-height: 136px;
+  padding: 12px;
+  background: var(--color-surface) !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.ppeItemCard:hover {
+  border-color: var(--color-brand-border) !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07) !important;
+}
+
+.ppeItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: 750;
+}
+
+.ppeItemMeta span + span::before {
+  margin-right: 6px;
+  content: "•";
+}
+
+.ppeIssuedBadge,
+.ppeNeverBadge {
+  display: inline-flex;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ppeIssuedBadge {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+}
+
+.ppeNeverBadge {
+  color: var(--color-text-muted);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+}
+
+.ppeCardActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.ppeIssueButton,
+.ppeViewHistoryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ppeIssueButton {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+  box-shadow: none;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.ppeIssueButton:hover:not(:disabled),
+.ppeIssueButton:focus-visible {
+  color: var(--color-white);
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.ppeIssueButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ppeViewHistoryButton {
+  color: var(--color-brand);
+  background: var(--color-surface);
+  border: 1px solid var(--color-brand-border);
+}
+
+@media (max-width: 840px) {
+  .ppeEmployeePanel {
+    position: static;
+  }
+
+  .ppeEmployeeList {
+    max-height: 280px;
+  }
+}
+
+.detailTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.headerStatuses {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.completionPanel {
+  order: 1;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(31, 75, 122, 0.1);
+}
+
+.completionPanel::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  content: "";
+  background: var(--color-brand);
+}
+
+.sectionEyebrow {
+  margin-bottom: 4px;
+  color: var(--color-brand);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.certificatePicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 10px;
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.certificatePicker > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checklistItem {
+  padding: 9px;
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.checklistOk {
+  border-color: var(--color-success-border);
+}
+
+.checklistIssue {
+  background: var(--color-accent-soft);
+  border-color: var(--color-danger-border);
+}
+
+.checklistNa {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+}
+
+.historyPanel {
+  order: 2;
+}
+
+.registerPanel {
+  order: 3;
+}
+
+.informationPanel {
+  order: 4;
+}
+
+.displayValue {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 0;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 850;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.historyStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.historyStat {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+}
+
+.historyStat span {
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.historyStat strong {
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.historyTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.historyTable {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  color: var(--color-text);
+  font-size: 12.5px;
+}
+
+.historyTable th {
+  padding: 8px 10px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-subtle);
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.historyTable td {
+  max-width: 260px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.historyTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.historyTable tbody tr:hover {
+  background: var(--color-surface-subtle);
+}
+
+.readingBadge {
+  display: inline-flex;
+  padding: 3px 7px;
+  border: 1px solid var(--color-brand-border);
+  border-radius: 999px;
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.historyNotes {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyAction {
+  width: 76px;
+  text-align: right;
+}
+
+.documentLinks {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.documentLinks a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 310px;
+  color: var(--color-brand);
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.documentLinks a:hover {
+  text-decoration: underline;
+}
+
+.documentLinks a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.completedBadge {
+  display: inline-flex;
+  padding: 3px 7px;
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.issueBadge {
+  display: inline-flex;
+  padding: 3px 7px;
+  color: var(--color-danger);
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 999px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.exceptionCell {
+  max-width: 260px;
+  color: var(--color-text-muted);
+}
+
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.rowIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.rowIconButton:hover {
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand-border);
+}
+
+.detailsButton {
+  min-height: 28px;
+  padding: 4px 7px;
+  color: var(--color-brand);
+  background: transparent;
+  border: 1px solid var(--color-brand-border);
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.expandedChecklistRow td {
+  padding: 10px !important;
+  background: var(--color-surface-subtle);
+}
+
+.compactChecklist {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.compactChecklist span {
+  display: inline-flex;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.compactOk {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border: 1px solid var(--color-success-border);
+}
+
+.compactIssue {
+  color: var(--color-danger);
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-danger-border);
+}
+
+.compactNa {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-border);
+}
+
+.expandedNote {
+  margin-top: 7px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.deleteIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.deleteIconButton:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+  background: var(--color-accent-soft);
+}
+
+.historyToggle {
+  display: block;
+  margin: 10px auto 0;
+  padding: 6px 10px;
+  border: 0;
+  color: var(--color-brand);
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 760px) {
+  .historyStats {
+    grid-template-columns: 1fr;
+  }
+}

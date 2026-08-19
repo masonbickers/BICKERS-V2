@@ -1,126 +1,117 @@
 "use client";
 
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { onSnapshot } from "firebase/firestore";
-import { ChevronRight, FileText, Home, Search, Settings2 } from "lucide-react";
+import { Eye, FileText, Home, Pencil, RotateCcw, Search, Settings2 } from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { OperationsHeaderActions, OperationsPage, OperationsPageHeader } from "@/app/components/OperationsPage";
+import { Button, Checkbox, Input, Select } from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
-import { formatQuoteDate, getCompletedQuoteRows, quoteMatchesSearch } from "@/app/utils/completedQuotes";
+import { formatQuoteDate, getCompletedQuoteRows, money, quoteMatchesSearch } from "@/app/utils/completedQuotes";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const UI = UI_TOKENS;
 
-const pageWrap = { minHeight: "100vh", background: UI.bg, color: UI.text, padding: "12px 14px 24px" };
-const headerBar = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 12,
-  marginBottom: 10,
-  flexWrap: "wrap",
-};
-const h1 = { margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: 0, color: UI.text };
-const sub = { color: UI.muted, fontSize: 13, lineHeight: 1.35, marginTop: 4 };
-const surface = {
-  background: UI.panel,
-  border: `1px solid ${UI.border}`,
-  borderRadius: 8,
-  boxShadow: "0 8px 22px rgba(15, 23, 42, 0.05)",
-};
+const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const toolbar = {
   ...surface,
+  padding: 12,
   display: "grid",
-  gridTemplateColumns: "minmax(260px, 1fr) 180px auto",
+  gridTemplateColumns: "minmax(250px, 1.15fr) minmax(170px, 1fr) 140px 132px 132px auto auto",
   gap: 8,
   alignItems: "center",
-  padding: 10,
-  marginBottom: 10,
+  marginBottom: 16,
 };
-const input = {
-  width: "100%",
-  height: 36,
-  borderRadius: 8,
-  border: `1px solid ${UI.border}`,
-  background: "var(--color-surface)",
-  color: UI.text,
-  fontSize: 13,
-  fontWeight: 700,
-  padding: "0 12px",
-  outline: "none",
-  boxSizing: "border-box",
-};
-const btn = {
-  height: 36,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  borderRadius: 8,
-  border: `1px solid ${UI.border}`,
-  background: "var(--color-surface)",
-  color: UI.text,
-  fontSize: 13,
+const titleMd = { fontWeight: 850, fontSize: 17, margin: 0, color: UI.text, letterSpacing: 0 };
+const tableWrap = { ...surface, overflow: "auto" };
+const th = {
+  textAlign: "left",
+  padding: "6px 8px",
+  borderBottom: "1px solid var(--color-border)",
+  position: "sticky",
+  top: 0,
+  background: "var(--color-surface-subtle)",
+  zIndex: 1,
+  color: UI.muted,
+  fontSize: 10.5,
   fontWeight: 900,
-  textDecoration: "none",
-  padding: "0 12px",
+  textTransform: "uppercase",
   whiteSpace: "nowrap",
 };
-const primaryBtn = { ...btn, background: UI.brand, borderColor: UI.brand, color: "var(--color-surface)" };
 const chip = (kind = "neutral") => {
   const base = {
-    minHeight: 28,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 5,
+    padding: "4px 8px",
     borderRadius: 999,
-    border: `1px solid ${UI.border}`,
+    border: `1px solid ${UI.brandBorder}`,
     background: UI.brandSoft,
-    color: UI.brand,
-    fontSize: 12,
-    fontWeight: 900,
-    padding: "0 9px",
+    color: UI.text,
+    fontSize: 11.5,
+    fontWeight: 850,
     whiteSpace: "nowrap",
   };
-  if (kind === "green") return { ...base, background: UI.greenSoft, borderColor: UI.greenBorder, color: UI.green };
-  if (kind === "amber") return { ...base, background: UI.amberSoft, borderColor: UI.amberBorder, color: UI.amber };
+  if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
+  if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
   return base;
 };
-const statGrid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginBottom: 10 };
-const statCard = { ...surface, padding: 12 };
-const statLabel = { color: UI.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
-const statValue = { color: UI.text, fontSize: 24, lineHeight: 1.1, fontWeight: 900, marginTop: 3 };
-const tableWrap = { ...surface, overflowX: "auto" };
-const table = { width: "100%", minWidth: 980, borderCollapse: "collapse", tableLayout: "fixed" };
-const th = {
-  padding: "8px 10px",
-  textAlign: "left",
-  color: "var(--color-text-muted)",
-  fontSize: 11,
-  fontWeight: 900,
-  textTransform: "uppercase",
-  borderBottom: `1px solid ${UI.borderSoft}`,
-  background: "var(--color-surface-subtle)",
-};
-const td = {
-  padding: "7px 10px",
-  borderBottom: `1px solid ${UI.borderSoft}`,
-  fontSize: 13,
-  fontWeight: 750,
+const actionButton = {
+  minHeight: 26,
+  padding: "3px 8px",
+  borderRadius: UI.radiusSm,
+  border: `1px solid ${UI.brandBorder}`,
+  background: "var(--color-surface)",
   color: UI.text,
-  verticalAlign: "middle",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  fontSize: 11,
+  fontWeight: 850,
+  lineHeight: 1,
+  textDecoration: "none",
+  whiteSpace: "nowrap",
 };
-const nowrap = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 
 const statusKind = (status = "") => {
   if (status === "Accepted") return "green";
   if (status === "Sent" || status === "Revised") return "amber";
+  if (status === "Lost") return "red";
   return "neutral";
+};
+
+const startOfDay = (raw) => {
+  const date = new Date(raw);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const endOfDay = (raw) => {
+  const date = new Date(raw);
+  date.setHours(23, 59, 59, 999);
+  return date;
+};
+
+const getMonday = (raw) => {
+  const date = new Date(raw);
+  const day = date.getDay();
+  date.setDate(date.getDate() + ((day === 0 ? -6 : 1) - day));
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const formatWeekRange = (monday) => {
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} to ${sunday.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`;
 };
 
 export default function CompletedQuotesPage() {
@@ -129,8 +120,18 @@ export default function CompletedQuotesPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useSessionState("completed-quotes:search", "");
-  const [statusFilter, setStatusFilter] = useSessionState("completed-quotes:status", "All");
+  const [companyFilter, setCompanyFilter] = useSessionState("completed-quotes:company", "all");
+  const [statusFilter, setStatusFilter] = useSessionState("completed-quotes:status", "all");
+  const [fromDate, setFromDate] = useSessionState("completed-quotes:from", "");
+  const [toDate, setToDate] = useSessionState("completed-quotes:to", "");
+  const [hasValueOnly, setHasValueOnly] = useSessionState("completed-quotes:hasValue", false);
+  const searchRef = useRef(null);
   useSessionScroll("completed-quotes", !loading);
+
+  useEffect(() => {
+    if (String(companyFilter || "").toLowerCase() === "all" && companyFilter !== "all") setCompanyFilter("all");
+    if (String(statusFilter || "").toLowerCase() === "all" && statusFilter !== "all") setStatusFilter("all");
+  }, [companyFilter, setCompanyFilter, setStatusFilter, statusFilter]);
 
   useEffect(() => {
     if (!authState?.user) return undefined;
@@ -142,143 +143,196 @@ export default function CompletedQuotesPage() {
   }, [accessKey, authState]);
 
   const rows = useMemo(() => getCompletedQuoteRows(bookings), [bookings]);
-  const statuses = useMemo(
-    () => ["All", ...Array.from(new Set(rows.map((row) => row.status || "Draft"))).sort()],
+  const companies = useMemo(
+    () => ["all", ...Array.from(new Set(rows.map((row) => row.client).filter(Boolean))).sort((a, b) => a.localeCompare(b))],
     [rows]
   );
+  const statuses = useMemo(
+    () => ["all", ...Array.from(new Set(rows.map((row) => row.status || "Draft"))).sort()],
+    [rows]
+  );
+
   const visibleRows = useMemo(() => {
-    return rows.filter((row) => {
-      const statusOk = statusFilter === "All" || row.status === statusFilter;
-      return statusOk && quoteMatchesSearch(row, search);
+    const from = fromDate ? startOfDay(fromDate) : null;
+    const to = toDate ? endOfDay(toDate) : null;
+    const allCompanies = !companyFilter || String(companyFilter).toLowerCase() === "all" || !companies.includes(companyFilter);
+    const allStatuses = !statusFilter || String(statusFilter).toLowerCase() === "all" || !statuses.includes(statusFilter);
+    return rows
+      .filter((row) => {
+        if (!allCompanies && row.client !== companyFilter) return false;
+        if (!allStatuses && row.status !== statusFilter) return false;
+        if (hasValueOnly && !(Number(row.subtotal) > 0)) return false;
+        if (from && (!row.savedDate || row.savedDate < from)) return false;
+        if (to && (!row.savedDate || row.savedDate > to)) return false;
+        return quoteMatchesSearch(row, search);
+      })
+      .sort((a, b) => (b.savedDate?.getTime() || 0) - (a.savedDate?.getTime() || 0));
+  }, [companies, companyFilter, fromDate, hasValueOnly, rows, search, statusFilter, statuses, toDate]);
+
+  const groupedRows = useMemo(() => {
+    const weeks = {};
+    const noDate = [];
+    visibleRows.forEach((row) => {
+      if (!row.savedDate) {
+        noDate.push(row);
+        return;
+      }
+      const key = getMonday(row.savedDate).getTime();
+      if (!weeks[key]) weeks[key] = [];
+      weeks[key].push(row);
     });
-  }, [rows, search, statusFilter]);
+    return {
+      weeks,
+      weekKeys: Object.keys(weeks).map(Number).sort((a, b) => b - a),
+      noDate,
+    };
+  }, [visibleRows]);
+
   const acceptedCount = rows.filter((row) => row.status === "Accepted").length;
+  const visibleValue = visibleRows.reduce((sum, row) => sum + (Number(row.subtotal) || 0), 0);
+
+  const resetFilters = () => {
+    setSearch("");
+    setCompanyFilter("all");
+    setStatusFilter("all");
+    setFromDate("");
+    setToDate("");
+    setHasValueOnly(false);
+    searchRef.current?.focus();
+  };
+
+  const QuoteTable = ({ quotes, label }) => (
+    <div style={tableWrap}>
+      <table className={layoutStyles.quoteTable} aria-label={label}>
+        <colgroup>
+          <col className={layoutStyles.quoteColumn} />
+          <col className={layoutStyles.jobColumn} />
+          <col className={layoutStyles.productionColumn} />
+          <col className={layoutStyles.companyColumn} />
+          <col />
+          <col className={layoutStyles.valueColumn} />
+          <col className={layoutStyles.statusColumn} />
+          <col className={layoutStyles.savedColumn} />
+          <col className={layoutStyles.actionsColumn} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th style={th}>Quote</th>
+            <th style={th}>Job</th>
+            <th style={th}>Production</th>
+            <th style={th}>Production Company</th>
+            <th style={th}>Description</th>
+            <th style={th}>Value</th>
+            <th style={th}>Status</th>
+            <th style={th}>Saved</th>
+            <th style={th}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {quotes.map((row) => {
+            const quoteQuery = encodeURIComponent(row.quoteNumber || "");
+            return (
+              <tr key={row.id}>
+                <td className={layoutStyles.primaryCell} title={row.label || row.quoteNumber || ""}>
+                  <Link href={`/quote-view/${row.bookingId}?quote=${quoteQuery}`} className={layoutStyles.primaryLink}>
+                    {row.label || row.displayQuoteNumber || row.quoteNumber || "-"}
+                  </Link>
+                </td>
+                <td className={layoutStyles.primaryCell}>
+                  <Link href={`/job-numbers/${row.bookingId}`} className={layoutStyles.jobLink}>#{row.jobNumber || "-"}</Link>
+                </td>
+                <td className={layoutStyles.textCell} title={row.production || ""}>{row.production || "-"}</td>
+                <td className={layoutStyles.textCell} title={row.client || ""}>{row.client || "-"}</td>
+                <td className={layoutStyles.textCell} title={row.quoteName || row.templateName || row.location || ""}>{row.quoteName || row.templateName || row.location || "-"}</td>
+                <td className={layoutStyles.valueCell}>{row.subtotal > 0 ? `£${money(row.subtotal)}` : "-"}</td>
+                <td className={layoutStyles.statusCell}><span style={chip(statusKind(row.status))}>{row.status || "Draft"}</span></td>
+                <td className={layoutStyles.savedCell} title={row.savedBy || ""}>{formatQuoteDate(row.savedAt)}</td>
+                <td className={layoutStyles.actionsCell}>
+                  <div className={layoutStyles.actions}>
+                    <Link href={`/quote-view/${row.bookingId}?quote=${quoteQuery}`} style={actionButton}><Eye size={12} /> View</Link>
+                    <Link href={`/quote/${row.bookingId}?quote=${quoteQuery}&returnTo=${encodeURIComponent("/completed-quotes")}`} style={actionButton}><Pencil size={12} /> Edit</Link>
+                    <Link href={`/job-numbers/${row.bookingId}`} style={actionButton}>Job</Link>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const QuoteSection = ({ quotes, title }) => (
+    <section className={layoutStyles.quoteSection}>
+      <div className={layoutStyles.sectionHeading}>
+        <h2 style={titleMd}>{title}</h2>
+        <div className={layoutStyles.sectionSummary}>
+          <span style={chip()}>{quotes.length} quote{quotes.length === 1 ? "" : "s"}</span>
+          <span className={layoutStyles.sectionValue}>£{money(quotes.reduce((sum, row) => sum + (Number(row.subtotal) || 0), 0))}</span>
+        </div>
+      </div>
+      <QuoteTable quotes={quotes} label={`${title} quotes`} />
+    </section>
+  );
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted1}>
-          <div>
-            <h1 style={h1}>Completed Quotes</h1>
-            <div style={sub}>Saved quotes across all jobs, with direct links back into the quote builder.</div>
-          </div>
-          <div className={layoutStyles.extracted2}>
-            <Link href="/job-home" style={btn}>
-              <Home size={14} />
-              Jobs Home
-            </Link>
-            <Link href="/quote-templates" style={btn}>
-              <Settings2 size={14} />
-              Quote Templates
-            </Link>
-            <span style={chip("green")}>
-              <FileText size={14} />
-              {loading ? "Loading..." : `${rows.length} quotes`}
-            </span>
-          </div>
+      <OperationsPage>
+        <OperationsPageHeader
+          title="Completed Quotes"
+          subtitle="Search, review and manage saved quotes across every job."
+          actions={
+            <OperationsHeaderActions>
+              <Button as={Link} href="/job-sheet" variant="secondary"><Home size={14} /> Jobs Sheets</Button>
+              <Button as={Link} href="/quote-templates" variant="secondary"><Settings2 size={14} /> Quote Templates</Button>
+              <div style={chip("green")}><FileText size={13} /> {loading ? "Loading..." : `${visibleRows.length} of ${rows.length} quotes`}</div>
+            </OperationsHeaderActions>
+          }
+        />
+
+        <div className={layoutStyles.summaryStrip}>
+          <span><strong>{visibleRows.length}</strong> shown</span>
+          <span><strong>{acceptedCount}</strong> accepted overall</span>
+          <span><strong>£{money(visibleValue)}</strong> shown value</span>
         </div>
 
-        <div className={layoutStyles.extracted3}>
-          <section style={statCard}>
-            <div style={statLabel}>Completed Quotes</div>
-            <div style={statValue}>{rows.length}</div>
-          </section>
-          <section style={statCard}>
-            <div style={statLabel}>Accepted</div>
-            <div style={statValue}>{acceptedCount}</div>
-          </section>
-        </div>
-
-        <div style={toolbar}>
-          <div className={layoutStyles.extracted4}>
-            <Search size={15} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} aria-hidden />
-            <input
+        <div className={layoutStyles.toolbar} style={toolbar}>
+          <div className={layoutStyles.searchWrap}>
+            <Search size={14} className={layoutStyles.searchIcon} aria-hidden />
+            <Input
+              ref={searchRef}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search quote, job, client, production, location..."
-              style={{ ...input, paddingLeft: 34 }}
+              placeholder="Search quote, job, production, company, location..."
+              style={{ paddingLeft: 29 }}
+              aria-label="Search completed quotes"
             />
           </div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={input}>
-            {statuses.map((status) => (
-              <option key={status} value={status}>
-                {status === "All" ? "All statuses" : status}
-              </option>
+          <Select value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} aria-label="Filter by production company">
+            {companies.map((company) => <option key={company} value={company}>{company === "all" ? "Production Company: All" : company}</option>)}
+          </Select>
+          <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by quote status">
+            {statuses.map((status) => <option key={status} value={status}>{status === "all" ? "Status: All" : status}</option>)}
+          </Select>
+          <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="Saved from date" />
+          <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="Saved to date" />
+          <Checkbox label="Has value" checked={hasValueOnly} onChange={(event) => setHasValueOnly(event.target.checked)} />
+          <Button variant="secondary" type="button" onClick={resetFilters}><RotateCcw size={13} /> Reset</Button>
+        </div>
+
+        {loading ? (
+          <div className={layoutStyles.emptyState}>Loading completed quotes...</div>
+        ) : visibleRows.length === 0 ? (
+          <div className={layoutStyles.emptyState}>No completed quotes match these filters.</div>
+        ) : (
+          <>
+            {groupedRows.weekKeys.map((weekKey) => (
+              <QuoteSection key={weekKey} quotes={groupedRows.weeks[weekKey]} title={formatWeekRange(new Date(weekKey))} />
             ))}
-          </select>
-          <Link href="/create-booking" style={primaryBtn}>
-            New Booking
-            <ChevronRight size={14} />
-          </Link>
-        </div>
-
-        <div style={tableWrap}>
-          <table className={layoutStyles.extracted5}>
-            <thead>
-              <tr>
-                <th style={{ ...th, width: "12%" }}>Quote</th>
-                <th style={{ ...th, width: "12%" }}>Job</th>
-                <th style={{ ...th, width: "20%" }}>Client</th>
-                <th style={{ ...th, width: "24%" }}>Description</th>
-                <th style={{ ...th, width: "10%" }}>Status</th>
-                <th style={{ ...th, width: "10%" }}>Saved</th>
-                <th style={{ ...th, width: "12%" }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} style={{ ...td, color: UI.muted }}>Loading completed quotes...</td>
-                </tr>
-              ) : visibleRows.length ? (
-                visibleRows.map((row) => (
-                  <tr key={row.id}>
-                    <td style={td}>
-                      <Link href={`/quote/${row.bookingId}?quote=${encodeURIComponent(row.quoteNumber || "")}`} style={{ color: UI.brand, fontWeight: 900, textDecoration: "none" }}>
-                        {row.label || row.displayQuoteNumber || row.quoteNumber || "-"}
-                      </Link>
-                    </td>
-                    <td style={td}>
-                      <Link href={`/edit-booking/${row.bookingId}`} style={{ color: UI.text, fontWeight: 900, textDecoration: "none" }}>
-                        #{row.jobNumber || "-"}
-                      </Link>
-                    </td>
-                    <td style={{ ...td, ...nowrap }} title={row.client || row.production || ""}>
-                      {row.client || row.production || "-"}
-                    </td>
-                    <td style={{ ...td, ...nowrap }} title={row.quoteName || row.templateName || row.location || ""}>
-                      {row.quoteName || row.templateName || row.location || "-"}
-                    </td>
-                    <td style={td}>
-                      <span style={chip(statusKind(row.status))}>{row.status || "Draft"}</span>
-                    </td>
-                    <td style={td}>{formatQuoteDate(row.savedAt)}</td>
-                    <td style={td}>
-                      <Link href={`/quote/${row.bookingId}?quote=${encodeURIComponent(row.quoteNumber || "")}`} style={btn}>
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} style={{ ...td, color: UI.muted }}>
-                    No completed quotes match this view.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <style>{`
-          @media (max-width: 980px) {
-            .completed-quotes-toolbar {
-              grid-template-columns: 1fr !important;
-            }
-          }
-        `}</style>
-      </div>
+            {groupedRows.noDate.length > 0 ? <QuoteSection quotes={groupedRows.noDate} title="No saved date" /> : null}
+          </>
+        )}
+      </OperationsPage>
     </HeaderSidebarLayout>
   );
 }

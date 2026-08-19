@@ -1,6 +1,7 @@
 // src/app/add-vehicle/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,6 +15,11 @@ import {
   syncVehicleOperatingStatus,
 } from "@/app/utils/maintenanceSchema";
 import { buildVorPauseState } from "@/app/utils/vorPeriods";
+import {
+  HGV_COMPLIANCE_MIGRATION_VERSION,
+  isHgvComplianceVehicle,
+  syncCanonicalPmiAliases,
+} from "@/app/utils/hgvCompliance";
 import { ensureServiceHistoryForLastService } from "@/app/utils/serviceHistory";
 import { useAuth } from "@/app/context/authContext";
 import {
@@ -38,6 +44,7 @@ import {
   Modal,
   Textarea,
 } from "@/app/components/ui";
+import { syncVehicleAnnualMaintenanceForecast } from "@/app/utils/maintenanceMutationClient";
 
 /* UI tokens */
 const UI = UI_TOKENS;
@@ -165,6 +172,7 @@ const INITIAL_FORM_DATA = {
 const ADDITIONAL_MAINTENANCE_SECTIONS = [
   {
     key: "tachoInspection",
+    workflowKey: "tacho_inspection",
     label: "Tacho Inspection",
     fields: [
       { type: "date", label: "Last Tacho Inspection", name: "lastTacho" },
@@ -175,6 +183,7 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
   },
   {
     key: "brakeTest",
+    workflowKey: "brake_test",
     label: "Brake Test",
     fields: [
       { type: "date", label: "Last Brake Test", name: "lastBrakeTest" },
@@ -185,6 +194,7 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
   },
   {
     key: "pmiInspection",
+    workflowKey: "pmi",
     label: "PMI Inspection",
     fields: [
       { type: "date", label: "Last PMI Inspection", name: "lastPMI" },
@@ -195,6 +205,7 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
   },
   {
     key: "tachoDownload",
+    workflowKey: "tacho_download",
     label: "Tacho Download",
     fields: [
       { type: "date", label: "Last Tacho Download", name: "lastTachoDownload" },
@@ -205,6 +216,7 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
   },
   {
     key: "tailLift",
+    workflowKey: "tail_lift",
     label: "Tail-lift Inspection",
     fields: [
       { type: "date", label: "Last Tail-lift Insp.", name: "lastTailLift" },
@@ -215,12 +227,24 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
   },
   {
     key: "loler",
+    workflowKey: "loler",
     label: "LOLER",
     fields: [
       { type: "date", label: "Last LOLER", name: "lastLoler" },
       { type: "text", label: "LOLER Freq (weeks)", name: "lolerFreq" },
       { type: "date", label: "Next LOLER", name: "nextLoler" },
       { type: "text", label: "LOLER ISO Week", name: "lolerISOWeek" },
+    ],
+  },
+  {
+    key: "tachoCalibration",
+    workflowKey: "tacho_calibration",
+    label: "Tacho Calibration",
+    fields: [
+      { type: "date", label: "Last Tacho Calibration", name: "lastTachoCalibration" },
+      { type: "text", label: "Tacho Calibration Freq (weeks)", name: "tachoCalibrationFreq" },
+      { type: "date", label: "Next Tacho Calibration", name: "nextTachoCalibration" },
+      { type: "text", label: "Tacho Calibration ISO Week", name: "tachoCalibrationISOWeek" },
     ],
   },
 ];
@@ -245,18 +269,6 @@ const addWeeksToISO = (isoDate, weeks) => {
   d.setDate(d.getDate() + w * 7);
   return clampISODate(d);
 };
-const calcNextEightWeekFromCycle = (baseISO, currentNextISO) => {
-  const base = parseLocalDateOnly(baseISO);
-  if (!base) return "";
-
-  const currentNext = parseLocalDateOnly(currentNextISO);
-  if (currentNext && currentNext.getTime() > base.getTime()) {
-    const diffDays = Math.round((currentNext.getTime() - base.getTime()) / 86400000);
-    if (diffDays > 0 && diffDays % 56 === 0) return clampISODate(currentNext);
-  }
-
-  return addWeeksToISO(baseISO, 8);
-};
 const isPastISODate = (isoDate) => {
   const d = parseLocalDateOnly(isoDate);
   if (!d) return false;
@@ -273,6 +285,30 @@ const isTransportLorryVehicle = (vehicle = {}) => {
 const sectionHasValue = (formData, section) =>
   section.fields.some((field) => String(formData?.[field.name] || "").trim());
 const safeArr = (value) => (Array.isArray(value) ? value : []);
+const initialComplianceHistory = ({
+  maintenanceTypeId,
+  label: historyLabel,
+  completedDate,
+  user,
+}) =>
+  completedDate
+    ? [
+        {
+          maintenanceTypeId,
+          label: historyLabel,
+          completedDate,
+          completedAt: new Date().toISOString(),
+          completedBy: {
+            uid: String(user?.uid || "").trim(),
+            name: String(user?.displayName || user?.email || "").trim(),
+            email: String(user?.email || "").trim(),
+          },
+          source: "vehicle_creation",
+          bookingId: "",
+          documents: [],
+        },
+      ]
+    : [];
 
 export default function AddVehiclePage() {
   const router = useRouter();
@@ -292,6 +328,7 @@ export default function AddVehiclePage() {
   const tradePlateExpiryWeeks = String(
     vehicleComplianceSettings.tradePlateExpiryWeeks || DEFAULT_VEHICLE_COMPLIANCE_SETTINGS.tradePlateExpiryWeeks
   );
+  const isHgvVehicle = useMemo(() => isHgvComplianceVehicle(formData), [formData]);
 
   useEffect(() => {
     setIsNumberPlateMode(new URLSearchParams(window.location.search).get("type") === "number-plate");
@@ -306,6 +343,19 @@ export default function AddVehiclePage() {
       insuranceStatus: "N/A",
     }));
   }, [isNumberPlateMode]);
+
+  useEffect(() => {
+    if (!isHgvVehicle || isNumberPlateMode) return;
+    setShownAdditionalMaintenance((current) => [
+      ...new Set([...current, "brakeTest", "pmiInspection"]),
+    ]);
+    setFormData((previous) => {
+      const updates = {};
+      if (!previous.brakeTestFreq) updates.brakeTestFreq = "8";
+      if (!previous.pmiFreq) updates.pmiFreq = "8";
+      return Object.keys(updates).length ? { ...previous, ...updates } : previous;
+    });
+  }, [isHgvVehicle, isNumberPlateMode]);
 
   // Pull categories from existing vehicles so the dropdown stays consistent
   useEffect(() => {
@@ -329,7 +379,13 @@ export default function AddVehiclePage() {
           .map((d) => d.data()?.category)
           .filter(Boolean);
         setVehicleComplianceSettings(fleetSettings.compliance || DEFAULT_VEHICLE_COMPLIANCE_SETTINGS);
-        const unique = uniqueVehicleCategoryNames([...(fleetSettings.categories || []), ...cats, RETENTION_PLATE_CATEGORY]);
+        const unique = uniqueVehicleCategoryNames([
+          ...(fleetSettings.categories || []),
+          ...cats,
+          "HGV",
+          "HGV Trailers",
+          RETENTION_PLATE_CATEGORY,
+        ]);
         setExistingCategories(unique);
       } catch (e) {
         console.error("Load categories failed:", e);
@@ -340,6 +396,11 @@ export default function AddVehiclePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (/^last/i.test(name) && value && value > clampISODate(new Date())) {
+      systemDialogs.showSystemNotification("A last-completed date cannot be in the future. Create the vehicle, book the work, then mark it complete when it has been done.");
+      return;
+    }
 
     if (name === "category") {
       if (value === NEW_CATEGORY_OPTION) {
@@ -372,10 +433,45 @@ export default function AddVehiclePage() {
     ];
     const v = numeric.includes(name) ? (value === "" ? "" : String(value).replace(/[^\d]/g, "")) : value;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: v,
-      ...(name === "plateType" && value === "trade" ? { plateExpiryFreq: tradePlateExpiryWeeks } : {}),
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        [name]: v,
+        ...(name === "plateType" && value === "trade"
+          ? { plateExpiryFreq: tradePlateExpiryWeeks }
+          : {}),
+      };
+      const calculation = [
+        ["lastMOT", "motFreq", "nextMOT", "motISOWeek"],
+        ["lastService", "serviceFreq", "nextService", "serviceISOWeek"],
+        ["lastRFL", "rflFreq", "nextRFL", ""],
+        ["lastTacho", "tachoFreq", "nextTacho", "tachoISOWeek"],
+        ["lastBrakeTest", "brakeTestFreq", "nextBrakeTest", "brakeISOWeek"],
+        ["lastPMI", "pmiFreq", "nextPMI", "pmiISOWeek"],
+        ["lastTachoDownload", "tachoDownloadFreq", "nextTachoDownload", "tachoDownloadISOWeek"],
+        ["lastTailLift", "tailLiftFreq", "nextTailLift", "tailLiftISOWeek"],
+        ["lastLoler", "lolerFreq", "nextLoler", "lolerISOWeek"],
+        ["lastTachoCalibration", "tachoCalibrationFreq", "nextTachoCalibration", "tachoCalibrationISOWeek"],
+        ["lastLorryInspection", "lorryInspectionFreq", "nextLorryInspection", "lorryInspectionISOWeek"],
+      ].find(([lastKey, freqKey]) => name === lastKey || name === freqKey);
+
+      if (calculation) {
+        const [lastKey, freqKey, nextKey, isoKey] = calculation;
+        const nextDate = addWeeksToISO(next[lastKey], next[freqKey]);
+        if (nextDate) {
+          next[nextKey] = nextDate;
+          if (isoKey) next[isoKey] = getIsoWeekLabel(nextDate);
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleWarrantyToggle = (event) => {
+    const enabled = event.target.checked;
+    setFormData((previous) => ({
+      ...previous,
+      warranty: enabled ? "Yes" : "No",
     }));
   };
 
@@ -413,7 +509,7 @@ export default function AddVehiclePage() {
     ];
     const missing = required.find(([field]) => !String(vorPrompt?.[field] || "").trim());
     if (missing) {
-      alert(`Enter the ${missing[1]} before marking this vehicle VOR.`);
+      systemDialogs.showSystemNotification(`Enter the ${missing[1]} before marking this vehicle VOR.`);
       return;
     }
     const startedAt = new Date().toISOString();
@@ -464,11 +560,6 @@ export default function AddVehiclePage() {
       const calc = addWeeksToISO(formData.lastRFL, formData.rflFreq);
       if (calc && formData.nextRFL !== calc) updates.nextRFL = calc;
     }
-    if (formData.eightWeekInspectionStart) {
-      const calc = calcNextEightWeekFromCycle(formData.eightWeekInspectionStart, formData.nextEightWeekInspection);
-      if (calc && formData.nextEightWeekInspection !== calc) updates.nextEightWeekInspection = calc;
-    }
-
     [
       ["lastTacho", "tachoFreq", "nextTacho"],
       ["lastBrakeTest", "brakeTestFreq", "nextBrakeTest"],
@@ -477,7 +568,6 @@ export default function AddVehiclePage() {
       ["lastTailLift", "tailLiftFreq", "nextTailLift"],
       ["lastLoler", "lolerFreq", "nextLoler"],
       ["lastTachoCalibration", "tachoCalibrationFreq", "nextTachoCalibration"],
-      ["lastLorryInspection", "lorryInspectionFreq", "nextLorryInspection"],
     ].forEach(([lastKey, freqKey, nextKey]) => {
       if (!formData[lastKey] || !formData[freqKey]) return;
       const calc = addWeeksToISO(formData[lastKey], formData[freqKey]);
@@ -486,6 +576,13 @@ export default function AddVehiclePage() {
 
     const nextMot = updates.nextMOT ?? formData.nextMOT;
     const nextService = updates.nextService ?? formData.nextService;
+    const nextPmi = updates.nextPMI ?? formData.nextPMI;
+    if (nextPmi && formData.nextEightWeekInspection !== nextPmi) {
+      updates.nextEightWeekInspection = nextPmi;
+    }
+    if (nextPmi && formData.nextLorryInspection !== nextPmi) {
+      updates.nextLorryInspection = nextPmi;
+    }
     const nextInspection = updates.nextEightWeekInspection ?? formData.nextEightWeekInspection;
     const motIso = getIsoWeekLabel(nextMot);
     const serviceIso = getIsoWeekLabel(nextService);
@@ -545,7 +642,10 @@ export default function AddVehiclePage() {
     formData.lorryInspectionFreq,
   ]);
 
-  const showEightWeekInspection = useMemo(() => isTransportLorryVehicle(formData), [formData]);
+  const showEightWeekInspection = useMemo(
+    () => isTransportLorryVehicle(formData) && !isHgvVehicle,
+    [formData, isHgvVehicle]
+  );
 
   const visibleAdditionalMaintenanceSections = useMemo(
     () =>
@@ -594,7 +694,7 @@ export default function AddVehiclePage() {
     const gate = resolveDataAccess(authState);
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "add vehicle" });
-      alert(gate.reason || "You do not have permission to add vehicles.");
+      systemDialogs.showSystemNotification(gate.reason || "You do not have permission to add vehicles.");
       return false;
     }
 
@@ -627,6 +727,14 @@ export default function AddVehiclePage() {
           : formData.insuranceStatus === "Insured" && formData.insuredUntil && isPastISODate(formData.insuredUntil)
             ? "Not Insured"
             : formData.insuranceStatus || "Insured";
+      const hiddenAdditionalMaintenance = ADDITIONAL_MAINTENANCE_SECTIONS
+        .filter(
+          (section) =>
+            !shownAdditionalMaintenance.includes(section.key) &&
+            !sectionHasValue(formData, section)
+        )
+        .map((section) => section.workflowKey);
+      const createdBy = authState?.user || null;
 
       // Build clean payload (avoid empty strings where possible)
       const payload = {
@@ -682,7 +790,12 @@ export default function AddVehiclePage() {
         nextMotDate: nextMot,
         motDueDate: nextMot,
         motISOWeek: isNumberPlateMode ? "" : formData.motISOWeek || getIsoWeekLabel(nextMot),
-        motHistory: [],
+        motHistory: initialComplianceHistory({
+          maintenanceTypeId: "mot",
+          label: "MOT",
+          completedDate: lastMot,
+          user: createdBy,
+        }),
         dvsaMotTests: [],
         motPrecheckStatus: "",
         motPrecheckDate: "",
@@ -724,6 +837,18 @@ export default function AddVehiclePage() {
         pmiFreq: isNumberPlateMode ? "" : formData.pmiFreq || "",
         nextPMI: isNumberPlateMode ? "" : formData.nextPMI || "",
         pmiISOWeek: isNumberPlateMode ? "" : formData.pmiISOWeek || getIsoWeekLabel(formData.nextPMI),
+        pmiHistory: initialComplianceHistory({
+          maintenanceTypeId: "pmi",
+          label: "PMI inspection",
+          completedDate: isNumberPlateMode ? "" : formData.lastPMI,
+          user: createdBy,
+        }),
+        brakeTestHistory: initialComplianceHistory({
+          maintenanceTypeId: "brake_test",
+          label: "Brake test",
+          completedDate: isNumberPlateMode ? "" : formData.lastBrakeTest,
+          user: createdBy,
+        }),
         lastTachoDownload: isNumberPlateMode ? "" : formData.lastTachoDownload || "",
         tachoDownloadFreq: isNumberPlateMode ? "" : formData.tachoDownloadFreq || "",
         nextTachoDownload: isNumberPlateMode ? "" : formData.nextTachoDownload || "",
@@ -747,7 +872,26 @@ export default function AddVehiclePage() {
         nextLorryInspection: isNumberPlateMode ? "" : formData.nextLorryInspection || "",
         lorryInspectionISOWeek:
           isNumberPlateMode ? "" : formData.lorryInspectionISOWeek || getIsoWeekLabel(formData.nextLorryInspection),
-        hiddenAdditionalMaintenance: [],
+        hiddenAdditionalMaintenance: isNumberPlateMode
+          ? ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => section.workflowKey)
+          : hiddenAdditionalMaintenance,
+        hgvComplianceMigrationVersion:
+          !isNumberPlateMode && isHgvVehicle
+            ? HGV_COMPLIANCE_MIGRATION_VERSION
+            : 0,
+        hgvComplianceMigratedAt:
+          !isNumberPlateMode && isHgvVehicle ? new Date().toISOString() : "",
+        complianceVor:
+          !isNumberPlateMode && isHgvVehicle
+            ? {
+                version: 1,
+                state: "clear",
+                reasons: {},
+                freshPmiCompletedAt: "",
+                releaseRequired: false,
+                lastEvaluatedAt: new Date().toISOString(),
+              }
+            : null,
         defects: [],
         attachments: [],
         files: [],
@@ -756,9 +900,51 @@ export default function AddVehiclePage() {
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "vehicles"), tenantPayload(authState, payload));
+      if (!isNumberPlateMode && isHgvVehicle) {
+        Object.assign(payload, syncCanonicalPmiAliases(payload));
+      }
 
-      alert(isNumberPlateMode ? "Number plate added" : "Vehicle added");
+      const createdVehicle = await addDoc(
+        collection(db, "vehicles"),
+        tenantPayload(authState, payload)
+      );
+      let forecastSyncFailed = false;
+      if (!isNumberPlateMode) {
+        const scheduleYears = new Set();
+        [
+          payload.nextMOT,
+          payload.nextService,
+          payload.nextTacho,
+          payload.nextBrakeTest,
+          payload.nextPMI,
+          payload.nextTachoDownload,
+          payload.nextTailLift,
+          payload.nextLoler,
+          payload.nextTachoCalibration,
+        ].forEach((date) => {
+          const dueYear = Number(String(date || "").slice(0, 4));
+          if (Number.isInteger(dueYear) && dueYear > 0) scheduleYears.add(dueYear);
+        });
+        try {
+          for (const forecastYear of [...scheduleYears].sort()) {
+            await syncVehicleAnnualMaintenanceForecast({
+              vehicle: { ...payload, id: createdVehicle.id },
+              year: forecastYear,
+            });
+          }
+        } catch (forecastError) {
+          forecastSyncFailed = true;
+          console.error("Could not create initial maintenance due items:", forecastError);
+        }
+      }
+
+      systemDialogs.showSystemNotification(
+        isNumberPlateMode
+          ? "Number plate added"
+          : forecastSyncFailed
+          ? "Vehicle added, but its maintenance due items could not be created. Ask a Service, Workshop or Admin user to run maintenance reconciliation."
+          : "Vehicle added"
+      );
       if (navigateOnSuccess) {
         router.push("/vehicles");
         router.refresh?.();
@@ -766,11 +952,11 @@ export default function AddVehiclePage() {
       return true;
     } catch (err) {
       if (handleFirestoreAccessError(err, { collectionName: "vehicles", operation: "add vehicle" })) {
-        alert("You do not have permission to add vehicles.");
+        systemDialogs.showSystemNotification("You do not have permission to add vehicles.");
         return false;
       }
       console.error("Error adding vehicle:", err);
-      alert("Failed to add vehicle");
+      systemDialogs.showSystemNotification("Failed to add vehicle");
       return false;
     } finally {
       setSaving(false);
@@ -924,7 +1110,7 @@ export default function AddVehiclePage() {
               <div style={sub}>
                 {isNumberPlateMode
                   ? "Create a simple number plate record and track the retention expiry date."
-                  : "Create a new vehicle record. Next MOT/Service can auto-calc from last date + frequency."}
+                  : "Create the vehicle once; its maintenance dates will automatically feed the Maintenance Calendar and HGV planner."}
               </div>
             </div>
 
@@ -988,6 +1174,7 @@ export default function AddVehiclePage() {
                         <option value="Taurus">Taurus</option>
                         <option value="Electric Tracking Vehicles">Electric Tracking Vehicles</option>
                         <option value="Pod Cars">Pod Cars</option>
+                        <option value="HGV">HGV</option>
                         <option value="HGV Trailers">HGV Trailers</option>
                       </>
                     )}
@@ -1070,7 +1257,7 @@ export default function AddVehiclePage() {
                   <input type="date" name="insuredUntil" value={formData.insuredUntil} onChange={handleChange} style={input} />
                 </div>
 
-                <div style={col(6)}>
+                <div style={col(9)}>
                   <label style={label}>Notes</label>
                   <textarea name="notes" value={formData.notes} onChange={handleChange} style={textarea} placeholder="Anything useful: quirks, kit, keys, restrictions..." />
                 </div>
@@ -1080,6 +1267,11 @@ export default function AddVehiclePage() {
             {/* Maintenance */}
             <div style={{ ...card, padding: 12 }}>
               <div style={sectionTitle}>Maintenance</div>
+              {isHgvVehicle ? (
+                <div className={layoutStyles.hgvNotice}>
+                  HGV compliance enabled — PMI and Brake Test are set to an eight-week cycle and will populate the Maintenance Calendar automatically.
+                </div>
+              ) : null}
 
               <div className={`add-vehicle-form-grid ${layoutStyles.extracted16}`} >
                 {/* MOT */}
@@ -1101,11 +1293,9 @@ export default function AddVehiclePage() {
                 <div style={col(4)}>
                   <label style={label}>Next MOT</label>
                   <input type="date" name="nextMOT" value={formData.nextMOT} onChange={handleChange} style={input} />
-                </div>
-
-                <div style={col(4)}>
-                  <label style={label}>MOT ISO Week</label>
-                  <input name="motISOWeek" value={formData.motISOWeek} onChange={handleChange} style={input} />
+                  <div style={helpText}>
+                    {formData.motISOWeek ? `Due ${formData.motISOWeek}` : "ISO week appears when a due date is set."}
+                  </div>
                 </div>
 
                 {/* Service */}
@@ -1127,11 +1317,9 @@ export default function AddVehiclePage() {
                 <div style={col(4)}>
                   <label style={label}>Next Service</label>
                   <input type="date" name="nextService" value={formData.nextService} onChange={handleChange} style={input} />
-                </div>
-
-                <div style={col(4)}>
-                  <label style={label}>Service ISO Week</label>
-                  <input name="serviceISOWeek" value={formData.serviceISOWeek} onChange={handleChange} style={input} />
+                  <div style={helpText}>
+                    {formData.serviceISOWeek ? `Due ${formData.serviceISOWeek}` : "ISO week appears when a due date is set."}
+                  </div>
                 </div>
 
                 {/* RFL */}
@@ -1204,23 +1392,32 @@ export default function AddVehiclePage() {
             {/* Additional maintenance */}
             <div style={{ ...card, padding: 12 }}>
               <div style={sectionTitle}>Additional Maintenance</div>
-              <div className={`add-vehicle-form-grid ${layoutStyles.extracted17}`} >
-                <div style={col(4)}>
-                  <label style={label}>Warranty</label>
-                  <select name="warranty" value={formData.warranty} onChange={handleChange} style={input}>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-
-                <div style={col(4)}>
-                  <label style={label}>Warranty Expiry</label>
-                  <input type="date" name="warrantyExpiry" value={formData.warrantyExpiry} onChange={handleChange} style={input} />
-                </div>
-              </div>
-
               <div style={helpText}>Tick the extra maintenance lines this vehicle needs.</div>
               <div className={layoutStyles.extracted18}>
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    border: formData.warranty === "Yes" ? `1px solid ${UI.brandBorder}` : UI.border,
+                    background: formData.warranty === "Yes" ? UI.brandSoft : "var(--color-surface)",
+                    color: UI.text,
+                    borderRadius: UI.radius,
+                    padding: "7px 9px",
+                    fontSize: 12,
+                    fontWeight: 850,
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.warranty === "Yes"}
+                    onChange={handleWarrantyToggle}
+                    className={layoutStyles.extracted19}
+                  />
+                  Warranty
+                </label>
                 {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
                   const checked = shownAdditionalMaintenance.includes(section.key) || sectionHasValue(formData, section);
                   return (
@@ -1253,8 +1450,20 @@ export default function AddVehiclePage() {
                 })}
               </div>
 
-              {visibleAdditionalMaintenanceSections.length ? (
+              {formData.warranty === "Yes" || visibleAdditionalMaintenanceSections.length ? (
                 <div className={`add-vehicle-form-grid ${layoutStyles.extracted20}`} >
+                  {formData.warranty === "Yes" ? (
+                    <div style={col(3)}>
+                      <label style={label}>Warranty Expiry</label>
+                      <input
+                        type="date"
+                        name="warrantyExpiry"
+                        value={formData.warrantyExpiry}
+                        onChange={handleChange}
+                        style={input}
+                      />
+                    </div>
+                  ) : null}
                   {visibleAdditionalMaintenanceSections.flatMap((section) =>
                     section.fields.map((field) => (
                       <div key={`${section.key}-${field.name}`} style={col(3)}>
@@ -1263,9 +1472,20 @@ export default function AddVehiclePage() {
                           type={field.type === "date" ? "date" : "text"}
                           name={field.name}
                           value={formData[field.name]}
-                          onChange={handleChange}
-                          style={input}
+                          onChange={field.name.endsWith("ISOWeek") ? undefined : handleChange}
+                          readOnly={field.name.endsWith("ISOWeek")}
+                          style={
+                            field.name.endsWith("ISOWeek")
+                              ? { ...input, background: "var(--color-surface-subtle)" }
+                              : input
+                          }
                           inputMode={field.label.includes("Freq") ? "numeric" : undefined}
+                          max={field.type === "date" && /^last/i.test(field.name) ? clampISODate(new Date()) : undefined}
+                          title={
+                            field.name.endsWith("ISOWeek")
+                              ? "Calculated automatically from the next due date"
+                              : undefined
+                          }
                         />
                       </div>
                     ))

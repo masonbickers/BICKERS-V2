@@ -6,8 +6,12 @@ import {
   previewBookingInterpretation,
   validateBickersBusinessRules,
 } from "@/app/utils/bickersBusinessRules";
+import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
-const companyIdFor = (admin) => String(admin.userData?.companyId || "bickers-action").trim() || "bickers-action";
+const companyIdFor = (admin) => {
+  const fallback = getDeploymentConfig().companyId;
+  return String(admin.userData?.companyId || fallback).trim() || fallback;
+};
 
 const responsePayload = async (companyId) => {
   const draft = await adminReadDocument("aiBusinessRules", `${companyId}_draft`);

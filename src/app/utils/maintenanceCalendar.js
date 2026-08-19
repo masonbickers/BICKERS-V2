@@ -2,18 +2,27 @@
 
 import {
   ADDITIONAL_MAINTENANCE_WORKFLOWS,
+  CALENDAR_REMINDER_WORKFLOW_KEYS,
   buildAssetLabel,
   getCanonicalDueDate,
+  getIsoWeekLabel,
   getMaintenanceTypeId,
   isVehicleOutOfUse,
 } from "./maintenanceSchema.js";
+import {
+  getMaintenanceDueState,
+  maintenanceRequirementKey,
+  normalizeMaintenanceRecord,
+} from "./maintenanceRecord.js";
 
 const INACTIVE_MAINTENANCE_BOOKING_STATUSES = new Set([
+  "archived",
   "cancelled",
   "canceled",
   "closed",
   "deleted",
   "declined",
+  "superseded",
 ]);
 
 const CLOSED_MAINTENANCE_BOOKING_STATUSES = new Set([
@@ -24,10 +33,16 @@ const CLOSED_MAINTENANCE_BOOKING_STATUSES = new Set([
 
 const INACTIVE_MAINTENANCE_JOB_STATUSES = new Set([
   "closed",
+  "complete",
+  "completed",
+  "archived",
   "cancelled",
   "canceled",
   "deleted",
 ]);
+
+export const shouldExcludeFromWorkDiary = (event = {}) =>
+  String(event.status || "").trim().toLowerCase() === "maintenance";
 
 export const toDateLike = (value) => {
   if (!value) return null;
@@ -94,6 +109,156 @@ export const isOpenMaintenanceBooking = (booking = {}, now = new Date()) => {
   return !today || !bookingEnd || bookingEnd.getTime() >= today.getTime();
 };
 
+const maintenanceBookingDateKeys = (booking = {}) => {
+  if (Array.isArray(booking.bookingDates) && booking.bookingDates.length) {
+    return booking.bookingDates
+      .map((value) => toYmdDate(value))
+      .filter(Boolean)
+      .sort();
+  }
+
+  const appointment = toYmdDate(
+    booking.appointmentDateISO || booking.appointmentDate || booking.date
+  );
+  if (appointment) return [appointment];
+
+  const start = startOfLocalDay(booking.startDateISO || booking.startDate);
+  const end = startOfLocalDay(
+    booking.endDateISO || booking.endDate || booking.startDateISO || booking.startDate
+  );
+  if (!start || !end) return [];
+
+  const keys = [];
+  let cursor = start;
+  while (cursor.getTime() <= end.getTime()) {
+    keys.push(toYmdDate(cursor));
+    cursor = addDaysToDate(cursor, 1);
+  }
+  return keys;
+};
+
+export const buildActiveInspectionMetaByVehicle = (
+  maintenanceBookings,
+  now = new Date()
+) => {
+  const map = {};
+
+  for (const booking of maintenanceBookings || []) {
+    if (!isOpenMaintenanceBooking(booking, now)) continue;
+    if (String(booking?.type || "").trim().toUpperCase() !== "INSPECTION") continue;
+
+    const vehicleId = String(booking?.vehicleId || "").trim();
+    if (!vehicleId) continue;
+
+    if (!map[vehicleId]) {
+      map[vehicleId] = {
+        sourceDueKeys: new Set(),
+        sourceDueWeeks: new Set(),
+        bookedWeeks: new Set(),
+        bookings: [],
+      };
+    }
+
+    const meta = map[vehicleId];
+    const sourceDueKey = String(booking.sourceDueKey || "").trim();
+    const sourceDueWeek = String(booking.sourceDueIsoWeek || "").trim();
+    if (sourceDueKey) meta.sourceDueKeys.add(sourceDueKey);
+    if (sourceDueWeek) meta.sourceDueWeeks.add(sourceDueWeek);
+
+    const dateKeys = maintenanceBookingDateKeys(booking);
+    dateKeys.forEach((key) => meta.bookedWeeks.add(getIsoWeekLabel(key)));
+    const firstDateKey = dateKeys[0] || "";
+    meta.bookings.push({
+      id: booking.id,
+      firstDateKey,
+      firstDate: firstDateKey ? startOfLocalDay(firstDateKey) : null,
+    });
+  }
+
+  return map;
+};
+
+export const isMaintenanceCalendarEventDraggable = (event = {}) => {
+  const bookingStatus = String(event.bookingStatus || event.status || "")
+    .trim()
+    .toLowerCase();
+  const isClosed =
+    CLOSED_MAINTENANCE_BOOKING_STATUSES.has(bookingStatus) ||
+    bookingStatus.includes("cancel") ||
+    bookingStatus.includes("declin");
+
+  if (event.__collection === "maintenanceBookings") {
+    return Boolean(event.__parentId || event.id) && !isClosed;
+  }
+
+  if (event.kind === "MAINTENANCE_APPOINTMENT") {
+    return Boolean(event.vehicleId) && !isClosed;
+  }
+
+  if (event.__collection === "vehicleDueDates") {
+    return Boolean(event.vehicleId) && !isClosed;
+  }
+
+  return false;
+};
+
+export const isMaintenanceMoveOutsideDueWeek = (event = {}, targetDate) => {
+  const targetWeek = getIsoWeekLabel(toYmdDate(targetDate));
+  if (!targetWeek) return false;
+  const legalWeeks = new Set(
+    [
+      event.legalDueIsoWeek,
+      event.sourceDueIsoWeek,
+      ...(Array.isArray(event.canonicalItems)
+        ? event.canonicalItems.map((item) => item?.legalDueIsoWeek)
+        : []),
+    ]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  );
+  return legalWeeks.size > 0 && !legalWeeks.has(targetWeek);
+};
+
+export const buildMaintenanceBookingDraftFromDueEvent = (event = {}, targetDate) => {
+  const vehicleId = String(event.vehicleId || "").trim();
+  const defaultDate = toYmdDate(targetDate);
+  const legalDueDate = toYmdDate(
+    event.dueDate || event.appointmentDateISO || event.start
+  );
+  if (!vehicleId || !defaultDate || !legalDueDate) return null;
+
+  const typeIds = Array.isArray(event.maintenanceTypeIds) && event.maintenanceTypeIds.length
+    ? [...new Set(event.maintenanceTypeIds.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean))]
+    : event.maintenanceTypeId
+    ? [String(event.maintenanceTypeId).trim().toLowerCase()]
+    : [];
+  const kind = String(event.kind || "").trim().toUpperCase();
+  const type =
+    kind === "MOT" || kind === "MOT_BOOKING"
+      ? "MOT"
+      : kind === "SERVICE" || kind === "SERVICE_BOOKING"
+      ? "SERVICE"
+      : "INSPECTION";
+  const maintenanceTypeIds = type === "INSPECTION" ? typeIds : [];
+  const dueIsoWeek = String(event.sourceDueIsoWeek || "").trim() || getIsoWeekLabel(legalDueDate);
+
+  return {
+    vehicleId,
+    type,
+    defaultDate,
+    requestedRecordId:
+      event.__collection === "maintenanceBookings"
+        ? String(event.__parentId || event.id || "").split("__")[0]
+        : "",
+    sourceDueDate: legalDueDate,
+    sourceDueIsoWeek: dueIsoWeek,
+    sourceDueKey:
+      String(event.sourceDueKey || "").trim() ||
+      `${(maintenanceTypeIds.length ? maintenanceTypeIds : [type.toLowerCase()]).join("+")}__${vehicleId}__${legalDueDate}`,
+    defaultMaintenanceTypeIds: maintenanceTypeIds,
+  };
+};
+
 export const isActiveMaintenanceJob = (status) =>
   !INACTIVE_MAINTENANCE_JOB_STATUSES.has(String(status || "").trim().toLowerCase());
 
@@ -105,14 +270,65 @@ export const getMaintenanceBookingKind = (booking = {}) => {
   return "MAINTENANCE_BOOKING";
 };
 
+const maintenanceInspectionTypeLabel = (maintenanceTypeIds = []) => {
+  const selected = new Set(
+    (Array.isArray(maintenanceTypeIds) ? maintenanceTypeIds : [])
+      .map((item) => String(item || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const labelByType = new Map(
+    ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => [
+      workflow.maintenanceTypeId,
+      workflow.label,
+    ])
+  );
+  const preferredOrder = [
+    "brake_test",
+    "pmi",
+    ...ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => workflow.maintenanceTypeId),
+  ];
+  const labels = [...new Set(preferredOrder)]
+    .filter((typeId) => selected.has(typeId))
+    .map((typeId) => labelByType.get(typeId) || typeId.replaceAll("_", " "));
+  return labels.length ? labels.join(" / ") : "Inspection";
+};
+
+export const getMaintenanceDisplayTypeIds = (booking = {}, canonicalRecord = null) => {
+  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
+  if (rawType !== "INSPECTION") {
+    return (Array.isArray(booking.maintenanceTypeIds) ? booking.maintenanceTypeIds : [])
+      .map((item) => String(item || "").trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  const canonical = canonicalRecord || normalizeMaintenanceRecord(booking, { id: booking.id });
+  const supportedTypeIds = new Set(
+    ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => workflow.maintenanceTypeId)
+  );
+  const relevantItems = (Array.isArray(canonical?.items) ? canonical.items : []).filter((item) =>
+    supportedTypeIds.has(String(item?.maintenanceTypeId || "").trim().toLowerCase())
+  );
+  const completed = relevantItems.filter((item) => item.status === "completed");
+  const outstanding = relevantItems.filter((item) => item.status !== "completed");
+  const displayItems = canonical?.status === "completed"
+    ? completed.length ? completed : relevantItems
+    : outstanding.length ? outstanding : relevantItems;
+
+  return [...new Set(displayItems.map((item) => item.maintenanceTypeId))];
+};
+
 export const getMaintenanceDisplayType = (booking = {}) => {
+  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
+  if (rawType === "INSPECTION") {
+    return maintenanceInspectionTypeLabel(getMaintenanceDisplayTypeIds(booking));
+  }
+
   const explicit = String(booking.maintenanceTypeLabel || "").trim();
   if (explicit) return explicit.toUpperCase();
 
   const other = String(booking.maintenanceTypeOther || "").trim();
   if (other) return other.toUpperCase();
 
-  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
   if (rawType === "MOT") return "MOT";
   if (rawType === "SERVICE") return "SERVICE";
   if (rawType === "WORK") return "WORK";
@@ -186,17 +402,40 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
   return (maintenanceBookings || []).flatMap((booking) => {
     if (isInactiveMaintenanceBooking(booking.status)) return [];
 
-    const dates = Array.isArray(booking.bookingDates)
-      ? booking.bookingDates.map((value) => String(value || "").trim()).filter(Boolean).sort()
-      : [];
+    const canonical = normalizeMaintenanceRecord(booking, { id: booking.id });
+    const canonicalStatus = canonical.status;
+
+    const dates = canonical.schedule.bookingDates;
     const kind = getMaintenanceBookingKind(booking);
-    const typeLabel = getMaintenanceDisplayType(booking);
+    const displayTypeIds = getMaintenanceDisplayTypeIds(booking, canonical);
+    const typeLabel = getMaintenanceDisplayType({
+      ...booking,
+      status: canonicalStatus,
+      items: canonical.items,
+      maintenanceTypeIds: displayTypeIds,
+    });
     const vehicleId = booking.vehicleId || null;
     const label = getVehicleLabel
       ? getVehicleLabel(booking)
       : booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle";
     const provider = String(booking.provider || "").trim();
-    const baseTitle = `${label}${titleSeparator}${typeLabel}` + (provider ? `${titleSeparator}${provider}` : "");
+    const lifecycleLabel = canonicalStatus === "requested"
+      ? "Due — not yet arranged"
+      : canonicalStatus === "booked"
+      ? "Confirmed booking"
+      : String(booking.status || canonicalStatus || "Maintenance");
+    const legalDueDates = canonical.items
+      .map((item) => item.legalDueDateISO)
+      .filter(Boolean)
+      .sort();
+    const legalDueDateISO = legalDueDates[0] || "";
+    const dueState = getMaintenanceDueState({
+      maintenanceTypeId: canonical.items[0]?.maintenanceTypeId,
+      dueDate: legalDueDateISO,
+      asOfDate: options.asOfDate || new Date(),
+    });
+    const baseTitle = `${label}${titleSeparator}${typeLabel}${titleSeparator}${lifecycleLabel}` +
+      (provider ? `${titleSeparator}${provider}` : "");
 
     if (dates.length) {
       const dateRanges = groupConsecutiveDates
@@ -220,7 +459,16 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
             title: baseTitle,
             kind,
             vehicleId,
-            bookingStatus: booking.status || "Booked",
+            bookingStatus: lifecycleLabel,
+            maintenanceLifecycleLabel: lifecycleLabel,
+            dueState: dueState.state,
+            recordStatus: canonicalStatus,
+            requirementKey: canonical.requirementKey,
+            canonicalItems: canonical.items,
+            maintenanceTypeIds: displayTypeIds,
+            legalDueDateISO,
+            legalDueDates,
+            legalDueIsoWeek: canonical.items[0]?.legalDueIsoWeek || "",
             maintenanceTypeId: getMaintenanceTypeId(booking),
             maintenanceType: booking.maintenanceType || "",
             maintenanceTypeOther: booking.maintenanceTypeOther || "",
@@ -234,7 +482,11 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
         .filter(Boolean);
     }
 
+    const requestedDueDate = canonicalStatus === "requested"
+      ? canonical.items.map((item) => item.legalDueDateISO).filter(Boolean).sort()[0] || ""
+      : "";
     const start =
+      startOfLocalDay(requestedDueDate) ||
       startOfLocalDay(booking.startDateISO) ||
       startOfLocalDay(booking.startDate) ||
       startOfLocalDay(booking.date) ||
@@ -260,7 +512,16 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
         title: baseTitle,
         kind,
         vehicleId,
-        bookingStatus: booking.status || "Booked",
+        bookingStatus: lifecycleLabel,
+        maintenanceLifecycleLabel: lifecycleLabel,
+        dueState: dueState.state,
+        recordStatus: canonicalStatus,
+        requirementKey: canonical.requirementKey,
+        canonicalItems: canonical.items,
+        maintenanceTypeIds: displayTypeIds,
+        legalDueDateISO,
+        legalDueDates,
+        legalDueIsoWeek: canonical.items[0]?.legalDueIsoWeek || "",
         maintenanceTypeId: getMaintenanceTypeId(booking),
         maintenanceType: booking.maintenanceType || "",
         maintenanceTypeOther: booking.maintenanceTypeOther || "",
@@ -271,6 +532,84 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
         ...(includeStatus ? { status: statusLabel } : {}),
       },
     ];
+  });
+};
+
+const maintenanceAppointmentKey = (event = {}) => {
+  const vehicleId = String(event?.vehicleId || "").trim();
+  const dateKey = toYmdDate(event?.appointmentDateISO || event?.start);
+  const isoWeek = getIsoWeekLabel(dateKey);
+  const typeIds = (Array.isArray(event?.maintenanceTypeIds)
+    ? event.maintenanceTypeIds
+    : Array.isArray(event?.canonicalItems)
+    ? event.canonicalItems.map((item) => item?.maintenanceTypeId)
+    : []
+  )
+    .map((item) => String(item || "").trim().toLowerCase())
+    .filter((item) => ["pmi", "brake_test"].includes(item))
+    .sort();
+  if (!vehicleId || !isoWeek || !typeIds.length) return "";
+  return `${vehicleId}|${isoWeek}|${[...new Set(typeIds)].join("+")}`;
+};
+
+const eventRequirementKey = (event = {}) => {
+  const explicit = String(event?.requirementKey || "").trim();
+  if (explicit) return explicit;
+  const items = Array.isArray(event?.canonicalItems)
+    ? event.canonicalItems
+    : (Array.isArray(event?.maintenanceTypeIds) ? event.maintenanceTypeIds : [event?.maintenanceTypeId])
+        .filter(Boolean)
+        .map((maintenanceTypeId) => ({
+          maintenanceTypeId,
+          legalDueDateISO: toYmdDate(event?.dueDate || event?.appointmentDateISO || event?.start),
+          legalDueIsoWeek: String(event?.sourceDueIsoWeek || event?.legalDueIsoWeek || "").trim(),
+        }));
+  const canonicalKey = maintenanceRequirementKey({
+    companyId: event?.companyId,
+    vehicleId: event?.vehicleId,
+    items,
+  });
+  return canonicalKey || String(event?.sourceDueKey || "").trim();
+};
+
+export const dedupeMaintenanceCalendarEvents = (events = []) => {
+  const actualBookingKeys = new Set(
+    (Array.isArray(events) ? events : [])
+      .filter(
+        (event) =>
+          event?.__collection === "maintenanceBookings" &&
+          String(event?.kind || "").toUpperCase() === "INSPECTION_BOOKING"
+      )
+      .map(maintenanceAppointmentKey)
+      .filter(Boolean)
+  );
+  const seenIds = new Set();
+  const persistedRequirementKeys = new Set(
+    (Array.isArray(events) ? events : [])
+      .filter((event) => event?.__collection === "maintenanceBookings")
+      .map(eventRequirementKey)
+      .filter(Boolean)
+  );
+  return (Array.isArray(events) ? events : []).filter((event) => {
+    const id = String(event?.id || "").trim();
+    if (id && seenIds.has(id)) return false;
+    if (id) seenIds.add(id);
+
+    if (
+      event?.__collection === "vehicleDueDates" &&
+      persistedRequirementKeys.has(eventRequirementKey(event))
+    ) {
+      return false;
+    }
+
+    if (
+      event?.__collection === "vehicleDueDates" &&
+      String(event?.kind || "").toUpperCase() === "MAINTENANCE_APPOINTMENT"
+    ) {
+      const key = maintenanceAppointmentKey(event);
+      if (key && actualBookingKeys.has(key)) return false;
+    }
+    return true;
   });
 };
 
@@ -311,12 +650,172 @@ export const buildMaintenanceJobEvents = (maintenanceJobs, options = {}) => {
     .filter(Boolean);
 };
 
-export const buildBookedMetaByVehicle = (maintenanceBookings) => {
+const CANONICAL_CALENDAR_STATUS_PRIORITY = Object.freeze({
+  completed: 60,
+  in_progress: 50,
+  booked: 40,
+  deferred: 30,
+  requested: 20,
+});
+
+const maintenanceRecordTimestamp = (record = {}) => {
+  const raw =
+    record.updatedAt ||
+    record.updatedAtISO ||
+    record.lastEditedAt ||
+    record.createdAt ||
+    record.createdAtISO ||
+    "";
+  const date = toDateLike(raw);
+  return date ? date.getTime() : 0;
+};
+
+const preferredCanonicalBooking = (left = {}, right = {}) => {
+  const leftCanonical = normalizeMaintenanceRecord(left, { id: left.id });
+  const rightCanonical = normalizeMaintenanceRecord(right, { id: right.id });
+  const leftManual = left.scheduleManuallyAdjusted === true ? 1 : 0;
+  const rightManual = right.scheduleManuallyAdjusted === true ? 1 : 0;
+  if (leftManual !== rightManual) return leftManual > rightManual ? left : right;
+
+  const leftPriority = CANONICAL_CALENDAR_STATUS_PRIORITY[leftCanonical.status] || 0;
+  const rightPriority = CANONICAL_CALENDAR_STATUS_PRIORITY[rightCanonical.status] || 0;
+  if (leftPriority !== rightPriority) return leftPriority > rightPriority ? left : right;
+
+  const leftUpdated = maintenanceRecordTimestamp(left);
+  const rightUpdated = maintenanceRecordTimestamp(right);
+  if (leftUpdated !== rightUpdated) return leftUpdated > rightUpdated ? left : right;
+  return String(left.id || "").localeCompare(String(right.id || "")) <= 0 ? left : right;
+};
+
+export const selectCanonicalMaintenanceBookings = (maintenanceBookings = []) => {
+  const byRequirement = new Map();
+  const withoutRequirement = [];
+
+  (Array.isArray(maintenanceBookings) ? maintenanceBookings : []).forEach((booking) => {
+    if (isInactiveMaintenanceBooking(booking?.status)) return;
+    const canonical = normalizeMaintenanceRecord(booking, { id: booking?.id });
+    if (!Object.hasOwn(CANONICAL_CALENDAR_STATUS_PRIORITY, canonical.status)) return;
+    if (!canonical.requirementKey) {
+      withoutRequirement.push(booking);
+      return;
+    }
+    const existing = byRequirement.get(canonical.requirementKey);
+    byRequirement.set(
+      canonical.requirementKey,
+      existing ? preferredCanonicalBooking(existing, booking) : booking
+    );
+  });
+
+  return [...byRequirement.values(), ...withoutRequirement];
+};
+
+export const getMaintenanceRecordDisplayDates = (record = {}) => {
+  const canonical = normalizeMaintenanceRecord(record, { id: record?.id });
+  const rawStatus = String(record?.status || "").trim().toLowerCase().replaceAll("_", " ");
+  const status = canonical.status === "requested" && ["planned", "scheduled"].includes(rawStatus)
+    ? "booked"
+    : canonical.status;
+  const legalDueDates = canonical.items
+    .map((item) => toYmdDate(item?.legalDueDateISO))
+    .filter(Boolean)
+    .sort();
+  const appointmentDates = canonical.schedule.bookingDates
+    .map(toYmdDate)
+    .filter(Boolean)
+    .sort();
+  const completionDates = canonical.items
+    .map((item) => toYmdDate(item?.completionDateISO))
+    .filter(Boolean)
+    .sort();
+  const legalDueDateISO = legalDueDates[0] || "";
+  const appointmentDateISO = appointmentDates[0] || "";
+  const completionDateISO =
+    completionDates.at(-1) ||
+    toYmdDate(record?.completedDate) ||
+    toYmdDate(record?.dateCompleted) ||
+    toYmdDate(record?.completedAtISO) ||
+    "";
+
+  const displayDateISO = status === "requested"
+    ? legalDueDateISO
+    : status === "deferred"
+      ? appointmentDateISO || legalDueDateISO
+      : status === "completed"
+        ? completionDateISO || appointmentDateISO || legalDueDateISO
+        : appointmentDateISO || legalDueDateISO;
+
+  return {
+    status,
+    requirementKey: canonical.requirementKey,
+    canonicalItems: canonical.items,
+    legalDueDates,
+    legalDueDateISO,
+    appointmentDates,
+    appointmentDateISO,
+    completionDateISO,
+    displayDateISO,
+  };
+};
+
+/**
+ * Canonical event pipeline shared by every maintenance calendar surface.
+ * Vehicle due fields deliberately are not accepted here: unarranged work must
+ * first exist as an auditable Requested maintenanceBookings record.
+ */
+export const buildMaintenanceCalendarEvents = ({
+  maintenanceBookings = [],
+  maintenanceJobs = [],
+  vehicles = [],
+  asOfDate = new Date(),
+} = {}) => {
+  const vehicleById = new Map(
+    (Array.isArray(vehicles) ? vehicles : [])
+      .map((vehicle) => [String(vehicle?.id || "").trim(), vehicle])
+      .filter(([vehicleId]) => Boolean(vehicleId))
+  );
+
+  // A canonical booking without a live vehicle record is an orphan. This can
+  // happen when a vehicle was deleted before cascade deletion was introduced;
+  // never let those stale records continue to appear on shared calendars.
+  const canonicalBookings = selectCanonicalMaintenanceBookings(maintenanceBookings)
+    .filter((booking) => vehicleById.has(String(booking?.vehicleId || "").trim()));
+  const bookingEvents = buildMaintenanceBookingEvents(canonicalBookings, {
+    asOfDate,
+    groupConsecutiveDates: true,
+    titleSeparator: " - ",
+    getVehicleLabel: (booking) => {
+      const vehicle = vehicleById.get(String(booking?.vehicleId || "").trim());
+      return vehicle
+        ? buildAssetLabel(vehicle)
+        : booking?.vehicleLabel || booking?.vehicleName || booking?.title || booking?.jobNumber || "Unknown vehicle";
+    },
+  }).map((event) => {
+    const vehicle = vehicleById.get(String(event?.vehicleId || "").trim());
+    return vehicle ? reconcileMaintenanceEventVehicle(event, vehicle) : event;
+  });
+
+  const jobEvents = buildMaintenanceJobEvents(maintenanceJobs)
+    .filter((event) => vehicleById.has(String(event?.vehicleId || "").trim()))
+    .map((event) => {
+      const vehicle = vehicleById.get(String(event?.vehicleId || "").trim());
+      return {
+        ...event,
+        assetLabel: buildAssetLabel(vehicle),
+        vehicleLabel: buildAssetLabel(vehicle),
+        title: event.title || buildAssetLabel(vehicle),
+        vehicleResolution: "register",
+      };
+    });
+
+  return dedupeMaintenanceCalendarEvents([...bookingEvents, ...jobEvents]);
+};
+
+export const buildBookedMetaByVehicle = (maintenanceBookings, now = new Date()) => {
   const map = {};
 
   for (const booking of maintenanceBookings || []) {
     const vehicleId = String(booking?.vehicleId || "").trim();
-    if (!vehicleId || isInactiveMaintenanceBooking(booking.status)) continue;
+    if (!vehicleId || !isOpenMaintenanceBooking(booking, now)) continue;
 
     const typeRaw = String(booking.type || "").toUpperCase();
     const type = typeRaw === "SERVICE" ? "service" : typeRaw === "MOT" ? "mot" : "";
@@ -359,10 +858,12 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
     const bookedMeta = bookedMetaByVehicle[vehicleId] || null;
     const motDue = getCanonicalDueDate(vehicle, "mot");
     const serviceDue = getCanonicalDueDate(vehicle, "service");
-    const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.map((workflow) => ({
-      ...workflow,
-      due: getCanonicalDueDate(vehicle, workflow.dueKey),
-    }));
+    const maintenanceWorkflows = ADDITIONAL_MAINTENANCE_WORKFLOWS
+      .filter((workflow) => CALENDAR_REMINDER_WORKFLOW_KEYS.includes(workflow.key))
+      .map((workflow) => ({
+        ...workflow,
+        due: getCanonicalDueDate(vehicle, workflow.dueKey),
+      }));
 
     const items = [
       {
@@ -420,13 +921,19 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
     const additionalAppointmentsByDate = maintenanceWorkflows.reduce((acc, item) => {
       const dateKey = toYmdDate(item.due);
       if (!dateKey) return acc;
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(item);
+      const combineByWeek = ["pmi", "brake_test"].includes(item.maintenanceTypeId);
+      const isoWeek = getIsoWeekLabel(dateKey);
+      const groupKey = combineByWeek ? `iso:${isoWeek}` : `date:${dateKey}`;
+      if (!acc[groupKey]) {
+        acc[groupKey] = { dateKey, isoWeek, items: [] };
+      }
+      if (dateKey < acc[groupKey].dateKey) acc[groupKey].dateKey = dateKey;
+      acc[groupKey].items.push(item);
       return acc;
     }, {});
 
-    const appointmentEvents = Object.entries(additionalAppointmentsByDate)
-      .map(([dateKey, appointmentItems]) => {
+    const appointmentEvents = Object.values(additionalAppointmentsByDate)
+      .map(({ dateKey, isoWeek, items: appointmentItems }) => {
         const start = startOfLocalDay(dateKey);
         if (!start || !appointmentItems.length) return null;
         const appointmentLabel = `${appointmentItems.map((item) => item.label).join(" / ")} appointment`;
@@ -443,6 +950,7 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
           maintenanceTypes: appointmentItems.map((item) => item.label),
           maintenanceKeys: appointmentItems.map((item) => item.key),
           maintenanceTypeIds: appointmentItems.map((item) => item.maintenanceTypeId),
+          sourceDueIsoWeek: isoWeek,
           requiresMaintenanceDocuments: true,
           requiresBrakeTestDocument: appointmentItems.some((item) => item.key === "brake_test"),
           requiresPmiDocument: appointmentItems.some((item) => item.key === "pmi"),

@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -101,7 +102,7 @@ export default function EditNotePage() {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!noteDate || !noteText) {
-      alert("Please fill in the date and note text.");
+      systemDialogs.showSystemNotification("Please fill in the date and note text.");
       return;
     }
     try {
@@ -114,26 +115,26 @@ export default function EditNotePage() {
         text: noteText,
         updatedAt: serverTimestamp(),
       }));
-      alert("Note updated!");
+      systemDialogs.showSystemNotification("Note updated!");
       router.push("/dashboard");
     } catch (e) {
       console.error("Update failed:", e);
-      alert("Failed to update note.");
+      systemDialogs.showSystemNotification("Failed to update note.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this note? This cannot be undone.")) return;
+    if (!await systemDialogs.confirmSystem("Delete this note? This cannot be undone.")) return;
     try {
       setDeleting(true);
       await deleteDoc(doc(db, "notes", id));
-      alert("Note deleted.");
+      systemDialogs.showSystemNotification("Note deleted.");
       router.push("/dashboard");
     } catch (e) {
       console.error("Delete failed:", e);
-      alert("Failed to delete note.");
+      systemDialogs.showSystemNotification("Failed to delete note.");
     } finally {
       setDeleting(false);
     }

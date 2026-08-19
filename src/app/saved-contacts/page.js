@@ -1,17 +1,22 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   deleteDoc,
   doc,
   onSnapshot,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { BusinessHeaderActions, BusinessPage, BusinessPageHeader } from "@/app/components/BusinessPage";
+import { Badge, Button, Input } from "@/app/components/ui";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -21,11 +26,14 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import {
+  analyseSavedContactDuplicates,
+  createMergedContactPayload,
+} from "@/app/utils/savedContactDuplicates";
 import { normaliseCustomerFinanceProfile } from "../utils/accountingMappings.js";
 
 const UI = UI_TOKENS;
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const chip = {
   padding: "4px 8px",
@@ -49,10 +57,11 @@ const emptyDraft = {
 const norm = (value = "") => String(value || "").trim().toLowerCase();
 
 export default function SavedContactsPage() {
+  const searchParams = useSearchParams();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [contacts, setContacts] = useState([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
   const [saving, setSaving] = useState(false);
@@ -60,6 +69,15 @@ export default function SavedContactsPage() {
   const [sageLookup, setSageLookup] = useState(null);
   const [sageLookupError, setSageLookupError] = useState("");
   const [sageLookupBusy, setSageLookupBusy] = useState(false);
+  const [duplicateReviewOpen, setDuplicateReviewOpen] = useState(true);
+  const [mergePrimaryIds, setMergePrimaryIds] = useState({});
+  const [mergingGroupId, setMergingGroupId] = useState("");
+  const [mergeError, setMergeError] = useState("");
+
+  useEffect(() => {
+    const querySearch = searchParams.get("search") || "";
+    if (querySearch) setSearch(querySearch);
+  }, [searchParams]);
 
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
@@ -98,6 +116,8 @@ export default function SavedContactsPage() {
         .includes(q)
     );
   }, [contacts, search]);
+
+  const duplicateAudit = useMemo(() => analyseSavedContactDuplicates(contacts), [contacts]);
 
   const startEdit = (contact) => {
     setEditingId(contact.id);
@@ -203,7 +223,7 @@ export default function SavedContactsPage() {
 
   const confirmSageMapping = async (result) => {
     if (!sageLookup?.lookupJobId || sageLookupBusy) return;
-    if (!window.confirm(`Map ${result.accountReference} · ${result.name} to ${draft.name}?`)) return;
+    if (!await systemDialogs.confirmSystem(`Map ${result.accountReference} · ${result.name} to ${draft.name}?`)) return;
     setSageLookupBusy(true);
     setSageLookupError("");
     try {
@@ -242,46 +262,165 @@ export default function SavedContactsPage() {
 
   const removeContact = async (contact) => {
     const label = contact?.name || contact?.email || "this contact";
-    if (!window.confirm(`Delete ${label} from saved contacts?`)) return;
+    if (!await systemDialogs.confirmSystem(`Delete ${label} from saved contacts?`)) return;
     await deleteDoc(doc(db, "contacts", contact.id));
     if (editingId === contact.id) cancelEdit();
   };
 
+  const mergeDuplicateGroup = async (group) => {
+    if (mergingGroupId) return;
+    const primaryId = mergePrimaryIds[group.id] || group.contacts[0]?.id;
+    const primary = group.contacts.find((contact) => contact.id === primaryId);
+    if (!primary) return;
+    const redundantContacts = group.contacts.filter((contact) => contact.id !== primaryId);
+    const primaryLabel = primary.name || primary.email || "the selected primary contact";
+    if (!await systemDialogs.confirmSystem(
+      `Merge ${group.contacts.length} records into ${primaryLabel}? This keeps alternate details on the primary record and deletes ${redundantContacts.length} redundant record${redundantContacts.length === 1 ? "" : "s"}.`
+    )) return;
+
+    setMergingGroupId(group.id);
+    setMergeError("");
+    try {
+      const batch = writeBatch(db);
+      batch.update(
+        doc(db, "contacts", primaryId),
+        tenantPayload(dataAccessState, {
+          ...createMergedContactPayload(group.contacts, primaryId),
+          updatedAt: serverTimestamp(),
+        })
+      );
+      redundantContacts.forEach((contact) => batch.delete(doc(db, "contacts", contact.id)));
+      await batch.commit();
+      if (group.contacts.some((contact) => contact.id === editingId)) cancelEdit();
+      setMergePrimaryIds((current) => {
+        const next = { ...current };
+        delete next[group.id];
+        return next;
+      });
+    } catch (error) {
+      setMergeError(error?.message || "The contacts could not be merged.");
+    } finally {
+      setMergingGroupId("");
+    }
+  };
+
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <div
-          className={layoutStyles.extracted1}
-        >
-          <div>
-            <h1 style={{ color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 }}>Saved Contacts</h1>
-            <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
-              Manage the shared saved-contact list used on create and edit booking.
+      <BusinessPage>
+        <BusinessPageHeader
+          title="Saved Contacts"
+          subtitle="Manage the shared saved-contact list used on create and edit booking."
+          actions={<BusinessHeaderActions>
+            <Badge variant="info">{contacts.length} contacts</Badge>
+            <Button as={Link} href="/create-booking" variant="secondary">Back to booking →</Button>
+          </BusinessHeaderActions>}
+        />
+
+        {(duplicateAudit.strongGroups.length || duplicateAudit.possibleGroups.length) ? (
+          <section className={layoutStyles.duplicatePanel} aria-labelledby="duplicate-review-heading">
+            <div className={layoutStyles.duplicateHeader}>
+              <div>
+                <div className={layoutStyles.duplicateTitleRow}>
+                  <h2 id="duplicate-review-heading">Duplicate review</h2>
+                  <Badge variant={duplicateAudit.strongGroups.length ? "warning" : "info"}>
+                    {duplicateAudit.strongGroups.length} strong
+                  </Badge>
+                  <Badge variant="neutral">{duplicateAudit.possibleGroups.length} possible</Badge>
+                </div>
+                <p>Choose the primary record in each strong group, then merge. Alternate details are retained.</p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setDuplicateReviewOpen((current) => !current)}
+                aria-expanded={duplicateReviewOpen}
+              >
+                {duplicateReviewOpen ? "Hide groups" : "Show groups"}
+              </Button>
             </div>
-          </div>
-          <div className={layoutStyles.extracted2}>
-            <span style={chip}>{contacts.length} contacts</span>
-            <Link href="/create-booking" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none" }}>
-              Back to booking →
-            </Link>
-          </div>
-        </div>
+
+            {duplicateReviewOpen ? (
+              <div className={layoutStyles.duplicateBody}>
+                {mergeError ? <div className={layoutStyles.mergeError} role="alert">{mergeError}</div> : null}
+                {duplicateAudit.strongGroups.length ? (
+                  <div className={layoutStyles.groupList}>
+                    {duplicateAudit.strongGroups.map((group, groupIndex) => {
+                      const primaryId = mergePrimaryIds[group.id] || group.contacts[0]?.id;
+                      return (
+                        <article className={layoutStyles.duplicateGroup} key={group.id}>
+                          <div className={layoutStyles.groupHeading}>
+                            <div>
+                              <strong>Duplicate group {groupIndex + 1}</strong>
+                              <span>{group.reasons.join(" · ")}</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="sm"
+                              disabled={Boolean(mergingGroupId)}
+                              onClick={() => mergeDuplicateGroup(group)}
+                            >
+                              {mergingGroupId === group.id ? "Merging..." : `Merge ${group.contacts.length} records`}
+                            </Button>
+                          </div>
+                          <div className={layoutStyles.duplicateRecords}>
+                            {group.contacts.map((contact) => (
+                              <label className={layoutStyles.duplicateRecord} key={contact.id}>
+                                <input
+                                  type="radio"
+                                  name={`primary-${group.id}`}
+                                  value={contact.id}
+                                  checked={primaryId === contact.id}
+                                  onChange={() => setMergePrimaryIds((current) => ({ ...current, [group.id]: contact.id }))}
+                                />
+                                <span>
+                                  <strong>{contact.name || "Unnamed contact"}</strong>
+                                  <small>{contact.email || "No email"}</small>
+                                  <small>{contact.phone || contact.number || "No phone"} · {contact.department || "No department"}</small>
+                                </span>
+                                {primaryId === contact.id ? <Badge variant="success">Primary</Badge> : null}
+                              </label>
+                            ))}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className={layoutStyles.noStrongMatches}>No strong duplicate groups found.</div>
+                )}
+
+                {duplicateAudit.possibleGroups.length ? (
+                  <div className={layoutStyles.possibleSection}>
+                    <h3>Possible matches</h3>
+                    <p>These share a name but do not share an email or phone. Review them manually before deleting either record.</p>
+                    {duplicateAudit.possibleGroups.map((group) => (
+                      <div className={layoutStyles.possibleGroup} key={group.id}>
+                        <span>{group.contacts.map((contact) => contact.name || contact.email).join(" / ")}</span>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSearch(group.contacts[0]?.name?.split(" ").at(-1) || "")}
+                        >
+                          Show in list
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <div style={{ ...surface, padding: 12, marginBottom: 14 }}>
-          <input
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, email, department, phone..."
-            style={{
-              width: "100%",
-              padding: "9px 11px",
-              borderRadius: UI.radiusSm,
-              border: "1px solid var(--color-border)",
-              fontSize: 13,
-              outline: "none",
-              background: "var(--color-surface)",
-            }}
           />
         </div>
 
@@ -401,13 +540,15 @@ export default function SavedContactsPage() {
                               className={layoutStyles.extracted4}
                               style={{ flex: 1 }}
                             />
-                            <button
+                            <Button
                               type="button"
+                              variant="secondary"
+                              size="sm"
                               onClick={searchSageCustomers}
                               disabled={sageLookupBusy || sageQuery.trim().length < 2}
                             >
                               {sageLookupBusy ? "Searching..." : "Search Sage"}
-                            </button>
+                            </Button>
                           </div>
                           {sageLookup?.status && sageLookup.status !== "succeeded" ? (
                             <div style={{ color: UI.muted, fontSize: 11 }}>
@@ -442,8 +583,10 @@ export default function SavedContactsPage() {
                                     <span style={{ color: UI.muted }}>
                                       {[result.postcode, result.email].filter(Boolean).join(" · ") || "No contact details"}
                                     </span>
-                                    <button
+                                    <Button
                                       type="button"
+                                      variant="secondary"
+                                      size="sm"
                                       disabled={
                                         sageLookupBusy ||
                                         !result.isActive ||
@@ -456,7 +599,7 @@ export default function SavedContactsPage() {
                                         : sageLookup.confirmedResult?.sageCustomerId === result.sageCustomerId
                                         ? "Mapped"
                                         : "Confirm mapping"}
-                                    </button>
+                                    </Button>
                                   </div>
                                 ))}
                               </div>
@@ -527,62 +670,42 @@ export default function SavedContactsPage() {
                     <div className={layoutStyles.extracted8}>
                       {isEditing ? (
                         <>
-                          <button
+                          <Button
                             type="button"
                             onClick={saveEdit}
                             disabled={saving}
-                            style={{
-                              padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid var(--color-info-border)",
-                              background: "var(--color-info-soft)",
-                              color: UI.brand,
-                              fontWeight: 800,
-                              cursor: "pointer",
-                            }}
+                            variant="primary"
+                            size="sm"
                           >
                             {saving ? "Saving..." : "Save"}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
                             onClick={cancelEdit}
-                            style={{
-                              padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid var(--color-border)",
-                              background: "var(--color-surface)",
-                              color: UI.text,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
+                            variant="secondary"
+                            size="sm"
                           >
                             Cancel
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <button
+                          <Button
                             type="button"
                             onClick={() => startEdit(contact)}
-                            style={{
-                              padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid var(--color-border)",
-                              background: "var(--color-surface)",
-                              color: UI.text,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                            }}
+                            variant="secondary"
+                            size="sm"
                           >
                             Edit
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
                             onClick={() => removeContact(contact)}
-                            className={layoutStyles.extracted9}
+                            variant="danger"
+                            size="sm"
                           >
                             Delete
-                          </button>
+                          </Button>
                         </>
                       )}
                     </div>
@@ -594,7 +717,7 @@ export default function SavedContactsPage() {
             )}
           </div>
         </div>
-      </div>
+      </BusinessPage>
     </HeaderSidebarLayout>
   );
 }

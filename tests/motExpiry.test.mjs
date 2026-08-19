@@ -63,3 +63,21 @@ test("falls back to the frequency calculation when no DVSA expiry is saved", () 
     "2027-03-12"
   );
 });
+
+test("does not reuse an older DVSA expiry for a newly completed MOT", () => {
+  const vehicle = {
+    dvsaMotTests: [{
+      completedDate: "2025-08-01",
+      expiryDate: "2026-07-31",
+      testResult: "PASSED",
+    }],
+  };
+  assert.equal(
+    resolveCompletedMotExpiry({
+      vehicle,
+      completedDate: "2026-08-04",
+      fallbackExpiry: "2027-08-03",
+    }),
+    ""
+  );
+});

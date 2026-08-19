@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -247,7 +248,7 @@ export default function MaintenanceHistoryPage() {
 
   const handleDeleteDocument = async (file) => {
     if (!vehicle || !config || deletingDocumentId) return;
-    if (!window.confirm(`Delete ${file.name || "this document"}? This cannot be undone.`)) return;
+    if (!await systemDialogs.confirmSystem(`Delete ${file.name || "this document"}? This cannot be undone.`)) return;
     const fileId = maintenanceDocumentId(file);
     const nextDocuments = removeMaintenanceDocument(
       vehicle[config.documentsField],

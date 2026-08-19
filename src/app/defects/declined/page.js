@@ -1,6 +1,7 @@
 // src/app/defects/declined/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -14,8 +15,8 @@ import {
   RefreshCcw,
   RotateCcw,
   Search,
-  X,
 } from "lucide-react";
+import { Button, Modal } from "@/app/components/ui";
 import {
   getDocs,
   updateDoc,
@@ -265,7 +266,7 @@ export default function DeclinedDefectsPage() {
         setRows(mapDeclined(docs));
       } catch (e) {
         console.error("Load declined defects failed:", e);
-        alert("Could not load declined defects.");
+        systemDialogs.showSystemNotification("Could not load declined defects.");
       } finally {
         setLoading(false);
       }
@@ -304,7 +305,7 @@ export default function DeclinedDefectsPage() {
       );
     } catch (e) {
       console.error("Reopen failed:", e);
-      alert("Could not reopen this defect.");
+      systemDialogs.showSystemNotification("Could not reopen this defect.");
     } finally {
       setReopeningId(null);
       setConfirmModal(null);
@@ -510,21 +511,7 @@ export default function DeclinedDefectsPage() {
 
         {/* Confirm Modal */}
         {confirmModal?.row && (
-          <div className={layoutStyles.extracted18} onMouseDown={() => setConfirmModal(null)}>
-            <div style={modalCard} onMouseDown={(e) => e.stopPropagation()}>
-              <div className={layoutStyles.extracted19}>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>Reopen to Review</div>
-                  <div style={{ fontSize: 12.5, color: UI.muted, marginTop: 4 }}>
-                    This removes the declined review block so it returns to the review queue.
-                  </div>
-                </div>
-                <button type="button" style={btn("ghost")} onClick={() => setConfirmModal(null)} disabled={!!reopeningId}>
-                  <X size={14} />
-                  Close
-                </button>
-              </div>
-
+          <Modal open onClose={() => setConfirmModal(null)} eyebrow="Defect review" title="Reopen to review" description="This removes the declined review block so it returns to the review queue." size="sm" density="compact" footer={<><Button type="button" variant="secondary" size="sm" onClick={() => setConfirmModal(null)} disabled={!!reopeningId}>Cancel</Button><Button type="button" size="sm" onClick={() => reopenDefect(confirmModal.row)} disabled={!!reopeningId} loading={!!reopeningId}><RefreshCcw size={14} />Reopen</Button></>}>
               <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12 }}>
                 <div style={{ fontSize: 13, color: UI.text, fontWeight: 900 }}>
                   {confirmModal.row.vehicle} - #{confirmModal.row.defectIndex + 1} {confirmModal.row.itemLabel}
@@ -545,23 +532,8 @@ export default function DeclinedDefectsPage() {
                   ) : null}
                 </div>
 
-                <div className={layoutStyles.extracted20}>
-                  <button type="button" style={btn("ghost")} onClick={() => setConfirmModal(null)} disabled={!!reopeningId}>
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    style={btn("primary")}
-                    onClick={() => reopenDefect(confirmModal.row)}
-                    disabled={!!reopeningId}
-                  >
-                    <RefreshCcw size={14} />
-                    {reopeningId ? "Reopening..." : "Reopen"}
-                  </button>
-                </div>
               </div>
-            </div>
-          </div>
+          </Modal>
         )}
       </div>
     </HeaderSidebarLayout>

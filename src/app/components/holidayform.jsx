@@ -1,7 +1,9 @@
 // src/app/components/holidayform.jsx
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./holidayform.styles.module.css";
+import sharedStyles from "./HolidayFormShared.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
@@ -16,7 +18,8 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
-import { CalendarPlus, Check, X } from "lucide-react";
+import { Check } from "lucide-react";
+import { Button, Modal } from "@/app/components/ui";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
@@ -749,22 +752,22 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!employee) return alert("Please select an employee.");
-    if (!holidayReason.trim()) return alert("Please enter a reason.");
-    if (!paidStatus) return alert("Please select paid status.");
+    if (!employee) return systemDialogs.showSystemNotification("Please select an employee.");
+    if (!holidayReason.trim()) return systemDialogs.showSystemNotification("Please enter a reason.");
+    if (!paidStatus) return systemDialogs.showSystemNotification("Please select paid status.");
 
     if (holidayConflict)
-      return alert(
+      return systemDialogs.showSystemNotification(
         holidayConflictMsg || "This holiday overlaps an existing holiday for that employee."
       );
     if (jobConflict)
-      return alert(jobConflictMsg || "This holiday overlaps a job the employee is booked on.");
+      return systemDialogs.showSystemNotification(jobConflictMsg || "This holiday overlaps a job the employee is booked on.");
 
     if (paidStatus === "Paid" && allowanceInfo.remainingPaid <= 0) {
-      return alert("No paid holiday remaining — please book as Unpaid.");
+      return systemDialogs.showSystemNotification("No paid holiday remaining — please book as Unpaid.");
     }
     if (paidStatus === "Paid" && !paidEnoughForThisRequest) {
-      return alert(
+      return systemDialogs.showSystemNotification(
         `Not enough paid holiday remaining. Remaining: ${allowanceInfo.remainingPaid} day(s). Request: ${allowanceInfo.requestedDays} day(s). Book as Unpaid or split the request.`
       );
     }
@@ -778,14 +781,14 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
       if (isMultiDay) {
         if (!startDate || !endDate) {
           setSaving(false);
-          return alert("Select both start and end dates.");
+          return systemDialogs.showSystemNotification("Select both start and end dates.");
         }
 
         const s = new Date(startDate);
         const ed = new Date(endDate);
         if (Number.isNaN(+s) || Number.isNaN(+ed) || s > ed) {
           setSaving(false);
-          return alert("End date must be the same or after start date.");
+          return systemDialogs.showSystemNotification("End date must be the same or after start date.");
         }
 
         finalStart = startDate;
@@ -793,7 +796,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
       } else {
         if (!holidayDate) {
           setSaving(false);
-          return alert("Please select a date.");
+          return systemDialogs.showSystemNotification("Please select a date.");
         }
         finalStart = holidayDate;
         finalEnd = holidayDate;
@@ -852,35 +855,37 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
       else router.push("/dashboard");
     } catch (err) {
       console.error("Error saving holiday:", err);
-      alert("Failed to save holiday. Please try again.");
+      systemDialogs.showSystemNotification("Failed to save holiday. Please try again.");
       setSaving(false);
     }
   };
 
   return (
-    <div className={layoutStyles.extracted1}>
-      <div style={modal}>
-        {/* Header */}
-        <div className={layoutStyles.extracted2}>
-          <div className={layoutStyles.extracted3}>
-            <span style={iconBox}>
-              <CalendarPlus size={18} />
-            </span>
-            <div>
-              <div style={eyebrow}>Employee leave</div>
-              <h2 style={modalTitle}>Add Holiday</h2>
-            </div>
-          </div>
-          <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className={layoutStyles.extracted4}>
+    <Modal
+      open
+      onClose={handleBack}
+      eyebrow="Employee leave"
+      title="Add holiday"
+      description="Choose the employee, dates and leave details."
+      size="md"
+      density="compact"
+      footer={
+        <>
+          <Button type="button" variant="secondary" size="sm" onClick={handleBack} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-holiday-form" size="sm" disabled={!canSubmit} loading={saving}>
+            <Check size={15} />
+            Save holiday
+          </Button>
+        </>
+      }
+    >
+        <form id="create-holiday-form" onSubmit={handleSubmit} className={`${layoutStyles.extracted4} ${sharedStyles.form}`}>
           {/* Employee */}
-          <div className={layoutStyles.extracted5}>
+          <div className={`${layoutStyles.extracted5} ${sharedStyles.field}`}>
             <label className={layoutStyles.extracted6}>Employee</label>
-            <select value={employee} onChange={(e) => setEmployee(e.target.value)} style={input} required>
+            <select value={employee} onChange={(e) => setEmployee(e.target.value)} required>
               <option value="">Select employee…</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.name}>
@@ -891,12 +896,11 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Type toggle */}
-          <div className={layoutStyles.extracted7}>
+          <div className={`${layoutStyles.extracted7} ${sharedStyles.field}`}>
             <label className={layoutStyles.extracted8}>Holiday Type</label>
             <select
               value={isMultiDay ? "multi" : "single"}
               onChange={(e) => setIsMultiDay(e.target.value === "multi")}
-              style={input}
             >
               <option value="single">Single Day</option>
               <option value="multi">Multi-Day</option>
@@ -905,26 +909,25 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 
           {/* Dates */}
           {!isMultiDay ? (
-            <div className={layoutStyles.extracted9}>
+            <div className={`${layoutStyles.extracted9} ${sharedStyles.field} ${sharedStyles.full}`}>
               <label className={layoutStyles.extracted10}>Date</label>
               <input
                 type="date"
                 value={holidayDate}
                 onChange={(e) => setHolidayDate(e.target.value)}
                 required
-                style={input}
               />
             </div>
           ) : (
-            <div className={layoutStyles.extracted11}>
-              <div className={layoutStyles.extracted12}>
+            <div className={`${layoutStyles.extracted11} ${sharedStyles.dateGrid} ${sharedStyles.full}`}>
+              <div className={`${layoutStyles.extracted12} ${sharedStyles.field}`}>
                 <label className={layoutStyles.extracted13}>Start Date</label>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required style={input} />
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
               </div>
 
-              <div className={layoutStyles.extracted14}>
+              <div className={`${layoutStyles.extracted14} ${sharedStyles.field}`}>
                 <label className={layoutStyles.extracted15}>End Date</label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required style={input} />
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
               </div>
             </div>
           )}
@@ -932,6 +935,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           {/*  Allowance banner */}
           {employee && proposed.start && proposed.end ? (
             <div
+              className={sharedStyles.notice}
               style={{
                 border:
                   allowanceInfo.remainingPaid <= 0
@@ -966,7 +970,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           {/*  Holiday conflict warning */}
           {holidayConflictMsg ? (
             <div
-              className={layoutStyles.extracted19}
+              className={`${layoutStyles.extracted19} ${sharedStyles.notice}`}
             >
               <div className={layoutStyles.extracted20}>Holiday conflict</div>
               <div>{holidayConflictMsg}</div>
@@ -979,7 +983,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           {/*  Job/crew conflict warning */}
           {jobConflictMsg ? (
             <div
-              className={layoutStyles.extracted22}
+              className={`${layoutStyles.extracted22} ${sharedStyles.notice}`}
             >
               <div className={layoutStyles.extracted23}>Job conflict</div>
               <div>{jobConflictMsg}</div>
@@ -990,15 +994,15 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           ) : null}
 
           {/*  Half day controls */}
-          <div style={halfWrap}>
-            <div className={layoutStyles.extracted25}>
+          <div className={`${sharedStyles.halfDayPanel} ${sharedStyles.full}`}>
+            <div className={`${layoutStyles.extracted25} ${sharedStyles.halfHeader}`}>
               <div>
-                <div className={layoutStyles.extracted26}>Half day</div>
-                <div className={layoutStyles.extracted27}>
+                <div className={`${layoutStyles.extracted26} ${sharedStyles.halfTitle}`}>Half day</div>
+                <div className={`${layoutStyles.extracted27} ${sharedStyles.halfHint}`}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
-              <label className={layoutStyles.extracted28}>
+              <label className={`${layoutStyles.extracted28} ${sharedStyles.toggle}`}>
                 <input
                   type="checkbox"
                   checked={startHalfDay}
@@ -1011,10 +1015,10 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </div>
 
             {startHalfDay ? (
-              <div className={layoutStyles.extracted30}>
+              <div className={`${layoutStyles.extracted30} ${sharedStyles.halfOptions}`}>
                 <div>
                   <label className={layoutStyles.extracted31}>Start AM / PM</label>
-                  <select value={startAMPM} onChange={(e) => setStartAMPM(e.target.value)} style={input}>
+                  <select value={startAMPM} onChange={(e) => setStartAMPM(e.target.value)}>
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
                   </select>
@@ -1037,7 +1041,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                     {endHalfDay ? (
                       <div className={layoutStyles.extracted36}>
                         <label className={layoutStyles.extracted37}>End AM / PM</label>
-                        <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
+                        <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)}>
                           <option value="AM">AM</option>
                           <option value="PM">PM</option>
                         </select>
@@ -1063,7 +1067,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                 {endHalfDay ? (
                   <div className={layoutStyles.extracted43}>
                     <label className={layoutStyles.extracted44}>End AM / PM</label>
-                    <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
+                    <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)}>
                       <option value="AM">AM</option>
                       <option value="PM">PM</option>
                     </select>
@@ -1074,7 +1078,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Reason */}
-          <div className={layoutStyles.extracted45}>
+          <div className={`${layoutStyles.extracted45} ${sharedStyles.field} ${sharedStyles.full}`}>
             <label className={layoutStyles.extracted46}>Reason</label>
             <textarea
               value={holidayReason}
@@ -1082,14 +1086,13 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               rows={3}
               placeholder="e.g. Family holiday / Sick / Appointment..."
               required
-              style={{ ...input, minHeight: 70, resize: "vertical", paddingTop: 12 }}
             />
           </div>
 
           {/* Paid vs unpaid */}
-          <div className={layoutStyles.extracted47}>
+          <div className={`${layoutStyles.extracted47} ${sharedStyles.field} ${sharedStyles.full}`}>
             <label className={layoutStyles.extracted48}>Paid status</label>
-            <select value={paidStatus} onChange={(e) => setPaidStatus(e.target.value)} style={input}>
+            <select value={paidStatus} onChange={(e) => setPaidStatus(e.target.value)}>
               <option value="Paid" disabled={!paidAllowed}>
                 Paid{!paidAllowed ? " (no paid remaining)" : ""}
               </option>
@@ -1103,27 +1106,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             ) : null}
           </div>
 
-          <div className={layoutStyles.extracted50}>
-            <button type="button" onClick={handleBack} style={secondaryBtn}>
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              style={{
-                ...primaryBtn,
-                opacity: canSubmit ? 1 : 0.55,
-                cursor: canSubmit ? "pointer" : "not-allowed",
-              }}
-            >
-              <Check size={15} />
-              {saving ? "Saving..." : "Save Holiday"}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1234,26 +1218,6 @@ const label = {
   color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
-};
-
-const input = {
-  width: "100%",
-  padding: "10px 11px",
-  borderRadius: 8,
-  border: "1px solid var(--color-border-strong)",
-  backgroundColor: "var(--color-surface)",
-  color: UI.text,
-  outline: "none",
-  fontSize: 14,
-  fontWeight: 700,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
-};
-
-const halfWrap = {
-  border: `1px solid ${UI.border}`,
-  background: "var(--color-surface-subtle)",
-  borderRadius: 8,
-  padding: 10,
 };
 
 const globalOptionCSS = `

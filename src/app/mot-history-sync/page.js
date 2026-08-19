@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -89,7 +90,7 @@ export default function MotHistorySyncPage() {
       setMeta(snap.exists() ? snap.data() : null);
     } catch (err) {
       console.error("Failed to load MOT sync summary:", err);
-      alert("Could not load MOT sync summary.");
+      systemDialogs.showSystemNotification("Could not load MOT sync summary.");
     } finally {
       setLoading(false);
     }

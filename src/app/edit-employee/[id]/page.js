@@ -1,10 +1,38 @@
 // src/app/employees/[id]/edit/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import PersonnelDocumentViewer from "@/app/components/PersonnelDocumentViewer";
+import {
+  PeopleFleetHeaderActions,
+  PeopleFleetPage,
+  PeopleFleetPageHeader,
+} from "@/app/components/PeopleFleetPage";
+import { Alert, Badge, Button, FormField, Input, Modal, Textarea } from "@/app/components/ui";
+import {
+  AlertTriangle,
+  Archive,
+  ArrowLeft,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Clock3,
+  History,
+  ListChecks,
+  PauseCircle,
+  PlayCircle,
+  Save,
+  ShieldCheck,
+  Trash2,
+  UserMinus,
+  UserRound,
+} from "lucide-react";
 
 import { auth, db, storage } from "../../../../firebaseConfig";
 import {
@@ -15,9 +43,11 @@ import {
   query,
   setDoc,
   deleteDoc,
+  deleteField,
   serverTimestamp,
   onSnapshot,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
@@ -27,16 +57,29 @@ import {
   validateEmployeeAccessDraft,
 } from "@/app/utils/accessControl";
 import {
-  DEFAULT_COMPANY_ID,
   buildEmployeeAccessPatch,
   buildUserAccessPatch,
   cleanAccessEmail,
 } from "@/app/utils/appAccessRecords";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
+import WorkScheduleEditor from "@/app/components/WorkScheduleEditor";
+import { DEFAULT_WORK_SCHEDULE, normalizeWorkSchedule } from "@/app/utils/activityTracking";
+import { useAuth } from "@/app/context/authContext";
+import { tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import {
+  EMPLOYEE_PERSONNEL_COLLECTION,
+  PRIVATE_EMPLOYEE_FIELDS,
+  checklistProgress,
+  createRateHistoryEntry,
+  deriveOffboardingChecklist,
+  deriveOnboardingChecklist,
+  getEmployeeAbsenceSummary,
+  getPersonnelCompliance,
+  mergeEmployeePersonnel,
+  pickPrivateEmployeeFields,
+  withoutPrivateEmployeeFields,
+} from "@/app/utils/employeePersonnel";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -71,6 +114,18 @@ const EMPTY_GLOBAL_PAYROLL_RATES = {
   travelMealRate: "",
 };
 
+const INDIVIDUAL_PAYROLL_RATE_FIELDS = [
+  "workshopRate",
+  "overtimeRate",
+  "sundayRate",
+  "onSetRate",
+  "onSetOvertimeRate",
+  "weekendSupplementRate",
+];
+
+const pickRates = (source = {}, fields = INDIVIDUAL_PAYROLL_RATE_FIELDS) =>
+  Object.fromEntries(fields.map((field) => [field, source?.[field] ?? ""]));
+
 const EMPTY_EMERGENCY_CONTACT = {
   name: "",
   relationship: "",
@@ -99,6 +154,8 @@ const EMPTY_PASSPORT = {
 
 const EMPTY_DRIVING_LICENCE = {
   number: "",
+  countryOfIssue: "",
+  issueDate: "",
   categories: "",
   expiryDate: "",
   checkCode: "",
@@ -118,39 +175,6 @@ const EMPTY_MEDICAL = {
    Mini design system (matches your Holiday page)
 ─────────────────────────────────────────── */
 const UI = UI_TOKENS;
-
-const pageWrap = {
-  padding: "16px 16px 32px",
-  background: UI.bg,
-  minHeight: "100vh",
-};
-
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-
-const h1 = {
-  color: UI.text,
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 750,
-  letterSpacing: 0,
-  margin: 0,
-};
-
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-
-const surface = {
-  background: UI.card,
-  borderRadius: UI.radius,
-  border: UI.border,
-  boxShadow: UI.shadowSm,
-};
 
 const btn = (kind = "primary") => {
   const base = {
@@ -239,17 +263,6 @@ const inputBase = {
   color: UI.text,
 };
 
-const chip = {
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
 const labelStyle = {
   display: "block",
   marginBottom: 6,
@@ -270,13 +283,6 @@ const inlineNotice = (tone = "success") => ({
   background: tone === "error" ? "var(--color-danger-soft)" : "var(--color-success-soft)",
   color: tone === "error" ? "var(--color-danger)" : "var(--color-success)",
 });
-
-const personnelSection = {
-  borderTop: UI.border,
-  paddingTop: 12,
-  display: "grid",
-  gap: 10,
-};
 
 const personnelHeader = {
   fontWeight: 850,
@@ -299,6 +305,31 @@ const textareaBase = {
 
 /* ── Utils ─────────────────────────────────────────────────────────────── */
 const asStr = (v) => (v == null ? "" : String(v));
+const todayInput = () => new Date().toISOString().slice(0, 10);
+const inactiveEmploymentStatuses = new Set(["paused", "ended", "leaver"]);
+const isEmploymentInactive = (status) => inactiveEmploymentStatuses.has(String(status || "").trim().toLowerCase());
+const employmentBadgeVariant = (status, archived = false) => {
+  if (archived) return "danger";
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "paused" || normalized === "on leave") return "warning";
+  if (normalized === "ended" || normalized === "leaver") return "neutral";
+  if (normalized === "probation") return "info";
+  return "success";
+};
+const hasMeaningfulValue = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return Boolean(normalized) && !["-", "/", "0", "none", "n/a", "na"].includes(normalized);
+};
+
+const getInitials = (name = "") =>
+  String(name)
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "?";
+
 const objectHasValue = (obj = {}) =>
   Object.values(obj || {}).some((value) => String(value ?? "").trim());
 
@@ -339,6 +370,8 @@ export default function EditEmployeePage() {
   const router = useRouter();
   const params = useParams();
   const employeeId = params?.id;
+  const authAccess = useAuth() || {};
+  const deployment = useDeploymentConfig();
 
   const jobOptions = useMemo(
     () => [
@@ -359,16 +392,35 @@ export default function EditEmployeePage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState("");
+  const [lifecycleSaving, setLifecycleSaving] = useState(false);
+  const [lifecycleDraft, setLifecycleDraft] = useState({
+    effectiveDate: todayInput(),
+    expectedReturnDate: "",
+    reason: "",
+  });
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
   const [passportFile, setPassportFile] = useState(null);
   const [drivingLicenceFile, setDrivingLicenceFile] = useState(null);
   const [documentFiles, setDocumentFiles] = useState({});
+  const [expandedDocuments, setExpandedDocuments] = useState({});
   const [uploadProgress, setUploadProgress] = useState({});
+  const [documentExtraction, setDocumentExtraction] = useState({
+    passport: { status: "idle", message: "" },
+    drivingLicence: { status: "idle", message: "" },
+  });
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
   const [globalPayrollRates, setGlobalPayrollRates] = useState(EMPTY_GLOBAL_PAYROLL_RATES);
+  const [globalPayrollRateHistory, setGlobalPayrollRateHistory] = useState([]);
+  const [baselinePayrollRates, setBaselinePayrollRates] = useState(EMPTY_PAYROLL_RATES);
+  const [baselineGlobalPayrollRates, setBaselineGlobalPayrollRates] = useState(EMPTY_GLOBAL_PAYROLL_RATES);
+  const [rateChangeOpen, setRateChangeOpen] = useState(false);
+  const [rateChangeDraft, setRateChangeDraft] = useState({ effectiveDate: todayInput(), reason: "" });
+  const rateChangeApprovalRef = useRef(null);
+  const [absenceData, setAbsenceData] = useState({ holidays: [], sickLeave: [], bankHolidayDates: new Set() });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -387,7 +439,7 @@ export default function EditEmployeePage() {
     code: "",
     uid: "",
     authUid: "",
-    companyId: DEFAULT_COMPANY_ID,
+    companyId: deployment.companyId,
     archived: false,
     active: true,
     appDisabled: false,
@@ -396,6 +448,15 @@ export default function EditEmployeePage() {
     nationalInsuranceNumber: "",
     startDate: "",
     employmentStatus: "Active",
+    employmentStatusEffectiveDate: "",
+    employmentStatusReason: "",
+    expectedReturnDate: "",
+    endDate: "",
+    employmentHistory: [],
+    accessBeforeEmploymentChange: null,
+    onboardingChecklist: [],
+    offboardingChecklist: [],
+    payrollRateHistory: [],
     contractType: "",
     payrollNumber: "",
     rightToWorkChecked: false,
@@ -405,6 +466,7 @@ export default function EditEmployeePage() {
     medical: EMPTY_MEDICAL,
     emergencyContacts: [],
     personnelDocuments: [],
+    workSchedule: DEFAULT_WORK_SCHEDULE,
   });
 
   useEffect(() => {
@@ -430,32 +492,46 @@ export default function EditEmployeePage() {
   }, []);
 
   const isAdmin = useMemo(
-    () => ADMIN_EMAILS.includes(userEmail) || userRole === "admin",
-    [userEmail, userRole]
+    () => ["admin", "platformadmin"].includes(userRole),
+    [userRole]
   );
 
   useEffect(() => {
     const fetchEmployee = async () => {
-      if (!employeeId) return;
+      if (!employeeId || !authAccess.accessReady) return;
+      if (!authAccess.isAdmin) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const docRef = doc(db, "employees", employeeId);
+        const personnelRef = doc(db, EMPLOYEE_PERSONNEL_COLLECTION, employeeId);
         const settingsRef = doc(db, "settings", "payrollRates");
-        const [docSnap, settingsSnap] = await Promise.all([getDoc(docRef), getDoc(settingsRef)]);
+        const [docSnap, settingsSnap, privateSnap] = await Promise.all([
+          getDoc(docRef),
+          getDoc(settingsRef),
+          getDoc(personnelRef).catch(() => null),
+        ]);
 
         if (!docSnap.exists()) {
-          alert("Employee not found");
+          systemDialogs.showSystemNotification("Employee not found");
           router.push("/employees");
           return;
         }
 
-        const data = docSnap.data() || {};
+        const operationalData = docSnap.data() || {};
+        const privateData = privateSnap?.exists?.() ? privateSnap.data() || {} : {};
+        const data = mergeEmployeePersonnel(operationalData, privateData);
         const sharedRates = settingsSnap.exists()
           ? {
               ...EMPTY_GLOBAL_PAYROLL_RATES,
               ...(settingsSnap.data() || {}),
             }
           : EMPTY_GLOBAL_PAYROLL_RATES;
+        setGlobalPayrollRateHistory(
+          Array.isArray(settingsSnap.data()?.history) ? settingsSnap.data().history : []
+        );
         const jt = Array.isArray(data.jobTitle)
           ? data.jobTitle
           : [data.jobTitle].filter(Boolean);
@@ -494,6 +570,18 @@ export default function EditEmployeePage() {
               data.licenseNumber ||
               data.drivingLicence?.number ||
               personnelFile.drivingLicence?.number ||
+              ""
+          ),
+          countryOfIssue: asStr(
+            data.drivingLicenceCountry ||
+              data.drivingLicence?.countryOfIssue ||
+              personnelFile.drivingLicence?.countryOfIssue ||
+              ""
+          ),
+          issueDate: asDateInput(
+            data.drivingLicenceIssueDate ||
+              data.drivingLicence?.issueDate ||
+              personnelFile.drivingLicence?.issueDate ||
               ""
           ),
           categories: asStr(
@@ -535,7 +623,7 @@ export default function EditEmployeePage() {
           notes: asStr(data.medicalNotes || data.medical?.notes || personnelFile.medical?.notes || ""),
         };
 
-        setGlobalPayrollRates({
+        const loadedGlobalRates = {
           travelRate:
             sharedRates.travelRate === "" || sharedRates.travelRate == null ? "" : Number(sharedRates.travelRate),
           overnightRate:
@@ -544,7 +632,26 @@ export default function EditEmployeePage() {
             sharedRates.travelMealRate === "" || sharedRates.travelMealRate == null
               ? ""
               : Number(sharedRates.travelMealRate),
-        });
+        };
+        const loadedPayrollRates = {
+          ...EMPTY_PAYROLL_RATES,
+          ...(data.payrollRates || {}),
+          travelRate:
+            sharedRates.travelRate === "" || sharedRates.travelRate == null
+              ? data.payrollRates?.travelRate ?? ""
+              : Number(sharedRates.travelRate),
+          overnightRate:
+            sharedRates.overnightRate === "" || sharedRates.overnightRate == null
+              ? data.payrollRates?.overnightRate ?? ""
+              : Number(sharedRates.overnightRate),
+          travelMealRate:
+            sharedRates.travelMealRate === "" || sharedRates.travelMealRate == null
+              ? data.payrollRates?.travelMealRate ?? ""
+              : Number(sharedRates.travelMealRate),
+        };
+        setGlobalPayrollRates(loadedGlobalRates);
+        setBaselineGlobalPayrollRates(loadedGlobalRates);
+        setBaselinePayrollRates(loadedPayrollRates);
 
         setFormData({
           name: asStr(data.name || data.fullName || ""),
@@ -567,8 +674,8 @@ export default function EditEmployeePage() {
           code: asStr(data.code || data.userCode || data.employeeCode || ""),
           uid: asStr(data.uid || ""),
           authUid: asStr(data.authUid || ""),
-          companyId: asStr(data.companyId || DEFAULT_COMPANY_ID),
-          archived: data.archived === true || data.isArchived === true || data.active === false,
+          companyId: asStr(data.companyId || deployment.companyId),
+          archived: data.archived === true || data.isArchived === true,
           active: data.active !== false && data.archived !== true && data.isArchived !== true,
           appDisabled: data.appDisabled === true,
           address: asStr(data.address || personnelFile.address || ""),
@@ -576,6 +683,22 @@ export default function EditEmployeePage() {
           nationalInsuranceNumber: asStr(data.nationalInsuranceNumber || data.niNumber || personnelFile.nationalInsuranceNumber || ""),
           startDate: asDateInput(data.startDate || data.employmentStartDate || personnelFile.startDate || ""),
           employmentStatus: asStr(data.employmentStatus || personnelFile.employmentStatus || "Active"),
+          employmentStatusEffectiveDate: asDateInput(
+            data.employmentStatusEffectiveDate || personnelFile.employmentStatusEffectiveDate || ""
+          ),
+          employmentStatusReason: asStr(
+            data.employmentStatusReason || personnelFile.employmentStatusReason || ""
+          ),
+          expectedReturnDate: asDateInput(data.expectedReturnDate || personnelFile.expectedReturnDate || ""),
+          endDate: asDateInput(data.endDate || data.employmentEndDate || personnelFile.endDate || ""),
+          employmentHistory: Array.isArray(data.employmentHistory) ? data.employmentHistory : [],
+          onboardingChecklist: Array.isArray(data.onboardingChecklist) ? data.onboardingChecklist : [],
+          offboardingChecklist: Array.isArray(data.offboardingChecklist) ? data.offboardingChecklist : [],
+          payrollRateHistory: Array.isArray(data.payrollRateHistory) ? data.payrollRateHistory : [],
+          accessBeforeEmploymentChange:
+            data.accessBeforeEmploymentChange && typeof data.accessBeforeEmploymentChange === "object"
+              ? data.accessBeforeEmploymentChange
+              : null,
           contractType: asStr(data.contractType || personnelFile.contractType || ""),
           payrollNumber: asStr(data.payrollNumber || personnelFile.payrollNumber || ""),
           rightToWorkChecked: data.rightToWorkChecked === true || personnelFile.rightToWorkChecked === true,
@@ -591,26 +714,40 @@ export default function EditEmployeePage() {
             data.personnelDocuments || personnelFile.documents,
             EMPTY_PERSONNEL_DOCUMENT
           ),
-          payrollRates: {
-            ...EMPTY_PAYROLL_RATES,
-            ...(data.payrollRates || {}),
-            travelRate:
-              sharedRates.travelRate === "" || sharedRates.travelRate == null
-                ? data.payrollRates?.travelRate ?? ""
-                : Number(sharedRates.travelRate),
-            overnightRate:
-              sharedRates.overnightRate === "" || sharedRates.overnightRate == null
-                ? data.payrollRates?.overnightRate ?? ""
-                : Number(sharedRates.overnightRate),
-            travelMealRate:
-              sharedRates.travelMealRate === "" || sharedRates.travelMealRate == null
-                ? data.payrollRates?.travelMealRate ?? ""
-                : Number(sharedRates.travelMealRate),
-          },
+          workSchedule: normalizeWorkSchedule(data.workSchedule || DEFAULT_WORK_SCHEDULE),
+          payrollRates: loadedPayrollRates,
         });
+
+        try {
+          const dataAccessState = {
+            user: authAccess.user,
+            userDoc: authAccess.userDoc,
+            isEnabled: authAccess.isEnabled,
+            accessReady: authAccess.accessReady,
+          };
+          const [holidaySnap, sickSnap, bankHolidayResponse] = await Promise.all([
+            getDocs(tenantCollectionQuery(db, "holidays", dataAccessState)),
+            getDocs(tenantCollectionQuery(db, "sickLeave", dataAccessState)),
+            fetch("https://www.gov.uk/bank-holidays.json", { cache: "no-store" }).catch(() => null),
+          ]);
+          const bankHolidayPayload = bankHolidayResponse?.ok ? await bankHolidayResponse.json() : {};
+          const bankHolidayDates = new Set(
+            Object.values(bankHolidayPayload || {})
+              .flatMap((division) => (Array.isArray(division?.events) ? division.events : []))
+              .map((event) => String(event?.date || ""))
+              .filter(Boolean)
+          );
+          setAbsenceData({
+            holidays: holidaySnap.docs.map((row) => ({ id: row.id, ...row.data() })),
+            sickLeave: sickSnap.docs.map((row) => ({ id: row.id, ...row.data() })),
+            bankHolidayDates,
+          });
+        } catch (absenceError) {
+          console.warn("Employee absence summary could not be loaded:", absenceError);
+        }
       } catch (err) {
         console.error("Error fetching employee:", err);
-        alert(" Failed to load employee");
+        systemDialogs.showSystemNotification(" Failed to load employee");
         router.push("/employees");
       } finally {
         setLoading(false);
@@ -618,7 +755,7 @@ export default function EditEmployeePage() {
     };
 
     fetchEmployee();
-  }, [employeeId, router]);
+  }, [authAccess.accessReady, authAccess.isAdmin, authAccess.isEnabled, authAccess.user, authAccess.userDoc, deployment.companyId, employeeId, router]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -667,6 +804,8 @@ export default function EditEmployeePage() {
   };
 
   const addPersonnelDocument = () => {
+    const nextIndex = (formData.personnelDocuments || []).length;
+    setExpandedDocuments((expanded) => ({ ...expanded, [nextIndex]: true }));
     setFormData((prev) => ({
       ...prev,
       personnelDocuments: [...(prev.personnelDocuments || []), { ...EMPTY_PERSONNEL_DOCUMENT }],
@@ -679,6 +818,15 @@ export default function EditEmployeePage() {
       personnelDocuments: (prev.personnelDocuments || []).filter((_, i) => i !== index),
     }));
     setDocumentFiles((prev) => {
+      const next = {};
+      Object.entries(prev || {}).forEach(([key, value]) => {
+        const numericKey = Number(key);
+        if (numericKey < index) next[numericKey] = value;
+        if (numericKey > index) next[numericKey - 1] = value;
+      });
+      return next;
+    });
+    setExpandedDocuments((prev) => {
       const next = {};
       Object.entries(prev || {}).forEach(([key, value]) => {
         const numericKey = Number(key);
@@ -725,6 +873,78 @@ export default function EditEmployeePage() {
       fileSize: file.size || 0,
       uploadedAt: new Date().toISOString(),
     };
+  };
+
+  const extractPersonnelDocument = async (file, documentType) => {
+    if (!file || !["passport", "drivingLicence"].includes(documentType)) return;
+    setDocumentExtraction((prev) => ({
+      ...prev,
+      [documentType]: { status: "reading", message: "Reading visible details…" },
+    }));
+
+    try {
+      const idToken = await auth.currentUser?.getIdToken?.();
+      if (!idToken) throw new Error("Please sign in again before reading the document.");
+
+      const body = new FormData();
+      body.append("documentType", documentType);
+      body.append("file", file);
+      const response = await fetch("/api/personnel/document-extraction", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+        body,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || "The document could not be read.");
+
+      const extracted = payload?.extraction || {};
+      setFormData((prev) => {
+        if (documentType === "passport") {
+          return {
+            ...prev,
+            passport: {
+              ...(prev.passport || {}),
+              ...(extracted.number ? { number: extracted.number } : {}),
+              ...(extracted.countryOfIssue ? { country: extracted.countryOfIssue } : {}),
+              ...(extracted.expiryDate ? { expiryDate: extracted.expiryDate } : {}),
+            },
+          };
+        }
+
+        const nextNumber = extracted.number || prev.licenceNumber || prev.drivingLicence?.number || "";
+        return {
+          ...prev,
+          licenceNumber: nextNumber,
+          drivingLicence: {
+            ...(prev.drivingLicence || {}),
+            ...(extracted.number ? { number: extracted.number } : {}),
+            ...(extracted.countryOfIssue ? { countryOfIssue: extracted.countryOfIssue } : {}),
+            ...(extracted.issueDate ? { issueDate: extracted.issueDate } : {}),
+            ...(extracted.expiryDate ? { expiryDate: extracted.expiryDate } : {}),
+            ...(extracted.categories ? { categories: extracted.categories } : {}),
+            ...(extracted.points ? { points: extracted.points } : {}),
+            ...(extracted.checkCode ? { checkCode: extracted.checkCode } : {}),
+          },
+        };
+      });
+
+      const fieldCount = Array.isArray(extracted.visibleFields) ? extracted.visibleFields.length : 0;
+      setDocumentExtraction((prev) => ({
+        ...prev,
+        [documentType]: {
+          status: "complete",
+          message: extracted.warning ||
+            (fieldCount
+              ? `Read ${fieldCount} visible field${fieldCount === 1 ? "" : "s"}. Review them, then save changes.`
+              : "No supported details were clearly visible. You can enter them manually."),
+        },
+      }));
+    } catch (error) {
+      setDocumentExtraction((prev) => ({
+        ...prev,
+        [documentType]: { status: "error", message: error?.message || "The document could not be read." },
+      }));
+    }
   };
 
   const handleAccessToggle = (workspace) => {
@@ -789,6 +1009,46 @@ export default function EditEmployeePage() {
     }));
   };
 
+  const onboardingChecklist = useMemo(
+    () => deriveOnboardingChecklist({ ...formData, id: employeeId }),
+    [employeeId, formData]
+  );
+  const offboardingChecklist = useMemo(
+    () => deriveOffboardingChecklist({ ...formData, id: employeeId }),
+    [employeeId, formData]
+  );
+  const onboardingProgress = useMemo(() => checklistProgress(onboardingChecklist), [onboardingChecklist]);
+  const offboardingProgress = useMemo(() => checklistProgress(offboardingChecklist), [offboardingChecklist]);
+  const complianceSummary = useMemo(() => getPersonnelCompliance(formData), [formData]);
+  const absenceSummary = useMemo(
+    () =>
+      getEmployeeAbsenceSummary({
+        employee: { ...formData, id: employeeId },
+        holidays: absenceData.holidays,
+        sickLeave: absenceData.sickLeave,
+        bankHolidayDates: absenceData.bankHolidayDates,
+      }),
+    [absenceData, employeeId, formData]
+  );
+
+  const toggleChecklistItem = (field, rows, item) => {
+    if (item.completedBy === "System") return;
+    const changedBy = auth?.currentUser?.email || auth?.currentUser?.uid || "";
+    setFormData((prev) => ({
+      ...prev,
+      [field]: rows.map((row) =>
+        row.id === item.id
+          ? {
+              ...row,
+              completed: !row.completed,
+              completedAt: !row.completed ? new Date().toISOString() : "",
+              completedBy: !row.completed ? changedBy : "",
+            }
+          : row
+      ),
+    }));
+  };
+
   const effectiveRole = deriveRoleFromAccess(formData.appAccess || {});
   const routingPreview = getWorkspaceRoute(formData.defaultWorkspace || "user");
 
@@ -820,10 +1080,31 @@ export default function EditEmployeePage() {
       return;
     }
 
+    const individualRatePreview = createRateHistoryEntry({
+      previous: pickRates(baselinePayrollRates),
+      next: pickRates(formData.payrollRates),
+      effectiveDate: todayInput(),
+      reason: "preview",
+    });
+    const globalRatePreview = createRateHistoryEntry({
+      previous: baselineGlobalPayrollRates,
+      next: globalPayrollRates,
+      effectiveDate: todayInput(),
+      reason: "preview",
+    });
+    if ((individualRatePreview || globalRatePreview) && !rateChangeApprovalRef.current) {
+      setRateChangeDraft({ effectiveDate: todayInput(), reason: "" });
+      setRateChangeOpen(true);
+      return;
+    }
+    const approvedRateChange = rateChangeApprovalRef.current;
+    rateChangeApprovalRef.current = null;
+
     setSaving(true);
     setUploadProgress({});
     try {
       const docRef = doc(db, "employees", employeeId);
+      const personnelRef = doc(db, EMPLOYEE_PERSONNEL_COLLECTION, employeeId);
       const settingsRef = doc(db, "settings", "payrollRates");
       const normalizedAppAccess = {
         user: !!formData?.appAccess?.user,
@@ -851,12 +1132,27 @@ export default function EditEmployeePage() {
                 : Number(value),
         ])
       );
+      const updatedBy = auth?.currentUser?.email || auth?.currentUser?.uid || "";
+      const employeeRateHistoryEntry = approvedRateChange
+        ? createRateHistoryEntry({
+            previous: pickRates(baselinePayrollRates),
+            next: pickRates(normalizedPayrollRates),
+            effectiveDate: approvedRateChange.effectiveDate,
+            reason: approvedRateChange.reason,
+            changedBy: updatedBy,
+          })
+        : null;
+      const globalRateHistoryEntry = approvedRateChange
+        ? createRateHistoryEntry({
+            previous: baselineGlobalPayrollRates,
+            next: globalPayrollRates,
+            effectiveDate: approvedRateChange.effectiveDate,
+            reason: approvedRateChange.reason,
+            changedBy: updatedBy,
+          })
+        : null;
       const linkedUserId = String(formData.uid || formData.authUid || "").trim();
       const userRef = linkedUserId ? doc(db, "users", linkedUserId) : null;
-      const updatedBy =
-        auth?.currentUser?.email ||
-        auth?.currentUser?.uid ||
-        "";
       const employeeName = String(formData.name || formData.fullName || formData.employeeName || "").trim();
       const employeeEmail = cleanAccessEmail(formData.email);
       const employeeCode = String(formData.employeeCode || formData.userCode || formData.code || "").trim();
@@ -873,6 +1169,8 @@ export default function EditEmployeePage() {
         ...EMPTY_DRIVING_LICENCE,
         ...(formData.drivingLicence || {}),
         number: String(formData.licenceNumber || formData.drivingLicence?.number || "").trim(),
+        countryOfIssue: String(formData.drivingLicence?.countryOfIssue || "").trim(),
+        issueDate: formData.drivingLicence?.issueDate || "",
         categories: String(formData.drivingLicence?.categories || "").trim(),
         expiryDate: formData.drivingLicence?.expiryDate || "",
         checkCode: String(formData.drivingLicence?.checkCode || "").trim(),
@@ -927,6 +1225,10 @@ export default function EditEmployeePage() {
         nationalInsuranceNumber: String(formData.nationalInsuranceNumber || "").trim(),
         startDate: formData.startDate || "",
         employmentStatus: String(formData.employmentStatus || "").trim(),
+        employmentStatusEffectiveDate: formData.employmentStatusEffectiveDate || "",
+        employmentStatusReason: String(formData.employmentStatusReason || "").trim(),
+        expectedReturnDate: formData.expectedReturnDate || "",
+        endDate: formData.endDate || "",
         contractType: String(formData.contractType || "").trim(),
         payrollNumber: String(formData.payrollNumber || "").trim(),
         rightToWorkChecked: !!formData.rightToWorkChecked,
@@ -945,7 +1247,7 @@ export default function EditEmployeePage() {
         email: employeeEmail,
         mobile: formData.mobile || "",
         phoneNumber: formData.phoneNumber || formData.mobile || "",
-        companyId: formData.companyId || DEFAULT_COMPANY_ID,
+        companyId: formData.companyId || deployment.companyId,
         uid: linkedUserId,
         authUid: linkedUserId,
         active: formData.archived ? false : formData.active !== false,
@@ -960,9 +1262,10 @@ export default function EditEmployeePage() {
             uid: linkedUserId,
             employeeId,
             employee: accessEmployeeDraft,
+            defaultCompanyId: deployment.companyId,
           })
         : {
-            companyId: formData.companyId || DEFAULT_COMPANY_ID,
+            companyId: formData.companyId || deployment.companyId,
             email: employeeEmail,
             emails: [employeeEmail].filter(Boolean),
             isEnabled: formData.archived ? false : formData.active !== false && !formData.appDisabled,
@@ -977,43 +1280,56 @@ export default function EditEmployeePage() {
             employeeId,
             employee: accessEmployeeDraft,
             user: { role: effectiveRole },
+            defaultCompanyId: deployment.companyId,
           })
         : null;
 
-      await Promise.all([
-        setDoc(docRef, {
+      const nextEmployeeRateHistory = [
+        ...(formData.payrollRateHistory || []),
+        ...(employeeRateHistoryEntry ? [employeeRateHistoryEntry] : []),
+      ].slice(-100);
+      const nextGlobalRateHistory = [
+        ...globalPayrollRateHistory,
+        ...(globalRateHistoryEntry ? [globalRateHistoryEntry] : []),
+      ].slice(-100);
+      const privateRecord = {
+        ...pickPrivateEmployeeFields({
+          ...formData,
+          dob: formData.dob || "",
+          address: personnelFile.address,
+          postcode: personnelFile.postcode,
+          nationalInsuranceNumber: personnelFile.nationalInsuranceNumber,
+          payrollNumber: personnelFile.payrollNumber,
+          payrollRates: normalizedPayrollRates,
+          rightToWorkChecked: personnelFile.rightToWorkChecked,
+          rightToWorkExpiry: personnelFile.rightToWorkExpiry,
+          passport,
+          drivingLicence,
+          medical,
+          emergencyContacts,
+          personnelDocuments,
+          personnelFile,
+          onboardingChecklist,
+          offboardingChecklist,
+          payrollRateHistory: nextEmployeeRateHistory,
+        }),
+        employeeId,
+        companyId: formData.companyId || deployment.companyId,
+        schemaVersion: 1,
+        updatedAt: serverTimestamp(),
+        updatedBy,
+      };
+      const operationalRecord = withoutPrivateEmployeeFields({
         ...formData,
         ...employeeAccessPatch,
         name: employeeName,
         fullName: employeeName,
         employeeName,
         ...(employeeCode ? { employeeCode, userCode: employeeCode, code: employeeCode } : {}),
-        // keep dob as YYYY-MM-DD string (matches your other pages)
-        dob: formData.dob || "",
-        address: personnelFile.address,
-        postcode: personnelFile.postcode,
-        nationalInsuranceNumber: personnelFile.nationalInsuranceNumber,
         startDate: personnelFile.startDate,
         employmentStatus: personnelFile.employmentStatus,
+        employmentStatusEffectiveDate: personnelFile.employmentStatusEffectiveDate,
         contractType: personnelFile.contractType,
-        payrollNumber: personnelFile.payrollNumber,
-        rightToWorkChecked: personnelFile.rightToWorkChecked,
-        rightToWorkExpiry: personnelFile.rightToWorkExpiry,
-        passport,
-        passportNumber: passport.number,
-        passportCountry: passport.country,
-        passportExpiry: passport.expiryDate,
-        passportDocumentUrl: passport.documentUrl,
-        drivingLicence,
-        licenceNumber: drivingLicence.number,
-        drivingLicenceExpiry: drivingLicence.expiryDate,
-        drivingLicenceCategories: drivingLicence.categories,
-        drivingLicenceCheckCode: drivingLicence.checkCode,
-        drivingLicenceDocumentUrl: drivingLicence.documentUrl,
-        medical,
-        emergencyContacts,
-        personnelDocuments,
-        personnelFile,
         jobTitle: Array.isArray(formData.jobTitle) ? formData.jobTitle : [],
         role: effectiveRole,
         isService: !!normalizedAppAccess.service,
@@ -1023,36 +1339,65 @@ export default function EditEmployeePage() {
         appDisabled: !!formData.appDisabled,
         appAccess: normalizedAppAccess,
         defaultWorkspace: normalizedDefaultWorkspace,
-        payrollRates: normalizedPayrollRates,
         updatedAt: serverTimestamp(),
         updatedBy,
-      }, { merge: true }),
-        ...(userRef
-          ? [
-              setDoc(
-                userRef,
-                {
-                  ...userAccessPatch,
-                  active: formData.archived ? false : formData.active !== false,
-                  archived: !!formData.archived,
-                  isArchived: !!formData.archived,
-                  appDisabled: !!formData.appDisabled,
-                  updatedAt: serverTimestamp(),
-                  updatedBy,
-                },
-                { merge: true }
-              ),
-            ]
-          : []),
-        setDoc(settingsRef, {
+      });
+      const legacyPrivateDeletes = Object.fromEntries(
+        PRIVATE_EMPLOYEE_FIELDS.map((field) => [field, deleteField()])
+      );
+      const batch = writeBatch(db);
+      batch.set(personnelRef, privateRecord, { merge: true });
+      batch.set(docRef, { ...operationalRecord, ...legacyPrivateDeletes }, { merge: true });
+      if (userRef) {
+        batch.set(
+          userRef,
+          {
+            ...userAccessPatch,
+            active: formData.archived ? false : formData.active !== false,
+            archived: !!formData.archived,
+            isArchived: !!formData.archived,
+            appDisabled: !!formData.appDisabled,
+            updatedAt: serverTimestamp(),
+            updatedBy,
+          },
+          { merge: true }
+        );
+      }
+      batch.set(
+        settingsRef,
+        {
           travelRate: globalPayrollRates.travelRate === "" ? "" : Number(globalPayrollRates.travelRate),
           overnightRate: globalPayrollRates.overnightRate === "" ? "" : Number(globalPayrollRates.overnightRate),
           travelMealRate:
             globalPayrollRates.travelMealRate === "" ? "" : Number(globalPayrollRates.travelMealRate),
+          history: nextGlobalRateHistory,
           updatedAt: serverTimestamp(),
           updatedBy,
-        }, { merge: true }),
-      ]);
+        },
+        { merge: true }
+      );
+      await batch.commit();
+      setBaselinePayrollRates(normalizedPayrollRates);
+      setBaselineGlobalPayrollRates({ ...globalPayrollRates });
+      setGlobalPayrollRateHistory(nextGlobalRateHistory);
+      setFormData((current) => ({ ...current, payrollRateHistory: nextEmployeeRateHistory }));
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const idToken = await currentUser.getIdToken();
+          await fetch("/api/admin/activity-tracking/settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({
+              employeeId,
+              companyId: formData.companyId || deployment.companyId,
+              workSchedule: normalizeWorkSchedule(formData.workSchedule),
+            }),
+          });
+        }
+      } catch (auditError) {
+        console.warn("Employee work schedule audit could not be recorded:", auditError);
+      }
       clearBookingReferenceCache();
       setSaveMessage("Employee access and profile updated.");
       setPassportFile(null);
@@ -1090,6 +1435,143 @@ export default function EditEmployeePage() {
     return refs;
   };
 
+  const openLifecycleDialog = (action) => {
+    setLifecycleDraft({
+      effectiveDate: todayInput(),
+      expectedReturnDate: action === "pause" ? formData.expectedReturnDate || "" : "",
+      reason: "",
+    });
+    setSaveError("");
+    setLifecycleAction(action);
+  };
+
+  const handleLifecycleAction = async () => {
+    if (!employeeId || !lifecycleAction) return;
+    if (!isAdmin) {
+      setSaveError("Only admins can change employment status.");
+      return;
+    }
+
+    const effectiveDate = String(lifecycleDraft.effectiveDate || "").trim();
+    const reason = String(lifecycleDraft.reason || "").trim();
+    if (!effectiveDate || !reason) {
+      setSaveError("Add an effective date and reason for the employment change.");
+      return;
+    }
+
+    setLifecycleSaving(true);
+    setSaveMessage("");
+    setSaveError("");
+
+    try {
+      const changedBy = auth?.currentUser?.email || auth?.currentUser?.uid || "";
+      const isReactivating = lifecycleAction === "reactivate";
+      const nextStatus = lifecycleAction === "pause" ? "Paused" : lifecycleAction === "end" ? "Ended" : "Active";
+      const priorAccess =
+        formData.accessBeforeEmploymentChange && typeof formData.accessBeforeEmploymentChange === "object"
+          ? formData.accessBeforeEmploymentChange
+          : {
+              appAccess: { ...(formData.appAccess || { user: true, service: false }) },
+              defaultWorkspace: formData.defaultWorkspace || "user",
+              role: effectiveRole,
+              isService: !!formData.isService,
+            };
+      const restoredAppAccess = isReactivating
+        ? {
+            user: priorAccess?.appAccess?.user !== false,
+            service: priorAccess?.appAccess?.service === true,
+          }
+        : { user: false, service: false };
+      const restoredRole = isReactivating ? deriveRoleFromAccess(restoredAppAccess) : effectiveRole;
+      const historyEntry = {
+        id: `${Date.now()}-${lifecycleAction}`,
+        action: lifecycleAction,
+        status: nextStatus,
+        effectiveDate,
+        expectedReturnDate: lifecycleAction === "pause" ? lifecycleDraft.expectedReturnDate || "" : "",
+        reason,
+        changedAt: new Date().toISOString(),
+        changedBy,
+      };
+      const employmentHistory = [...(formData.employmentHistory || []), historyEntry].slice(-100);
+      const lifecyclePatch = {
+        employmentStatus: nextStatus,
+        employmentStatusEffectiveDate: effectiveDate,
+        employmentStatusReason: reason,
+        expectedReturnDate: lifecycleAction === "pause" ? lifecycleDraft.expectedReturnDate || "" : "",
+        endDate: lifecycleAction === "end" ? effectiveDate : "",
+        employmentEndDate: lifecycleAction === "end" ? effectiveDate : "",
+        employmentHistory,
+        active: isReactivating,
+        archived: false,
+        isArchived: false,
+        appDisabled: !isReactivating,
+        appAccess: restoredAppAccess,
+        defaultWorkspace: isReactivating ? priorAccess.defaultWorkspace || "user" : formData.defaultWorkspace || "user",
+        role: restoredRole,
+        isService: isReactivating ? !!restoredAppAccess.service : !!formData.isService,
+        accessBeforeEmploymentChange: isReactivating ? null : priorAccess,
+        updatedAt: serverTimestamp(),
+        updatedBy: changedBy,
+      };
+      const userRefs = await findLinkedUserRefs();
+      const operationalLifecyclePatch = withoutPrivateEmployeeFields(lifecyclePatch);
+      const privateLifecyclePatch = {
+        ...pickPrivateEmployeeFields(lifecyclePatch),
+        employeeId,
+        companyId: formData.companyId || deployment.companyId,
+        offboardingChecklist: deriveOffboardingChecklist({ ...formData, ...lifecyclePatch }),
+        updatedAt: serverTimestamp(),
+        updatedBy: changedBy,
+      };
+      const batch = writeBatch(db);
+      batch.set(doc(db, "employees", employeeId), operationalLifecyclePatch, { merge: true });
+      batch.set(doc(db, EMPLOYEE_PERSONNEL_COLLECTION, employeeId), privateLifecyclePatch, { merge: true });
+      userRefs.forEach((ref) => {
+        batch.set(
+          ref,
+          {
+            employeeId,
+            employmentStatus: nextStatus,
+            employmentStatusEffectiveDate: effectiveDate,
+            active: isReactivating,
+            archived: false,
+            isArchived: false,
+            disabled: !isReactivating,
+            appDisabled: !isReactivating,
+            isEnabled: isReactivating,
+            appAccess: restoredAppAccess,
+            defaultWorkspace: lifecyclePatch.defaultWorkspace,
+            role: restoredRole,
+            isService: lifecyclePatch.isService,
+            updatedAt: serverTimestamp(),
+            updatedBy: changedBy,
+          },
+          { merge: true }
+        );
+      });
+      await batch.commit();
+
+      const lifecycleStatePatch = { ...lifecyclePatch };
+      delete lifecycleStatePatch.updatedAt;
+      setFormData((prev) => ({ ...prev, ...lifecycleStatePatch, updatedBy: changedBy }));
+      clearBookingReferenceCache();
+      setLifecycleAction("");
+      setSaveMessage(
+        lifecycleAction === "pause"
+          ? "Employment paused and software access disabled."
+          : lifecycleAction === "end"
+            ? "Employment ended. The personnel file and historic records have been retained."
+            : "Employee reactivated and previous software access restored."
+      );
+    } catch (err) {
+      console.error("Error changing employment status:", err);
+      setSaveError("Failed to change employment status.");
+    } finally {
+      setLifecycleSaving(false);
+    }
+  };
+
   const handleArchiveEmployee = async () => {
     if (!employeeId) return;
 
@@ -1098,7 +1580,7 @@ export default function EditEmployeePage() {
       return;
     }
 
-    const confirmArchive = confirm(
+    const confirmArchive = await systemDialogs.confirmSystem(
       "Archive this employee from the whole system? They will be hidden from active use and app access will be switched off, but historic bookings and timesheets will be kept."
     );
     if (!confirmArchive) return;
@@ -1171,76 +1653,248 @@ export default function EditEmployeePage() {
       return;
     }
 
-    const confirmDelete = confirm("Are you sure you want to delete this employee?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this employee?");
     if (!confirmDelete) return;
 
     setDeleting(true);
     try {
-      await deleteDoc(doc(db, "employees", employeeId));
-      alert(" Employee deleted");
+      const userRefs = await findLinkedUserRefs();
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "employees", employeeId));
+      batch.delete(doc(db, EMPLOYEE_PERSONNEL_COLLECTION, employeeId));
+      userRefs.forEach((ref) => {
+        batch.set(
+          ref,
+          {
+            active: false,
+            disabled: true,
+            appDisabled: true,
+            isEnabled: false,
+            appAccess: { user: false, service: false },
+            employeeDeletedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      });
+      await batch.commit();
+      systemDialogs.showSystemNotification(" Employee deleted");
       router.push("/employees");
     } catch (err) {
       console.error("Error deleting employee:", err);
-      alert(" Failed to delete employee");
+      systemDialogs.showSystemNotification(" Failed to delete employee");
     } finally {
       setDeleting(false);
     }
   };
 
+  const personnelReadiness = [
+    {
+      key: "passport",
+      label: "Passport",
+      href: "#passport",
+      complete: [formData.passport?.number, formData.passport?.documentUrl].some(hasMeaningfulValue),
+    },
+    {
+      key: "licence",
+      label: "Driving licence",
+      href: "#licence",
+      complete: [formData.licenceNumber, formData.drivingLicence?.documentUrl].some(hasMeaningfulValue),
+    },
+    {
+      key: "emergency",
+      label: "Emergency contact",
+      href: "#emergency",
+      complete: (formData.emergencyContacts || []).some((contact) =>
+        [contact?.name, contact?.phone, contact?.email].some(hasMeaningfulValue)
+      ),
+    },
+    {
+      key: "documents",
+      label: "HR documents",
+      href: "#documents",
+      complete: (formData.personnelDocuments || []).some((documentRow) =>
+        [documentRow?.type, documentRow?.title, documentRow?.reference, documentRow?.documentUrl].some(hasMeaningfulValue)
+      ),
+    },
+  ];
+  const completedPersonnelSections = personnelReadiness.filter((item) => item.complete).length;
+  const employmentInactive = isEmploymentInactive(formData.employmentStatus) || formData.active === false;
+  const employmentEnded = ["ended", "leaver"].includes(String(formData.employmentStatus || "").trim().toLowerCase());
+  const lifecycleDialogCopy = {
+    pause: {
+      eyebrow: "Pause employment",
+      title: `Pause ${formData.name || "employee"}`,
+      description: "Removes the employee from active work and disables software access while retaining their personnel file.",
+      confirm: "Pause employment",
+    },
+    end: {
+      eyebrow: "End employment",
+      title: `End ${formData.name || "employee"}'s employment`,
+      description: "Records them as a former employee and removes access without deleting historic bookings, timesheets or HR records.",
+      confirm: "End employment",
+    },
+    reactivate: {
+      eyebrow: "Return to employment",
+      title: `Reactivate ${formData.name || "employee"}`,
+      description: "Returns the employee to active work and restores the workspace access they had previously.",
+      confirm: "Reactivate employee",
+    },
+  }[lifecycleAction];
+
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
+      <PeopleFleetPage className={layoutStyles.page}>
         <div className={layoutStyles.extracted1}>
-        {/* Header */}
-        <div className={layoutStyles.extracted2}>
-          <div>
-            <h1 style={h1}>Employee Personnel File</h1>
-            <div style={sub}>
-              Employee record ID: <b className={layoutStyles.extracted3}>{employeeId || "—"}</b>
-            </div>
-          </div>
+        <PeopleFleetPageHeader
+          title={loading ? "Employee personnel file" : formData.name || "Employee personnel file"}
+          subtitle={
+            <span className={layoutStyles.recordMeta}>
+              Personnel file <span aria-hidden="true">·</span> Record <code>{employeeId || "—"}</code>
+            </span>
+          }
+          actions={
+            <PeopleFleetHeaderActions>
+              <Button variant="secondary" onClick={handleCancel}>
+                <ArrowLeft size={16} /> Employees
+              </Button>
+              <details className={layoutStyles.moreActions}>
+                <summary><span>More</span><ChevronDown size={15} /></summary>
+                <div>
+                  {employmentInactive && !formData.archived ? (
+                    <button type="button" data-tone="success" onClick={() => openLifecycleDialog("reactivate")}>
+                      <PlayCircle size={15} /> Reactivate employment
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" data-tone="warning" onClick={() => openLifecycleDialog("pause")} disabled={loading}>
+                        <PauseCircle size={15} /> Pause employment
+                      </button>
+                      <button type="button" data-tone="danger" onClick={() => openLifecycleDialog("end")} disabled={loading}>
+                        <UserMinus size={15} /> End employment
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    data-tone="danger"
+                    onClick={handleArchiveEmployee}
+                    disabled={archiving || loading || formData.archived}
+                  >
+                    <Archive size={15} />
+                    {formData.archived ? "Employee archived" : archiving ? "Archiving…" : "Archive employee"}
+                  </button>
+                  <button type="button" data-tone="danger" onClick={handleDelete} disabled={deleting || loading}>
+                    <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete record permanently"}
+                  </button>
+                </div>
+              </details>
+              <Button type="submit" form="edit-employee-form" loading={saving} disabled={loading}>
+                <Save size={16} /> Save changes
+              </Button>
+            </PeopleFleetHeaderActions>
+          }
+        />
 
-          <div className={layoutStyles.extracted4}>
-            <button type="button" onClick={handleCancel} style={btn("ghost")}>
-              ← Back
-            </button>
-            <button
-              type="button"
-              onClick={handleArchiveEmployee}
-              style={btn("danger")}
-              disabled={archiving || loading || formData.archived}
-              title="Hide employee from active system use and switch off app access"
-            >
-              {formData.archived ? "Archived" : archiving ? "Archiving..." : "Archive Employee"}
-            </button>
-            <button type="button" onClick={handleDelete} style={btn("danger")} disabled={deleting || loading}>
-              {deleting ? "Deleting..." : "Delete"}
-            </button>
-            <button type="submit" form="edit-employee-form" style={btn()} disabled={saving || loading}>
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </div>
+        {saveError ? <Alert variant="danger" className={layoutStyles.pageAlert}>{saveError}</Alert> : null}
+        {saveMessage ? <Alert variant="success" className={layoutStyles.pageAlert}><CheckCircle2 size={17} /> {saveMessage}</Alert> : null}
+
+        {employmentInactive && !loading && !formData.archived ? (
+          <Alert variant="warning" className={layoutStyles.lifecycleAlert}>
+            <Clock3 size={18} />
+            <div>
+              <strong>Employment {String(formData.employmentStatus || "inactive").toLowerCase()}</strong>
+              <span>
+                Effective {formData.employmentStatusEffectiveDate || formData.endDate || "date not recorded"}
+                {formData.employmentStatusReason ? ` · ${formData.employmentStatusReason}` : ""}
+              </span>
+            </div>
+            {isAdmin ? <Button size="sm" variant="secondary" onClick={() => openLifecycleDialog("reactivate")}>Reactivate</Button> : null}
+          </Alert>
+        ) : null}
+
+        <nav className={layoutStyles.sectionNav} aria-label="Employee file sections">
+          <a href="#overview">Overview</a>
+          <a href="#profile">Profile</a>
+          <a href="#employment">Employment</a>
+          <a href="#checklist">Checklist</a>
+          <a href="#compliance">Compliance</a>
+          <a href="#passport">Right to work</a>
+          <a href="#licence">Licence</a>
+          <a href="#emergency">Emergency</a>
+          <a href="#documents">Documents</a>
+          <a href="#access">Access & pay</a>
+        </nav>
 
         {/* Content */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1.35fr) minmax(300px, 0.65fr)",
-            gap: UI.gap,
-            alignItems: "start",
-          }}
-        >
+        <div className={layoutStyles.contentGrid}>
           {/* LEFT: Form */}
-          <div style={{ ...surface, padding: 12 }}>
+          <div className={layoutStyles.formPanel}>
             {loading ? (
               <div style={{ padding: 14, color: UI.muted, fontWeight: 800 }}>Loading employee…</div>
+            ) : !authAccess.isAdmin ? (
+              <Alert variant="danger">Only administrators can open private employee personnel files.</Alert>
             ) : (
               <form
                 id="edit-employee-form"
                 onSubmit={handleSubmit}
-                className={layoutStyles.extracted5}
+                className={`${layoutStyles.extracted5} ${layoutStyles.employeeForm}`}
               >
+                <section id="overview" className={layoutStyles.formSection}>
+                  <div className={layoutStyles.sectionHeading}>
+                    <span><ShieldCheck size={18} /></span>
+                    <div>
+                      <h2>Personnel overview</h2>
+                      <p>Employment, onboarding, compliance and absence information in one place.</p>
+                    </div>
+                  </div>
+                  <div className={layoutStyles.overviewGrid}>
+                    <a href="#employment" className={layoutStyles.overviewCard}>
+                      <span>Employment</span>
+                      <strong>{formData.employmentStatus || "Active"}</strong>
+                      <small>{formData.startDate ? `Started ${formData.startDate}` : "Start date missing"}</small>
+                    </a>
+                    <a href="#checklist" className={layoutStyles.overviewCard}>
+                      <span>Onboarding</span>
+                      <strong>{onboardingProgress.complete}/{onboardingProgress.total}</strong>
+                      <small>{onboardingProgress.percentage}% complete</small>
+                    </a>
+                    <a href="#compliance" className={layoutStyles.overviewCard} data-tone={complianceSummary.tone}>
+                      <span>Compliance</span>
+                      <strong>{complianceSummary.dueWithin90Days}</strong>
+                      <small>{complianceSummary.dueWithin90Days ? "items due within 90 days" : "No upcoming expiries"}</small>
+                    </a>
+                    <a href="#absence" className={layoutStyles.overviewCard}>
+                      <span>Absence this year</span>
+                      <strong>{absenceSummary.approvedPaidDays} days</strong>
+                      <small>{absenceSummary.sickDays} sick · {absenceSummary.pendingRequests} pending</small>
+                    </a>
+                  </div>
+                  {complianceSummary.dueItems.length ? (
+                    <Alert variant={complianceSummary.tone}>
+                      <AlertTriangle size={17} /> {complianceSummary.dueItems.length} compliance item{complianceSummary.dueItems.length === 1 ? " needs" : "s need"} attention within 90 days.
+                    </Alert>
+                  ) : null}
+                  <div id="absence" className={layoutStyles.absenceSummary}>
+                    <div><span>Holiday allowance</span><strong>{absenceSummary.allowance || "—"}</strong></div>
+                    <div><span>Paid used</span><strong>{absenceSummary.approvedPaidDays}</strong></div>
+                    <div><span>Paid remaining</span><strong>{absenceSummary.allowance ? absenceSummary.remainingPaidDays : "—"}</strong></div>
+                    <div><span>Sick days</span><strong>{absenceSummary.sickDays}</strong></div>
+                    <div><span>Next leave</span><strong>{absenceSummary.nextLeaveDate || "None"}</strong></div>
+                    <div className={layoutStyles.absenceLinks}>
+                      <Button as="a" href={`/holiday-usage?employeeId=${employeeId}`} variant="secondary" size="sm"><CalendarClock size={15} /> Holiday details</Button>
+                      <Button as="a" href={`/sick-leave?employeeId=${employeeId}`} variant="secondary" size="sm">Sick leave</Button>
+                    </div>
+                  </div>
+                </section>
+
+                <section id="profile" className={layoutStyles.formSection}>
+                  <div className={layoutStyles.sectionHeading}>
+                    <span><UserRound size={18} /></span>
+                    <div>
+                      <h2>Profile & contact</h2>
+                      <p>The details used throughout bookings, timesheets and staff records.</p>
+                    </div>
+                  </div>
                 <div className={layoutStyles.extracted6}>
                   <div>
                     <label style={labelStyle}>Full Name</label>
@@ -1317,8 +1971,9 @@ export default function EditEmployeePage() {
                     />
                   </div>
                 </div>
+                </section>
 
-                <div style={personnelSection}>
+                <section id="employment" className={layoutStyles.formSection}>
                   <div>
                     <div style={personnelHeader}>Personnel File</div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
@@ -1360,12 +2015,21 @@ export default function EditEmployeePage() {
 
                     <div>
                       <label style={labelStyle}>Employment status</label>
-                      <select name="employmentStatus" value={formData.employmentStatus} onChange={handleChange} style={inputBase}>
+                      <select
+                        name="employmentStatus"
+                        value={formData.employmentStatus}
+                        onChange={handleChange}
+                        style={inputBase}
+                        disabled={employmentInactive}
+                      >
                         <option value="Active">Active</option>
                         <option value="Probation">Probation</option>
                         <option value="On leave">On leave</option>
-                        <option value="Leaver">Leaver</option>
+                        {isEmploymentInactive(formData.employmentStatus) ? (
+                          <option value={formData.employmentStatus}>{formData.employmentStatus} — managed below</option>
+                        ) : null}
                       </select>
+                      {employmentInactive ? <div style={helperStyle}>Use Reactivate employee below to return this person to active employment.</div> : null}
                     </div>
 
                     <div>
@@ -1380,13 +2044,139 @@ export default function EditEmployeePage() {
                       </select>
                     </div>
                   </div>
-                </div>
 
-                <div style={personnelSection}>
+                  <div className={layoutStyles.lifecyclePanel} data-status={String(formData.employmentStatus || "active").toLowerCase()}>
+                    <div className={layoutStyles.lifecycleHeader}>
+                      <span className={layoutStyles.lifecycleIcon}><History size={18} /></span>
+                      <div>
+                        <span>Employment lifecycle</span>
+                        <strong>{formData.employmentStatus || "Active"}</strong>
+                        <small>
+                          {formData.employmentStatusEffectiveDate
+                            ? `Effective ${formData.employmentStatusEffectiveDate}`
+                            : "No status change recorded"}
+                          {formData.expectedReturnDate ? ` · Expected back ${formData.expectedReturnDate}` : ""}
+                        </small>
+                      </div>
+                      <Badge variant={employmentBadgeVariant(formData.employmentStatus, formData.archived)}>
+                        {formData.archived ? "Archived" : formData.employmentStatus || "Active"}
+                      </Badge>
+                    </div>
+
+                    {formData.employmentStatusReason ? (
+                      <p className={layoutStyles.lifecycleReason}>{formData.employmentStatusReason}</p>
+                    ) : null}
+
+                    {isAdmin && !formData.archived ? (
+                      <div className={layoutStyles.lifecycleActions}>
+                        {employmentInactive ? (
+                          <Button type="button" size="sm" onClick={() => openLifecycleDialog("reactivate")}>
+                            <PlayCircle size={15} /> Reactivate employee
+                          </Button>
+                        ) : (
+                          <>
+                            <Button type="button" size="sm" variant="secondary" onClick={() => openLifecycleDialog("pause")}>
+                              <PauseCircle size={15} /> Pause employment
+                            </Button>
+                            <Button type="button" size="sm" variant="danger" onClick={() => openLifecycleDialog("end")}>
+                              <UserMinus size={15} /> End employment
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {(formData.employmentHistory || []).length ? (
+                      <details className={layoutStyles.lifecycleHistory}>
+                        <summary>View employment history ({formData.employmentHistory.length})</summary>
+                        <ol>
+                          {[...(formData.employmentHistory || [])].reverse().slice(0, 8).map((entry, index) => (
+                            <li key={entry.id || `${entry.changedAt}-${index}`}>
+                              <span><strong>{entry.status || entry.action}</strong><small>{entry.effectiveDate || "No date"}</small></span>
+                              <p>{entry.reason || "No reason recorded"}</p>
+                              <small>{entry.changedBy ? `Changed by ${entry.changedBy}` : ""}</small>
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section id="checklist" className={layoutStyles.formSection}>
+                  <div className={layoutStyles.sectionHeading}>
+                    <span><ListChecks size={18} /></span>
+                    <div>
+                      <h2>{employmentEnded ? "Offboarding checklist" : "Onboarding checklist"}</h2>
+                      <p>Evidence-backed tasks complete automatically; administrative confirmations remain manual and audited.</p>
+                    </div>
+                  </div>
+                  <div className={layoutStyles.checklistProgress}>
+                    <div>
+                      <span>{employmentEnded ? "Offboarding" : "Onboarding"}</span>
+                      <strong>
+                        {employmentEnded ? offboardingProgress.complete : onboardingProgress.complete}/
+                        {employmentEnded ? offboardingProgress.total : onboardingProgress.total} complete
+                      </strong>
+                    </div>
+                    <span className={layoutStyles.progressTrack}>
+                      <span style={{ width: `${employmentEnded ? offboardingProgress.percentage : onboardingProgress.percentage}%` }} />
+                    </span>
+                  </div>
+                  <div className={layoutStyles.checklistList}>
+                    {(employmentEnded ? offboardingChecklist : onboardingChecklist).map((item) => (
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={item.completed}
+                        key={item.id}
+                        disabled={item.completedBy === "System"}
+                        onClick={() =>
+                          toggleChecklistItem(
+                            employmentEnded ? "offboardingChecklist" : "onboardingChecklist",
+                            employmentEnded ? offboardingChecklist : onboardingChecklist,
+                            item
+                          )
+                        }
+                      >
+                        <span>{item.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}</span>
+                        <span><strong>{item.label}</strong><small>{item.completedBy === "System" ? "Completed from personnel evidence" : item.completed ? `Completed by ${item.completedBy || "administrator"}` : "Mark complete"}</small></span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section id="compliance" className={layoutStyles.formSection}>
+                  <div className={layoutStyles.sectionHeading}>
+                    <span><ShieldCheck size={18} /></span>
+                    <div>
+                      <h2>Personnel compliance</h2>
+                      <p>Expiry dates are evaluated automatically using the 90, 60 and 30-day warning policy.</p>
+                    </div>
+                  </div>
+                  <div className={layoutStyles.complianceList}>
+                    {complianceSummary.items.map((item) => (
+                      <a key={item.key} href={item.href} data-tone={item.tone}>
+                        <span><strong>{item.label}</strong><small>{item.expiryDate || "Expiry date not recorded"}</small></span>
+                        <Badge variant={item.tone}>
+                          {item.state === "overdue"
+                            ? `${Math.abs(item.daysRemaining)} days overdue`
+                            : item.daysRemaining == null
+                              ? "Missing date"
+                              : item.state === "current"
+                                ? "Current"
+                                : `${item.daysRemaining} days left`}
+                        </Badge>
+                      </a>
+                    ))}
+                  </div>
+                </section>
+
+                <section id="passport" className={layoutStyles.formSection}>
                   <div>
                     <div style={personnelHeader}>Passport & Right To Work</div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
-                      Store passport details, right-to-work checks and links to scanned documents.
+                      Images and PDFs are read by the configured AI document service. Check every extracted value before saving.
                     </div>
                   </div>
 
@@ -1420,19 +2210,22 @@ export default function EditEmployeePage() {
                     </div>
 
                     <div>
-                      <label style={labelStyle}>Document link</label>
-                      <input
-                        type="text"
-                        value={formData.passport?.documentUrl || ""}
-                        onChange={(e) => handleNestedChange("passport", "documentUrl", e.target.value)}
-                        style={inputBase}
-                        placeholder="https://..."
+                      <label style={labelStyle}>Passport document</label>
+                      <PersonnelDocumentViewer
+                        url={formData.passport?.documentUrl || ""}
+                        title={`${formData.name || "Employee"} passport`}
+                        type="Passport"
                       />
-                      {formData.passport?.documentUrl ? (
-                        <a href={formData.passport.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
-                          Open
-                        </a>
-                      ) : null}
+                      <details className={layoutStyles.advancedLink}>
+                        <summary>Edit document URL</summary>
+                        <input
+                          type="url"
+                          value={formData.passport?.documentUrl || ""}
+                          onChange={(e) => handleNestedChange("passport", "documentUrl", e.target.value)}
+                          style={inputBase}
+                          placeholder="https://..."
+                        />
+                      </details>
                     </div>
 
                     <div>
@@ -1440,14 +2233,30 @@ export default function EditEmployeePage() {
                       <input
                         type="file"
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.webp"
-                        onChange={(e) => setPassportFile(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setPassportFile(file);
+                          if (file) extractPersonnelDocument(file, "passport");
+                        }}
                         style={inputBase}
                       />
                       <div style={helperStyle}>
                         {passportFile
-                          ? `${passportFile.name} selected${uploadProgress.passport != null ? ` - ${uploadProgress.passport}%` : ""}`
-                          : "Choose a file, then press Save Changes to upload."}
+                          ? `${passportFile.name} selected${uploadProgress.passport != null ? ` - ${uploadProgress.passport}% uploaded` : ""}`
+                          : "Choose an image or PDF to read its details, then save to upload it."}
                       </div>
+                      {documentExtraction.passport.message ? (
+                        <div
+                          role="status"
+                          style={{
+                            ...helperStyle,
+                            marginTop: 5,
+                            color: documentExtraction.passport.status === "error" ? "var(--color-danger)" : UI.text,
+                          }}
+                        >
+                          {documentExtraction.passport.message}
+                        </div>
+                      ) : null}
                     </div>
 
                     <label className={layoutStyles.extracted10}>
@@ -1480,13 +2289,13 @@ export default function EditEmployeePage() {
                       />
                     </div>
                   </div>
-                </div>
+                </section>
 
-                <div style={personnelSection}>
+                <section id="licence" className={layoutStyles.formSection}>
                   <div>
                     <div style={personnelHeader}>Driving Licence</div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
-                      Licence number is also saved as <span className={layoutStyles.extracted12}>licenceNumber</span> for existing booking screens.
+                      Images and PDFs are read for visible details. Licence number is also saved as <span className={layoutStyles.extracted12}>licenceNumber</span> for existing booking screens.
                     </div>
                   </div>
 
@@ -1511,6 +2320,26 @@ export default function EditEmployeePage() {
                         type="date"
                         value={formData.drivingLicence?.expiryDate || ""}
                         onChange={(e) => handleNestedChange("drivingLicence", "expiryDate", e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Country of issue</label>
+                      <input
+                        value={formData.drivingLicence?.countryOfIssue || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "countryOfIssue", e.target.value)}
+                        style={inputBase}
+                        placeholder="United Kingdom"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Issue date</label>
+                      <input
+                        type="date"
+                        value={formData.drivingLicence?.issueDate || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "issueDate", e.target.value)}
                         style={inputBase}
                       />
                     </div>
@@ -1541,22 +2370,26 @@ export default function EditEmployeePage() {
                         onChange={(e) => handleNestedChange("drivingLicence", "points", e.target.value)}
                         style={inputBase}
                       />
+                      <div style={helperStyle}>UK photocard licences do not normally print current penalty points; enter them manually if they are not visible.</div>
                     </div>
 
                     <div>
-                      <label style={labelStyle}>Document link</label>
-                      <input
-                        type="text"
-                        value={formData.drivingLicence?.documentUrl || ""}
-                        onChange={(e) => handleNestedChange("drivingLicence", "documentUrl", e.target.value)}
-                        style={inputBase}
-                        placeholder="https://..."
+                      <label style={labelStyle}>Licence document</label>
+                      <PersonnelDocumentViewer
+                        url={formData.drivingLicence?.documentUrl || ""}
+                        title={`${formData.name || "Employee"} driving licence`}
+                        type="Driving licence"
                       />
-                      {formData.drivingLicence?.documentUrl ? (
-                        <a href={formData.drivingLicence.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
-                          Open
-                        </a>
-                      ) : null}
+                      <details className={layoutStyles.advancedLink}>
+                        <summary>Edit document URL</summary>
+                        <input
+                          type="url"
+                          value={formData.drivingLicence?.documentUrl || ""}
+                          onChange={(e) => handleNestedChange("drivingLicence", "documentUrl", e.target.value)}
+                          style={inputBase}
+                          placeholder="https://..."
+                        />
+                      </details>
                     </div>
 
                     <div className={layoutStyles.extracted14}>
@@ -1564,14 +2397,30 @@ export default function EditEmployeePage() {
                       <input
                         type="file"
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.webp"
-                        onChange={(e) => setDrivingLicenceFile(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setDrivingLicenceFile(file);
+                          if (file) extractPersonnelDocument(file, "drivingLicence");
+                        }}
                         style={inputBase}
                       />
                       <div style={helperStyle}>
                         {drivingLicenceFile
-                          ? `${drivingLicenceFile.name} selected${uploadProgress.drivingLicence != null ? ` - ${uploadProgress.drivingLicence}%` : ""}`
-                          : "Choose a file, then press Save Changes to upload."}
+                          ? `${drivingLicenceFile.name} selected${uploadProgress.drivingLicence != null ? ` - ${uploadProgress.drivingLicence}% uploaded` : ""}`
+                          : "Choose an image or PDF to read its details, then save to upload it."}
                       </div>
+                      {documentExtraction.drivingLicence.message ? (
+                        <div
+                          role="status"
+                          style={{
+                            ...helperStyle,
+                            marginTop: 5,
+                            color: documentExtraction.drivingLicence.status === "error" ? "var(--color-danger)" : UI.text,
+                          }}
+                        >
+                          {documentExtraction.drivingLicence.message}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className={layoutStyles.extracted15}>
@@ -1583,9 +2432,9 @@ export default function EditEmployeePage() {
                       />
                     </div>
                   </div>
-                </div>
+                </section>
 
-                <div style={personnelSection}>
+                <section id="emergency" className={layoutStyles.formSection}>
                   <div className={layoutStyles.extracted16}>
                     <div>
                       <div style={personnelHeader}>Emergency Contacts</div>
@@ -1632,9 +2481,9 @@ export default function EditEmployeePage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </section>
 
-                <div style={personnelSection}>
+                <section id="medical" className={layoutStyles.formSection}>
                   <div>
                     <div style={personnelHeader}>Medical Notes</div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>Keep only work-relevant notes needed for safety and emergency response.</div>
@@ -1657,9 +2506,9 @@ export default function EditEmployeePage() {
                       <textarea value={formData.medical?.notes || ""} onChange={(e) => handleNestedChange("medical", "notes", e.target.value)} style={textareaBase} />
                     </div>
                   </div>
-                </div>
+                </section>
 
-                <div style={personnelSection}>
+                <section id="documents" className={layoutStyles.formSection}>
                   <div className={layoutStyles.extracted21}>
                     <div>
                       <div style={personnelHeader}>Other Documents</div>
@@ -1674,15 +2523,38 @@ export default function EditEmployeePage() {
                     <div style={helperStyle}>No additional documents added yet.</div>
                   ) : null}
 
+                  <div className={layoutStyles.documentList}>
                   {(formData.personnelDocuments || []).map((documentRow, index) => (
-                    <div key={index} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, display: "grid", gap: 10 }}>
-                      <div className={layoutStyles.extracted22}>
-                        <div style={{ fontWeight: 850, color: UI.text }}>Document {index + 1}</div>
-                        <button type="button" style={btn("danger")} onClick={() => removePersonnelDocument(index)}>
-                          Remove
-                        </button>
-                      </div>
-                      <div className={layoutStyles.extracted23}>
+                    <details
+                      key={index}
+                      className={layoutStyles.documentDisclosure}
+                      open={!!expandedDocuments[index]}
+                      onToggle={(event) => {
+                        const isOpen = event.currentTarget.open;
+                        setExpandedDocuments((prev) =>
+                          prev[index] === isOpen ? prev : { ...prev, [index]: isOpen }
+                        );
+                      }}
+                    >
+                      <summary className={layoutStyles.documentSummary}>
+                        <span className={layoutStyles.documentNumber}>{index + 1}</span>
+                        <span className={layoutStyles.documentIdentity}>
+                          <strong>{documentRow.title || `Untitled document ${index + 1}`}</strong>
+                          <span>{[documentRow.type, documentRow.reference].filter(Boolean).join(" · ") || "No type or reference"}</span>
+                        </span>
+                        {documentRow.expiryDate ? (
+                          <span className={layoutStyles.documentExpiry}>Review {documentRow.expiryDate}</span>
+                        ) : null}
+                        <ChevronDown size={17} aria-hidden="true" />
+                      </summary>
+                      <div className={layoutStyles.documentEditor}>
+                        <div className={layoutStyles.documentEditorActions}>
+                          <span>Edit document details</span>
+                          <button type="button" style={btn("danger")} onClick={() => removePersonnelDocument(index)}>
+                            Remove
+                          </button>
+                        </div>
+                        <div className={layoutStyles.extracted23}>
                         <div>
                           <label style={labelStyle}>Type</label>
                           <input value={documentRow.type || ""} onChange={(e) => updatePersonnelDocument(index, "type", e.target.value)} style={inputBase} placeholder="Contract, training, permit..." />
@@ -1700,13 +2572,23 @@ export default function EditEmployeePage() {
                           <input type="date" value={documentRow.expiryDate || ""} onChange={(e) => updatePersonnelDocument(index, "expiryDate", e.target.value)} style={inputBase} />
                         </div>
                         <div className={layoutStyles.extracted24}>
-                          <label style={labelStyle}>Document link</label>
-                          <input type="text" value={documentRow.documentUrl || ""} onChange={(e) => updatePersonnelDocument(index, "documentUrl", e.target.value)} style={inputBase} placeholder="https://..." />
-                          {documentRow.documentUrl ? (
-                            <a href={documentRow.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
-                              Open
-                            </a>
-                          ) : null}
+                          <label style={labelStyle}>Saved document</label>
+                          <PersonnelDocumentViewer
+                            url={documentRow.documentUrl || ""}
+                            title={documentRow.title || `Document ${index + 1}`}
+                            type={documentRow.type || "Personnel document"}
+                            compact
+                          />
+                          <details className={layoutStyles.advancedLink}>
+                            <summary>Edit document URL</summary>
+                            <input
+                              type="url"
+                              value={documentRow.documentUrl || ""}
+                              onChange={(e) => updatePersonnelDocument(index, "documentUrl", e.target.value)}
+                              style={inputBase}
+                              placeholder="https://..."
+                            />
+                          </details>
                         </div>
                         <div className={layoutStyles.extracted25}>
                           <label style={labelStyle}>Upload file</label>
@@ -1735,12 +2617,14 @@ export default function EditEmployeePage() {
                           <label style={labelStyle}>Notes</label>
                           <textarea value={documentRow.notes || ""} onChange={(e) => updatePersonnelDocument(index, "notes", e.target.value)} style={textareaBase} />
                         </div>
+                        </div>
                       </div>
-                    </div>
+                    </details>
                   ))}
-                </div>
+                  </div>
+                </section>
 
-                <div style={{ borderTop: UI.border, paddingTop: 12 }}>
+                <section id="roles" className={layoutStyles.formSection}>
                   <div style={{ fontWeight: 800, color: UI.text, marginBottom: 5, fontSize: 15 }}>
                     Job Title(s)
                   </div>
@@ -1759,9 +2643,9 @@ export default function EditEmployeePage() {
                       </Pill>
                     ))}
                   </div>
-                </div>
+                </section>
 
-                <div style={{ borderTop: UI.border, paddingTop: 12, display: "grid", gap: 10 }}>
+                <section id="access" className={layoutStyles.formSection}>
                   <div>
                     <div style={{ fontWeight: 800, color: UI.text, marginBottom: 5, fontSize: 15 }}>
                       Access & Role
@@ -1843,10 +2727,21 @@ export default function EditEmployeePage() {
                       Routing target: <span className={layoutStyles.extracted30}>{routingPreview}</span>
                     </div>
                   </div>
-                </div>
+                </section>
 
                 {isAdmin ? (
-                  <div style={{ borderTop: UI.border, paddingTop: 12, display: "grid", gap: 10 }}>
+                  <section id="payroll" className={layoutStyles.formSection}>
+                    <div>
+                      <div style={{ fontWeight: 800, color: UI.text, marginBottom: 5, fontSize: 15 }}>
+                        Working Schedule
+                      </div>
+                      <WorkScheduleEditor
+                        value={formData.workSchedule}
+                        onChange={(workSchedule) => setFormData((previous) => ({ ...previous, workSchedule }))}
+                      />
+                    </div>
+
+                    <div style={{ borderTop: UI.border, paddingTop: 12 }}>
                     <div>
                       <div style={{ fontWeight: 800, color: UI.text, marginBottom: 5, fontSize: 15 }}>
                         Payroll Rates
@@ -1856,6 +2751,7 @@ export default function EditEmployeePage() {
                     </div>
                     <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
                       Travel, overnight, and travel meal are shared company-wide rates and update all employees.
+                    </div>
                     </div>
                   </div>
 
@@ -1897,194 +2793,235 @@ export default function EditEmployeePage() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                    <details className={layoutStyles.rateHistory}>
+                      <summary>Individual rate history ({formData.payrollRateHistory?.length || 0})</summary>
+                      {(formData.payrollRateHistory || []).length ? (
+                        <ol>
+                          {[...(formData.payrollRateHistory || [])].reverse().slice(0, 10).map((entry) => (
+                            <li key={entry.id}>
+                              <div><strong>{entry.effectiveDate || "No effective date"}</strong><small>{entry.reason || "No reason"}</small></div>
+                              <div>
+                                {(entry.changes || []).map((change) => (
+                                  <span key={change.field}>{change.field}: {change.from === "" ? "—" : change.from} → {change.to === "" ? "—" : change.to}</span>
+                                ))}
+                              </div>
+                              <small>{entry.changedBy || "Unknown administrator"}</small>
+                            </li>
+                          ))}
+                        </ol>
+                      ) : <p>No individual rate changes recorded yet.</p>}
+                    </details>
+                  </section>
                 ) : null}
 
-                {saveError && <div style={inlineNotice("error")}>{saveError}</div>}
-                {saveMessage && <div style={inlineNotice()}>{saveMessage}</div>}
-
-                {/* Mobile bottom actions (nice when header buttons off-screen) */}
-                <div
-                  className={layoutStyles.extracted32}
-                >
-                  <button type="button" onClick={handleCancel} style={btn("ghost")}>
-                    Cancel
-                  </button>
-                  <button type="submit" style={btn()} disabled={saving}>
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
+                <div className={layoutStyles.extracted32}>
+                  <Button type="button" variant="secondary" onClick={handleCancel}>Cancel</Button>
+                  <Button type="submit" loading={saving}><Save size={16} /> Save changes</Button>
                 </div>
               </form>
             )}
           </div>
 
           {/* RIGHT: Summary */}
-          <div style={{ display: "grid", gap: UI.gap, position: "sticky", top: 16 }}>
-            <div style={{ ...surface, padding: 12 }}>
-              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8, color: UI.text }}>
-                Summary
-              </div>
-
+          <aside className={layoutStyles.summaryColumn} aria-label="Employee file summary">
+            <section className={layoutStyles.summaryCard}>
               {loading ? (
-                <div style={{ color: UI.muted, fontSize: 13 }}>Loading…</div>
+                <div className={layoutStyles.summaryLoading}>Loading employee summary…</div>
               ) : (
-                <div className={layoutStyles.extracted33}>
-                  <div className={layoutStyles.extracted34}>
-                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
-                      Name
-                    </div>
-                    <div className={layoutStyles.extracted35}>
-                      <div style={{ fontWeight: 850, color: UI.text }}>{formData.name || "—"}</div>
-                      {formData.archived ? (
-                        <span style={{ ...chip, background: UI.redSoft, color: "var(--color-danger)", borderColor: UI.redBorder }}>
-                          Archived
-                        </span>
-                      ) : null}
+                <>
+                  <div className={layoutStyles.employeeSummary}>
+                    <span className={layoutStyles.avatar}>{getInitials(formData.name)}</span>
+                    <div>
+                      <div className={layoutStyles.summaryNameRow}>
+                        <h2>{formData.name || "Unnamed employee"}</h2>
+                        <Badge variant={employmentBadgeVariant(formData.employmentStatus, formData.archived)}>
+                          {formData.archived ? "Archived" : formData.employmentStatus || "Active"}
+                        </Badge>
+                      </div>
+                      <p>{formData.email || "No email"}</p>
+                      <p>{formData.mobile || "No mobile"}</p>
                     </div>
                   </div>
 
-                  <div className={layoutStyles.extracted36}>
-                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
-                      Roles
+                  <div className={layoutStyles.completionBlock}>
+                    <div className={layoutStyles.completionHeading}>
+                      <div>
+                        <span>Personnel file readiness</span>
+                        <strong>{completedPersonnelSections === 4 ? "File ready" : `${4 - completedPersonnelSections} items need attention`}</strong>
+                      </div>
+                      <span>{completedPersonnelSections}/4</span>
                     </div>
-                    <div className={layoutStyles.extracted37}>
-                      {(formData.jobTitle?.length ? formData.jobTitle : ["—"]).map((j) => (
-                        <span
-                          key={j}
-                          style={{
-                            padding: "5px 9px",
-                            borderRadius: 999,
-                            border: `1px solid ${UI.brandBorder}`,
-                            background: UI.brandSoft,
-                            color: UI.text,
-                            fontSize: 12,
-                            fontWeight: 800,
-                          }}
-                        >
-                          {j}
-                        </span>
+                    <span className={layoutStyles.progressTrack} aria-label={`${completedPersonnelSections} of 4 personnel file sections complete`}>
+                      <span style={{ width: `${completedPersonnelSections * 25}%` }} />
+                    </span>
+                    <div className={layoutStyles.readinessList}>
+                      {personnelReadiness.map((item) => (
+                        <a key={item.key} href={item.href} className={item.complete ? layoutStyles.ready : layoutStyles.missing}>
+                          {item.complete ? <Check size={15} /> : <Circle size={15} />}
+                          <span>{item.label}</span>
+                          <small>{item.complete ? "Added" : "Add details"}</small>
+                        </a>
                       ))}
                     </div>
                   </div>
 
-                  <div className={layoutStyles.extracted38}>
-                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
-                      Contact
+                  <div className={layoutStyles.summarySection}>
+                    <h3>Role & access</h3>
+                    <div className={layoutStyles.badgeList}>
+                      {(formData.jobTitle?.length ? formData.jobTitle : ["No role added"]).map((job) => <Badge key={job}>{job}</Badge>)}
                     </div>
-                    <div style={{ color: UI.text, fontWeight: 800, fontSize: 13.5 }}>
-                      {formData.mobile || "—"}
-                      <br />
-                      {formData.email || "—"}
+                    <div className={layoutStyles.accessRow}>
+                      <Badge variant={formData.appAccess.user ? "success" : "neutral"}>User {formData.appAccess.user ? "on" : "off"}</Badge>
+                      <Badge variant={formData.appAccess.service ? "info" : "neutral"}>Service {formData.appAccess.service ? "on" : "off"}</Badge>
                     </div>
+                    <p>Effective role: <strong>{effectiveRole}</strong></p>
                   </div>
 
-                  <div className={layoutStyles.extracted39}>
-                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
-                      Personnel file
-                    </div>
-                    <div className={layoutStyles.extracted40}>
-                      <span style={{ ...chip, background: formData.passport?.number || formData.passport?.documentUrl ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
-                        Passport: {formData.passport?.number || formData.passport?.documentUrl ? "Added" : "Missing"}
-                      </span>
-                      <span style={{ ...chip, background: formData.licenceNumber || formData.drivingLicence?.documentUrl ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
-                        Licence: {formData.licenceNumber || formData.drivingLicence?.documentUrl ? "Added" : "Missing"}
-                      </span>
-                      <span style={{ ...chip, background: (formData.emergencyContacts || []).length ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
-                        Emergency: {(formData.emergencyContacts || []).length || 0}
-                      </span>
-                      <span style={{ ...chip, background: (formData.personnelDocuments || []).length ? "var(--color-info-soft)" : "var(--color-surface-subtle)" }}>
-                        Docs: {(formData.personnelDocuments || []).length || 0}
-                      </span>
-                    </div>
-                    <div style={{ color: UI.muted, fontSize: 12 }}>
-                      Start: <b style={{ color: UI.text }}>{formData.startDate || "—"}</b> · Status:{" "}
-                      <b style={{ color: UI.text }}>{formData.employmentStatus || "—"}</b>
-                    </div>
-                  </div>
-
-                  <div className={layoutStyles.extracted41}>
-                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
-                      Access
-                    </div>
-                    <div className={layoutStyles.extracted42}>
-                      <span style={{ ...chip, background: formData.appAccess.user ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
-                        User: {formData.appAccess.user ? "On" : "Off"}
-                      </span>
-                      <span style={{ ...chip, background: formData.appAccess.service ? "var(--color-info-soft)" : "var(--color-surface-subtle)" }}>
-                        Service: {formData.appAccess.service ? "On" : "Off"}
-                      </span>
-                    </div>
-                    <div style={{ color: UI.muted, fontSize: 12 }}>
-                      Effective role: <b style={{ color: UI.text }}>{effectiveRole}</b>
-                    </div>
-                  <div style={{ color: UI.muted, fontSize: 12 }}>
-                    Route target: <span className={layoutStyles.extracted43}>{routingPreview}</span>
-                  </div>
-                  </div>
+                  <dl className={layoutStyles.quickFacts}>
+                    <div><dt>Employment</dt><dd>{formData.employmentStatus || "Not added"}</dd></div>
+                    <div><dt>Started</dt><dd>{formData.startDate || "Not added"}</dd></div>
+                    <div><dt>Employee code</dt><dd>{formData.employeeCode || "Not added"}</dd></div>
+                    <div><dt>Payroll no.</dt><dd>{formData.payrollNumber || "Not added"}</dd></div>
+                  </dl>
 
                   {isAdmin ? (
-                    <div className={layoutStyles.extracted44}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
-                        Payroll Rates
-                      </div>
-                      <div className={layoutStyles.extracted45}>
+                    <details className={layoutStyles.payrollSummary}>
+                      <summary>Payroll rate summary <ChevronDown size={15} /></summary>
+                      <div>
                         {[
                           ["Workshop", formData.payrollRates?.workshopRate],
                           ["Overtime", formData.payrollRates?.overtimeRate],
                           ["Travel", globalPayrollRates?.travelRate],
                           ["Sunday", formData.payrollRates?.sundayRate],
-                          ["On Set", formData.payrollRates?.onSetRate],
-                          ["On Set O/T", formData.payrollRates?.onSetOvertimeRate],
-                          ["Sa/Su Unit", formData.payrollRates?.weekendSupplementRate],
+                          ["On set", formData.payrollRates?.onSetRate],
+                          ["On set O/T", formData.payrollRates?.onSetOvertimeRate],
+                          ["Sa/Su unit", formData.payrollRates?.weekendSupplementRate],
                           ["Overnight", globalPayrollRates?.overnightRate],
-                          ["Travel Meal", globalPayrollRates?.travelMealRate],
+                          ["Travel meal", globalPayrollRates?.travelMealRate],
                         ].map(([label, value]) => (
-                          <div key={label} className={layoutStyles.extracted46}>
-                            <span style={{ color: UI.muted }}>{label}</span>
-                            <span style={{ color: UI.text, fontWeight: 800 }}>
-                              {value === "" || value == null ? "—" : value}
-                            </span>
-                          </div>
+                          <div key={label}><span>{label}</span><strong>{value === "" || value == null ? "—" : value}</strong></div>
                         ))}
                       </div>
-                    </div>
+                    </details>
                   ) : null}
-
-                  <div className={layoutStyles.extracted47}>
-                    <button type="button" onClick={handleCancel} style={btn("ghost")}>
-                      Back to Employees
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleArchiveEmployee}
-                      style={btn("danger")}
-                      disabled={archiving || loading || formData.archived}
-                    >
-                      {formData.archived ? "Archived" : archiving ? "Archiving..." : "Archive Employee"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      style={btn("danger")}
-                      disabled={deleting || loading}
-                    >
-                      {deleting ? "Deleting..." : "Delete"}
-                    </button>
-                  </div>
-                </div>
+                </>
               )}
-            </div>
+            </section>
 
-            <div style={{ ...surface, padding: 12, background: UI.brandSoft, border: `1px solid ${UI.brandBorder}` }}>
-              <div style={{ fontWeight: 800, color: UI.text, marginBottom: 6 }}>Personnel file storage</div>
-              <div style={{ color: UI.muted, fontSize: 13 }}>
-                Passport, licence, emergency contacts, medical notes and document links are saved on the employee document under the personnel file.
+            {completedPersonnelSections < 4 && !loading ? (
+              <div className={layoutStyles.attentionCard}>
+                <AlertTriangle size={18} />
+                <div><strong>File needs attention</strong><span>Complete the highlighted items before treating this personnel file as ready.</span></div>
               </div>
-            </div>
+            ) : null}
+          </aside>
           </div>
         </div>
+      </PeopleFleetPage>
+
+      <Modal
+        open={rateChangeOpen}
+        onClose={() => setRateChangeOpen(false)}
+        eyebrow="Payroll audit"
+        title="Record rate change"
+        description="An effective date and reason are required whenever employee or shared payroll rates change."
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setRateChangeOpen(false)}>Cancel</Button>
+            <Button
+              type="button"
+              disabled={!rateChangeDraft.effectiveDate || !rateChangeDraft.reason.trim()}
+              onClick={() => {
+                rateChangeApprovalRef.current = { ...rateChangeDraft, reason: rateChangeDraft.reason.trim() };
+                setRateChangeOpen(false);
+                setTimeout(() => document.getElementById("edit-employee-form")?.requestSubmit(), 0);
+              }}
+            >
+              <Save size={16} /> Record and save
+            </Button>
+          </>
+        }
+      >
+        <div className={layoutStyles.lifecycleModalBody}>
+          <FormField label="Effective date" required>
+            <Input type="date" value={rateChangeDraft.effectiveDate} onChange={(event) => setRateChangeDraft((current) => ({ ...current, effectiveDate: event.target.value }))} />
+          </FormField>
+          <FormField label="Reason" required help="For example: annual review, role change or company rate update.">
+            <Textarea rows={4} value={rateChangeDraft.reason} onChange={(event) => setRateChangeDraft((current) => ({ ...current, reason: event.target.value }))} />
+          </FormField>
         </div>
-      </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(lifecycleAction)}
+        onClose={() => !lifecycleSaving && setLifecycleAction("")}
+        eyebrow={lifecycleDialogCopy?.eyebrow}
+        title={lifecycleDialogCopy?.title || "Change employment status"}
+        description={lifecycleDialogCopy?.description}
+        size="md"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setLifecycleAction("")} disabled={lifecycleSaving}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={lifecycleAction === "end" ? "danger" : "primary"}
+              loading={lifecycleSaving}
+              onClick={handleLifecycleAction}
+            >
+              {lifecycleAction === "pause" ? <PauseCircle size={16} /> : lifecycleAction === "end" ? <UserMinus size={16} /> : <PlayCircle size={16} />}
+              {lifecycleDialogCopy?.confirm || "Confirm change"}
+            </Button>
+          </>
+        }
+      >
+        <div className={layoutStyles.lifecycleModalBody}>
+          {saveError ? <Alert variant="danger">{saveError}</Alert> : null}
+          <FormField
+            label={lifecycleAction === "end" ? "Last day of employment" : "Effective date"}
+            required
+          >
+            <Input
+              type="date"
+              value={lifecycleDraft.effectiveDate}
+              onChange={(event) => setLifecycleDraft((current) => ({ ...current, effectiveDate: event.target.value }))}
+            />
+          </FormField>
+          {lifecycleAction === "pause" ? (
+            <FormField label="Expected return date" help="Optional — this can be changed later.">
+              <Input
+                type="date"
+                min={lifecycleDraft.effectiveDate || undefined}
+                value={lifecycleDraft.expectedReturnDate}
+                onChange={(event) => setLifecycleDraft((current) => ({ ...current, expectedReturnDate: event.target.value }))}
+              />
+            </FormField>
+          ) : null}
+          <FormField
+            label={lifecycleAction === "reactivate" ? "Return note" : "Reason"}
+            help="Required for the employment history and audit trail."
+            required
+          >
+            <Textarea
+              rows={4}
+              value={lifecycleDraft.reason}
+              onChange={(event) => setLifecycleDraft((current) => ({ ...current, reason: event.target.value }))}
+              placeholder={
+                lifecycleAction === "pause"
+                  ? "For example: seasonal pause, extended leave or temporary suspension"
+                  : lifecycleAction === "end"
+                    ? "For example: resignation, end of contract or redundancy"
+                    : "For example: returned from seasonal pause"
+              }
+            />
+          </FormField>
+          <Alert variant="info">
+            Historic bookings, timesheets, documents and payroll records will be retained.
+          </Alert>
+        </div>
+      </Modal>
     </HeaderSidebarLayout>
   );
 }

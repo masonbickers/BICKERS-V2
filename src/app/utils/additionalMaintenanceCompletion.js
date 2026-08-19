@@ -1,5 +1,16 @@
 import { normalizeMaintenanceDocumentList } from "./maintenanceDocuments.js";
-import { getIsoWeekLabel } from "./maintenanceSchema.js";
+import {
+  getConfiguredMaintenanceFrequencyWeeks,
+  getIsoWeekLabel,
+} from "./maintenanceSchema.js";
+import {
+  buildComplianceReleasePatch,
+  complianceVorReleaseBlocker,
+  evaluateHgvCompliance,
+  syncCanonicalPmiAliases,
+} from "./hgvCompliance.js";
+import { calculateNextMaintenanceDue } from "./maintenanceRecord.js";
+import { buildReturnInspectionCompletionPatch } from "./vorPeriods.js";
 
 const safeArr = (value) => (Array.isArray(value) ? value : []);
 
@@ -54,6 +65,12 @@ export const buildAdditionalMaintenanceCompletionPatch = ({
   completedDate,
   completedAt = new Date().toISOString(),
   documentsByKey = {},
+  auditUser = {},
+  bookingId = "",
+  source = "system_appointment",
+  provider = "",
+  bookingRef = "",
+  notes = "",
 } = {}) => {
   const normalizedCompletedDate = dateOnly(completedDate);
   if (!normalizedCompletedDate || !workflows.length) return null;
@@ -61,20 +78,24 @@ export const buildAdditionalMaintenanceCompletionPatch = ({
   const patch = { updatedAt: completedAt };
 
   workflows.forEach((workflow) => {
-    const document =
+    const suppliedDocuments =
       documentsByKey[workflow.key] ||
       documentsByKey[workflow.maintenanceTypeId] ||
-      null;
-    const documents = document ? [document] : [];
-    const frequencyWeeks = resolveMaintenanceFrequencyWeeks(
-      vehicle[workflow.frequencyField],
-      vehicle[workflow.lastField],
-      vehicle[workflow.nextField]
+      [];
+    const documents = normalizeMaintenanceDocumentList(
+      Array.isArray(suppliedDocuments) ? suppliedDocuments : [suppliedDocuments],
+      {
+        maintenanceTypeId: workflow.maintenanceTypeId,
+        sourceRecordId: bookingId,
+        uploadedBy: auditUser,
+      }
     );
-    const nextDueDate = addMaintenanceWeeks(
-      normalizedCompletedDate,
-      frequencyWeeks
-    );
+    const frequencyWeeks = getConfiguredMaintenanceFrequencyWeeks(vehicle, workflow);
+    const nextDueDate = calculateNextMaintenanceDue({
+      maintenanceTypeId: workflow.maintenanceTypeId,
+      completedDate: normalizedCompletedDate,
+      frequencyWeeks,
+    });
     const priorHistory = safeArr(vehicle[workflow.historyField]).map((entry) => ({
       ...entry,
       maintenanceTypeId: workflow.maintenanceTypeId,
@@ -88,27 +109,103 @@ export const buildAdditionalMaintenanceCompletionPatch = ({
     if (nextDueDate) {
       patch[workflow.nextField] = nextDueDate;
       patch[workflow.isoWeekField] = getIsoWeekLabel(nextDueDate);
+    } else {
+      patch[workflow.nextField] = "";
+      patch[workflow.isoWeekField] = "";
     }
-    if (document) {
+    if (documents.length) {
       patch[workflow.documentsField] = [
         ...normalizeMaintenanceDocumentList(vehicle[workflow.documentsField], {
           maintenanceTypeId: workflow.maintenanceTypeId,
         }),
-        document,
+        ...documents,
       ];
     }
-    patch[workflow.historyField] = [
-      ...priorHistory,
-      {
-        maintenanceTypeId: workflow.maintenanceTypeId,
-        label: workflow.label,
-        completedDate: normalizedCompletedDate,
-        nextDueDate,
-        completedAt,
-        documents,
+    const historyEntry = {
+      maintenanceTypeId: workflow.maintenanceTypeId,
+      label: workflow.label,
+      completedDate: normalizedCompletedDate,
+      nextDueDate,
+      completedAt,
+      completedBy: {
+        uid: String(auditUser?.uid || "").trim(),
+        name: String(auditUser?.name || auditUser?.email || "").trim(),
+        email: String(auditUser?.email || "").trim(),
       },
-    ];
+      bookingId: String(bookingId || "").trim(),
+      source,
+      provider: String(provider || "").trim(),
+      bookingRef: String(bookingRef || "").trim(),
+      notes: String(notes || "").trim(),
+      documents,
+    };
+    patch[workflow.historyField] = [
+      ...priorHistory.filter((entry) => {
+        if (historyEntry.bookingId) {
+          return !(
+            String(entry?.bookingId || "").trim() === historyEntry.bookingId &&
+            entry?.maintenanceTypeId === historyEntry.maintenanceTypeId
+          );
+        }
+        return !(
+          entry?.maintenanceTypeId === historyEntry.maintenanceTypeId &&
+          dateOnly(entry?.completedDate) === historyEntry.completedDate &&
+          String(entry?.source || "") === historyEntry.source
+        );
+      }),
+      historyEntry,
+    ].sort((left, right) =>
+      dateOnly(left?.completedDate).localeCompare(dateOnly(right?.completedDate))
+    );
   });
+
+  const selectedTypeIds = new Set(
+    workflows.map((workflow) => String(workflow?.maintenanceTypeId || "").trim())
+  );
+  if (selectedTypeIds.has("pmi")) {
+    Object.assign(
+      patch,
+      syncCanonicalPmiAliases(
+        { ...vehicle, ...patch },
+        { asOfDate: normalizedCompletedDate }
+      )
+    );
+  }
+
+  const compliance = evaluateHgvCompliance(
+    { ...vehicle, ...patch },
+    { asOfDate: normalizedCompletedDate, evaluatedAt: completedAt }
+  );
+  patch.complianceVor = compliance.complianceVor;
+
+  const completesReturnInspection =
+    selectedTypeIds.has("pmi") && selectedTypeIds.has("brake_test");
+  if (completesReturnInspection) {
+    const releaseCandidate = { ...vehicle, ...patch };
+    const returnPatch = buildReturnInspectionCompletionPatch(
+      releaseCandidate,
+      { completedDate: normalizedCompletedDate, bookingId },
+      { completedAt }
+    );
+    const releaseBlocker = returnPatch
+      ? complianceVorReleaseBlocker(releaseCandidate, {
+          asOfDate: normalizedCompletedDate,
+        })
+      : "";
+    if (returnPatch && !releaseBlocker) {
+      Object.assign(patch, returnPatch);
+      Object.assign(
+        patch,
+        buildComplianceReleasePatch(
+          { ...releaseCandidate, ...returnPatch },
+          {
+            releasedAt: completedAt,
+            releasedBy: auditUser,
+          }
+        )
+      );
+    }
+  }
 
   return patch;
 };

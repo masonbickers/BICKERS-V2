@@ -10,12 +10,17 @@ const isPassedMot = (test = {}) =>
 
 const completedDateValue = (test = {}) => dateOnly(test?.completedDate);
 
-export const getAuthoritativeDvsaMotExpiry = (vehicle = {}) => {
+export const getAuthoritativeDvsaMotExpiry = (vehicle = {}, { notBeforeCompletionDate = "" } = {}) => {
+  const notBefore = dateOnly(notBeforeCompletionDate);
   const candidates = [
     vehicle?.dvsaLatestMot,
     ...(Array.isArray(vehicle?.dvsaMotTests) ? vehicle.dvsaMotTests : []),
   ]
-    .filter((test) => isPassedMot(test) && dateOnly(test?.expiryDate))
+    .filter((test) =>
+      isPassedMot(test) &&
+      dateOnly(test?.expiryDate) &&
+      (!notBefore || completedDateValue(test) >= notBefore)
+    )
     .sort((a, b) => completedDateValue(b).localeCompare(completedDateValue(a)));
 
   return dateOnly(candidates[0]?.expiryDate);
@@ -24,6 +29,7 @@ export const getAuthoritativeDvsaMotExpiry = (vehicle = {}) => {
 export const resolveCompletedMotExpiry = ({
   vehicle = {},
   fallbackExpiry = "",
+  completedDate = "",
 } = {}) =>
-  getAuthoritativeDvsaMotExpiry(vehicle) ||
-  dateOnly(fallbackExpiry);
+  getAuthoritativeDvsaMotExpiry(vehicle, { notBeforeCompletionDate: completedDate }) ||
+  (dateOnly(completedDate) ? "" : dateOnly(fallbackExpiry));

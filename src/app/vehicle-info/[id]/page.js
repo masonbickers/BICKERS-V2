@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 
 import React, { useEffect, useState } from "react";
@@ -7,7 +8,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
 
 import Papa from "papaparse";
-import { addDoc, collection, doc, getDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, updateDoc } from "firebase/firestore";
+import { deleteVehicleAndBookings } from "@/app/utils/vehicleMutationClient";
 
 const getVehicleOdometerValue = (vehicle) => {
   const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
@@ -55,11 +57,11 @@ export default function VehicleInfoPage() {
         mileage: odometer,
         serviceOdometer: odometer,
       });
-      alert(" Vehicle updated");
+      systemDialogs.showSystemNotification(" Vehicle updated");
       router.push("/vehicles");  // or reload if needed
     } catch (err) {
       console.error("Error updating vehicle:", err);
-      alert(" Failed to update vehicle");
+      systemDialogs.showSystemNotification(" Failed to update vehicle");
     }
   };
 
@@ -77,12 +79,12 @@ export default function VehicleInfoPage() {
           setVehicle(data);
           setEditableVehicle(data);
         } else {
-          alert("Vehicle not found");
+          systemDialogs.showSystemNotification("Vehicle not found");
           router.push("/vehicles");
         }
       } catch (err) {
         console.error("Error fetching vehicle:", err);
-        alert("Failed to load vehicle");
+        systemDialogs.showSystemNotification("Failed to load vehicle");
       }
     };
 
@@ -92,16 +94,17 @@ export default function VehicleInfoPage() {
 
 
   const handleDelete = async () => {
-    const confirmed = window.confirm("Are you sure you want to delete this vehicle?");
+    const confirmed = await systemDialogs.confirmSystem("Permanently delete this vehicle and all of its maintenance and workshop bookings?");
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, "vehicles", id));
-      alert(" Vehicle deleted");
+      const result = await deleteVehicleAndBookings(id);
+      const count = Object.values(result.deletedBookings || {}).reduce((total, value) => total + Number(value || 0), 0);
+      systemDialogs.showSystemNotification(`Vehicle deleted with ${count} linked booking${count === 1 ? "" : "s"}.`);
       router.push("/vehicles");
     } catch (err) {
       console.error("Error deleting vehicle:", err);
-      alert(" Failed to delete vehicle");
+      systemDialogs.showSystemNotification(" Failed to delete vehicle");
     }
   };
 
@@ -277,7 +280,7 @@ function VehicleCSVImport() {
           }
         }
 
-        alert(" Vehicle data imported successfully!");
+        systemDialogs.showSystemNotification(" Vehicle data imported successfully!");
       },
     });
   };

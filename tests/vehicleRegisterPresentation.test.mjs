@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   countUniqueVehiclesByDeadlineState,
+  getRegisterAdditionalMaintenanceDate,
   getRegisterComplianceState,
   isRetentionPlateRecord,
 } from "../src/app/utils/vehicleRegisterPresentation.js";
@@ -38,6 +39,23 @@ test("recorded compliance dates remain dated", () => {
   assert.deepEqual(
     getRegisterComplianceState({ nextMOT: "2027-03-20" }, "mot"),
     { status: "dated", value: "2027-03-20", reason: "" }
+  );
+});
+
+test("removed additional maintenance dates are hidden from the vehicle register", () => {
+  const vehicle = {
+    nextPMI: "2026-08-06",
+    nextEightWeekInspection: "2026-08-06",
+    nextBrakeTest: "2026-08-06",
+    nextTacho: "2026-08-20",
+    hiddenAdditionalMaintenance: ["pmiInspection", "brakeTest"],
+  };
+
+  assert.equal(getRegisterAdditionalMaintenanceDate(vehicle, "pmi"), "");
+  assert.equal(getRegisterAdditionalMaintenanceDate(vehicle, "brake_test"), "");
+  assert.equal(
+    getRegisterAdditionalMaintenanceDate(vehicle, "tacho_inspection"),
+    "2026-08-20"
   );
 });
 

@@ -5,11 +5,14 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
 import BrandedLoader from "./BrandedLoader";
+import HeaderSidebarLayout from "./HeaderSidebarLayout";
+import UserActivityTracker from "./UserActivityTracker";
 import {
   isAdminPath,
   isFinanceHandoffPath,
   isModuleEnabledForPath,
   isPathAllowedForAccess,
+  isPersonalSettingsPath,
   normalizePlatformRole,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
@@ -34,13 +37,15 @@ export default function ProtectedLayout({ children }) {
   const isPublic = PUBLIC_PATHS.some(
     (path) => pathname === path || String(pathname || "").startsWith(`${path}/`)
   );
+  const isEmbeddedQuoteView = String(pathname || "").startsWith("/quote-view/");
   const role = normalizePlatformRole(userDoc?.role);
   const moduleEnabled = isModuleEnabledForPath(pathname, featureFlags);
   const financeHandoffPath = isFinanceHandoffPath(pathname);
+  const personalSettingsPath = isPersonalSettingsPath(pathname);
   const pathAllowed =
     Boolean(employeeAccess) &&
     isPathAllowedForAccess(pathname, employeeAccess) &&
-    (financeHandoffPath || ["admin", "platformAdmin"].includes(role) || moduleEnabled) &&
+    (personalSettingsPath || financeHandoffPath || ["admin", "platformAdmin"].includes(role) || moduleEnabled) &&
     (!isAdminPath(pathname) || ["admin", "platformAdmin"].includes(role)) &&
     (!String(pathname || "").startsWith("/platform-admin") || role === "platformAdmin");
 
@@ -78,11 +83,9 @@ export default function ProtectedLayout({ children }) {
   ]);
 
   if (!clerkLoaded || loading || (!isPublic && (!isSignedIn || !user || !accessReady))) {
-    const isPreparingWorkspace = pathname === "/auth/complete";
     return (
       <BrandedLoader
-        label={isPreparingWorkspace ? "Preparing your workspace…" : "Loading…"}
-        compact={isPreparingWorkspace}
+        label={pathname === "/auth/complete" ? "Preparing your workspace…" : "Loading…"}
       />
     );
   }
@@ -91,5 +94,14 @@ export default function ProtectedLayout({ children }) {
     return <BrandedLoader label="Checking access…" />;
   }
 
-  return <>{children}</>;
+  if (isPublic || isEmbeddedQuoteView) {
+    return <>{children}</>;
+  }
+
+  return (
+    <>
+      <UserActivityTracker />
+      <HeaderSidebarLayout>{children}</HeaderSidebarLayout>
+    </>
+  );
 }

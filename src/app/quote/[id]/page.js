@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -10,6 +11,7 @@ import { useAuth } from "@/app/context/authContext";
 import { db } from "@/app/utils/firebaseClient";
 import { loadBookingFormReferenceData } from "@/app/utils/bookingFormReferenceData";
 import { normalizeVehicleKeysListForLookup } from "@/app/utils/bookingFormShared";
+import { findSuggestedQuoteTemplateForVehicles } from "@/app/utils/quoteTemplateSuggestion";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -18,12 +20,13 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
+import { mergeQuoteTemplatesWithDefaults } from "@/app/utils/quoteTemplateDefaults";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 
 const UI = UI_TOKENS;
 
 const QUOTE_SECTION_GREY = "var(--shell-muted)";
-const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "50%"];
+const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "25%", "50%"];
 const DEFAULT_DISCOUNT = "10%";
 
 const emptyQuote = {
@@ -470,89 +473,6 @@ const hydrateQuote = (booking = {}, quote = {}) => ({
   lineItems: Array.isArray(quote?.lineItems) ? quote.lineItems : [],
 });
 
-const findSuggestedTemplate = (booking = {}, templates = FULL_SIZE_TRACKING_QUOTE_TEMPLATES) => {
-  const vehicleText = [
-    ...(Array.isArray(booking.vehicles) ? booking.vehicles : []),
-    ...(Array.isArray(booking.equipment) ? booking.equipment : []),
-    booking.notes,
-  ].join(" ");
-  const haystack = compact(vehicleText);
-  if (!haystack) return null;
-
-  const aliases = [
-    ["silverado", "silverado"],
-    ["cheyenne", "cheyenne"],
-    ["mini cooper", "mini cooper"],
-    ["mini", "mini cooper"],
-    ["pulse", "pulse"],
-    ["audi", "audi rs4"],
-    ["rs4", "audi rs4"],
-    ["dodge", "dodge ram"],
-    ["ram", "dodge ram"],
-    ["explorer", "explorer"],
-    ["glc", "glc"],
-    ["gmc", "gmc"],
-    ["sierra", "sierra"],
-    ["land rover", "land rover"],
-    ["discovery", "discovery"],
-    ["lightning", "lightning f150"],
-    ["f150", "lightning f150"],
-    ["raptor", "raptor"],
-    ["sprinter no 1", "sprinter no 1"],
-    ["sprinter no 2", "sprinter no 2"],
-    ["sprinter", "sprinter"],
-    ["tiger", "tiger"],
-    ["horse", "horse"],
-    ["low loader no 1", "low loader no 1"],
-    ["low loader no 2", "low loader no 2"],
-    ["low-loader no 1", "low loader no 1"],
-    ["low-loader no 2", "low loader no 2"],
-    ["low loader", "low loader"],
-    ["low-loader", "low loader"],
-    ["pod car build", "pod car build"],
-    ["pod car", "pod car"],
-    ["top driver", "top driver"],
-    ["teams zoom", "teams zoom"],
-    ["teams/zoom", "teams zoom"],
-    ["zoom meeting", "teams zoom"],
-    ["teams meeting", "teams zoom"],
-    ["recce", "recce"],
-    ["trojan electric", "trojan electric"],
-    ["petrol powered trojan", "petrol powered trojan"],
-    ["trojan", "trojan"],
-    ["twizzy", "twizzy"],
-    ["atlas e bike", "atlas e bike"],
-    ["atlas e-bike", "atlas e bike"],
-    ["bandit", "bandit"],
-    ["can am", "can am"],
-    ["maverick", "maverick"],
-    ["dominator", "dominator"],
-    ["electric bicycle", "electric bicycle"],
-    ["e-bike", "e bike"],
-    ["ebike", "e bike"],
-    ["enduromax", "enduromax"],
-    ["e trike", "e trike"],
-    ["e-trike", "e trike"],
-    ["tricycle", "tricycle"],
-    ["panther", "panther"],
-    ["racing quad", "racing quad"],
-    ["rubicon", "rubicon"],
-    ["quad", "quad"],
-    ["motorcycle", "motorcycle"],
-    ["bicycle banking", "bicycle banking"],
-    ["motorcycle banking", "motorcycle banking"],
-    ["mini low loader", "mini low loader"],
-  ];
-
-  const match = aliases.find(([needle]) => haystack.includes(needle));
-  if (!match) return null;
-  return (
-    templates.find((template) =>
-      compact(`${template.file} ${template.serviceDescription}`).includes(match[1])
-    ) || null
-  );
-};
-
 const normalizeQuote = (booking = {}) => {
   const versions = normalizeQuoteVersions(booking);
   const latestSavedQuote = versions[versions.length - 1];
@@ -656,6 +576,36 @@ export default function QuotePage() {
   const handledActionRef = useRef("");
 
   useEffect(() => {
+    if (!isEmbedded || loading || typeof window === "undefined" || window.parent === window) return;
+    let cancelled = false;
+    let firstFrame = 0;
+    let secondFrame = 0;
+    const notifyParent = () => {
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(() => {
+          if (cancelled) return;
+          window.parent.postMessage(
+            {
+              type: "bickers:quote-view-status",
+              status: booking ? "ready" : "not-found",
+              bookingId: String(bookingId || ""),
+              quoteNumber: requestedQuoteNumber,
+            },
+            window.location.origin
+          );
+        });
+      });
+    };
+    if (document.fonts?.ready) document.fonts.ready.then(notifyParent);
+    else notifyParent();
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [booking, bookingId, isEmbedded, loading, requestedQuoteNumber]);
+
+  useEffect(() => {
     let alive = true;
     const load = async () => {
       const gate = resolveDataAccess(dataAccessState);
@@ -674,7 +624,7 @@ export default function QuotePage() {
       } catch (err) {
         if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "load quote booking" })) {
           console.error("Failed loading quote booking:", err);
-          alert("Failed to load quote booking.");
+          systemDialogs.showSystemNotification("Failed to load quote booking.");
         }
       } finally {
         if (alive) setLoading(false);
@@ -694,7 +644,13 @@ export default function QuotePage() {
       try {
         const snap = await getDoc(doc(db, "settings", "quoteTemplates"));
         const customTemplates = snap.exists() && Array.isArray(snap.data()?.templates) ? snap.data().templates : null;
-        if (alive) setQuoteTemplates(customTemplates?.length ? customTemplates : FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
+        if (alive) {
+          setQuoteTemplates(
+            customTemplates?.length
+              ? mergeQuoteTemplatesWithDefaults(customTemplates, FULL_SIZE_TRACKING_QUOTE_TEMPLATES)
+              : FULL_SIZE_TRACKING_QUOTE_TEMPLATES
+          );
+        }
       } catch (err) {
         console.warn("Failed loading quote templates; using generated defaults:", err);
         if (alive) setQuoteTemplates(FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
@@ -736,7 +692,7 @@ export default function QuotePage() {
     document.title = `${quoteNumberForTitle} - Bickers Quote`;
     const timer = window.setTimeout(() => {
       if (requestedAction === "download") {
-        window.alert("Choose 'Save as PDF' in the print dialog to download this quote.");
+        systemDialogs.showSystemNotification("Choose 'Save as PDF' in the print dialog to download this quote.");
       }
       window.print();
       window.setTimeout(() => {
@@ -754,7 +710,10 @@ export default function QuotePage() {
     () => quoteTemplates.map((template) => ({ id: template.id, label: template.serviceDescription || template.file, file: template.file })),
     [quoteTemplates]
   );
-  const suggestedTemplate = useMemo(() => findSuggestedTemplate(booking || {}, quoteTemplates), [booking, quoteTemplates]);
+  const suggestedTemplate = useMemo(() => {
+    const assignedVehicleLabels = resolveVehicleLabels(booking?.vehicles, vehicleLookup);
+    return findSuggestedQuoteTemplateForVehicles(assignedVehicleLabels, quoteTemplates);
+  }, [booking?.vehicles, quoteTemplates, vehicleLookup]);
   const subtotal = useMemo(() => calculateSubtotal(quote.lineItems), [quote.lineItems]);
   const hasDiscountLine = useMemo(() => quote.lineItems.some((item) => isDiscountLine(item)), [quote.lineItems]);
   const savedQuotes = useMemo(() => normalizeQuoteVersions(booking || {}), [booking]);
@@ -854,47 +813,47 @@ export default function QuotePage() {
     setQuote(savedQuote ? hydrateQuote(booking || {}, savedQuote) : buildBlankQuote(booking || {}, nextQuoteNumber));
   };
 
-  const createNewQuote = () => {
+  const createNewQuote = async () => {
     if (!booking?.id) return;
     const defaultQuoteNumber = getNextQuoteNumber(booking, quote);
-    const quoteNumberInput = window.prompt("New quote number:", displayQuoteNumber(defaultQuoteNumber, booking));
+    const quoteNumberInput = await systemDialogs.promptSystem("New quote number:", displayQuoteNumber(defaultQuoteNumber, booking));
     if (quoteNumberInput === null) return;
     const nextQuoteNumber = normalizeQuoteNumberInput(quoteNumberInput, booking, {
       ...quote,
       quoteNumber: defaultQuoteNumber,
     });
     if (!nextQuoteNumber) {
-      alert("Please enter a quote number.");
+      systemDialogs.showSystemNotification("Please enter a quote number.");
       return;
     }
     const quoteNumberExists = savedQuotes.some(
       (entry) => publicQuoteNumberKey(entry.quoteNumber, booking, entry) === publicQuoteNumberKey(nextQuoteNumber, booking, { ...quote, quoteNumber: nextQuoteNumber })
     );
     if (quoteNumberExists) {
-      alert(`${displayQuoteNumber(nextQuoteNumber, booking)} already exists. Open the existing quote from the quote list instead.`);
+      systemDialogs.showSystemNotification(`${displayQuoteNumber(nextQuoteNumber, booking)} already exists. Open the existing quote from the quote list instead.`);
       return;
     }
     loadQuoteNumber(nextQuoteNumber);
   };
 
-  const duplicateCurrentQuote = () => {
+  const duplicateCurrentQuote = async () => {
     if (!booking?.id) return;
     const defaultQuoteNumber = getNextQuoteNumber(booking, quote);
-    const quoteNumberInput = window.prompt("Duplicate as quote number:", displayQuoteNumber(defaultQuoteNumber, booking));
+    const quoteNumberInput = await systemDialogs.promptSystem("Duplicate as quote number:", displayQuoteNumber(defaultQuoteNumber, booking));
     if (quoteNumberInput === null) return;
     const nextQuoteNumber = normalizeQuoteNumberInput(quoteNumberInput, booking, {
       ...quote,
       quoteNumber: defaultQuoteNumber,
     });
     if (!nextQuoteNumber) {
-      alert("Please enter a quote number.");
+      systemDialogs.showSystemNotification("Please enter a quote number.");
       return;
     }
     const quoteNumberExists = savedQuotes.some(
       (entry) => publicQuoteNumberKey(entry.quoteNumber, booking, entry) === publicQuoteNumberKey(nextQuoteNumber, booking, { ...quote, quoteNumber: nextQuoteNumber })
     );
     if (quoteNumberExists) {
-      alert(`${displayQuoteNumber(nextQuoteNumber, booking)} already exists. Please choose a different quote number.`);
+      systemDialogs.showSystemNotification(`${displayQuoteNumber(nextQuoteNumber, booking)} already exists. Please choose a different quote number.`);
       return;
     }
     setQuote({
@@ -1013,12 +972,12 @@ export default function QuotePage() {
   const saveQuote = async () => {
     if (!booking?.id) return;
     const suggestedQuoteNumber = publicQuoteNumber(String(quote.quoteNumber || "").trim() || getNextQuoteNumber(booking, quote));
-    const quoteNumberInput = window.prompt("Save quote number:", displayQuoteNumber(suggestedQuoteNumber, booking));
+    const quoteNumberInput = await systemDialogs.promptSystem("Save quote number:", displayQuoteNumber(suggestedQuoteNumber, booking));
     if (quoteNumberInput === null) return;
     const quoteNumberBaseContext = { ...quote, quoteNumber: suggestedQuoteNumber };
     const requestedPublicQuoteNumber = publicQuoteNumber(normalizeQuoteNumberInput(quoteNumberInput, booking, quoteNumberBaseContext));
     if (!requestedPublicQuoteNumber) {
-      alert("Please enter a quote number.");
+      systemDialogs.showSystemNotification("Please enter a quote number.");
       return;
     }
     const existingVersions = normalizeQuoteVersions(booking);
@@ -1085,26 +1044,26 @@ export default function QuotePage() {
         quoteNumbers,
         ...acceptedQuotePatch,
       }));
-      alert(`${nextQuoteNumber} saved.`);
+      systemDialogs.showSystemNotification(`${nextQuoteNumber} saved.`);
       if (safeReturnTo) router.push(safeReturnTo);
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "save quote" })) {
         console.error("Failed saving quote:", err);
-        alert("Failed to save quote.");
+        systemDialogs.showSystemNotification("Failed to save quote.");
       }
     } finally {
       setSaving(false);
     }
   };
 
-  const cancelDraftQuote = () => {
+  const cancelDraftQuote = async () => {
     if (saving || deleting) return;
     const draftNumber = displayQuoteNumber(quote.quoteNumber || requestedQuoteNumber, booking);
-    const confirmed = window.confirm(
+    const confirmed = await systemDialogs.confirmSystem(
       `Cancel this draft quote${draftNumber ? ` (${draftNumber})` : ""}?\n\nThis draft has not been saved to Firestore, so it will be removed from this screen.`
     );
     if (!confirmed) return;
-    alert("Draft quote cancelled.");
+    systemDialogs.showSystemNotification("Draft quote cancelled.");
     router.push(safeReturnTo || "/completed-quotes");
   };
 
@@ -1121,7 +1080,7 @@ export default function QuotePage() {
     }
 
     const displayNumber = displayQuoteNumber(savedQuoteToDelete.quoteNumber || quoteNumberToDelete, booking);
-    const confirmed = window.confirm(
+    const confirmed = await systemDialogs.confirmSystem(
       `Delete quote ${displayNumber || savedQuoteToDelete.quoteNumber || "this quote"}?\n\nThis quote will be permanently removed from Firestore, including the quote builder data linked to this booking. This cannot be undone.`
     );
     if (!confirmed) return;
@@ -1157,12 +1116,12 @@ export default function QuotePage() {
 
     try {
       await updateDoc(doc(db, "bookings", booking.id), tenantPayload(dataAccessState, patch));
-      alert(`Quote ${displayNumber || savedQuoteToDelete.quoteNumber} deleted successfully.`);
+      systemDialogs.showSystemNotification(`Quote ${displayNumber || savedQuoteToDelete.quoteNumber} deleted successfully.`);
       router.push("/completed-quotes");
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "delete quote" })) {
         console.error("Failed deleting quote:", err);
-        alert("Failed to delete quote. Please try again.");
+        systemDialogs.showSystemNotification("Failed to delete quote. Please try again.");
       }
     } finally {
       setDeleting(false);
@@ -1219,6 +1178,9 @@ export default function QuotePage() {
   if (safeReturnTo) quoteEditParams.set("returnTo", safeReturnTo);
   const quoteEditQuery = quoteEditParams.toString();
   const quoteEditHref = `/quote/${booking.id || bookingId}${quoteEditQuery ? `?${quoteEditQuery}` : ""}`;
+  const quotePrintParams = new URLSearchParams({ action: "print" });
+  if (editQuoteNumber) quotePrintParams.set("quote", editQuoteNumber);
+  const quotePrintHref = `/quote-view/${booking.id || bookingId}?${quotePrintParams.toString()}`;
   const openQuoteEditor = () => {
     if (isEmbedded && typeof window !== "undefined" && window.parent && window.parent !== window) {
       window.parent.postMessage(
@@ -1231,6 +1193,13 @@ export default function QuotePage() {
       return;
     }
     router.push(quoteEditHref);
+  };
+  const openPrintPreview = () => {
+    if (isEmbedded) {
+      window.open(quotePrintHref, "_blank", "noopener,noreferrer");
+      return;
+    }
+    window.print();
   };
   const quoteSummaryHeader = (
     <>
@@ -1245,7 +1214,11 @@ export default function QuotePage() {
   );
 
   const quotePageContent = (
-      <div ref={pageRef} className="quote-print-page" style={isEmbedded ? embeddedPageWrap : pageWrap}>
+      <div
+        ref={pageRef}
+        className={`quote-print-page${isEmbedded ? " quote-print-page-embedded" : ""}`}
+        style={isEmbedded ? embeddedPageWrap : pageWrap}
+      >
         {isViewMode ? (
           <div className="quote-print-toolbar" style={isEmbedded ? embeddedViewToolbar : viewToolbar}>
             <div className={layoutStyles.extracted11}>
@@ -1260,7 +1233,7 @@ export default function QuotePage() {
                 </div>
               </div>
               <div className={layoutStyles.extracted13}>
-                <button type="button" onClick={() => window.print()} style={ghostButton}>
+                <button type="button" onClick={openPrintPreview} style={ghostButton}>
                   <Printer size={16} />
                   Print
                 </button>
@@ -1377,7 +1350,7 @@ export default function QuotePage() {
               </select>
             </div>
             <div className={layoutStyles.extracted22}>
-              <button type="button" onClick={() => window.print()} style={ghostButton}>
+              <button type="button" onClick={openPrintPreview} style={ghostButton}>
                 <Printer size={16} />
                 Print
               </button>
@@ -2000,8 +1973,12 @@ export default function QuotePage() {
             }
 
             .quote-scale-shell .quote-print-paper {
-              zoom: 1.08;
+              zoom: 1.12;
               box-shadow: none !important;
+            }
+
+            .quote-print-page-embedded .quote-scale-shell .quote-print-paper {
+              zoom: 1 !important;
             }
 
             .quote-screen-editor {
@@ -2046,16 +2023,39 @@ export default function QuotePage() {
 
           @media print {
             body {
-              background: var(--color-surface) !important;
+              background: #fff !important;
               margin: 0 !important;
               overflow: visible !important;
             }
 
             html,
             body {
-              width: 210mm !important;
-              height: 297mm !important;
+              width: 194mm !important;
+              height: 281mm !important;
+              min-width: 194mm !important;
+              min-height: 281mm !important;
+              padding: 0 !important;
+              zoom: 1 !important;
               overflow: visible !important;
+            }
+
+            html[data-interface-scale] .app-shell-root,
+            .app-shell-root {
+              zoom: 1 !important;
+              width: 194mm !important;
+              height: 281mm !important;
+              min-height: 281mm !important;
+              display: block !important;
+              overflow: visible !important;
+              background: #fff !important;
+            }
+
+            .app-shell-content {
+              width: 194mm !important;
+              height: 281mm !important;
+              min-height: 281mm !important;
+              overflow: visible !important;
+              background: #fff !important;
             }
 
             * {
@@ -2084,16 +2084,21 @@ export default function QuotePage() {
             }
 
             .quote-print-page {
+              width: 194mm !important;
+              height: 281mm !important;
+              min-height: 281mm !important;
+              margin: 0 !important;
               padding: 0 !important;
               background: var(--color-surface) !important;
               overflow: visible !important;
+              zoom: 1 !important;
             }
 
             .quote-print-paper {
               max-width: none !important;
-              width: 210mm !important;
-              height: 297mm !important;
-              min-height: 297mm !important;
+              width: 194mm !important;
+              height: 281mm !important;
+              min-height: 281mm !important;
               margin: 0 !important;
               display: block !important;
               box-shadow: none !important;
@@ -2101,14 +2106,15 @@ export default function QuotePage() {
               color: var(--color-text) !important;
               box-sizing: border-box !important;
               transform: none !important;
+              zoom: 1 !important;
               break-inside: avoid;
               page-break-inside: avoid;
             }
 
             .quote-print-frame {
-              width: 182mm !important;
-              height: 259mm !important;
-              margin: 19mm auto 0 !important;
+              width: 194mm !important;
+              height: 281mm !important;
+              margin: 0 !important;
               border: 1px solid var(--color-border-strong) !important;
               background: var(--color-surface) !important;
               box-sizing: border-box !important;
@@ -2118,8 +2124,12 @@ export default function QuotePage() {
             }
 
             .quote-scale-shell {
+              width: 194mm !important;
+              max-width: 194mm !important;
               height: auto !important;
+              margin: 0 !important;
               display: block !important;
+              zoom: 1 !important;
             }
 
             .quote-screen-editor {
@@ -2163,7 +2173,7 @@ export default function QuotePage() {
 
             @page {
               size: A4 portrait;
-              margin: 0;
+              margin: 8mm;
             }
           }
 
@@ -2479,7 +2489,7 @@ const scaleShell = {
   display: "flex",
   justifyContent: "center",
   alignItems: "flex-start",
-  gap: 18,
+  gap: 14,
   maxWidth: 1680,
   margin: "0 auto",
   width: "100%",
@@ -2500,22 +2510,22 @@ const embeddedViewScaleShell = {
 const summaryPanel = {
   position: "sticky",
   top: 12,
-  flex: "0 0 330px",
-  maxWidth: 330,
-  minWidth: 300,
+  flex: "0 0 300px",
+  maxWidth: 300,
+  minWidth: 280,
   background: "var(--color-surface)",
   border: "1px solid var(--color-border-strong)",
-  borderRadius: 8,
-  boxShadow: "0 10px 30px rgba(15,23,42,0.12)",
-  padding: 14,
+  borderRadius: 10,
+  boxShadow: "0 5px 18px rgba(15,23,42,0.09)",
+  padding: 12,
   color: UI.text,
 };
 
 const leftSummaryPanel = {
   ...summaryPanel,
-  flex: "0 0 300px",
-  maxWidth: 300,
-  minWidth: 280,
+  flex: "0 0 250px",
+  maxWidth: 250,
+  minWidth: 230,
 };
 
 const summaryHeader = {

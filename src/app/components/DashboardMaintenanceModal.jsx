@@ -1,17 +1,20 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./DashboardMaintenanceModal.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { arrayUnion, deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "../../../firebaseConfig";
 import EditMaintenanceBookingForm from "./EditMaintenanceBookingForm";
 import MaintenanceBookingForm from "./MaintenanceBookingForm";
 import {
   completeMaintenanceBooking,
+  completeMaintenanceBookingItems,
   deleteMaintenanceBooking,
-} from "../utils/maintenanceBookingService";
+  updateMaintenanceDocuments,
+} from "../utils/maintenanceMutationClient";
 import {
   MAINTENANCE_JOB_WORKFLOW_STAGES,
   MAINTENANCE_STAGE_LABELS,
@@ -31,6 +34,8 @@ import {
   removeMaintenanceDocumentFromHistory,
 } from "@/app/utils/maintenanceDocuments";
 import { buildAdditionalMaintenanceCompletionPatch } from "@/app/utils/additionalMaintenanceCompletion";
+import { buildMaintenanceBickersReference } from "@/app/utils/maintenanceRecord";
+import { Modal } from "@/app/components/ui";
 
 const EMPTY_VALUE = "-";
 
@@ -50,6 +55,18 @@ const fmtDate = (value) => {
 const fmtText = (value) => {
   if (value === null || value === undefined || value === "") return EMPTY_VALUE;
   return String(value);
+};
+
+const titleCase = (value) =>
+  String(value || "")
+    .trim()
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+
+const displayMaintenanceType = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (normalized === "MOT" || normalized === "PMI") return normalized;
+  return titleCase(normalized.toLowerCase());
 };
 
 const ymd = (value) => {
@@ -113,7 +130,7 @@ const safeFileName = (name = "document") =>
 const documentList = (value) => (Array.isArray(value) ? value.filter((item) => item?.url || item?.name) : []);
 const safeArr = (value) => (Array.isArray(value) ? value : []);
 
-export default function DashboardMaintenanceModal({ event, onClose }) {
+export default function DashboardMaintenanceModal({ event, onClose, onOpenLinkedBooking }) {
   const router = useRouter();
   const dataAccessState = useDataAccessState();
   const [vehicle, setVehicle] = useState(null);
@@ -125,6 +142,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [deleting, setDeleting] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
   const [completingBooking, setCompletingBooking] = useState(false);
+  const [actualCompletionDate, setActualCompletionDate] = useState("");
   const [completingAppointment, setCompletingAppointment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [jobType, setJobType] = useState("");
@@ -146,31 +164,68 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [bookingActionMessage, setBookingActionMessage] = useState("");
   const [bookingActionError, setBookingActionError] = useState("");
   const [maintenanceDocumentFiles, setMaintenanceDocumentFiles] = useState({});
+  const [maintenanceDocumentInputVersion, setMaintenanceDocumentInputVersion] = useState(0);
   const [deletingDocumentUrl, setDeletingDocumentUrl] = useState("");
   const [deletedDocumentUrls, setDeletedDocumentUrls] = useState([]);
 
   const vehicleId = String(event?.vehicleId || "").trim();
   const bookingId = String(event?.__parentId || event?.id || "").trim();
   const eventType = deriveType(event);
+  const isSavedMaintenanceBooking = event?.__collection === "maintenanceBookings";
   const isDueEvent =
+    !isSavedMaintenanceBooking && (
     event?.__collection === "vehicleDueDates" ||
     event?.kind === "MOT" ||
     event?.kind === "SERVICE" ||
     event?.kind === "INSPECTION" ||
-    event?.kind === "MAINTENANCE_APPOINTMENT";
+    event?.kind === "MAINTENANCE_APPOINTMENT");
   const isGeneratedMaintenanceAppointment = event?.kind === "MAINTENANCE_APPOINTMENT";
   const isMaintenanceJob = event?.__collection === "maintenanceJobs";
-  const isBookingLikeEvent = !isDueEvent && !isMaintenanceJob && !!bookingId;
+  const isPlannerRecord = event?.__collection === "hgvPlannerHistory";
+  const isLegalDueReference = Boolean(
+    event?.isLegalDueReference && event?.linkedBookingId
+  );
+  const isBookingLikeEvent = isSavedMaintenanceBooking && !!bookingId;
+  const eventRecordStatus = String(
+    booking?.status || event?.recordStatus || event?.bookingStatus || event?.status || ""
+  ).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const isTerminalBooking = isBookingLikeEvent && new Set([
+    "completed",
+    "complete",
+    "cancelled",
+    "canceled",
+    "declined",
+    "archived",
+    "deleted",
+    "closed",
+    "superseded",
+  ]).has(eventRecordStatus);
+  const isRequestedBooking = isBookingLikeEvent && eventRecordStatus === "requested";
+  const isConfirmedBooking = isBookingLikeEvent && eventRecordStatus === "booked";
   const canBook =
+    !event?.disableBookingActions &&
+    (isDueEvent || isRequestedBooking) &&
     !!vehicleId &&
     (eventType === "MOT" || eventType === "SERVICE" || eventType === "INSPECTION");
-  const canDeleteBooking = isBookingLikeEvent;
-  const canEditBooking = isBookingLikeEvent;
-  const canManageJob = isMaintenanceJob && !!bookingId;
-  const canCompleteGeneratedAppointment =
-    isGeneratedMaintenanceAppointment &&
+  const maintenanceAdminRole = String(
+    dataAccessState?.userDoc?.role || dataAccessState?.userDoc?.platformRole || ""
+  ).trim().toLowerCase();
+  const canDeleteBooking =
+    isBookingLikeEvent &&
+    !isRequestedBooking &&
+    !isTerminalBooking &&
+    ["admin", "platformadmin", "platform_admin"].includes(maintenanceAdminRole);
+  const canDeleteImportedPlannerRecord =
+    isPlannerRecord &&
+    event?.source === "ISO WEEK CALENDAR.pdf" &&
+    !!event?.plannerEventKey &&
     !!vehicleId &&
-    !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase());
+    ["admin", "platformadmin", "platform_admin"].includes(maintenanceAdminRole);
+  const canEditBooking = isBookingLikeEvent && !isRequestedBooking && !isTerminalBooking;
+  const canAttachDocumentsToCompletedBooking =
+    isBookingLikeEvent && ["completed", "complete"].includes(eventRecordStatus);
+  const canManageJob = false;
+  const canCompleteGeneratedAppointment = false;
 
   const generatedAppointmentKinds = useMemo(() => {
     const maintenanceTypeIds = Array.isArray(event?.maintenanceTypeIds)
@@ -189,7 +244,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     (workflow) => generatedAppointmentKinds[workflow.key]
   );
   const canAttachGeneratedAppointmentDocuments =
-    isGeneratedMaintenanceAppointment &&
+    (canEditBooking || canAttachDocumentsToCompletedBooking) &&
     !!vehicleId &&
     activeGeneratedWorkflows.length > 0;
 
@@ -258,10 +313,18 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     const appointment = source.appointmentDate || source.appointmentDateISO;
     if (appointment) return fmtDate(appointment);
     if (source.startDate || source.endDate) {
-      return `${fmtDate(source.startDate || source.start)} -> ${fmtDate(source.endDate || source.end)}`;
+      const start = fmtDate(source.startDate || source.start);
+      const end = fmtDate(source.endDate || source.end);
+      if (!hasDisplayValue(end)) return start;
+      if (!hasDisplayValue(start)) return end;
+      return start === end ? start : `${start} – ${end}`;
     }
     if (source.start || source.end) {
-      return `${fmtDate(source.start)} -> ${fmtDate(source.end)}`;
+      const start = fmtDate(source.start);
+      const end = fmtDate(source.end);
+      if (!hasDisplayValue(end)) return start;
+      if (!hasDisplayValue(start)) return end;
+      return start === end ? start : `${start} – ${end}`;
     }
     return EMPTY_VALUE;
   }, [booking, job, event]);
@@ -291,6 +354,11 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       endDate: isMultiDay && end ? fmtDate(end) : EMPTY_VALUE,
       provider: fmtText(source.provider || source.location),
       bookingRef: fmtText(source.bookingRef),
+      bickersReference: fmtText(
+        buildMaintenanceBickersReference(source, {
+          id: bookingId || source.id || event?.sourceId || event?.bookingId,
+        })
+      ),
       location: fmtText(source.location),
       cost: fmtText(source.cost),
       notes: fmtText(source.notes),
@@ -307,7 +375,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           ? fmtDate(vehicle?.nextService)
           : EMPTY_VALUE,
     };
-  }, [booking, job, event, eventType, vehicle]);
+  }, [booking, job, event, eventType, vehicle, bookingId]);
 
   const workflowStatusLabel = useMemo(() => {
     const stage = normalizeWorkflowStageCompat(jobStatus || job?.status || "planned");
@@ -321,15 +389,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
   const canQuickCompleteBooking = useMemo(() => {
     const bookingStatus = String(booking?.status || event?.status || "").trim().toLowerCase();
-    const allowedType = eventType === "MOT" || eventType === "SERVICE";
     return (
       canEditBooking &&
-      allowedType &&
       bookingStatus !== "completed" &&
       bookingStatus !== "complete" &&
       bookingStatus !== "cancelled"
     );
-  }, [canEditBooking, eventType, booking?.status, event?.status]);
+  }, [canEditBooking, booking?.status, event?.status]);
 
   if (!event || loading) return null;
 
@@ -347,8 +413,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       url,
       storagePath: path,
       maintenanceTypeId: workflow?.maintenanceTypeId || kind,
-      source: "appointment",
-      sourceRecordId: String(event?.id || completedDate),
+      source: isBookingLikeEvent ? "maintenance_booking" : "appointment",
+      sourceRecordId: isBookingLikeEvent ? bookingId : String(event?.id || completedDate),
       uploadedBy: getCurrentMaintenanceUploader(dataAccessState, auth.currentUser),
     });
   };
@@ -363,6 +429,9 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       completedDate,
       completedAt,
       documentsByKey,
+      auditUser: getCurrentMaintenanceUploader(dataAccessState, auth.currentUser),
+      bookingId: String(event?.id || ""),
+      source: "dashboard_maintenance_appointment",
     });
     if (!localPatch) return null;
     return {
@@ -407,6 +476,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, completionPatch.patch));
       setVehicle((prev) => (prev ? { ...prev, ...completionPatch.localPatch } : prev));
       setMaintenanceDocumentFiles({});
+      setMaintenanceDocumentInputVersion((previous) => previous + 1);
       setBookingActionMessage("Appointment marked complete and next date calculated.");
     } catch (error) {
       console.error("[DashboardMaintenanceModal] generated appointment complete failed:", error);
@@ -476,9 +546,31 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         localPatch[workflow.historyField] = patch[workflow.historyField];
       });
 
-      await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, patch));
-      setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
+      if (isBookingLikeEvent && bookingId) {
+        const currentItems = safeArr(booking?.items || event?.canonicalItems);
+        const nextItems = currentItems.map((item) => {
+          const workflow = activeGeneratedWorkflows.find(
+            (candidate) =>
+              candidate.maintenanceTypeId ===
+              String(item?.maintenanceTypeId || "").trim().toLowerCase()
+          );
+          const document = workflow ? documentsByKey[workflow.key] : null;
+          if (!document) return item;
+          return {
+            ...item,
+            documents: [...safeArr(item?.documents), document],
+            evidenceStatus: "attached",
+          };
+        });
+        await updateMaintenanceDocuments({ bookingId, items: nextItems, vehiclePatch: patch });
+        setBooking((previous) => ({ ...(previous || {}), items: nextItems }));
+        setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
+      } else {
+        await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, patch));
+        setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
+      }
       setMaintenanceDocumentFiles({});
+      setMaintenanceDocumentInputVersion((previous) => previous + 1);
       setBookingActionMessage("Maintenance document saved.");
     } catch (error) {
       console.error("[DashboardMaintenanceModal] document save failed:", error);
@@ -492,11 +584,46 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     if (!vehicleId || deletingDocumentUrl) return;
     const url = String(file?.url || "").trim();
     const name = String(file?.name || file?.label || "this document").trim();
-    const confirmed = window.confirm(`Delete ${name}? This cannot be undone.`);
+    const confirmed = await systemDialogs.confirmSystem(`Delete ${name}? This cannot be undone.`);
     if (!confirmed) return;
 
     const workflow = ADDITIONAL_MAINTENANCE_WORKFLOWS.find((item) => item.key === kind);
     if (!workflow) return;
+    if (isBookingLikeEvent && bookingId) {
+      const nextItems = safeArr(booking?.items || event?.canonicalItems).map((item) => {
+        if (String(item?.maintenanceTypeId || "").trim().toLowerCase() !== workflow.maintenanceTypeId) {
+          return item;
+        }
+        const documents = removeMaintenanceDocument(item?.documents, file, {
+          maintenanceTypeId: workflow.maintenanceTypeId,
+        });
+        return {
+          ...item,
+          documents,
+          evidenceStatus: documents.length ? "attached" : "not_recorded",
+        };
+      });
+      setDeletingDocumentUrl(url || name);
+      setBookingActionError("");
+      try {
+        await updateMaintenanceDocuments({ bookingId, items: nextItems });
+        setBooking((previous) => ({ ...(previous || {}), items: nextItems }));
+        if (file?.storagePath || url) {
+          try {
+            await deleteObject(storageRef(storage, file.storagePath || url));
+          } catch (storageError) {
+            if (storageError?.code !== "storage/object-not-found") throw storageError;
+          }
+        }
+        setBookingActionMessage("Maintenance document deleted.");
+      } catch (error) {
+        console.error("[DashboardMaintenanceModal] booking document delete failed:", error);
+        setBookingActionError("Could not delete the maintenance document.");
+      } finally {
+        setDeletingDocumentUrl("");
+      }
+      return;
+    }
     const documentField = workflow.documentsField;
     const historyField = workflow.historyField;
     const nextDocuments = removeMaintenanceDocument(
@@ -553,8 +680,10 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
   const handleDelete = async () => {
     if (!canDeleteBooking || deleting) return;
-    const ok = window.confirm("Delete this maintenance booking?");
+    const ok = await systemDialogs.confirmSystem("Archive this maintenance booking? Its audit history will be retained.");
     if (!ok) return;
+    const reason = await systemDialogs.promptSystem("Reason for cancelling this legal maintenance requirement:", "");
+    if (!String(reason || "").trim()) return;
 
     setDeleting(true);
     setBookingActionError("");
@@ -565,11 +694,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         booking,
         vehicleId,
         vehicle,
+        authState: dataAccessState,
+        reason,
       });
       onClose?.();
     } catch (error) {
       console.error("[DashboardMaintenanceModal] delete failed:", error);
-      setBookingActionError("Could not delete booking.");
+      setBookingActionError("Could not archive booking.");
     } finally {
       setDeleting(false);
     }
@@ -577,7 +708,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
   const handleDeleteJob = async () => {
     if (!canManageJob || deleting) return;
-    const ok = window.confirm("Delete this maintenance job?");
+    const ok = await systemDialogs.confirmSystem("Delete this maintenance job?");
     if (!ok) return;
 
     setDeleting(true);
@@ -594,19 +725,78 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     }
   };
 
+  const handleDeleteImportedPlannerRecord = async () => {
+    if (!canDeleteImportedPlannerRecord || deleting) return;
+    const ok = await systemDialogs.confirmSystem(
+      "Delete this imported planner entry? This removes only the selected PDF marker; saved bookings, DVSA records and vehicle maintenance history are unchanged."
+    );
+    if (!ok) return;
+    const reason = await systemDialogs.promptSystem("Reason for deleting this imported planner entry:", "Incorrect legacy entry");
+    if (!String(reason || "").trim()) return;
+
+    setDeleting(true);
+    setBookingActionError("");
+    setBookingActionMessage("");
+    try {
+      const auditUser = getCurrentMaintenanceUploader(dataAccessState, auth.currentUser);
+      await updateDoc(
+        doc(db, "vehicles", vehicleId),
+        tenantPayload(dataAccessState, {
+          hgvPlannerHiddenImportedEventKeys: arrayUnion(event.plannerEventKey),
+          hgvPlannerHiddenImportedEventsAudit: arrayUnion({
+            eventKey: event.plannerEventKey,
+            plannerEventId: String(event.plannerEventId || ""),
+            registration: String(event.registration || ""),
+            date: ymd(event.start || event.completedAtISO || event.date),
+            reason: String(reason).trim(),
+            hiddenAt: new Date().toISOString(),
+            hiddenBy: auditUser,
+          }),
+          updatedAt: serverTimestamp(),
+        })
+      );
+      onClose?.();
+    } catch (error) {
+      console.error("[DashboardMaintenanceModal] imported planner entry delete failed:", error);
+      setBookingActionError("Could not delete the imported planner entry.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleMarkBookingComplete = async () => {
     if (!canQuickCompleteBooking || completingBooking || !bookingId) return;
+    if (!actualCompletionDate) {
+      setBookingActionError("Enter the actual completion date.");
+      return;
+    }
 
     setCompletingBooking(true);
     setBookingActionError("");
     setBookingActionMessage("");
     try {
+      const completedDate = actualCompletionDate;
+      const uploadedEntries = await Promise.all(
+        activeGeneratedWorkflows.map(async (workflow) => [
+          workflow.maintenanceTypeId,
+          await uploadAppointmentDocument(
+            maintenanceDocumentFiles[workflow.key],
+            workflow.key,
+            completedDate
+          ),
+        ])
+      );
+      const documentsByType = Object.fromEntries(
+        uploadedEntries.map(([typeId, document]) => [typeId, document ? [document] : []])
+      );
       const completedBooking = await completeMaintenanceBooking({
         bookingId,
         booking: booking || event,
         vehicleId,
         vehicle,
         authState: dataAccessState,
+        completedISO: completedDate,
+        documentsByType,
       });
       if (completedBooking.vehiclePatch) {
         setVehicle((prev) => (prev ? { ...prev, ...completedBooking.vehiclePatch } : prev));
@@ -617,14 +807,75 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
               ...prev,
               status: "Completed",
               completedAtISO: completedBooking.completedAtISO,
+              items: completedBooking.items,
               history: completedBooking.history,
             }
           : prev
       );
-      setBookingActionMessage("Booking marked as completed.");
+      setBookingActionMessage(
+        completedBooking.recurrenceStatus === "partial_failure"
+          ? "Booking completed. Follow-up scheduling is queued for reconciliation."
+          : "Booking marked as completed."
+      );
+      setMaintenanceDocumentFiles({});
+      setMaintenanceDocumentInputVersion((previous) => previous + 1);
     } catch (error) {
       console.error("[DashboardMaintenanceModal] mark booking complete failed:", error);
-      setBookingActionError("Could not mark booking as completed.");
+      setBookingActionError(error?.message || "Could not mark booking as completed.");
+    } finally {
+      setCompletingBooking(false);
+    }
+  };
+
+  const handleMarkBookingItemComplete = async (maintenanceTypeId) => {
+    if (!canQuickCompleteBooking || completingBooking || !bookingId) return;
+    if (!actualCompletionDate) {
+      setBookingActionError("Enter the actual completion date.");
+      return;
+    }
+    const workflow = activeGeneratedWorkflows.find(
+      (item) => item.maintenanceTypeId === maintenanceTypeId
+    );
+    setCompletingBooking(true);
+    setBookingActionError("");
+    setBookingActionMessage("");
+    try {
+      const completedDate = actualCompletionDate;
+      const document = workflow
+        ? await uploadAppointmentDocument(
+            maintenanceDocumentFiles[workflow.key],
+            workflow.key,
+            completedDate
+          )
+        : null;
+      const completedBooking = await completeMaintenanceBookingItems({
+        bookingId,
+        booking: booking || event,
+        vehicleId,
+        vehicle,
+        authState: dataAccessState,
+        maintenanceTypeIds: [maintenanceTypeId],
+        completedISO: completedDate,
+        documentsByType: { [maintenanceTypeId]: document ? [document] : [] },
+      });
+      if (completedBooking.vehiclePatch) {
+        setVehicle((previous) =>
+          previous ? { ...previous, ...completedBooking.vehiclePatch } : previous
+        );
+      }
+      setBooking((previous) => ({ ...(previous || event), ...completedBooking }));
+      setMaintenanceDocumentFiles((previous) => ({
+        ...previous,
+        ...(workflow ? { [workflow.key]: null } : {}),
+      }));
+      setBookingActionMessage(
+        completedBooking.recurrenceStatus === "partial_failure"
+          ? `${workflow?.label || maintenanceTypeId} completed; follow-up scheduling is queued for reconciliation.`
+          : `${workflow?.label || maintenanceTypeId} marked complete.`
+      );
+    } catch (error) {
+      console.error("[DashboardMaintenanceModal] item completion failed:", error);
+      setBookingActionError(error?.message || "Could not complete this maintenance item.");
     } finally {
       setCompletingBooking(false);
     }
@@ -734,41 +985,73 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     }
   };
 
-  const displayType = eventType === "MAINTENANCE" ? "Maintenance" : eventType;
-  const modalTitle = isGeneratedMaintenanceAppointment
-    ? "Maintenance Appointment"
-    : isDueEvent
-    ? `${displayType} Due`
-    : isMaintenanceJob
-    ? "Maintenance Job"
-    : `${displayType} Booking`;
-  const statusText = isDueEvent ? event?.bookingStatus || "Due" : bookingDetails.status;
-  const dateLabel = isGeneratedMaintenanceAppointment ? "Appointment Date" : isDueEvent ? "Due Date" : "Date(s)";
-  const dateValue = isDueEvent ? fmtDate(event?.appointmentDateISO || event?.dueDate || event?.start) : rangeText;
+  const displayType =
+    eventType === "MAINTENANCE" ? "Maintenance" : displayMaintenanceType(eventType);
+  const statusText = isLegalDueReference
+    ? "Legal due date"
+    : isRequestedBooking
+    ? "Due — not yet arranged"
+    : isConfirmedBooking
+    ? "Confirmed booking"
+    : titleCase(isDueEvent ? event?.bookingStatus || "Due" : bookingDetails.status);
+  const dateValue = isDueEvent
+    ? fmtDate(
+        isLegalDueReference
+          ? event?.dueDate || event?.start
+          : event?.appointmentDateISO || event?.dueDate || event?.start
+      )
+    : rangeText;
+  const inspectionTypeLabel = activeGeneratedWorkflows.length
+    ? activeGeneratedWorkflows.map((workflow) => workflow.label).join(" + ")
+    : displayType;
+  const userFacingType = eventType === "INSPECTION" ? inspectionTypeLabel : displayType;
+  const headerMeta = [userFacingType, dateValue].filter(hasDisplayValue).join(" · ");
   const nextDueLabel =
     eventType === "MOT" ? "Next MOT Due" : eventType === "SERVICE" ? "Next Service Due" : "";
+  const legalDueDates = safeArr(booking?.items || event?.canonicalItems)
+    .map((item) => ymd(item?.legalDueDateISO || item?.sourceDueDateISO))
+    .filter(Boolean)
+    .sort();
+  const legalDueText = [...new Set(legalDueDates)].map(fmtDate).join(" / ");
   const summaryCards = [
-    { label: "Vehicle", value: vehicleLabel },
-    { label: "Status", value: statusText },
-    { label: dateLabel, value: dateValue },
     {
       label: nextDueLabel,
       value: bookingDetails.nextDue,
-      show: canEditBooking && hasDisplayValue(nextDueLabel) && hasDisplayValue(bookingDetails.nextDue),
+      show: isBookingLikeEvent && hasDisplayValue(nextDueLabel) && hasDisplayValue(bookingDetails.nextDue),
     },
   ].filter((item) => item.show !== false && hasDisplayValue(item.value));
 
+  const sameWorkshopAndDueDate =
+    isConfirmedBooking &&
+    hasDisplayValue(rangeText) &&
+    hasDisplayValue(legalDueText) &&
+    rangeText === legalDueText;
   const detailRows = [
-    { label: "Type", value: displayType },
+    { label: "Bickers reference", value: bookingDetails.bickersReference, show: isBookingLikeEvent },
+    {
+      label: "Booking",
+      value: "Recorded completion only — no saved booking is linked",
+      show: isPlannerRecord,
+    },
     { label: "Workflow Stage", value: workflowStatusLabel, show: canManageJob },
-    { label: "Booking Type", value: bookingDetails.bookingType, show: canEditBooking },
-    { label: "Start Date", value: bookingDetails.startDate, show: canEditBooking && bookingDetails.isMultiDay },
-    { label: "End Date", value: bookingDetails.endDate, show: canEditBooking && bookingDetails.isMultiDay },
+    {
+      label: "Legal due date",
+      value: fmtDate(event?.dueDate || event?.start),
+      show: isLegalDueReference,
+    },
+    {
+      label: "Linked workshop date",
+      value: fmtDate(event?.appointmentDateISO),
+      show: isLegalDueReference,
+    },
+    { label: sameWorkshopAndDueDate ? "Appointment date" : "Workshop date", value: rangeText, show: isConfirmedBooking },
+    { label: "Legal due date", value: legalDueText, show: isBookingLikeEvent && !sameWorkshopAndDueDate },
     { label: "ISO Week", value: event?.isoWeek, show: isDueEvent && hasDisplayValue(event?.isoWeek) },
     { label: "Provider / Garage", value: bookingDetails.provider, show: hasDisplayValue(bookingDetails.provider) },
-    { label: "Completed", value: bookingDetails.completedDate, show: canEditBooking },
-    { label: "Vehicles", value: bookingDetails.vehicles, show: canEditBooking && hasDisplayValue(bookingDetails.vehicles) },
-    { label: "Equipment", value: bookingDetails.equipment, show: canEditBooking && hasDisplayValue(bookingDetails.equipment) },
+    { label: "Garage reference", value: bookingDetails.bookingRef, show: hasDisplayValue(bookingDetails.bookingRef) },
+    { label: "Completed", value: bookingDetails.completedDate, show: isBookingLikeEvent || isPlannerRecord },
+    { label: "Vehicles", value: bookingDetails.vehicles, show: isPlannerRecord && hasDisplayValue(bookingDetails.vehicles) },
+    { label: "Equipment", value: bookingDetails.equipment, show: isBookingLikeEvent && hasDisplayValue(bookingDetails.equipment) },
   ].filter((item) => item.show !== false && hasDisplayValue(item.value));
   const eventDocuments = documentList(event?.documents).filter(
     (item) => !deletedDocumentUrls.includes(String(item?.url || "").trim())
@@ -777,6 +1060,16 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const documentsForAppointment = (kind) => {
     const workflow = ADDITIONAL_MAINTENANCE_WORKFLOWS.find((item) => item.key === kind);
     if (!workflow) return [];
+    if (isBookingLikeEvent) {
+      const canonicalItem = safeArr(booking?.items || event?.canonicalItems).find(
+        (item) => String(item?.maintenanceTypeId || "").trim().toLowerCase() === workflow.maintenanceTypeId
+      );
+      return normalizeMaintenanceDocumentList(canonicalItem?.documents, {
+        maintenanceTypeId: workflow.maintenanceTypeId,
+        source: "maintenance_booking",
+        sourceRecordId: bookingId,
+      }).filter((item) => !deletedDocumentUrls.includes(String(item?.url || "").trim()));
+    }
     return safeArr(vehicle?.[workflow.historyField])
       .filter(
         (entry) =>
@@ -799,31 +1092,58 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       documentsForAppointment(workflow.key),
     ])
   );
+  const evidenceOutstandingItems = safeArr(booking?.items || event?.canonicalItems).filter(
+    (item) =>
+      String(item?.status || "").trim().toLowerCase() === "completed" &&
+      ["pmi", "brake_test"].includes(
+        String(item?.maintenanceTypeId || "").trim().toLowerCase()
+      ) &&
+      String(item?.evidenceStatus || "").trim().toLowerCase() !== "attached" &&
+      safeArr(item?.documents).length === 0
+  );
+  const hasSelectedMaintenanceDocument = activeGeneratedWorkflows.some(
+    (workflow) => maintenanceDocumentFiles[workflow.key]
+  );
+  const completionButtonLabel = eventType === "INSPECTION"
+    ? "Complete inspection"
+    : `Complete ${displayType.toLowerCase()}`;
 
   return (
-    <div className={layoutStyles.extracted1} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div className={layoutStyles.extracted2}>
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <div className={layoutStyles.extracted4}>Dashboard Maintenance</div>
-            <h2 className={layoutStyles.extracted5}>{modalTitle}</h2>
-          </div>
-          <button onClick={onClose} className={layoutStyles.extracted6} type="button" aria-label="Close">
-            X
-          </button>
-        </div>
+    <Modal
+      open
+      onClose={onClose}
+      eyebrow="Maintenance"
+      title={vehicleLabel}
+      description={headerMeta}
+      headerActions={
+            <span className={layoutStyles.extracted72}>
+              {hasDisplayValue(statusText) ? (
+                <span className={layoutStyles.extracted73}>{statusText}</span>
+              ) : null}
+            </span>
+      }
+      size="lg"
+      density="compact"
+    >
 
         <div className={layoutStyles.extracted7}>
           {bookingActionError ? <div className={layoutStyles.extracted8}>{bookingActionError}</div> : null}
           {bookingActionMessage ? <div className={layoutStyles.extracted9}>{bookingActionMessage}</div> : null}
-          <div className={layoutStyles.extracted10}>
-            {summaryCards.map((item) => (
-              <div key={item.label} className={layoutStyles.extracted11}>
-                <div className={layoutStyles.extracted12}>{item.label}</div>
-                <div className={layoutStyles.extracted13}>{item.value}</div>
-              </div>
-            ))}
-          </div>
+          {evidenceOutstandingItems.length ? (
+            <div className={layoutStyles.extracted8}>
+              Maintenance is complete, but {evidenceOutstandingItems.length === 1 ? "the document is" : "documents are"} still outstanding. Upload the paperwork below when it arrives.
+            </div>
+          ) : null}
+          {summaryCards.length ? (
+            <div className={layoutStyles.extracted10}>
+              {summaryCards.map((item) => (
+                <div key={item.label} className={layoutStyles.extracted11}>
+                  <div className={layoutStyles.extracted12}>{item.label}</div>
+                  <div className={layoutStyles.extracted13}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className={layoutStyles.extracted14}>
             {detailRows.map((item) => (
@@ -858,16 +1178,22 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
         {canAttachGeneratedAppointmentDocuments ? (
           <div className={layoutStyles.extracted22}>
-            <div className={layoutStyles.extracted23}>Completion Documents</div>
+            <div className={layoutStyles.extracted23}>Inspection paperwork</div>
             <div className={layoutStyles.extracted24}>
-              Attach the inspection paperwork for this maintenance appointment.
+              Add certificates now or after completion. Outstanding paperwork remains clearly flagged.
             </div>
             <div className={layoutStyles.extracted25}>
               {activeGeneratedWorkflows.map((workflow) => {
                 const savedDocuments = savedDocumentsByKey[workflow.key] || [];
                 const selectedFile = maintenanceDocumentFiles[workflow.key] || null;
+                const workflowCompleted = safeArr(booking?.items || event?.canonicalItems).some(
+                  (item) =>
+                    String(item?.maintenanceTypeId || "").trim().toLowerCase() ===
+                      workflow.maintenanceTypeId &&
+                    String(item?.status || "").trim().toLowerCase() === "completed"
+                );
                 return (
-                <Field key={workflow.key} label={`${workflow.label} Document`}>
+                <Field key={workflow.key} label={`${workflow.label} certificate`}>
                   {savedDocuments.length ? (
                     <div className={layoutStyles.savedDocumentList}>
                       {savedDocuments.map((file, index) => (
@@ -884,32 +1210,38 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                               {file.uploadedBy?.name || file.uploadedBy?.email || "Unknown"}
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteGeneratedAppointmentDocument(workflow.key, file)
-                            }
-                            disabled={deletingDocumentUrl === (file.url || file.name)}
-                          >
-                            {deletingDocumentUrl === (file.url || file.name)
-                              ? "Deleting…"
-                              : "Delete"}
-                          </button>
+                          {!workflowCompleted ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteGeneratedAppointmentDocument(workflow.key, file)
+                              }
+                              disabled={deletingDocumentUrl === (file.url || file.name)}
+                            >
+                              {deletingDocumentUrl === (file.url || file.name)
+                                ? "Deleting…"
+                                : "Delete"}
+                            </button>
+                          ) : null}
                         </div>
                       ))}
                     </div>
                   ) : null}
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={(event) =>
-                      setMaintenanceDocumentFiles((previous) => ({
-                        ...previous,
-                        [workflow.key]: event.target.files?.[0] || null,
-                      }))
-                    }
-                    className={layoutStyles.extracted26}
-                  />
+                  <label className={layoutStyles.documentPicker}>
+                    <span>{selectedFile ? "Replace file" : "Choose file"}</span>
+                    <small>PDF, Word or image</small>
+                    <input
+                      key={`${workflow.key}-${maintenanceDocumentInputVersion}`}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(event) =>
+                        setMaintenanceDocumentFiles((previous) => ({
+                          ...previous,
+                          [workflow.key]: event.target.files?.[0] || null,
+                        }))
+                      }
+                    />
+                  </label>
                   {selectedFile ? (
                     <div className={layoutStyles.extracted27}>{selectedFile.name}</div>
                   ) : null}
@@ -917,7 +1249,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                 );
               })}
             </div>
-            {!canCompleteGeneratedAppointment ? (
+            {!canCompleteGeneratedAppointment && hasSelectedMaintenanceDocument ? (
               <div className={layoutStyles.extracted30}>
                 <button
                   type="button"
@@ -932,7 +1264,63 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           </div>
         ) : null}
 
+        {canQuickCompleteBooking ? (
+          <div className={layoutStyles.completionPanel}>
+            <label className={layoutStyles.completionDateField}>
+              <span>Actual completion date</span>
+              <input
+                type="date"
+                value={actualCompletionDate}
+                onChange={(event) => setActualCompletionDate(event.target.value)}
+                required
+                disabled={completingBooking}
+              />
+            </label>
+            <button
+              type="button"
+              className={layoutStyles.primaryCompletionButton}
+              onClick={handleMarkBookingComplete}
+              disabled={completingBooking || !actualCompletionDate}
+            >
+              {completingBooking ? "Saving..." : completionButtonLabel}
+            </button>
+            {activeGeneratedWorkflows.length > 1 ? (
+              <details className={layoutStyles.partialCompletion}>
+                <summary>Complete only part of this inspection</summary>
+                <div>
+                  {activeGeneratedWorkflows.map((workflow) => {
+                    const canonicalItem = safeArr(booking?.items || event?.canonicalItems).find(
+                      (item) => String(item?.maintenanceTypeId || "").trim().toLowerCase() === workflow.maintenanceTypeId
+                    );
+                    const completed = String(canonicalItem?.status || "").trim().toLowerCase() === "completed";
+                    return completed ? null : (
+                      <button
+                        key={workflow.maintenanceTypeId}
+                        type="button"
+                        onClick={() => handleMarkBookingItemComplete(workflow.maintenanceTypeId)}
+                        disabled={completingBooking || !actualCompletionDate}
+                      >
+                        Complete {workflow.label} only
+                      </button>
+                    );
+                  })}
+                </div>
+              </details>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className={layoutStyles.extracted32}>
+          {isLegalDueReference && typeof onOpenLinkedBooking === "function" && (
+            <button
+              type="button"
+              className={layoutStyles.extracted35}
+              onClick={() => onOpenLinkedBooking(event.linkedBookingId)}
+            >
+              Open linked booking
+            </button>
+          )}
+
           {canBook && (
             <button
               type="button"
@@ -971,17 +1359,6 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             </button>
           )}
 
-          {canQuickCompleteBooking && (
-            <button
-              type="button"
-              className={layoutStyles.extracted36}
-              onClick={handleMarkBookingComplete}
-              disabled={completingBooking}
-            >
-              {completingBooking ? "Saving..." : "Mark Complete"}
-            </button>
-          )}
-
           {canCompleteGeneratedAppointment && (
             <button
               type="button"
@@ -1017,7 +1394,18 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
           {canDeleteBooking && (
             <button type="button" className={layoutStyles.extracted41} onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Deleting..." : "Delete Booking"}
+              {deleting ? "Archiving..." : "Archive Booking"}
+            </button>
+          )}
+
+          {canDeleteImportedPlannerRecord && (
+            <button
+              type="button"
+              className={layoutStyles.extracted41}
+              onClick={handleDeleteImportedPlannerRecord}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete Imported Entry"}
             </button>
           )}
 
@@ -1044,7 +1432,11 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                   .slice(0, 10) || ""
               }
               sourceDueIsoWeek={event?.isoWeek || ""}
-              sourceDueKey={String(event?.id || "")}
+              sourceDueKey={String(event?.requirementKey || event?.sourceDueKey || event?.id || "")}
+              requestedRecordId={isRequestedBooking ? bookingId : ""}
+              defaultMaintenanceTypeIds={safeArr(event?.canonicalItems)
+                .map((item) => String(item?.maintenanceTypeId || "").trim().toLowerCase())
+                .filter(Boolean)}
               onClose={() => setShowBookType("")}
               onSaved={() => {
                 setShowBookType("");
@@ -1151,8 +1543,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
 

@@ -17,3 +17,13 @@ export function hasCanonicalAccessRecord(record) {
 export function hasCompanyAccess(record = {}) {
   return String(record?.companyId || "").trim().length > 0;
 }
+
+export function hasServiceWorkspaceAccess(record = {}) {
+  const role = String(record?.role || "").trim().toLowerCase().replaceAll(/[^a-z]/g, "");
+  if (["admin", "companyadmin", "platformadmin", "superadmin"].includes(role)) return true;
+  return (
+    record?.appAccess?.service === true ||
+    record?.isService === true ||
+    ["service", "workshop", "hybrid"].includes(role)
+  );
+}

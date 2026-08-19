@@ -1,9 +1,11 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
+import { Calendar as BigCalendar } from "react-big-calendar";
+import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop/index.js";
 import {
   BarChart,
   Bar,
@@ -45,14 +47,17 @@ import {
   buildMaintenanceBookingEvents,
   buildMaintenanceJobEvents,
   buildVehicleDueEvents,
+  dedupeMaintenanceCalendarEvents,
   getMaintenanceDisplayType,
   isInactiveMaintenanceBooking,
   startOfLocalDay,
 } from "../utils/maintenanceCalendar";
-import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import { calendarDayDifference } from "../utils/dateNormalization.mjs";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { PeopleFleetPage, PeopleFleetPageHeader } from "@/app/components/PeopleFleetPage";
+import { Button, MetricCard as SharedMetricCard, NavigationCard } from "@/app/components/ui";
 import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
+import MaintenanceCalendarPanel from "@/app/components/MaintenanceCalendarPanel";
 import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
@@ -70,32 +75,9 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { rescheduleMaintenanceBooking } from "@/app/utils/maintenanceMutationClient";
 
-const DraggableBigCalendar = dynamic(
-  () =>
-    Promise.all([
-      import("react-big-calendar"),
-      import("react-big-calendar/lib/addons/dragAndDrop"),
-    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        style={{
-          minHeight: 620,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: UI.muted,
-          fontSize: 14,
-          fontWeight: 700,
-        }}
-      >
-        Loading calendar...
-      </div>
-    ),
-  }
-);
+const DraggableBigCalendar = withDragAndDrop(BigCalendar);
 
 const VEHICLE_CHECK_PATH = "/vehicle-checks";
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -122,33 +104,6 @@ const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
    Mini design system (MATCHES YOUR EMPLOYEES PAGE)
 ------------------------------------------- */
 const UI = UI_TOKENS;
-
-const pageWrap = {
-  padding: "16px 16px 32px",
-  background: UI.bg,
-  minHeight: "100vh",
-  width: "100%",
-  maxWidth: "100%",
-  overflowX: "hidden",
-};
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-  minWidth: 0,
-};
-const h1 = {
-  color: UI.text,
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 750,
-  letterSpacing: 0,
-  margin: 0,
-};
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = {
   background: UI.card,
@@ -677,6 +632,14 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   const dateKey = ymdDate(targetStart);
   const currentDateKey = event?.appointmentDateISO || ymdDate(event?.start);
   if (!dateKey || dateKey === currentDateKey) return null;
+  const sourceIsoWeek =
+    String(event?.sourceDueIsoWeek || event?.isoWeek || "").trim() ||
+    getIsoWeekLabel(currentDateKey);
+  if (sourceIsoWeek && getIsoWeekLabel(dateKey) !== sourceIsoWeek) {
+    return {
+      error: `Move this appointment within ${sourceIsoWeek}. Moving it to another ISO week would change the compliance schedule.`,
+    };
+  }
 
   const maintenanceTypeIds = Array.isArray(event?.maintenanceTypeIds)
     ? event.maintenanceTypeIds.map((item) => String(item || "").trim().toLowerCase())
@@ -1274,6 +1237,7 @@ export default function VehiclesHomePage() {
   // Calendar state
   const [calView, setCalView] = useState("week");
   const [calDate, setCalDate] = useState(new Date());
+  const [calendarUrlReady, setCalendarUrlReady] = useState(false);
 
   const [mounted, setMounted] = useState(false);
 
@@ -1281,12 +1245,7 @@ export default function VehiclesHomePage() {
   const [maintenanceBookingsRaw, setMaintenanceBookingsRaw] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
 
-  // Legacy: workBookings (if you still use it)
-  const [workBookings, setWorkBookings] = useState([]);
-
   const [usageData, setUsageData] = useState([]);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [pendingMaintenanceDrop, setPendingMaintenanceDrop] = useState(null);
 
   // Vehicles (for due-date events + labels + counts)
   const [vehiclesRaw, setVehiclesRaw] = useState([]);
@@ -1315,15 +1274,34 @@ export default function VehiclesHomePage() {
   const checkingAdmin = !authAccess.accessReady;
   const isAdmin = !!authAccess.isAdmin;
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    const requestedDate = parseLocalDateOnly(params.get("date"));
+    const requestedView = params.get("view") === "month" ? "month" : "week";
+    if (requestedDate) setCalDate(requestedDate);
+    setCalView(requestedView);
+    setCalendarUrlReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!calendarUrlReady || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("date", ymdDate(calDate));
+    params.set("view", calView === "month" ? "month" : "week");
+    const nextUrl = `${window.location.pathname}?${params.toString()}`;
+    if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [calDate, calView, calendarUrlReady]);
 
   const requireAdmin = (message = "Admin access is required for this action.") => {
     if (isAdmin) return true;
-    alert(message);
+    systemDialogs.showSystemNotification(message);
     return false;
   };
 
-  /* --------- Load all vehicles ONCE for name + due date lookups --------- */
+  /* --------- Realtime vehicle register for labels and compliance lookups --------- */
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
@@ -1332,25 +1310,28 @@ export default function VehiclesHomePage() {
       return;
     }
 
-    const fetchVehicles = async () => {
-      const snap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
+    const unsubscribe = onSnapshot(
+      tenantCollectionQuery(db, "vehicles", dataAccessState),
+      (snap) => {
       const list = snap.docs.map((d) =>
         normalizeAssetRecord({ id: d.id, ...(d.data() || {}) })
       );
 
       const map = {};
       for (const v of list) {
-        map[v.id] = v.assetLabel || v.id;
+        map[v.id] = v.assetLabel || "Unknown vehicle";
       }
 
       setVehiclesRaw(list);
       setVehicleNameMap(map);
-    };
-    fetchVehicles().catch((error) => {
-      if (!handlePageFirestoreError(error, { collectionName: "vehicles", operation: "read vehicles" })) {
-        console.error("[vehicle-home] vehicles load error:", error);
+      },
+      (error) => {
+        if (!handlePageFirestoreError(error, { collectionName: "vehicles", operation: "listen vehicles" })) {
+          console.error("[vehicle-home] vehicles snapshot error:", error);
+        }
       }
-    });
+    );
+    return () => unsubscribe();
   }, [accessKey, dataAccessState]);
 
   /* --------- MOT + Service counters (uses vehiclesRaw) --------- */
@@ -1489,53 +1470,6 @@ export default function VehiclesHomePage() {
     });
   }, [accessKey, dataAccessState, usageMonth, vehicleNameMap]);
 
-  /* --------- OPTIONAL: legacy workBookings maintenance blocks --------- */
-  useEffect(() => {
-    const gate = resolveDataAccess(dataAccessState);
-    if (gate.checking) return undefined;
-    if (!gate.allowed) {
-      reportDataAccessBlocked(gate, { collectionName: "workBookings", operation: "listen work bookings" });
-      return undefined;
-    }
-
-    const unsub = onSnapshot(
-      tenantCollectionQuery(db, "workBookings", dataAccessState),
-      (snapshot) => {
-        const events = snapshot.docs
-          .map((docSnap) => {
-            const data = docSnap.data();
-            const start = toDate(data.startDate);
-            const end = toDate(data.endDate || data.startDate);
-            if (!start || !end) return null;
-
-            const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-            const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-
-            return {
-              title: `${data.vehicleName || "Vehicle"} - ${data.maintenanceType || "Maintenance"}`,
-              start: s,
-              end: addDays(e, 1),
-              allDay: true,
-              kind: "MAINTENANCE",
-              vehicleId: data.vehicleId || null,
-              source: "workBookings",
-              docId: docSnap.id,
-            };
-          })
-          .filter(Boolean);
-
-        setWorkBookings(events);
-      },
-      (e) => {
-        handlePageFirestoreError(e, { collectionName: "workBookings", operation: "listen work bookings" });
-        console.warn("[workBookings] snapshot failed (ok if unused):", e);
-        setWorkBookings([]);
-      }
-    );
-
-    return () => unsub();
-  }, [accessKey, dataAccessState]);
-
   /* ---------  REAL BOOKINGS: maintenanceBookings => calendar events --------- */
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
@@ -1586,176 +1520,6 @@ export default function VehiclesHomePage() {
 
     return () => unsub();
   }, [accessKey, dataAccessState]);
-
-  const maintenanceBookingEventsShared = useMemo(
-    () =>
-      buildMaintenanceBookingEvents(maintenanceBookingsRaw, {
-        getVehicleLabel: (booking) => {
-          const vehicleId = booking.vehicleId || null;
-          return vehicleId
-            ? vehicleNameMap[vehicleId] || booking.vehicleLabel || vehicleId
-            : booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle";
-        },
-        groupConsecutiveDates: true,
-        titleSeparator: " - ",
-      }),
-    [maintenanceBookingsRaw, vehicleNameMap]
-  );
-
-  const bookedMetaByVehicleShared = useMemo(
-    () => buildBookedMetaByVehicle(maintenanceBookingsRaw),
-    [maintenanceBookingsRaw]
-  );
-
-  const motServiceEventsShared = useMemo(
-    () =>
-      buildVehicleDueEvents(vehiclesRaw, {
-        bookedMetaByVehicle: bookedMetaByVehicleShared,
-        getVehicleLabel: (vehicle) =>
-          vehicleNameMap[vehicle.id] || buildVehicleLabelFromObject(vehicle) || vehicle.id,
-        isApptAfterExpiry,
-      }),
-    [vehiclesRaw, vehicleNameMap, bookedMetaByVehicleShared]
-  );
-
-  const maintenanceJobEventsShared = useMemo(
-    () => buildMaintenanceJobEvents(maintenanceJobs),
-    [maintenanceJobs]
-  );
-
-
-  /* --------- Combined calendar events --------- */
-  const calendarEvents = useMemo(() => {
-    return [
-      ...maintenanceBookingEventsShared,
-      ...maintenanceJobEventsShared,
-      ...motServiceEventsShared,
-    ];
-  }, [maintenanceBookingEventsShared, maintenanceJobEventsShared, motServiceEventsShared]);
-
-  const maintenanceDraggableAccessor = useCallback(
-    (event) =>
-      (event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id)) ||
-      (event?.kind === "MAINTENANCE_APPOINTMENT" &&
-        event?.vehicleId &&
-        !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase())),
-    []
-  );
-
-  const handleMaintenanceEventDrop = useCallback(
-    async ({ event, start }) => {
-      if (event?.kind === "MAINTENANCE_APPOINTMENT") {
-        const vehicleId = String(event?.vehicleId || "").trim();
-        const dropChange = buildVehicleMaintenanceAppointmentDropUpdates(event, start);
-        if (!vehicleId || !dropChange?.updates) {
-          alert("Could not identify this vehicle appointment to move.");
-          return;
-        }
-
-        setPendingMaintenanceDrop({
-          targetCollection: "vehicles",
-          vehicleId,
-          title: String(event?.title || event?.maintenanceTypeLabel || "this appointment").trim(),
-          fromLabel: formatDropConfirmRange([...dropChange.movedDateKeys].filter(Boolean)),
-          toLabel: formatDropConfirmRange(dropChange.movedNextDateKeys || [ymdDate(start)].filter(Boolean)),
-          updates: dropChange.updates,
-        });
-        return;
-      }
-
-      if (event?.__collection !== "maintenanceBookings") {
-        alert("Only saved maintenance bookings can be moved. Due-date reminders stay fixed to the vehicle schedule.");
-        return;
-      }
-
-      const bookingId = String(event.__parentId || event.id || "").trim();
-      if (!bookingId) {
-        alert("Could not identify the maintenance booking to move.");
-        return;
-      }
-
-      const existingBooking =
-        (maintenanceBookingsRaw || []).find((booking) => String(booking?.id || "") === bookingId) || event;
-      const dropChange = buildMaintenanceBookingDropUpdates(existingBooking, event, start);
-      if (!dropChange?.updates) return;
-
-      const title = String(event?.title || existingBooking?.title || existingBooking?.jobNumber || "this booking").trim();
-      const fromDates = dropChange.movedDateKeys
-        ? [...dropChange.movedDateKeys]
-        : [ymdDate(event?.start)].filter(Boolean);
-      const toDates = dropChange.movedNextDateKeys?.length
-        ? dropChange.movedNextDateKeys
-        : [ymdDate(start)].filter(Boolean);
-      setPendingMaintenanceDrop({
-        targetCollection: "maintenanceBookings",
-        bookingId,
-        title,
-        fromLabel: formatDropConfirmRange(fromDates),
-        toLabel: formatDropConfirmRange(toDates),
-        updates: dropChange.updates,
-      });
-    },
-    [maintenanceBookingsRaw]
-  );
-
-  const cancelPendingMaintenanceDrop = useCallback(() => {
-    setPendingMaintenanceDrop(null);
-  }, []);
-
-  const confirmPendingMaintenanceDrop = useCallback(async () => {
-    if (!pendingMaintenanceDrop?.updates) return;
-
-    if (pendingMaintenanceDrop.targetCollection === "vehicles") {
-      const vehicleId = String(pendingMaintenanceDrop.vehicleId || "").trim();
-      if (!vehicleId) return;
-
-      const previousVehicles = vehiclesRaw;
-      const optimisticUpdates = { ...pendingMaintenanceDrop.updates, updatedAt: new Date().toISOString() };
-      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
-      setVehiclesRaw((current) =>
-        (current || []).map((vehicle) =>
-          String(vehicle?.id || "") === vehicleId ? { ...vehicle, ...optimisticUpdates } : vehicle
-        )
-      );
-
-      try {
-        await updateDoc(doc(db, "vehicles", vehicleId), pendingMaintenanceDrop.updates);
-        setPendingMaintenanceDrop(null);
-      } catch (error) {
-        setVehiclesRaw(previousVehicles);
-        if (!handlePageFirestoreError(error, { collectionName: "vehicles", operation: "move vehicle maintenance appointment" })) {
-          console.error("[vehicle-home] vehicle maintenance appointment move failed:", error);
-        }
-        alert("Could not move this maintenance appointment. Please try again.");
-        setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
-      }
-      return;
-    }
-
-    if (!pendingMaintenanceDrop?.bookingId) return;
-
-    const { bookingId, updates } = pendingMaintenanceDrop;
-    const previousBookings = maintenanceBookingsRaw;
-    const optimisticUpdates = { ...updates, updatedAt: new Date().toISOString() };
-    setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
-    setMaintenanceBookingsRaw((current) =>
-      (current || []).map((booking) =>
-        String(booking?.id || "") === bookingId ? { ...booking, ...optimisticUpdates } : booking
-      )
-    );
-
-    try {
-      await updateDoc(doc(db, "maintenanceBookings", bookingId), updates);
-      setPendingMaintenanceDrop(null);
-    } catch (error) {
-      setMaintenanceBookingsRaw(previousBookings);
-      if (!handlePageFirestoreError(error, { collectionName: "maintenanceBookings", operation: "move maintenance booking" })) {
-        console.error("[vehicle-home] maintenance booking move failed:", error);
-      }
-      alert("Could not move this maintenance booking. Please try again.");
-      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
-    }
-  }, [maintenanceBookingsRaw, pendingMaintenanceDrop, vehiclesRaw]);
 
   // Load submitted checks + app-reported vehicle issues for the review queue
   useEffect(() => {
@@ -2057,7 +1821,7 @@ export default function VehiclesHomePage() {
       const reviewer = auth?.currentUser?.displayName || auth?.currentUser?.email || "Supervisor";
 
       if (decision === "approved" && !category) {
-        alert("Choose where to route this defect: General Maintenance or Immediate Defects.");
+        systemDialogs.showSystemNotification("Choose where to route this defect: General Maintenance or Immediate Defects.");
         setActionLoading(false);
         return;
       }
@@ -2120,7 +1884,7 @@ export default function VehiclesHomePage() {
         operation: "update defect review",
       });
       if (!denied) console.error("defect review error:", e);
-      alert(denied ? "Permission denied. This user cannot update defect reviews." : "Could not update defect. Please try again.");
+      systemDialogs.showSystemNotification(denied ? "Permission denied. This user cannot update defect reviews." : "Could not update defect. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -2362,7 +2126,9 @@ export default function VehiclesHomePage() {
     return {
       style: {
         borderRadius: 10,
-        border: `1px solid ${border}`,
+        borderTop: `1px solid ${border}`,
+        borderRight: `1px solid ${border}`,
+        borderBottom: `1px solid ${border}`,
         borderLeft: hasRail ? `6px solid ${border}` : `1px solid ${border}`,
         background: bg,
         color: text,
@@ -2448,14 +2214,12 @@ export default function VehiclesHomePage() {
         }
       `}</style>
 
-      <div className="vehicle-home-page" style={pageWrap}>
+      <PeopleFleetPage className="vehicle-home-page">
         {/* Header */}
-        <div className={layoutStyles.extracted10}>
-          <div>
-            <h1 style={h1}>Vehicle Management</h1>
-            <div style={sub}>Fleet operations overview covering defects, utilisation, MOT compliance and service planning.</div>
-          </div>
-        </div>
+        <PeopleFleetPageHeader
+          title="Vehicles & Equipment"
+          subtitle="Fleet operations overview covering defects, utilisation, MOT compliance and service planning."
+        />
 
         <section className="vehicle-home-command-grid" style={commandGrid}>
           <div style={{ ...surface, padding: 12 }}>
@@ -2468,10 +2232,10 @@ export default function VehiclesHomePage() {
             </div>
 
             <div className={`vehicle-home-summary-grid ${layoutStyles.extracted12}`} >
-              <SummaryCard title="Pending Defects" value={kpiPending} icon={AlertTriangle} tone={kpiPending ? "danger" : "ok"} footer={`${pendingDefects.length} waiting review`} onClick={() => router.push(VEHICLE_CHECK_PATH)} />
-              <SummaryCard title="MOT Overdue" value={motCounts.overdue} icon={CalendarCheck} tone={motCounts.overdue ? "danger" : "ok"} footer={`${motCounts.soon} due soon`} onClick={() => router.push("/mot-overview")} />
-              <SummaryCard title="Service Overdue" value={serviceCounts.overdue} icon={Wrench} tone={serviceCounts.overdue ? "danger" : "ok"} footer={`${serviceCounts.soon} due soon`} onClick={() => router.push("/service-overview")} />
-              <SummaryCard title="Usage Days" value={totalUsageDays} icon={Activity} tone="brand" footer={`${totalUsageBookings} bookings`} onClick={() => router.push("/usage-overview")} />
+              <SharedMetricCard label="Pending Defects" value={kpiPending} icon={<AlertTriangle size={19} />} tone={kpiPending ? "danger" : "success"} hint={`${pendingDefects.length} waiting review`} onClick={() => router.push(VEHICLE_CHECK_PATH)} />
+              <SharedMetricCard label="MOT Overdue" value={motCounts.overdue} icon={<CalendarCheck size={19} />} tone={motCounts.overdue ? "danger" : "success"} hint={`${motCounts.soon} due soon`} onClick={() => router.push("/mot-overview")} />
+              <SharedMetricCard label="Service Overdue" value={serviceCounts.overdue} icon={<Wrench size={19} />} tone={serviceCounts.overdue ? "danger" : "success"} hint={`${serviceCounts.soon} due soon`} onClick={() => router.push("/service-overview")} />
+              <SharedMetricCard label="Usage Days" value={totalUsageDays} icon={<Activity size={19} />} tone="info" hint={`${totalUsageBookings} bookings`} onClick={() => router.push("/usage-overview")} />
             </div>
 
             <div className={layoutStyles.extracted13}>
@@ -2479,27 +2243,38 @@ export default function VehiclesHomePage() {
                 <h2 style={{ ...titleMd, fontSize: 15 }}>Fleet workspaces</h2>
                 <div style={hint}>Common vehicle actions grouped by how the workshop uses them.</div>
               </div>
-              <button type="button" style={btn("ghost")} onClick={() => router.push(VEHICLE_CHECK_PATH)}>
-                Open vehicle check
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Button type="button" onClick={() => router.push("/hgv-compliance")}>
+                  <CalendarCheck size={15} />
+                  HGV inspection planner
+                </Button>
+                <Button variant="secondary" type="button" onClick={() => router.push(VEHICLE_CHECK_PATH)}>
+                  Open vehicle check
+                </Button>
+              </div>
             </div>
 
             <div className={`vehicle-home-ops-grid ${layoutStyles.extracted14}`} >
               {vehicleSections.map((section, idx) => (
-                <Tile
+                <NavigationCard
                   key={idx}
-                  icon={section.icon}
+                  icon={React.createElement(section.icon, { size: 20, strokeWidth: 2.2 })}
                   title={section.title}
                   description={section.description}
-                  rightBadges={section.rightBadges}
+                  badges={section.rightBadges}
                   onClick={() => router.push(section.link)}
                 />
               ))}
-              <VehicleCheckTile onClick={() => router.push(VEHICLE_CHECK_PATH)} />
+              <NavigationCard
+                icon={<ClipboardCheck size={20} strokeWidth={2.2} />}
+                title="Vehicle Check"
+                description="Submit daily checks and defects"
+                onClick={() => router.push(VEHICLE_CHECK_PATH)}
+              />
             </div>
           </div>
 
-          <aside style={{ display: "grid", gap: UI.gap }}>
+          <aside style={{ display: "grid", gap: UI.gap, minWidth: 0 }}>
             <RiskRing
               title="MOT Compliance"
               total={motCounts.total}
@@ -2520,34 +2295,9 @@ export default function VehiclesHomePage() {
                   <h2 style={{ ...titleMd, fontSize: 15 }}>Recent activity</h2>
                   <div style={hint}>Latest service, prep, checks and defect movement.</div>
                 </div>
-                <button type="button" style={btn("pill")} onClick={() => router.push(ACTIVITY_HISTORY_PATH)}>
+                <Button variant="secondary" size="sm" type="button" onClick={() => router.push(ACTIVITY_HISTORY_PATH)}>
                   View all
-                </button>
-              </div>
-              <div className={layoutStyles.extracted16}>
-                {recentActivity.slice(0, 4).map((activity) => (
-                  <button
-                    key={activity.activityId}
-                    type="button"
-                    onClick={() => activity.route && router.push(activity.route)}
-                    style={{
-                      border: "1px solid var(--color-brand-soft)",
-                      background: "var(--color-surface-subtle)",
-                      borderRadius: 8,
-                      padding: "8px 9px",
-                      textAlign: "left",
-                      cursor: activity.route ? "pointer" : "default",
-                    }}
-                  >
-                    <div style={{ fontSize: 12.5, fontWeight: 850, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {activity.vehicleName}
-                    </div>
-                    <div style={{ fontSize: 12, color: UI.muted, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {activity.title}
-                    </div>
-                  </button>
-                ))}
-                {recentActivity.length === 0 ? <div style={{ color: UI.muted, fontSize: 13 }}>No recent activity yet.</div> : null}
+                </Button>
               </div>
             </div>
           </aside>
@@ -2566,9 +2316,9 @@ export default function VehiclesHomePage() {
             <div className={layoutStyles.extracted18}>
               <span style={sectionTag}>Defect queue</span>
               <span style={chipSoft}>{pendingDefects.length} pending</span>
-              <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
+              <Button variant="secondary" type="button" onClick={() => router.push("/vehicle-checks")}>
                 Open checks
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -2636,37 +2386,36 @@ export default function VehiclesHomePage() {
                       <td className={layoutStyles.extracted30}>
                         {d.sourceType === "vehicleCheck" ? (
                           <>
-                            <a
+                            <Button
+                              as="a"
                               href={CHECK_DETAIL_PATH(d.checkId)}
-                              style={{
-                                ...actionBtn("ghost"),
-                                textDecoration: "none",
-                                display: "inline-flex",
-                                alignItems: "center",
-                              }}
+                              variant="secondary"
+                              size="sm"
                             >
                               {"View check ->"}
-                            </a>
+                            </Button>
                             <span className={layoutStyles.extracted31} />
                           </>
                         ) : null}
-                        <button
+                        <Button
                           onClick={() => openApprove(d)}
-                          style={actionBtn("approve")}
+                          variant="success"
+                          size="sm"
                           disabled={checkingAdmin || !isAdmin}
                           title={!isAdmin ? "Admin only" : "Approve"}
                         >
                           Approve
-                        </button>
+                        </Button>
                         <span className={layoutStyles.extracted32} />
-                        <button
+                        <Button
                           onClick={() => openDecline(d)}
-                          style={actionBtn("decline")}
+                          variant="danger"
+                          size="sm"
                           disabled={checkingAdmin || !isAdmin}
                           title={!isAdmin ? "Admin only" : "Decline"}
                         >
                           Decline
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))
@@ -2677,82 +2426,23 @@ export default function VehiclesHomePage() {
         </section>
 
         {/* Calendar */}
-        <section style={{ ...premiumSection, marginTop: UI.gap, minWidth: 0, overflow: "visible" }}>
-          <div className={layoutStyles.extracted33}>
-            <div>
-              <h2 style={titleMd}>Maintenance Calendar</h2>
-              <div style={hint}>
-                MOT, service, maintenance bookings and active workshop activity.
-              </div>
-            </div>
-
-            <div className={layoutStyles.extracted34}>
-              <button
-                type="button"
-                style={calView === "week" ? btn() : btn("ghost")}
-                onClick={() => setCalView("week")}
-              >
-                Week
-              </button>
-
-              <button
-                type="button"
-                style={calView === "month" ? btn() : btn("ghost")}
-                onClick={() => setCalView("month")}
-              >
-                Month
-              </button>
-
-              <div style={chip}>
-                {calDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-              </div>
-            </div>
-          </div>
-
-          {mounted && (
-            <DraggableBigCalendar
-              localizer={localizer}
-              events={calendarEvents}
-              view={calView}
-              views={["week", "month"]}
-              onView={(v) => setCalView((prev) => (prev === v ? prev : v))}
-              date={calDate}
-              onNavigate={(d) => setCalDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
-              startAccessor="start"
-              endAccessor="end"
-              allDayAccessor={allDayTrue}
-              allDaySlot
-              selectable={false}
-              resizable={false}
-              draggableAccessor={maintenanceDraggableAccessor}
-              onEventDrop={handleMaintenanceEventDrop}
-              popup
-              showAllEvents
-              toolbar={false}
-              nowIndicator={false}
-              getNow={getCalendarNow}
-              components={{ event: MaintenanceCalendarEvent }}
-              onSelectEvent={handleSelectEvent}
-              eventPropGetter={maintenanceEventPropGetter}
-              className={calView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"}
-              dayPropGetter={(date) => {
-                const todayD = new Date();
-                const isToday =
-                  date.getDate() === todayD.getDate() &&
-                  date.getMonth() === todayD.getMonth() &&
-                  date.getFullYear() === todayD.getFullYear();
-
-                return {
-                  style: {
-                    backgroundColor: isToday ? "rgba(139,94,60,0.12)" : undefined,
-                    border: isToday ? "1px solid rgba(139,94,60,0.34)" : undefined,
-                  },
-                };
-              }}
-              style={calView === "week" ? compactCalendarFrame : monthCalendarFrame}
-            />
-          )}
-        </section>
+        {mounted && (
+          <MaintenanceCalendarPanel
+            maintenanceBookings={maintenanceBookingsRaw}
+            maintenanceJobs={maintenanceJobs}
+            vehicles={vehiclesRaw}
+            setMaintenanceBookings={setMaintenanceBookingsRaw}
+            date={calDate}
+            view={calView}
+            onDateChange={(nextDate) =>
+              setCalDate((previous) => sameCalendarDate(previous, nextDate) ? previous : nextDate)
+            }
+            onViewChange={(nextView) =>
+              setCalView((previous) => previous === nextView ? previous : nextView)
+            }
+            dataAccessState={dataAccessState}
+          />
+        )}
 
         {/* Usage chart */}
         <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "hidden", minWidth: 0 }}>
@@ -2768,9 +2458,9 @@ export default function VehiclesHomePage() {
               className={layoutStyles.extracted36}
             >
               <span style={sectionTag}>Usage analysis</span>
-              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
+              <Button variant="secondary" size="sm" type="button" onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
                 {"<- Prev"}
-              </button>
+              </Button>
 
               <input
                 type="month"
@@ -2782,9 +2472,9 @@ export default function VehiclesHomePage() {
                 className={layoutStyles.extracted37}
               />
 
-              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
+              <Button variant="secondary" size="sm" type="button" onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
                 {"Next ->"}
-              </button>
+              </Button>
 
               <span style={chipSoft}>{usageData.length} vehicles</span>
               <span style={chipSoft}>{totalUsageDays} days</span>
@@ -2819,150 +2509,6 @@ export default function VehiclesHomePage() {
             </ResponsiveContainer>
           </div>
         </section>
-
-        {selectedEvent && (
-          <DashboardMaintenanceModal
-            event={selectedEvent}
-            onClose={() => setSelectedEvent(null)}
-          />
-        )}
-
-        {pendingMaintenanceDrop && (
-          <div
-            className={layoutStyles.extracted39}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget && !pendingMaintenanceDrop.saving) {
-                cancelPendingMaintenanceDrop();
-              }
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="maintenance-drop-confirm-title"
-              style={{
-                ...surface,
-                width: 520,
-                maxWidth: "94vw",
-                padding: 0,
-                overflow: "hidden",
-                boxShadow: "0 24px 70px rgba(2,6,23,0.28)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "14px 16px",
-                  borderBottom: UI.border,
-                  background: "var(--color-surface-subtle)",
-                }}
-              >
-                <div className={layoutStyles.extracted40}>
-                  <span
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 8,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: UI.accentSoft,
-                      color: "var(--color-accent)",
-                      border: `1px solid ${UI.brandBorder}`,
-                      flex: "0 0 auto",
-                    }}
-                  >
-                    <Wrench size={17} />
-                  </span>
-                  <h3 id="maintenance-drop-confirm-title" style={{ margin: 0, fontSize: 16, fontWeight: 950, color: UI.text }}>
-                    Confirm Date Change
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={cancelPendingMaintenanceDrop}
-                  disabled={pendingMaintenanceDrop.saving}
-                  aria-label="Cancel date change"
-                  style={{
-                    ...btn("ghost"),
-                    width: 34,
-                    height: 34,
-                    padding: 0,
-                    opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className={layoutStyles.extracted41}>
-                <div style={{ fontSize: 13.5, lineHeight: 1.45, color: UI.text, fontWeight: 750 }}>
-                  You changed the date of this occurrence of{" "}
-                  <span className={layoutStyles.extracted42}>&quot;{pendingMaintenanceDrop.title}&quot;</span>.
-                </div>
-
-                <div
-                  className={layoutStyles.extracted43}
-                >
-                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>From</div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
-                  </div>
-                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface-subtle)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>To</div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 14, fontSize: 12.5, lineHeight: 1.45, color: UI.muted, fontWeight: 700 }}>
-                  To change all dates, open the series.
-                </div>
-                <div style={{ marginTop: 10, fontSize: 14, color: UI.text, fontWeight: 900 }}>
-                  Do you want to change just this one?
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                  padding: "12px 16px",
-                  borderTop: UI.border,
-                  background: "var(--color-surface-subtle)",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={cancelPendingMaintenanceDrop}
-                  disabled={pendingMaintenanceDrop.saving}
-                  style={{
-                    ...btn("ghost"),
-                    opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
-                    cursor: pendingMaintenanceDrop.saving ? "not-allowed" : "pointer",
-                  }}
-                >
-                  No
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmPendingMaintenanceDrop}
-                  disabled={pendingMaintenanceDrop.saving}
-                  style={{
-                    ...btn(),
-                    opacity: pendingMaintenanceDrop.saving ? 0.82 : 1,
-                    cursor: pendingMaintenanceDrop.saving ? "wait" : "pointer",
-                  }}
-                >
-                  {pendingMaintenanceDrop.saving ? "Saving..." : "Yes"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Decision modal */}
         {actionModal && (
@@ -3020,33 +2566,25 @@ export default function VehiclesHomePage() {
                 </div>
 
                 <div className={layoutStyles.extracted46}>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setActionModal((m) => ({ ...m, category: "general" }))}
-                    style={{
-                      ...btn("pill"),
-                      borderColor: actionModal.category === "general" ? "var(--color-info-border)" : "var(--color-border)",
-                      background: actionModal.category === "general" ? UI.brandSoft : "var(--color-surface)",
-                      color: actionModal.category === "general" ? UI.brand : UI.text,
-                    }}
+                    variant={actionModal.category === "general" ? "primary" : "secondary"}
+                    size="sm"
                     disabled={actionLoading}
                   >
                     General Maintenance
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setActionModal((m) => ({ ...m, category: "immediate" }))}
-                    style={{
-                      ...btn("pill"),
-                      borderColor: actionModal.category === "immediate" ? "var(--color-info-border)" : "var(--color-border)",
-                      background: actionModal.category === "immediate" ? UI.brandSoft : "var(--color-surface)",
-                      color: actionModal.category === "immediate" ? UI.brand : UI.text,
-                    }}
+                    variant={actionModal.category === "immediate" ? "primary" : "secondary"}
+                    size="sm"
                     disabled={actionLoading}
                   >
                     Immediate Defects
-                  </button>
+                  </Button>
                 </div>
 
                 <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
@@ -3068,17 +2606,13 @@ export default function VehiclesHomePage() {
             />
 
             <div className={layoutStyles.extracted48}>
-              <button onClick={() => setActionModal(null)} style={btn("ghost")} disabled={actionLoading}>
+              <Button variant="secondary" onClick={() => setActionModal(null)} disabled={actionLoading}>
                 Cancel
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={performDecision}
-                style={
-                  actionModal.decision === "approved"
-                    ? { ...btn("primary") }
-                    : { ...btn("primary"), background: UI.danger, borderColor: UI.danger }
-                }
+                variant={actionModal.decision === "approved" ? "primary" : "danger"}
                 disabled={
                   checkingAdmin ||
                   !isAdmin ||
@@ -3088,11 +2622,11 @@ export default function VehiclesHomePage() {
                 title={!isAdmin ? "Admin only" : undefined}
               >
                 {actionLoading ? "Saving..." : actionModal.decision === "approved" ? "Approve" : "Decline"}
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
+      </PeopleFleetPage>
     </HeaderSidebarLayout>
   );
 }

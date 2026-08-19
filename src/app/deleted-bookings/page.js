@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -36,11 +37,6 @@ import {
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
-
-/* ───────────────────────────────────────────
-   Admin gate (ONLY these emails)
-─────────────────────────────────────────── */
-const ADMIN_EMAILS = ["mason@bickers.co.uk"];
 
 /* -------------------------- tiny visual tokens only -------------------------- */
 const UI = UI_TOKENS;
@@ -456,16 +452,10 @@ export default function DeletedBookingsPage() {
           return;
         }
 
-        const email = String(u.email || "").trim().toLowerCase();
-        if (ADMIN_EMAILS.includes(email)) {
-          setIsAdmin(true);
-          return;
-        }
-
         try {
           const userSnap = await getDoc(doc(db, "users", u.uid));
           const role = String(userSnap.data()?.role || "").trim().toLowerCase();
-          const ok = role === "admin";
+          const ok = role === "admin" || role === "platformadmin";
           setIsAdmin(ok);
           if (!ok) {
             router.push("/home");
@@ -607,22 +597,22 @@ export default function DeletedBookingsPage() {
 
       await deleteDoc(doc(db, "deletedBookings", row.id));
 
-      alert("Restored ");
+      systemDialogs.showSystemNotification("Restored ");
     } catch (e) {
       console.error("Restore failed:", e);
-      alert("Restore failed. Check console.");
+      systemDialogs.showSystemNotification("Restore failed. Check console.");
     }
   };
 
   const purge = async (row) => {
     if (!row) return;
-    if (!confirm("Permanently delete this deleted booking? This cannot be undone.")) return;
+    if (!await systemDialogs.confirmSystem("Permanently delete this deleted booking? This cannot be undone.")) return;
 
     try {
       await deleteDoc(doc(db, "deletedBookings", row.id));
     } catch (e) {
       console.error("Purge failed:", e);
-      alert("Purge failed. Check console.");
+      systemDialogs.showSystemNotification("Purge failed. Check console.");
     }
   };
 

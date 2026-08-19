@@ -28,6 +28,8 @@ lib-cov
 # Coverage directory used by tools like istanbul
 coverage
 *.lcov
+test-results/
+playwright-report/
 
 # nyc test coverage
 .nyc_output
@@ -151,3 +153,10 @@ vite.config.ts.timestamp-*
 
 # OneDrive/macOS conflict copies are preserved in release snapshots, not Git.
 *-MacBook Pro (2)*
+**/* 2.*
+.next 2/
+
+# Local extraction and review artifacts are recoverable from release archives.
+tmp/
+outputs/
+.env*

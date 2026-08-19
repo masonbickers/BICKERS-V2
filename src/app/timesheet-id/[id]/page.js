@@ -39,10 +39,8 @@ import {
   Send,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
 
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
 const PAY_ADVICE_PIN_EMAIL = "adam@bickers.co.uk";
 const PAY_ADVICE_PIN = "4159";
 
@@ -372,6 +370,21 @@ function diffHours(start, end) {
   return Math.max(0, d);
 }
 
+function crossesMidnight(start, end) {
+  const startMinutes = toMinutes(start);
+  const endMinutes = toMinutes(end);
+  return startMinutes != null && endMinutes != null && endMinutes < startMinutes;
+}
+
+function hasLateSupplement(entry) {
+  const wrapMinutes = toMinutes(entry?.wrapTime);
+  return (
+    entry?.lateSup === true ||
+    crossesMidnight(entry?.callTime, entry?.wrapTime) ||
+    (wrapMinutes != null && wrapMinutes >= 22 * 60)
+  );
+}
+
 function normaliseTimeValue(value) {
   const mins = toMinutes(value);
   if (mins == null) return null;
@@ -489,42 +502,8 @@ function extractYardSegments(entry) {
   return [];
 }
 
-/*  Determine whether yard lunch should be deducted (fix) */
-function shouldDeductYardLunch(entry) {
-  if (!entry) return true;
-
-  if (entry?.managerLunchDeduct === true) return true;
-  if (entry?.managerLunchDeduct === false) return false;
-
-  // If you ever add an explicit override in schema, honour it.
-  if (entry?.yardLunchDeduct === false) return false;
-
-  // Common patterns across apps:
-  // - yardLunchSup / lunchSup often means "lunch supplement claimed" / "no lunch provided"
-  //   do NOT deduct lunch from hours.
-  if (entry?.yardLunchSup === true) return false;
-  if (entry?.lunchSup === true) return false;
-
-  // Some schemas use an explicit "noLunch/skipLunch" meaning lunch not taken
-  if (entry?.noLunch === true) return false;
-  if (entry?.skipLunch === true) return false;
-
-  // Some schemas use "lunchTaken" / "lunch" to mean lunch was taken
-  // - if explicitly false, do NOT deduct
-  if (entry?.lunchTaken === false) return false;
-  if (entry?.lunch === false) return false;
-
-  // - if explicitly true, deduct
-  if (entry?.lunchTaken === true) return true;
-  if (entry?.lunch === true) return true;
-
-  // Default behaviour (matches your previous intent):
-  // Deduct lunch unless the user explicitly indicates no lunch / lunch supplement.
-  return true;
-}
-
 /* Calculate yard day hours */
-function computeYardHours(entry) {
+function computeYardHours(entry, day) {
   const segs = extractYardSegments(entry);
   let total = 0;
   segs.forEach((s) => (total += diffHours(s.start, s.end)));
@@ -534,7 +513,7 @@ function computeYardHours(entry) {
   }
 
   //  FIX: only deduct lunch when the data indicates lunch should be deducted
-  if (total > 0 && shouldDeductYardLunch(entry)) total -= LUNCH_DEDUCT_HRS;
+  if (total > 0 && shouldDeductYardLunch(entry, day)) total -= LUNCH_DEDUCT_HRS;
 
   return Math.max(0, total);
 }
@@ -543,6 +522,11 @@ function computeYardHours(entry) {
 function computeTravelHours(entry) {
   // In mobile: travel is leaveTime -> arriveTime
   return diffHours(entry.leaveTime, entry.arriveTime);
+}
+
+function computeTravelPaidHours(entry) {
+  const actualHours = computeTravelHours(entry);
+  return actualHours > 0 ? Math.max(10, actualHours) : 0;
 }
 
 function computeOfficeHours(entry) {
@@ -568,6 +552,12 @@ function computeWaitingAllowanceHours(entry) {
   return Math.min(Math.max(0, diffMinutes / 60), 1);
 }
 
+function computeEarlyCallOvertimeHours(entry) {
+  const callMinutes = toMinutes(entry?.callTime);
+  if (callMinutes == null || callMinutes >= 7 * 60) return 0;
+  return Math.max(0, (7 * 60 - callMinutes) / 60);
+}
+
 function computeHotelTravelExemptionHours(entry) {
   return entry?.overnight ? 0.5 : 0;
 }
@@ -578,6 +568,7 @@ function getPrecallHours(entry) {
 
 function computeOnSetBreakdown(entry) {
   const travelToHrs = computeTravelHours(entry);
+  const paidEarlyArrivalHrs = computeWaitingAllowanceHours(entry);
   const preCallHrs = getPrecallHours(entry);
   const callToWrapHrs =
     entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
@@ -592,16 +583,37 @@ function computeOnSetBreakdown(entry) {
       : 0;
 
     const onSetPaidHrs = 10;
-    const extraAfterTenHrs = Math.max(0, callToFinishHrs - onSetPaidHrs);
+    const wrapOvertimeHrs = Math.max(0, callToWrapHrs - onSetPaidHrs);
+    const earlyCallOvertimeHrs = computeEarlyCallOvertimeHours(entry);
+    const onSetOvertimeHrs = Math.max(wrapOvertimeHrs, earlyCallOvertimeHrs);
+    const rawTravelAfterTenHrs = Math.max(
+      0,
+      callToFinishHrs - Math.max(onSetPaidHrs, callToWrapHrs || 0)
+    );
+    const travelAfterTenHrs = Math.max(
+      0,
+      rawTravelAfterTenHrs - computeHotelTravelExemptionHours(entry)
+    );
+    const travelInsideTenHrs = Math.max(0, travelBackHrs - rawTravelAfterTenHrs);
 
     return {
       travelToHrs,
+      paidEarlyArrivalHrs,
       preCallHrs,
       onSetBlockHrs: callToWrapHrs,
       onSetPaidHrs,
+      onSetOvertimeHrs,
+      earlyCallOvertimeHrs,
       travelBackHrs,
-      extraAfterTenHrs,
-      totalHrs: travelToHrs + preCallHrs + onSetPaidHrs + extraAfterTenHrs,
+      travelInsideTenHrs,
+      travelAfterTenHrs,
+      totalHrs:
+        travelToHrs +
+        paidEarlyArrivalHrs +
+        preCallHrs +
+        onSetPaidHrs +
+        onSetOvertimeHrs +
+        travelAfterTenHrs,
     };
   }
 
@@ -611,12 +623,16 @@ function computeOnSetBreakdown(entry) {
 
   return {
     travelToHrs,
+    paidEarlyArrivalHrs,
     preCallHrs,
     onSetBlockHrs: legacyOnSetHrs,
     onSetPaidHrs: legacyOnSetHrs,
     travelBackHrs,
-    extraAfterTenHrs: travelBackHrs,
-    totalHrs: Math.max(0, legacyOnSetHrs + preCallHrs),
+    onSetOvertimeHrs: 0,
+    earlyCallOvertimeHrs: 0,
+    travelInsideTenHrs: 0,
+    travelAfterTenHrs: travelBackHrs,
+    totalHrs: Math.max(0, legacyOnSetHrs + paidEarlyArrivalHrs + preCallHrs),
   };
 }
 
@@ -652,15 +668,34 @@ function isTurnaroundDay(entry) {
   return false;
 }
 
-/*  Turnaround hours: 0 unless user added yardSegments */
+/* Turnaround is a guaranteed 10-hour paid day. */
 function computeTurnaroundHours(entry) {
-  const segs = extractYardSegments(entry);
-  if (!segs || segs.length === 0) return 0;
+  return entry ? 10 : 0;
+}
 
-  // If they manually added blocks on a turnaround day, count them (and don’t force lunch deduction)
-  let total = 0;
-  segs.forEach((s) => (total += diffHours(s.start, s.end)));
-  return Math.max(0, total);
+function extractWorkshopSegments(entry) {
+  if (Array.isArray(entry?.workshopSegments)) return entry.workshopSegments;
+  if (Array.isArray(entry?.yardSegments)) return entry.yardSegments;
+  if (Array.isArray(entry?.timeBlocks)) return entry.timeBlocks;
+  return [];
+}
+
+function computeWorkshopHours(entry) {
+  const segments = extractWorkshopSegments(entry);
+  if (segments.length > 0) {
+    return segments.reduce(
+      (total, segment) =>
+        total + diffHours(segment.start || segment.startTime, segment.end || segment.finish || segment.endTime),
+      0
+    );
+  }
+
+  return Array.isArray(entry?.workshopJobs)
+    ? entry.workshopJobs.reduce(
+        (total, row) => total + Number(row?.hours ?? row?.allocatedHours ?? row?.hrs ?? 0),
+        0
+      )
+    : 0;
 }
 
 /* Determine day mode (mirror mobile: uses entry.mode + isTurnaround flag) */
@@ -681,6 +716,7 @@ function detectMode(entry, isWeekend) {
   if (rawMode === "travel") return "travel";
   if (rawMode === "onset") return "onset";
   if (rawMode === "office") return "office";
+  if (rawMode === "workshop") return "workshop";
   if (rawMode === "yard") return "yard";
 
   return "yard";
@@ -728,6 +764,7 @@ function hasMeaningfulDayEntry(entry) {
   })) return true;
 
   if (Array.isArray(entry.yardSegments) && entry.yardSegments.length > 0) return true;
+  if (Array.isArray(entry.workshopSegments) && entry.workshopSegments.length > 0) return true;
   if (Array.isArray(entry.workshopJobs) && entry.workshopJobs.length > 0) return true;
 
   return false;
@@ -887,6 +924,7 @@ function jobFromBooking(booking = {}, ymd = "") {
     id: booking.id || "",
     jobNumber: booking.jobNumber || "",
     client: booking.client || "",
+    production: booking.production || "",
     location: booking.location || "",
     vehicles: Array.isArray(booking.vehicles) ? booking.vehicles : [],
     dayNote: dayNoteMeta.text,
@@ -940,6 +978,13 @@ function formatPrecallMinutes(min) {
 function formatShortDate(value) {
   const d = parseDateFlexible(value);
   if (!d) return "-";
+  return d.toLocaleDateString("en-GB");
+}
+
+function formatWeekEndingDate(value) {
+  const d = parseDateFlexible(value);
+  if (!d) return "-";
+  d.setDate(d.getDate() + 6);
   return d.toLocaleDateString("en-GB");
 }
 
@@ -1043,11 +1088,11 @@ function resolveVehicleLabel(vehicle, lookup = {}) {
 
 function getPayAdviceJobName(card, primaryJob) {
   if (primaryJob?.jobNumber) {
-    return `#${primaryJob.jobNumber}${primaryJob.client ? ` - ${primaryJob.client}` : ""}`;
+    return `#${primaryJob.jobNumber}${primaryJob.production ? ` - ${primaryJob.production}` : ""}`;
   }
 
-  if (primaryJob?.client || primaryJob?.title) {
-    return primaryJob.client || primaryJob.title;
+  if (primaryJob?.production || primaryJob?.title) {
+    return primaryJob.production || primaryJob.title;
   }
 
   if (card.hasLiveHoliday) {
@@ -1749,6 +1794,7 @@ export default function TimesheetDetailPage() {
               ...j,
               jobNumber: j.jobNumber || b.jobNumber || "",
               client: j.client || b.client || "",
+              production: j.production || b.production || "",
               location: j.location || b.location || "",
               vehicles: Array.isArray(b.vehicles) ? b.vehicles : [],
               dayNote: dayNoteMeta.text,
@@ -1838,7 +1884,8 @@ export default function TimesheetDetailPage() {
     if (!isAdmin || isApproved || !card?.day) return;
     const entry = card.entry || {};
     const entryMode = detectMode(entry, card.day === "Saturday" || card.day === "Sunday");
-    const yardSeg = extractYardSegments(entry)[0] || {};
+    const yardSeg =
+      (entryMode === "workshop" ? extractWorkshopSegments(entry)[0] : extractYardSegments(entry)[0]) || {};
     const availableJobs = Array.isArray(card.jobsToday) ? card.jobsToday : [];
     const savedJobKeys = new Set(jobsFromEntry(entry, timesheet?.jobSnapshot || {}).map(manualJobKey).filter(Boolean));
     setManualEntryDay(card.day);
@@ -1853,7 +1900,9 @@ export default function TimesheetDetailPage() {
       wrapTime: entry.wrapTime || "",
       arriveBack: entry.arriveBack || "",
       managerLunchDeduct:
-        entry.managerLunchDeduct === true
+        card.day === "Saturday" || card.day === "Sunday"
+          ? false
+          : entry.managerLunchDeduct === true
           ? true
           : entry.managerLunchDeduct === false
           ? false
@@ -1862,6 +1911,9 @@ export default function TimesheetDetailPage() {
       overnight: Boolean(entry.overnight),
       nightShoot: Boolean(entry.nightShoot),
       mealSup: Boolean(entry.mealSup),
+      generatorUsed: Boolean(entry.generatorUsed),
+      lateSup: Boolean(entry.lateSup),
+      workshopJobs: Array.isArray(entry.workshopJobs) ? entry.workshopJobs : [],
       note: entry.note || entry.dayNotes || "",
       selectedJobKeys: savedJobKeys.size
         ? Array.from(savedJobKeys)
@@ -1897,18 +1949,27 @@ export default function TimesheetDetailPage() {
     };
 
     if (mode === "yard" || mode === "workshop") {
+      const segments = [
+        {
+          start: draft?.start || employeeYardAutofill.start || DEFAULT_YARD_START,
+          end: draft?.end || employeeYardAutofill.end || DEFAULT_YARD_END,
+          note: draft?.note || "",
+        },
+      ];
       return {
         ...base,
-        mode: mode === "workshop" ? "yard" : "yard",
+        mode,
         type: mode,
-        yardSegments: [
-          {
-            start: draft?.start || employeeYardAutofill.start || DEFAULT_YARD_START,
-            end: draft?.end || employeeYardAutofill.end || DEFAULT_YARD_END,
-            note: draft?.note || "",
-          },
-        ],
-        managerLunchDeduct: draft?.managerLunchDeduct !== false,
+        ...(mode === "workshop"
+          ? {
+              workshopSegments: segments,
+              workshopJobs: Array.isArray(draft?.workshopJobs) ? draft.workshopJobs : [],
+            }
+          : { yardSegments: segments }),
+        managerLunchDeduct:
+          card?.day === "Saturday" || card?.day === "Sunday"
+            ? false
+            : draft?.managerLunchDeduct !== false,
         overnight: Boolean(draft?.overnight),
       };
     }
@@ -1943,6 +2004,8 @@ export default function TimesheetDetailPage() {
         overnight: Boolean(draft?.overnight),
         nightShoot: Boolean(draft?.nightShoot),
         mealSup: Boolean(draft?.mealSup),
+        generatorUsed: Boolean(draft?.generatorUsed),
+        lateSup: Boolean(draft?.lateSup),
       };
     }
 
@@ -2232,28 +2295,29 @@ export default function TimesheetDetailPage() {
         : 0;
       const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
       if (entryExists) {
-        if (mode === "yard") dayHours = computeYardHours(entry);
-        if (mode === "travel") dayHours = computeTravelHours(entry);
+        if (mode === "yard") dayHours = computeYardHours(entry, day);
+        if (mode === "workshop") dayHours = computeWorkshopHours(entry);
+        if (mode === "travel") dayHours = computeTravelPaidHours(entry);
         if (mode === "onset") dayHours = computeOnSetHours(entry);
         if (mode === "office") dayHours = computeOfficeHours(entry);
 
-        //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
+        // Turnaround is a guaranteed 10-hour paid day.
         if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
 
         if (
           mode === "holiday" ||
           mode === "bankholiday" ||
-          isHalfHolidayDay ||
           mode === "off" ||
           mode === "unpaid"
         ) {
-          dayHours = paidHolidayHoursToUse;
+          dayHours = 0;
         }
+        if (isHalfHolidayDay && mode === "yard") dayHours = computeYardHours(entry, day);
         if (mode === "unpaid") {
           dayHours = 0;
         }
       } else if (mode === "holiday" || mode === "bankholiday" || isHalfHolidayDay) {
-        dayHours = paidHolidayHoursToUse;
+        dayHours = 0;
       }
 
       total += dayHours;
@@ -2262,11 +2326,18 @@ export default function TimesheetDetailPage() {
       const precallLabel = entryExists ? formatPrecallMinutes(entry?.precallDuration) : "";
       const onSetBreakdown = entryExists ? computeOnSetBreakdown(entry) : null;
       const travelToHrs = onSetBreakdown?.travelToHrs || 0;
+      const paidEarlyArrivalHrs = onSetBreakdown?.paidEarlyArrivalHrs || 0;
       const preCallHrs = onSetBreakdown?.preCallHrs || 0;
       const onSetBlockHrs = onSetBreakdown?.onSetBlockHrs || 0;
       const onSetPaidHrs = onSetBreakdown?.onSetPaidHrs || 0;
+      const onSetOvertimeHrs = onSetBreakdown?.onSetOvertimeHrs || 0;
+      const earlyCallOvertimeHrs = onSetBreakdown?.earlyCallOvertimeHrs || 0;
       const travelBackHrs = onSetBreakdown?.travelBackHrs || 0;
-      const extraAfterTenHrs = onSetBreakdown?.extraAfterTenHrs || 0;
+      const travelInsideTenHrs = onSetBreakdown?.travelInsideTenHrs || 0;
+      const travelAfterTenHrs = onSetBreakdown?.travelAfterTenHrs || 0;
+      const actualTravelHrs = mode === "travel" ? computeTravelHours(entry) : 0;
+      const travelMinimumAdjustmentHrs =
+        mode === "travel" && actualTravelHrs > 0 ? Math.max(0, 10 - actualTravelHrs) : 0;
 
       // Turnaround job (how mobile saves it)
       const turnaroundJob = entryExists ? entry?.turnaroundJob || null : null;
@@ -2277,7 +2348,7 @@ export default function TimesheetDetailPage() {
 
       //  For UI label: whether lunch was deducted on yard day
       const yardLunchDeducted =
-        entryExists && mode === "yard" && yardSegs.length > 0 && shouldDeductYardLunch(entry);
+        entryExists && mode === "yard" && yardSegs.length > 0 && shouldDeductYardLunch(entry, day);
 
       return {
         day,
@@ -2299,14 +2370,21 @@ export default function TimesheetDetailPage() {
         paidHolidayHoursToUse,
         paidHolidayLunchDeducted,
         paidHolidayTimeLabel: `${employeeYardAutofill.start} -> ${employeeYardAutofill.end}`,
+        dayHours,
         dayTotalLabel,
         precallLabel,
         travelToHrs,
+        paidEarlyArrivalHrs,
         preCallHrs,
         onSetBlockHrs,
         onSetPaidHrs,
+        onSetOvertimeHrs,
+        earlyCallOvertimeHrs,
         travelBackHrs,
-        extraAfterTenHrs,
+        travelInsideTenHrs,
+        travelAfterTenHrs,
+        actualTravelHrs,
+        travelMinimumAdjustmentHrs,
         yardSegs,
         turnaroundJob,
         hasTurnaroundJob,
@@ -2316,6 +2394,77 @@ export default function TimesheetDetailPage() {
 
     return { dayCards: cards, weeklyTotal: total };
   }, [dayMap, jobsByDay, holidaysByDate, bankHolidaysByDate, weekStartDate, employeeYardAutofill]);
+
+  const weekSummary = useMemo(() => {
+    const summary = {
+      categoryHours: { yard: 0, travel: 0, onset: 0, workshop: 0 },
+      categoryDays: { yard: 0, travel: 0, onset: 0, workshop: 0 },
+      overtimeHrs: 0,
+      actualTravelHrs: 0,
+      travelMinimumAdjustmentHrs: 0,
+      travelToHrs: 0,
+      paidEarlyArrivalHrs: 0,
+      preCallHrs: 0,
+      onSetStandardHrs: 0,
+      onSetOvertimeHrs: 0,
+      returnTravelInsideHrs: 0,
+      returnTravelAfterHrs: 0,
+      yardTravelHrs: 0,
+      yardBreakDeductionHrs: 0,
+      paidHolidays: 0,
+      unpaidHolidays: 0,
+      halfHolidays: 0,
+      bankHolidays: 0,
+      mealSupplements: 0,
+      travelMeals: 0,
+      nightShoots: 0,
+      overnights: 0,
+      generators: 0,
+      lateSupplements: 0,
+      turnarounds: 0,
+    };
+
+    dayCards.forEach((card) => {
+      const entry = card.entry || {};
+      if (Object.prototype.hasOwnProperty.call(summary.categoryHours, card.mode)) {
+        summary.categoryHours[card.mode] += card.dayHours || 0;
+        if ((card.dayHours || 0) > 0) summary.categoryDays[card.mode] += 1;
+      }
+      if (card.mode === "yard" || card.mode === "workshop") {
+        summary.overtimeHrs += Math.max(0, (card.dayHours || 0) - 8.5);
+      }
+      summary.overtimeHrs += card.onSetOvertimeHrs || 0;
+      summary.actualTravelHrs += card.actualTravelHrs || 0;
+      summary.travelMinimumAdjustmentHrs += card.travelMinimumAdjustmentHrs || 0;
+      summary.travelToHrs += card.travelToHrs || 0;
+      summary.paidEarlyArrivalHrs += card.paidEarlyArrivalHrs || 0;
+      summary.preCallHrs += card.preCallHrs || 0;
+      summary.onSetStandardHrs += card.mode === "onset" ? card.onSetPaidHrs || 0 : 0;
+      summary.onSetOvertimeHrs += card.onSetOvertimeHrs || 0;
+      summary.returnTravelInsideHrs += card.travelInsideTenHrs || 0;
+      summary.returnTravelAfterHrs += card.travelAfterTenHrs || 0;
+      summary.yardTravelHrs += entry.yardTravelEnabled
+        ? diffHours(entry.yardTravelLeaveTime, entry.yardTravelArriveTime)
+        : 0;
+      summary.yardBreakDeductionHrs += card.yardLunchDeducted ? LUNCH_DEDUCT_HRS : 0;
+      summary.paidHolidays +=
+        card.isPaidHolidayDay && !card.isHalfHolidayDay && card.mode !== "bankholiday" ? 1 : 0;
+      summary.unpaidHolidays +=
+        card.mode === "unpaid" || String(card.displayPaidLabel || "").toLowerCase() === "unpaid" ? 1 : 0;
+      summary.halfHolidays += card.isHalfHolidayDay ? 1 : 0;
+      summary.bankHolidays += card.mode === "bankholiday" ? 1 : 0;
+      summary.mealSupplements += entry.mealSup ? 1 : 0;
+      summary.travelMeals += entry.travelLunchSup || entry.travelPD ? 1 : 0;
+      summary.nightShoots +=
+        entry.nightShoot || crossesMidnight(entry.callTime, entry.wrapTime) ? 1 : 0;
+      summary.overnights += entry.overnight ? 1 : 0;
+      summary.generators += entry.generatorUsed ? 1 : 0;
+      summary.lateSupplements += hasLateSupplement(entry) ? 1 : 0;
+      summary.turnarounds += card.mode === "turnaround" ? 1 : 0;
+    });
+
+    return summary;
+  }, [dayCards]);
 
   const payAdvice = useMemo(() => {
     const baseRates = {
@@ -2350,8 +2499,10 @@ export default function TimesheetDetailPage() {
       const isHalfDayTravelNoteDay =
         hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
       const workshopHrs =
-        card.mode === "yard"
-          ? computeYardHours(entry)
+        card.mode === "yard" || card.mode === "workshop"
+          ? card.mode === "workshop"
+            ? computeWorkshopHours(entry)
+            : computeYardHours(entry, card.day)
           : card.isPaidHolidayDay
           ? card.paidHolidayHoursToUse || card.paidHolidayHours
           : 0;
@@ -2359,46 +2510,27 @@ export default function TimesheetDetailPage() {
       const isCancellationPayDay = isCancellationDay(entry);
       const actualTravelToHrs = card.travelToHrs || 0;
       const preCallHrs = card.preCallHrs || 0;
-      const waitingAllowanceHrs = card.mode === "onset" ? computeWaitingAllowanceHours(entry) : 0;
-      const callElapsedToWrap =
-        entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
-      const callElapsedToBack =
-        entry?.callTime && entry?.arriveBack ? diffHours(entry.callTime, entry.arriveBack) : 0;
-      const wrapOvertimeHrs = card.mode === "onset" ? Math.max(0, callElapsedToWrap - 10) : 0;
-      const rawTravelAfterTenHrs =
-        card.mode === "onset" ? Math.max(0, callElapsedToBack - Math.max(10, callElapsedToWrap || 0)) : 0;
-      const travelAfterTenHrs =
-        card.mode === "onset"
-          ? Math.max(0, rawTravelAfterTenHrs - computeHotelTravelExemptionHours(entry))
-          : 0;
+      const waitingAllowanceHrs = card.paidEarlyArrivalHrs || 0;
+      const travelAfterTenHrs = card.travelAfterTenHrs || 0;
       const travelHrs =
-        hasJobOnTravelDay
-          ? 0
-          : card.mode === "travel"
-          ? computeTravelHours(entry)
+        card.mode === "travel"
+          ? computeTravelPaidHours(entry)
           : card.mode === "onset"
           ? actualTravelToHrs + waitingAllowanceHrs + travelAfterTenHrs
           : 0;
       const onSetHrs =
         card.mode === "onset"
           ? 10
-          : isHalfDayTravelNoteDay
-          ? 5
-          : isTravelTimeNoteDay
-          ? computeTravelHours(entry)
-          : hasJobOnTravelDay || isTurnaroundPayDay || isCancellationPayDay
+          : isTurnaroundPayDay || isCancellationPayDay
           ? 10
           : 0;
-      const onSetOvertimeHrs = card.mode === "onset" ? wrapOvertimeHrs + preCallHrs : 0;
+      const onSetOvertimeHrs =
+        card.mode === "onset" ? (card.onSetOvertimeHrs || 0) + preCallHrs : 0;
       const payableDayTotalHrs =
         card.mode === "onset"
-          ? actualTravelToHrs + waitingAllowanceHrs + preCallHrs + onSetHrs + wrapOvertimeHrs + travelAfterTenHrs
-          : isHalfDayTravelNoteDay
-          ? onSetHrs
-          : isTravelTimeNoteDay
-          ? onSetHrs
-          : hasJobOnTravelDay
-          ? onSetHrs
+          ? computeOnSetHours(entry)
+          : card.mode === "travel"
+          ? computeTravelPaidHours(entry)
           : isTurnaroundPayDay || isCancellationPayDay
           ? onSetHrs
           : workshopHrs + travelHrs;
@@ -2410,8 +2542,7 @@ export default function TimesheetDetailPage() {
           ? 1
           : 0;
       const hasWorkedDay = payableDayTotalHrs > 0;
-      const wrapMinutes = toMinutes(entry?.wrapTime);
-      const hasLateWrapSupplement = wrapMinutes != null && wrapMinutes > 22 * 60;
+      const hasLateWrapSupplement = hasLateSupplement(entry);
       const isPlainTravelDay =
         card.mode === "travel" && !hasJobOnTravelDay && !isTravelTimeNoteDay && !isHalfDayTravelNoteDay;
       const weekendSupplementUnits = hasWorkedDay
@@ -2433,7 +2564,8 @@ export default function TimesheetDetailPage() {
         dateLabel: dt ? formatShortDate(dt) : "-",
         jobName: getPayAdviceJobName(card, primaryJob),
         workshopHrs,
-        overtimeHrs: card.mode === "yard" ? Math.max(0, workshopHrs - 8.5) : 0,
+        overtimeHrs:
+          card.mode === "yard" || card.mode === "workshop" ? Math.max(0, workshopHrs - 8.5) : 0,
         travelHrs,
         sundayHrs,
         onSetHrs,
@@ -2825,11 +2957,17 @@ export default function TimesheetDetailPage() {
                 dayTotalLabel,
                 precallLabel,
                 travelToHrs,
+                paidEarlyArrivalHrs,
                 preCallHrs,
                 onSetBlockHrs,
                 onSetPaidHrs,
+                onSetOvertimeHrs,
+                earlyCallOvertimeHrs,
                 travelBackHrs,
-                extraAfterTenHrs,
+                travelInsideTenHrs,
+                travelAfterTenHrs,
+                actualTravelHrs,
+                travelMinimumAdjustmentHrs,
                 yardSegs,
                 turnaroundJob,
                 hasTurnaroundJob,
@@ -2968,6 +3106,7 @@ export default function TimesheetDetailPage() {
                           >
                             <option value="yard">Yard</option>
                             <option value="office">Office</option>
+                            <option value="workshop">Workshop</option>
                             <option value="travel">Travel</option>
                             <option value="onset">On Set</option>
                             <option value="off">Off</option>
@@ -3015,7 +3154,7 @@ export default function TimesheetDetailPage() {
                                     />
                                     <span>
                                       <strong>{job.jobNumber || job.bookingId || "Job"}</strong>
-                                      {job.client ? ` - ${job.client}` : ""}
+                                      {job.production ? ` - ${job.production}` : ""}
                                       {job.location ? ` - ${job.location}` : ""}
                                     </span>
                                   </label>
@@ -3028,7 +3167,7 @@ export default function TimesheetDetailPage() {
                             </div>
                           )}
 
-                          {["yard", "office"].includes(manualEntryDraft.mode) ? (
+                          {["yard", "office", "workshop"].includes(manualEntryDraft.mode) ? (
                             <div className={layoutStyles.extracted13}>
                               {[
                                 ["start", "Start"],
@@ -3080,9 +3219,11 @@ export default function TimesheetDetailPage() {
                             </div>
                           ) : null}
 
-                          {["yard", "travel", "onset"].includes(manualEntryDraft.mode) ? (
+                          {["yard", "travel", "onset", "workshop"].includes(manualEntryDraft.mode) ? (
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
-                              {manualEntryDraft.mode === "yard" ? (
+                              {manualEntryDraft.mode === "yard" &&
+                              manualEntryDay !== "Saturday" &&
+                              manualEntryDay !== "Sunday" ? (
                                 <label className={layoutStyles.extracted16}>
                                   <input
                                     type="checkbox"
@@ -3119,6 +3260,22 @@ export default function TimesheetDetailPage() {
                                       onChange={(e) => updateManualEntryDraft({ mealSup: e.target.checked })}
                                     />
                                     Meal supplement
+                                  </label>
+                                  <label className={layoutStyles.extracted19}>
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(manualEntryDraft.generatorUsed)}
+                                      onChange={(e) => updateManualEntryDraft({ generatorUsed: e.target.checked })}
+                                    />
+                                    Generator used
+                                  </label>
+                                  <label className={layoutStyles.extracted19}>
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(manualEntryDraft.lateSup)}
+                                      onChange={(e) => updateManualEntryDraft({ lateSup: e.target.checked })}
+                                    />
+                                    Late supplement
                                   </label>
                                 </>
                               ) : null}
@@ -3185,7 +3342,7 @@ export default function TimesheetDetailPage() {
                         {hasTurnaroundJob
                           ? `Turnaround for job: ${
                               turnaroundJob.jobNumber || turnaroundJob.bookingId
-                            } - ${turnaroundJob.client || "Client"}`
+                            } - ${turnaroundJob.production || "Production"}`
                           : "Turnaround for job: (not selected)"}
                       </div>
                       {hasTurnaroundJob && turnaroundJob.location ? (
@@ -3292,9 +3449,9 @@ export default function TimesheetDetailPage() {
                               {job.jobNumber || job.id || job.bookingId}
                             </strong>
 
-                            {job.client && (
+                            {job.production && (
                               <span className={layoutStyles.extracted32}>
-                                - {job.client}
+                                - {job.production}
                               </span>
                             )}
 
@@ -3371,7 +3528,7 @@ export default function TimesheetDetailPage() {
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
                         </div>
                       )}
-                      {mode === "yard" && (
+                      {mode === "yard" && day !== "Saturday" && day !== "Sunday" && (
                         <label
                           style={{
                             display: "inline-flex",
@@ -3402,9 +3559,37 @@ export default function TimesheetDetailPage() {
                       <div>
                         {entry.leaveTime ?? "-"} {"->"} {entry.arriveTime ?? "-"}
                       </div>
+                      <div>Actual travel: {formatHoursLabel(actualTravelHrs)}</div>
+                      {travelMinimumAdjustmentHrs > 0 ? (
+                        <div>10-hour minimum adjustment: +{formatHoursLabel(travelMinimumAdjustmentHrs)}</div>
+                      ) : null}
                       {entry.travelLunchSup ? <div className={layoutStyles.extracted43}>Travel meal</div> : null}
                       {entry.travelPD ? <div>Travel meal</div> : null}
                       {entry.overnight ? <div>Overnight</div> : null}
+                    </div>
+                  )}
+
+                  {/* Workshop */}
+                  {entryExists && mode === "workshop" && (
+                    <div className={layoutStyles.extracted37}>
+                      <div className={layoutStyles.extracted38}>Workshop:</div>
+                      {extractWorkshopSegments(entry).map((segment, index) => (
+                        <div key={`${day}-workshop-${index}`}>
+                          {segment.start || segment.startTime || "-"} {"->"}{" "}
+                          {segment.end || segment.finish || segment.endTime || "-"}
+                        </div>
+                      ))}
+                      {Array.isArray(entry.workshopJobs) && entry.workshopJobs.length > 0 ? (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ fontWeight: 700 }}>Job allocations:</div>
+                          {entry.workshopJobs.map((row, index) => (
+                            <div key={`${day}-workshop-job-${index}`}>
+                              {row?.jobNumber || row?.jobNo || row?.bookingId || "Job"}: {" "}
+                              {Number(row?.hours ?? row?.allocatedHours ?? row?.hrs ?? 0)} hrs
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
@@ -3430,22 +3615,31 @@ export default function TimesheetDetailPage() {
                         {entry.wrapTime && <li>Wrap: {entry.wrapTime}</li>}
                         {entry.arriveBack && <li>Back: {entry.arriveBack}</li>}
                         {entry.overnight && <li>Overnight stay</li>}
-                        {entry.nightShoot && <li>Night shoot</li>}
-                        {/* mealSup on mobile means "no meal supplement offered" (your info text) */}
+                        {(entry.nightShoot || crossesMidnight(entry.callTime, entry.wrapTime)) && (
+                          <li>Night shoot</li>
+                        )}
                         {entry.mealSup && <li>Meal supplement claimed</li>}
+                        {entry.generatorUsed && <li>Generator used</li>}
+                        {hasLateSupplement(entry) && <li>Late supplement claimed</li>}
                       </ul>
 
                       <div className={layoutStyles.extracted49}>
                         <div className={layoutStyles.extracted50}>Breakdown:</div>
                         <div className={layoutStyles.extracted51}>Travel to: {formatHoursLabel(travelToHrs)}</div>
+                        <div>Paid early arrival: {formatHoursLabel(paidEarlyArrivalHrs)}</div>
                         <div className={layoutStyles.extracted52}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
                         <div className={layoutStyles.extracted53}>
                           On set{entry.callTime ? " (10-hour block)" : ""}: {formatHoursLabel(onSetPaidHrs)}
                         </div>
                         {entry.callTime ? (
-                          <div className={layoutStyles.extracted54}>
-                            Extra after 10 hours: {formatHoursLabel(extraAfterTenHrs)}
-                          </div>
+                          <>
+                            <div className={layoutStyles.extracted54}>
+                              On-set overtime: {formatHoursLabel(onSetOvertimeHrs)}
+                              {earlyCallOvertimeHrs > 0 ? " (includes early call)" : ""}
+                            </div>
+                            <div>Return travel inside 10-hour period: {formatHoursLabel(travelInsideTenHrs)}</div>
+                            <div>Return travel after 10-hour period: {formatHoursLabel(travelAfterTenHrs)}</div>
+                          </>
                         ) : (
                           <div className={layoutStyles.extracted55}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
                         )}
@@ -3482,6 +3676,79 @@ export default function TimesheetDetailPage() {
               );
             })}
           </div>
+
+          <details
+            style={{
+              marginTop: 12,
+              background: "var(--color-surface)",
+              border: UI.border,
+              borderRadius: UI.radius,
+              padding: 10,
+              color: UI.ink,
+            }}
+          >
+            <summary style={{ cursor: "pointer", fontWeight: 800 }}>Week Summary</summary>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: 12,
+                marginTop: 10,
+                fontSize: 12,
+              }}
+            >
+              <div>
+                <strong>Paid hours</strong>
+                <div>Total: {formatHoursLabel(weeklyTotal)}</div>
+                <div>Overtime: {formatHoursLabel(weekSummary.overtimeHrs)}</div>
+                {Object.entries(weekSummary.categoryHours).map(([category, hours]) => (
+                  <div key={category}>
+                    {category === "onset" ? "On Set" : category[0].toUpperCase() + category.slice(1)}: {" "}
+                    {formatHoursLabel(hours)} ({weekSummary.categoryDays[category]} days)
+                  </div>
+                ))}
+              </div>
+              <div>
+                <strong>Travel and On Set</strong>
+                <div>Actual Travel: {formatHoursLabel(weekSummary.actualTravelHrs)}</div>
+                <div>Travel minimum adjustment: {formatHoursLabel(weekSummary.travelMinimumAdjustmentHrs)}</div>
+                <div>Travel to set: {formatHoursLabel(weekSummary.travelToHrs)}</div>
+                <div>Paid early arrival: {formatHoursLabel(weekSummary.paidEarlyArrivalHrs)}</div>
+                <div>Pre-call: {formatHoursLabel(weekSummary.preCallHrs)}</div>
+                <div>Standard On Set: {formatHoursLabel(weekSummary.onSetStandardHrs)}</div>
+                <div>On Set overtime: {formatHoursLabel(weekSummary.onSetOvertimeHrs)}</div>
+                <div>Return travel inside 10 hours: {formatHoursLabel(weekSummary.returnTravelInsideHrs)}</div>
+                <div>Return travel after 10 hours: {formatHoursLabel(weekSummary.returnTravelAfterHrs)}</div>
+              </div>
+              <div>
+                <strong>Yard and leave</strong>
+                <div>Separate Yard travel: {formatHoursLabel(weekSummary.yardTravelHrs)}</div>
+                <div>Break deductions: -{formatHoursLabel(weekSummary.yardBreakDeductionHrs)}</div>
+                <div>Paid holidays: {weekSummary.paidHolidays}</div>
+                <div>Unpaid days/holidays: {weekSummary.unpaidHolidays}</div>
+                <div>Half holidays: {weekSummary.halfHolidays}</div>
+                <div>Bank holidays: {weekSummary.bankHolidays}</div>
+              </div>
+              <div>
+                <strong>Supplements</strong>
+                <div>Meal supplements: {weekSummary.mealSupplements}</div>
+                <div>Travel meals: {weekSummary.travelMeals}</div>
+                <div>Night shoots: {weekSummary.nightShoots}</div>
+                <div>Overnights: {weekSummary.overnights}</div>
+                <div>Generators: {weekSummary.generators}</div>
+                <div>Late supplements: {weekSummary.lateSupplements}</div>
+                <div>Turnarounds: {weekSummary.turnarounds}</div>
+              </div>
+              <div>
+                <strong>Daily breakdown</strong>
+                {dayCards.map((card) => (
+                  <div key={`summary-${card.day}`}>
+                    {card.day}: {formatHoursLabel(card.dayHours || 0)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </details>
 
           {/* WEEK TOTAL + NOTES ROW */}
           <div
@@ -3542,7 +3809,7 @@ export default function TimesheetDetailPage() {
               Weekly Pay Advice
             </div>
             <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: UI.ink }}>
-              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatShortDate(timesheet.weekStart)}
+              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatWeekEndingDate(timesheet.weekStart)}
             </div>
             <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
               Auto-filled from the current timesheet. Finance can use this as the first-pass pay advice view.

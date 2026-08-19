@@ -1,35 +1,149 @@
-
-
-.extracted1 {
+.summaryStrip {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 18px;
+  margin: -4px 0 10px;
+  color: var(--color-text-muted);
+  font-size: 12px;
   flex-wrap: wrap;
 }
 
-.extracted2 {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.summaryStrip strong {
+  color: var(--color-text);
+  font-size: 13px;
 }
 
-.extracted3 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.extracted4 {
+.searchWrap {
   position: relative;
 }
 
-.extracted5 {
+.toolbar {
   width: 100%;
-  min-width: 980px;
-  border-collapse: collapse;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 9px;
+  top: 7px;
+  z-index: 1;
+  color: var(--color-text-muted);
+}
+
+.quoteSection {
+  margin-bottom: 14px;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 5px;
+  flex-wrap: wrap;
+}
+
+.sectionSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionValue {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.quoteTable {
+  width: 100%;
+  min-width: 1260px;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
+  font-size: 12.5px;
+}
+
+.quoteColumn { width: 122px; }
+.jobColumn { width: 78px; }
+.productionColumn { width: 150px; }
+.companyColumn { width: 170px; }
+.valueColumn { width: 92px; }
+.statusColumn { width: 92px; }
+.savedColumn { width: 104px; }
+.actionsColumn { width: 190px; }
+
+.primaryCell,
+.textCell,
+.valueCell,
+.statusCell,
+.savedCell,
+.actionsCell {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-surface-hover);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.primaryCell,
+.textCell,
+.valueCell,
+.savedCell {
+  white-space: nowrap;
+}
+
+.primaryLink,
+.jobLink {
+  color: var(--color-brand);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.jobLink {
+  color: var(--color-text);
+}
+
+.valueCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 850;
+}
+
+.savedCell {
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.emptyState {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card, 10px);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 1180px) {
+  .toolbar {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .searchWrap {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    grid-template-columns: 1fr !important;
+  }
+
+  .summaryStrip {
+    gap: 10px;
+  }
 }

@@ -1,5 +1,8 @@
 import { adminListDocuments } from "../../_firebaseAdminRest";
 import { filterDocsForAdminCompany, jsonError, requireAdminFromRequest } from "../_lib";
+import { getDeploymentConfig } from "@/app/config/deploymentConfig";
+
+const DEFAULT_COMPANY_ID = getDeploymentConfig().companyId;
 
 const withId = ({ id, data }) => ({ id, ...(data || {}) });
 
@@ -27,7 +30,7 @@ const accessUserFromEmployee = (employee = {}) => {
       service: isService,
     },
     defaultWorkspace: isService ? "service" : "user",
-    companyId: employee.companyId || "bickers-action",
+    companyId: employee.companyId || DEFAULT_COMPANY_ID,
     employeeId: employee.id || employee.employeeId || "",
     phoneVerified: employee.phoneVerified === true,
     mfaEnabled: false,
@@ -119,8 +122,17 @@ export async function GET(req) {
     const requestedCollections = {
       access: ["users", "employees"],
       sick: ["employees", "sickLeave"],
-      holiday: ["employees", "holidays"],
-      activity: ["users", "sickLeave", "bookings", "maintenanceBookings", "maintenanceJobs", "holidays"],
+      holiday: ["employees", "holidays", "holidayAllowances"],
+      activity: [
+        "users",
+        "employees",
+        "vehicles",
+        "sickLeave",
+        "bookings",
+        "maintenanceBookings",
+        "maintenanceJobs",
+        "holidays",
+      ],
       audit: ["adminAuditLogs"],
     }[section];
 
@@ -135,21 +147,25 @@ export async function GET(req) {
     const loaded = Object.fromEntries(entries);
     const users = loaded.users || [];
     const employees = loaded.employees || [];
+    const vehicles = loaded.vehicles || [];
     const sickLeave = loaded.sickLeave || [];
     const adminAuditLogs = loaded.adminAuditLogs || [];
     const bookings = loaded.bookings || [];
     const maintenanceBookings = loaded.maintenanceBookings || [];
     const maintenanceJobs = loaded.maintenanceJobs || [];
     const holidays = loaded.holidays || [];
+    const holidayAllowances = loaded.holidayAllowances || [];
 
     const scopedUsers = filterDocsForAdminCompany(users, admin.userData);
     const scopedEmployees = filterDocsForAdminCompany(employees, admin.userData);
+    const scopedVehicles = filterDocsForAdminCompany(vehicles, admin.userData);
     const scopedSickLeave = filterDocsForAdminCompany(sickLeave, admin.userData);
     const scopedAuditLogs = filterDocsForAdminCompany(adminAuditLogs, admin.userData);
     const scopedBookings = filterDocsForAdminCompany(bookings, admin.userData);
     const scopedMaintenanceBookings = filterDocsForAdminCompany(maintenanceBookings, admin.userData);
     const scopedMaintenanceJobs = filterDocsForAdminCompany(maintenanceJobs, admin.userData);
     const scopedHolidays = filterDocsForAdminCompany(holidays, admin.userData);
+    const scopedHolidayAllowances = filterDocsForAdminCompany(holidayAllowances, admin.userData);
 
     const activityBookings = section === "activity"
       ? activityHistoryDocsForDay(scopedBookings, selectedDay)
@@ -175,12 +191,14 @@ export async function GET(req) {
       section,
       users: section === "access" ? mergeAccessUsers(scopedUsers, scopedEmployees) : activityUsers.map(withId),
       employees: scopedEmployees.map(withId).sort(sortByText("name")),
+      vehicles: section === "activity" ? scopedVehicles.map(withId).sort(sortByText("name")) : [],
       sickLeave: activitySickLeave.map(withId).sort(sortNewest),
       adminAuditLogs: scopedAuditLogs.map(withId).sort(sortNewest).slice(0, 250),
       bookings: activityBookings.map(withId),
       maintenanceBookings: activityMaintenanceBookings.map(withId),
       maintenanceJobs: activityMaintenanceJobs.map(withId),
       holidays: activityHolidays.map(withId),
+      holidayAllowances: scopedHolidayAllowances.map(withId),
     });
   } catch (error) {
     console.error("Admin overview load failed:", error);

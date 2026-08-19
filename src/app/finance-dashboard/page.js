@@ -1,228 +1,199 @@
 "use client";
 
-import layoutStyles from "./page.styles.module.css";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight,
-  BadgePoundSterling,
+  BarChart3,
   Download,
   FilePlus2,
   FileText,
   LayoutDashboard,
+  PoundSterling,
   Receipt,
   Settings,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  BusinessHeaderActions,
+  BusinessPage,
+  BusinessPageHeader,
+} from "@/app/components/BusinessPage";
+import { Badge, Button, NavigationCard } from "@/app/components/ui";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import styles from "./page.styles.module.css";
 
-/* ------------------------------- Styling tokens ------------------------------- */
 const UI = UI_TOKENS;
 
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const chip = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-const sectionTitle = { margin: 0, fontSize: 16, fontWeight: 800, color: UI.text, lineHeight: 1.2 };
-const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginTop: 5 };
-const iconBox = (tone) => ({
-  width: 34,
-  height: 34,
+const surface = {
+  background: UI.card,
   borderRadius: UI.radius,
-  border: `1px solid ${tone.border}`,
-  background: tone.bg,
-  color: tone.text,
-  display: "grid",
-  placeItems: "center",
-  flexShrink: 0,
-});
+  border: UI.border,
+  boxShadow: UI.shadowSm,
+  minWidth: 0,
+};
 
-const financeCss = `
-  @media (max-width: 1180px) {
-    .finance-dashboard-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-    .finance-header-actions {
-      justify-content: flex-start !important;
-      width: 100%;
-    }
-  }
+const primaryWorkspaces = [
+  {
+    title: "Ready to Invoice",
+    description: "Review jobs that are complete and queued for invoicing.",
+    link: "/ready-invoice",
+    badge: { label: "Queue", tone: "success" },
+    icon: Receipt,
+  },
+  {
+    title: "Invoice Tracker",
+    description: "Track invoices from issue through to payment.",
+    link: "/finance-home",
+    badge: { label: "Tracker", tone: "info" },
+    icon: FileText,
+  },
+  {
+    title: "Quote & Revenue Insights",
+    description: "Analyse quote value, invoiced revenue, vehicles and cost types.",
+    link: "/quote-insights",
+    badge: { label: "Insights", tone: "info" },
+    icon: BarChart3,
+  },
+  {
+    title: "Purchase Receipts",
+    description: "Review staff receipts and prepare VAT records.",
+    link: "/receipts",
+    badge: { label: "VAT", tone: "success" },
+    icon: PoundSterling,
+  },
+];
 
-  @media (max-width: 760px) {
-    .finance-dashboard-grid,
-    .finance-summary-grid {
-      grid-template-columns: 1fr !important;
-    }
-  }
-`;
+const plannedWorkspaces = [
+  {
+    title: "Create Invoice",
+    description: "Manually generate a new invoice.",
+    icon: FilePlus2,
+  },
+  {
+    title: "Export Finance Data",
+    description: "Download reports for accounting.",
+    icon: Download,
+  },
+  {
+    title: "Finance Settings",
+    description: "Adjust thresholds, VAT and finance rules.",
+    icon: Settings,
+  },
+];
 
 export default function FinancePage() {
   const router = useRouter();
-  const [hover, setHover] = useState(null);
-
-  const financeLinks = [
-    {
-      title: "Ready to Invoice",
-      description: "View jobs queued for invoicing.",
-      link: "/ready-invoice",
-      pill: "Queue",
-      icon: Receipt,
-      tone: { bg: UI.greenSoft, border: UI.greenBorder, text: UI.green },
-    },
-    {
-      title: "Invoice Tracker",
-      description: "Track all sent and paid invoices.",
-      link: "/finance-home",
-      pill: "Tracker",
-      icon: FileText,
-      tone: { bg: UI.brandSoft, border: UI.brandBorder, text: UI.brand },
-    },
-    {
-      title: "Create Invoice",
-      description: "Manually generate a new invoice.",
-      link: "/finance/create",
-      pill: "New",
-      icon: FilePlus2,
-      tone: { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber },
-    },
-    {
-      title: "Export Finance Data",
-      description: "Download reports for accounting.",
-      link: "/finance/export",
-      pill: "Export",
-      icon: Download,
-      tone: { bg: UI.purpleSoft, border: UI.purpleBorder, text: UI.purple },
-    },
-    {
-      title: "Finance Settings",
-      description: "Adjust thresholds, VAT, and finance rules.",
-      link: "/finance/settings",
-      pill: "Settings",
-      icon: Settings,
-      tone: { bg: "var(--color-surface-subtle)", border: UI.brandBorder, text: UI.text },
-    },
-  ];
-
-  const openLink = (link) => router.push(link);
 
   return (
     <HeaderSidebarLayout>
-      <style>{financeCss}</style>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted1}>
-          <div>
-            <h1 style={{ ...h1, display: "flex", alignItems: "center", gap: 8 }}>
-              <BadgePoundSterling size={22} color={UI.brand} />
-              Finance
-            </h1>
-            <div style={sub}>Invoicing, invoice tracking and finance reporting shortcuts.</div>
-          </div>
-          <div className={`finance-header-actions ${layoutStyles.extracted2}`} >
-            <div style={chip}>
-              <LayoutDashboard size={14} />
-              Dashboard
+      <BusinessPage className={styles.page}>
+        <BusinessPageHeader
+          title="Invoicing"
+          subtitle="Invoice workflows, revenue reporting and purchase records in one workspace."
+          actions={
+            <BusinessHeaderActions>
+              <Badge variant="info">
+                <LayoutDashboard size={14} />
+                Finance home
+              </Badge>
+              <Badge variant="success">4 live workspaces</Badge>
+            </BusinessHeaderActions>
+          }
+        />
+
+        <section className={styles.commandGrid}>
+          <div style={{ ...surface, padding: 12 }}>
+            <div className={styles.sectionHeading}>
+              <div>
+                <h2 className={styles.title}>Home</h2>
+                <p className={styles.hint}>
+                  Operational shortcuts for invoicing, payment tracking and finance reporting.
+                </p>
+              </div>
+              <span className={styles.sectionTag}>All locations</span>
             </div>
-            <div style={{ ...chip, background: UI.greenSoft, borderColor: UI.greenBorder, color: UI.green }}>
-              Shortcuts: <b className={layoutStyles.extracted3}>{financeLinks.length}</b>
+
+            <div className={styles.workspaceHeading}>
+              <div>
+                <h2 className={styles.workspaceTitle}>Finance workspaces</h2>
+                <p className={styles.hint}>Common finance actions grouped by how the team uses them.</p>
+              </div>
+              <Button type="button" onClick={() => router.push("/ready-invoice")}>
+                <Receipt size={15} />
+                Open invoice queue
+              </Button>
+            </div>
+
+            <div className={styles.workspaceGrid}>
+              {primaryWorkspaces.map((workspace) => {
+                const Icon = workspace.icon;
+                return (
+                  <NavigationCard
+                    key={workspace.link}
+                    icon={<Icon size={20} strokeWidth={2.2} />}
+                    title={workspace.title}
+                    description={workspace.description}
+                    badges={[workspace.badge]}
+                    onClick={() => router.push(workspace.link)}
+                  />
+                );
+              })}
             </div>
           </div>
-        </div>
 
-        <div className="finance-dashboard-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: UI.gap }}>
-          {financeLinks.map((item, idx) => {
-            const Icon = item.icon;
-            const isHover = hover === idx;
-            return (
-              <div
-                key={item.link}
-                role="button"
-                tabIndex={0}
-                onClick={() => openLink(item.link)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openLink(item.link);
-                  }
-                }}
-                onMouseEnter={() => setHover(idx)}
-                onMouseLeave={() => setHover(null)}
-                style={{
-                  ...surface,
-                  minHeight: 132,
-                  padding: 12,
-                  cursor: "pointer",
-                  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
-                  ...(isHover ? { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: item.tone.border } : null),
-                }}
-              >
-                <div className={layoutStyles.extracted4}>
-                  <div style={iconBox(item.tone)}>
-                    <Icon size={17} />
-                  </div>
-                  <span style={{ ...chip, padding: "4px 8px", fontSize: 11, background: item.tone.bg, borderColor: item.tone.border, color: item.tone.text }}>
-                    {item.pill}
-                  </span>
-                </div>
-
-                <div className={layoutStyles.extracted5}>
-                  <h2 style={sectionTitle}>{item.title}</h2>
-                  <div style={sectionSub}>{item.description}</div>
-                </div>
-
-                <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6, color: UI.brand, fontWeight: 800, fontSize: 12.5 }}>
-                  Open
-                  <ArrowRight size={14} />
+          <aside className={styles.sideRail}>
+            <div style={{ ...surface, padding: 12 }}>
+              <div className={styles.railHeading}>
+                <span className={styles.railIcon}><Receipt size={17} /></span>
+                <div>
+                  <h2 className={styles.workspaceTitle}>Invoice flow</h2>
+                  <p className={styles.hint}>Keep each job moving through the same clear path.</p>
                 </div>
               </div>
-            );
-          })}
-        </div>
+              <ol className={styles.flowList}>
+                <li><span>1</span><div><strong>Ready</strong><small>Confirm job and customer details</small></div></li>
+                <li><span>2</span><div><strong>Invoiced</strong><small>Issue and track the invoice</small></div></li>
+                <li><span>3</span><div><strong>Paid</strong><small>Close the finance cycle</small></div></li>
+              </ol>
+            </div>
 
-        <div
-          className="finance-summary-grid"
-          style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: UI.gap, marginTop: UI.gap }}
-        >
-          <div style={{ ...surface, padding: 12 }}>
-            <div style={sectionTitle}>Finance flow</div>
-            <div style={sectionSub}>
-              Keep invoice statuses consistent so the queues and trackers stay accurate.
+            <div style={{ ...surface, padding: 12 }}>
+              <h2 className={styles.workspaceTitle}>Quick path</h2>
+              <p className={styles.hint}>
+                Start with invoice-ready jobs, then use the tracker to follow sent and paid invoices.
+              </p>
+              <div className={styles.railActions}>
+                <Button type="button" onClick={() => router.push("/ready-invoice")}>View queue</Button>
+                <Button variant="secondary" type="button" onClick={() => router.push("/finance-home")}>Open tracker</Button>
+              </div>
             </div>
-            <div className={layoutStyles.extracted6}>
-              <span style={{ ...chip, background: UI.greenSoft, borderColor: UI.greenBorder, color: UI.green }}>Ready to Invoice</span>
-              <span style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand }}>Invoiced</span>
-              <span style={{ ...chip, background: UI.purpleSoft, borderColor: UI.purpleBorder, color: "var(--color-accent)" }}>Paid</span>
-            </div>
-          </div>
+          </aside>
+        </section>
 
-          <div style={{ ...surface, padding: 12 }}>
-            <div style={sectionTitle}>Quick path</div>
-            <div style={sectionSub}>
-              Start with the queue for invoice-ready jobs, then use the tracker to check sent and paid invoices.
+        <section className={styles.plannedSection} style={surface}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <h2 className={styles.title}>Finance administration</h2>
+              <p className={styles.hint}>Additional tools planned for this workspace.</p>
             </div>
+            <span className={styles.sectionTag}>Coming soon</span>
           </div>
-        </div>
-      </div>
+          <div className={styles.plannedGrid}>
+            {plannedWorkspaces.map((workspace) => {
+              const Icon = workspace.icon;
+              return (
+                <NavigationCard
+                  key={workspace.title}
+                  icon={<Icon size={20} strokeWidth={2.2} />}
+                  title={workspace.title}
+                  description={workspace.description}
+                  badges={[{ label: "Coming soon", tone: "neutral" }]}
+                  disabled
+                />
+              );
+            })}
+          </div>
+        </section>
+      </BusinessPage>
     </HeaderSidebarLayout>
   );
 }

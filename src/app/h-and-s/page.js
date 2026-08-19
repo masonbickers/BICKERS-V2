@@ -1,9 +1,12 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { BusinessHeaderActions, BusinessPage, BusinessPageHeader } from "@/app/components/BusinessPage";
+import { Badge, Button, Checkbox, Input, MetricCard as SharedMetricCard, NavigationCard, Select, Textarea } from "@/app/components/ui";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import {
@@ -29,20 +32,11 @@ import {
   Wrench,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 const UI = UI_TOKENS;
+const REGISTER_PAGE_SIZE = 10;
 
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  flexWrap: "wrap",
-  marginBottom: 14,
-};
-const h1 = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 };
-const sub = { margin: "6px 0 0", color: UI.muted, fontSize: 13.5, lineHeight: 1.45 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const panel = { ...surface, padding: 12 };
 const cardBase = {
@@ -89,19 +83,6 @@ const sectionHeader = {
 };
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
-const sectionTag = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "5px 10px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.brand,
-  fontSize: 11,
-  fontWeight: 800,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-};
 const badge = (bg, fg) => ({
   padding: "4px 9px",
   borderRadius: 999,
@@ -113,77 +94,6 @@ const badge = (bg, fg) => ({
   whiteSpace: "nowrap",
   lineHeight: "18px",
 });
-
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  if (kind === "pill") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      padding: "5px 8px",
-      borderRadius: 999,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12,
-      lineHeight: 1.2,
-    };
-  }
-
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-    color: "var(--color-white)",
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
-};
-
-const input = {
-  width: "100%",
-  minHeight: 34,
-  padding: "7px 10px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  outline: "none",
-  fontSize: 13,
-  background: "var(--color-surface)",
-  color: UI.text,
-};
 
 const smallLabel = {
   margin: 0,
@@ -536,12 +446,12 @@ function registerState(item) {
   const missingDate = !item.nextDue && (item.area === "inspection" || item.area === "policy" || item.area === "training");
   const missingCertificate = Boolean(item.certificateRequired && !item.certificateUrl);
 
-  if (explicit === "complete") return { label: "Complete", tone: "green" };
   if (explicit === "booked") return { label: "Booked", tone: "brand" };
   if (missingDate) return { label: "Needs date", tone: "amber" };
   if (diff != null && diff < 0) return { label: "Overdue", tone: "danger" };
   if (missingCertificate) return { label: "Needs cert", tone: "amber" };
   if (diff != null && diff <= 30) return { label: "Due soon", tone: "amber" };
+  if (explicit === "complete") return { label: "Complete", tone: "green" };
   return { label: "OK", tone: "green" };
 }
 
@@ -562,12 +472,9 @@ function displayStatus(row) {
 
 function statusStyle(row) {
   const status = lower(row.maintenance?.status || row.status);
-  if (status === "resolved") return { background: "var(--color-info-soft)", color: "var(--color-brand)", border: "1px solid var(--color-info-border)" };
-  if (status === "scheduled") return { background: "var(--color-success-soft)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
-  if (status === "in_progress") return { background: "var(--color-accent-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
-  if (row.bucket === "immediate") return { background: "var(--color-accent-soft)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
-  if (row.bucket === "declined") return { background: "var(--color-accent-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
-  return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
+  const label = row.bucket === "immediate" ? "Defect" : row.bucket === "declined" ? "Declined" : status || "Pending";
+  const tone = getSemanticStatusStyle(label);
+  return { background: tone.bg, color: tone.text, border: `1px solid ${tone.border}` };
 }
 
 function makeCheckRow(check, item, index, bucket) {
@@ -976,6 +883,8 @@ export default function HealthSafetyPage() {
   const [registerRecords, setRegisterRecords] = useState({});
   const [registerQuery, setRegisterQuery] = useState("");
   const [registerFilter, setRegisterFilter] = useState("all");
+  const [registerStatusFilter, setRegisterStatusFilter] = useState("all");
+  const [registerPage, setRegisterPage] = useState(1);
   const [showAddRegister, setShowAddRegister] = useState(false);
   const [addingRegister, setAddingRegister] = useState(false);
   const [newRegisterItem, setNewRegisterItem] = useState({
@@ -1023,7 +932,7 @@ export default function HealthSafetyPage() {
       setRegisterRecords(registerById);
     } catch (error) {
       console.error("Failed to load H&S overview:", error);
-      alert("Could not load H&S overview.");
+      systemDialogs.showSystemNotification("Could not load H&S overview.");
     } finally {
       setLoading(false);
     }
@@ -1058,7 +967,7 @@ export default function HealthSafetyPage() {
   const createRegisterItem = async () => {
     const itemName = String(newRegisterItem.item || "").trim();
     if (!itemName) {
-      alert("Add a register item name.");
+      systemDialogs.showSystemNotification("Add a register item name.");
       return;
     }
 
@@ -1080,7 +989,7 @@ export default function HealthSafetyPage() {
       router.push(`/h-and-s/${ref.id}`);
     } catch (error) {
       console.error("Failed to create H&S register item:", error);
-      alert("Could not create H&S register item.");
+      systemDialogs.showSystemNotification("Could not create H&S register item.");
     } finally {
       setAddingRegister(false);
     }
@@ -1141,8 +1050,33 @@ export default function HealthSafetyPage() {
       );
     }
 
-    return list;
-  }, [registerFilter, registerItems, registerQuery]);
+    if (registerStatusFilter === "attention") {
+      list = list.filter((item) => ["Overdue", "Due soon", "Needs date", "Needs cert"].includes(registerState(item).label));
+    } else if (registerStatusFilter === "complete") {
+      list = list.filter((item) => ["Complete", "OK"].includes(registerState(item).label));
+    }
+
+    const priority = { Overdue: 0, "Needs date": 1, "Needs cert": 2, "Due soon": 3, Booked: 4, Complete: 5, OK: 6 };
+    return [...list].sort((a, b) => {
+      const stateDifference = (priority[registerState(a).label] ?? 9) - (priority[registerState(b).label] ?? 9);
+      if (stateDifference) return stateDifference;
+      return (toDate(a.nextDue)?.getTime() || Number.MAX_SAFE_INTEGER) - (toDate(b.nextDue)?.getTime() || Number.MAX_SAFE_INTEGER);
+    });
+  }, [registerFilter, registerItems, registerQuery, registerStatusFilter]);
+
+  const registerPageCount = Math.max(1, Math.ceil(filteredRegisterItems.length / REGISTER_PAGE_SIZE));
+  const paginatedRegisterItems = useMemo(() => {
+    const start = (registerPage - 1) * REGISTER_PAGE_SIZE;
+    return filteredRegisterItems.slice(start, start + REGISTER_PAGE_SIZE);
+  }, [filteredRegisterItems, registerPage]);
+
+  useEffect(() => {
+    setRegisterPage(1);
+  }, [registerFilter, registerQuery, registerStatusFilter]);
+
+  useEffect(() => {
+    setRegisterPage((current) => Math.min(current, registerPageCount));
+  }, [registerPageCount]);
 
   const filteredRows = useMemo(() => {
     const source = rows;
@@ -1249,23 +1183,21 @@ export default function HealthSafetyPage() {
 
   return (
     <HeaderSidebarLayout>
-      <main style={pageWrap}>
-        <div className={layoutStyles.extracted12}>
-          <div>
-            <h1 style={h1}>H&S</h1>
-            <p style={sub}>Vehicle checks, defect routes and maintenance follow-up in one place.</p>
-          </div>
-          <div className={layoutStyles.extracted13}>
-            <button type="button" style={btn("ghost")} onClick={loadData}>
+      <BusinessPage>
+        <BusinessPageHeader
+          title="H&S"
+          subtitle="Vehicle checks, defect routes and maintenance follow-up in one place."
+          actions={<BusinessHeaderActions>
+            <Button variant="secondary" onClick={loadData}>
               <RefreshCcw size={15} />
               Refresh
-            </button>
-            <button type="button" style={btn("ghost")} onClick={() => setShowAddRegister((value) => !value)}>
+            </Button>
+            <Button variant={showAddRegister ? "secondary" : "primary"} onClick={() => setShowAddRegister((value) => !value)}>
               <CheckCircle2 size={15} />
               Add Register Item
-            </button>
-          </div>
-        </div>
+            </Button>
+          </BusinessHeaderActions>}
+        />
 
         {showAddRegister ? (
           <section style={{ ...panel, marginBottom: 12 }}>
@@ -1278,32 +1210,31 @@ export default function HealthSafetyPage() {
             <div className="hs-add-register-grid">
               <label>
                 <p style={smallLabel}>Item name</p>
-                <input value={newRegisterItem.item} onChange={(event) => updateNewRegisterItem("item", event.target.value)} placeholder="e.g. Ladder inspection" style={input} />
+                <Input value={newRegisterItem.item} onChange={(event) => updateNewRegisterItem("item", event.target.value)} placeholder="e.g. Ladder inspection" />
               </label>
               <label>
                 <p style={smallLabel}>Section</p>
-                <input value={newRegisterItem.section} onChange={(event) => updateNewRegisterItem("section", event.target.value)} style={input} />
+                <Input value={newRegisterItem.section} onChange={(event) => updateNewRegisterItem("section", event.target.value)} />
               </label>
               <label>
                 <p style={smallLabel}>Area</p>
-                <select value={newRegisterItem.area} onChange={(event) => updateNewRegisterItem("area", event.target.value)} style={input}>
+                <Select value={newRegisterItem.area} onChange={(event) => updateNewRegisterItem("area", event.target.value)}>
                   <option value="inspection">Inspection</option>
                   <option value="workshop">Workshop</option>
                   <option value="training">Training</option>
                   <option value="policy">Policy</option>
                   <option value="ppe">PPE</option>
-                </select>
+                </Select>
               </label>
               <label>
                 <p style={smallLabel}>Frequency</p>
-                <select
+                <Select
                   value={String(newRegisterItem.frequencyWeeks || "")}
                   onChange={(event) => {
                     const weeks = Number(event.target.value);
                     updateNewRegisterItem("frequencyWeeks", weeks || null);
                     updateNewRegisterItem("frequency", frequencyLabelFromWeeks(weeks, "As required"));
                   }}
-                  style={input}
                 >
                   <option value="">As required</option>
                   <option value="1">1 week</option>
@@ -1314,31 +1245,28 @@ export default function HealthSafetyPage() {
                   <option value="52">Annual</option>
                   <option value="104">2 years</option>
                   <option value="260">5 years</option>
-                </select>
+                </Select>
               </label>
               <label>
                 <p style={smallLabel}>Owner</p>
-                <input value={newRegisterItem.owner} onChange={(event) => updateNewRegisterItem("owner", event.target.value)} style={input} />
+                <Input value={newRegisterItem.owner} onChange={(event) => updateNewRegisterItem("owner", event.target.value)} />
               </label>
               <label>
                 <p style={smallLabel}>Evidence label</p>
-                <input value={newRegisterItem.evidenceLabel} onChange={(event) => updateNewRegisterItem("evidenceLabel", event.target.value)} style={input} />
+                <Input value={newRegisterItem.evidenceLabel} onChange={(event) => updateNewRegisterItem("evidenceLabel", event.target.value)} />
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 20, color: UI.text, fontWeight: 850 }}>
-                <input
-                  type="checkbox"
-                  checked={newRegisterItem.certificateRequired}
-                  onChange={(event) => updateNewRegisterItem("certificateRequired", event.target.checked)}
-                />
-                Evidence required
-              </label>
-              <button type="button" style={{ ...btn("primary"), minHeight: 36, marginTop: 16 }} onClick={createRegisterItem} disabled={addingRegister}>
+              <Checkbox
+                label="Evidence required"
+                checked={newRegisterItem.certificateRequired}
+                onChange={(event) => updateNewRegisterItem("certificateRequired", event.target.checked)}
+              />
+              <Button onClick={createRegisterItem} disabled={addingRegister}>
                 {addingRegister ? "Creating..." : "Create Item"}
-              </button>
+              </Button>
             </div>
             <label className={layoutStyles.extracted15}>
               <p style={smallLabel}>Notes</p>
-              <textarea value={newRegisterItem.notes} onChange={(event) => updateNewRegisterItem("notes", event.target.value)} rows={3} style={{ ...input, resize: "vertical" }} />
+              <Textarea value={newRegisterItem.notes} onChange={(event) => updateNewRegisterItem("notes", event.target.value)} rows={3} />
             </label>
           </section>
         ) : null}
@@ -1350,37 +1278,37 @@ export default function HealthSafetyPage() {
                 <h2 style={titleMd}>Home</h2>
                 <div style={hint}>H&S register, inspection evidence and defect review status.</div>
               </div>
-              <span style={sectionTag}>All sections</span>
+              <Badge variant="info">All sections</Badge>
             </div>
 
             <div className={`hs-summary-grid ${layoutStyles.extracted18}`} >
-              <SummaryCard
-                title="Immediate"
+              <SharedMetricCard
+                label="Immediate"
                 value={loading ? "-" : counts.immediate}
-                icon={AlertTriangle}
-                tone={counts.immediate ? "danger" : "ok"}
-                footer={`${counts.immediate} urgent defects`}
+                icon={<AlertTriangle size={19} />}
+                tone={counts.immediate ? "danger" : "success"}
+                hint={`${counts.immediate} urgent defects`}
               />
-              <SummaryCard
-                title="Due Items"
+              <SharedMetricCard
+                label="Due Items"
                 value={loading ? "-" : registerStats.due}
-                icon={CalendarCheck2}
-                tone={registerStats.due ? "amber" : "ok"}
-                footer={`${registerStats.dueSoon} due soon`}
+                icon={<CalendarCheck2 size={19} />}
+                tone={registerStats.due ? "warning" : "success"}
+                hint={`${registerStats.dueSoon} due soon`}
               />
-              <SummaryCard
-                title="Certificates"
+              <SharedMetricCard
+                label="Certificates"
                 value={loading ? "-" : registerStats.missingCertificates}
-                icon={FileCheck2}
-                tone={registerStats.missingCertificates ? "amber" : "ok"}
-                footer={`${registerStats.certificatesAttached} attached`}
+                icon={<FileCheck2 size={19} />}
+                tone={registerStats.missingCertificates ? "warning" : "success"}
+                hint={`${registerStats.certificatesAttached} attached`}
               />
-              <SummaryCard
-                title="General"
+              <SharedMetricCard
+                label="General"
                 value={loading ? "-" : counts.general}
-                icon={Wrench}
-                tone={counts.general ? "brand" : "ok"}
-                footer={`${counts.general} planned defects`}
+                icon={<Wrench size={19} />}
+                tone={counts.general ? "info" : "success"}
+                hint={`${counts.general} planned defects`}
               />
             </div>
 
@@ -1389,14 +1317,21 @@ export default function HealthSafetyPage() {
                 <h2 style={{ ...titleMd, fontSize: 15 }}>H&S workspaces</h2>
                 <div style={hint}>Register areas and defect queues grouped by how they are used.</div>
               </div>
-              <button type="button" style={btn("ghost")} onClick={() => openRegisterArea("inspection")}>
+              <Button variant="secondary" size="sm" onClick={() => openRegisterArea("inspection")}>
                 Open inspections
-              </button>
+              </Button>
             </div>
 
             <div className={`hs-ops-grid ${layoutStyles.extracted20}`} >
               {workspaceTiles.map((tile) => (
-                <Tile key={tile.title} {...tile} />
+                <NavigationCard
+                  key={tile.title}
+                  icon={createElement(tile.icon, { size: 20, strokeWidth: 2.2 })}
+                  title={tile.title}
+                  description={tile.description}
+                  badges={tile.rightBadges}
+                  onClick={tile.onClick}
+                />
               ))}
             </div>
           </div>
@@ -1427,73 +1362,78 @@ export default function HealthSafetyPage() {
               <div className={layoutStyles.extracted23}>
                 <div>
                   <h2 style={titleMd}>H&S register</h2>
-                  <div style={hint}>Inspection dates, certificates, workshop checks, PPE, training and policy records.</div>
+                  <div style={hint}>Search and manage inspection dates, evidence, training and policies.</div>
                 </div>
-                <div className={layoutStyles.extracted24}>
-                  <div className={layoutStyles.extracted25}>
-                    <Search
-                      size={15}
-                      color={UI.muted}
-                      className={layoutStyles.extracted26}
-                    />
-                    <input
-                      value={registerQuery}
-                      onChange={(event) => setRegisterQuery(event.target.value)}
-                      placeholder="Search H&S register..."
-                      style={{ ...input, paddingLeft: 32 }}
-                    />
-                  </div>
-                  <span style={sectionTag}>{filteredRegisterItems.length} shown</span>
-                </div>
+                <Badge variant={registerStats.due ? "warning" : "success"}>
+                  {registerStats.due ? `${registerStats.due} need attention` : "All up to date"}
+                </Badge>
               </div>
 
-              <div className="hs-register-tabs">
-                {[
-                  ["all", "All"],
-                  ["inspection", "Date inspections"],
-                  ["workshop", "Workshop checks"],
-                  ["ppe", "PPE"],
-                  ["training", "Training"],
-                  ["policy", "Policies"],
-                ].map(([value, label]) => (
-                  <button
-                    type="button"
-                    key={value}
-                    onClick={() => setRegisterFilter(value)}
-                    style={{
-                      ...btn(registerFilter === value ? "primary" : "ghost"),
-                      boxShadow: registerFilter === value ? "0 8px 18px rgba(31,75,122,0.18)" : "none",
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className={layoutStyles.registerToolbar}>
+                <div className="hs-register-tabs">
+                  {[
+                    ["all", "All", registerItems.length],
+                    ["inspection", "Inspections", registerAreaCount("inspection")],
+                    ["workshop", "Workshop", registerAreaCount("workshop")],
+                    ["ppe", "PPE", registerAreaCount("ppe")],
+                    ["training", "Training", registerAreaCount("training")],
+                    ["policy", "Policies", registerAreaCount("policy")],
+                  ].map(([value, label, count]) => (
+                    <Button
+                      key={value}
+                      onClick={() => setRegisterFilter(value)}
+                      variant={registerFilter === value ? "primary" : "secondary"}
+                      size="sm"
+                    >
+                      {label} <span className={layoutStyles.filterCount}>{count}</span>
+                    </Button>
+                  ))}
+                </div>
+
+                <div className={layoutStyles.registerTools}>
+                  <div className={layoutStyles.statusFilterWrap}>
+                    <Select
+                      value={registerStatusFilter}
+                      onChange={(event) => setRegisterStatusFilter(event.target.value)}
+                      aria-label="Filter register by status"
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="attention">Needs attention</option>
+                      <option value="complete">Complete</option>
+                    </Select>
+                  </div>
+                  <div className={layoutStyles.extracted25}>
+                    <Search size={15} color={UI.muted} className={layoutStyles.extracted26} />
+                    <Input
+                      value={registerQuery}
+                      onChange={(event) => setRegisterQuery(event.target.value)}
+                      placeholder="Search register..."
+                      className={layoutStyles.registerSearchInput}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div style={{ ...surface, boxShadow: "none", overflowX: "auto", marginTop: 10 }}>
                 <table className={layoutStyles.extracted27}>
                   <colgroup>
-                    <col className={layoutStyles.extracted28} />
-                    <col className={layoutStyles.extracted29} />
-                    <col className={layoutStyles.extracted30} />
-                    <col className={layoutStyles.extracted31} />
-                    <col className={layoutStyles.extracted32} />
-                    <col className={layoutStyles.extracted33} />
-                    <col className={layoutStyles.extracted34} />
+                    <col className={layoutStyles.registerItemColumn} />
+                    <col className={layoutStyles.registerScheduleColumn} />
+                    <col className={layoutStyles.registerEvidenceColumn} />
+                    <col className={layoutStyles.registerStatusColumn} />
+                    <col className={layoutStyles.registerActionColumn} />
                   </colgroup>
                   <thead>
                     <tr>
-                      <th style={{ ...tableHead, textAlign: "left" }}>Section</th>
-                      <th style={{ ...tableHead, textAlign: "left" }}>Item</th>
-                      <th style={{ ...tableHead, textAlign: "left" }}>Frequency</th>
-                      <th style={{ ...tableHead, textAlign: "left" }}>Next Due</th>
+                      <th style={{ ...tableHead, textAlign: "left" }}>Record</th>
+                      <th style={{ ...tableHead, textAlign: "left" }}>Schedule</th>
                       <th style={{ ...tableHead, textAlign: "left" }}>Evidence</th>
                       <th style={{ ...tableHead, textAlign: "left" }}>Status</th>
                       <th style={{ ...tableHead, textAlign: "right" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRegisterItems.map((item) => {
+                    {paginatedRegisterItems.map((item) => {
                       const state = registerState(item);
 
                       return (
@@ -1504,18 +1444,18 @@ export default function HealthSafetyPage() {
                           className={layoutStyles.extracted35}
                         >
                           <td style={tableCell}>
-                            <div className={layoutStyles.extracted36}>{item.section}</div>
-                            <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>{item.owner}</div>
-                          </td>
-                          <td style={tableCell}>
                             <div className={layoutStyles.extracted37}>{item.item}</div>
-                            {item.notes ? (
-                              <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.25, marginTop: 2 }}>{item.notes}</div>
-                            ) : null}
+                            <div className={layoutStyles.recordMeta}>
+                              <span>{item.section}</span>
+                              <span>{item.owner || "Unassigned"}</span>
+                              {item.notes ? <span className={layoutStyles.recordNote} title={item.notes}>{item.notes}</span> : null}
+                            </div>
                           </td>
-                          <td style={tableCell}>{frequencyLabelFromWeeks(item.frequencyWeeks, item.frequency)}</td>
                           <td style={tableCell}>
-                            <span className={layoutStyles.extracted38}>{fmtDate(item.nextDue)}</span>
+                            <div className={layoutStyles.scheduleCell}>
+                              <span>{frequencyLabelFromWeeks(item.frequencyWeeks, item.frequency)}</span>
+                              <strong className={state.tone === "danger" ? layoutStyles.overdueDate : undefined}>{fmtDate(item.nextDue)}</strong>
+                            </div>
                           </td>
                           <td style={tableCell}>
                             <div className={layoutStyles.extracted39}>
@@ -1540,7 +1480,7 @@ export default function HealthSafetyPage() {
                                   }}
                                 >
                                   <FileCheck2 size={13} />
-                                  {item.certificateName || "Evidence attached"}
+                                  <span className={layoutStyles.evidenceName}>{item.certificateName || "Evidence attached"}</span>
                                 </a>
                               ) : (
                                 <span
@@ -1578,9 +1518,9 @@ export default function HealthSafetyPage() {
                             </span>
                           </td>
                           <td style={{ ...tableCell, textAlign: "right" }}>
-                            <button
-                              type="button"
-                              style={btn("ghost")}
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 router.push(`/h-and-s/${encodeURIComponent(item.id)}`);
@@ -1588,14 +1528,14 @@ export default function HealthSafetyPage() {
                             >
                               Open
                               <ArrowUpRight size={14} />
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       );
                     })}
                     {!filteredRegisterItems.length ? (
                       <tr>
-                        <td style={{ ...tableCell, color: UI.muted }} colSpan={7}>
+                        <td style={{ ...tableCell, color: UI.muted }} colSpan={5}>
                           No H&S register items found.
                         </td>
                       </tr>
@@ -1603,6 +1543,23 @@ export default function HealthSafetyPage() {
                   </tbody>
                 </table>
               </div>
+
+              {filteredRegisterItems.length ? (
+                <div className={layoutStyles.registerPagination}>
+                  <span>
+                    {(registerPage - 1) * REGISTER_PAGE_SIZE + 1}–{Math.min(registerPage * REGISTER_PAGE_SIZE, filteredRegisterItems.length)} of {filteredRegisterItems.length}
+                  </span>
+                  <div className={layoutStyles.paginationButtons}>
+                    <Button variant="secondary" size="sm" disabled={registerPage === 1} onClick={() => setRegisterPage((page) => Math.max(1, page - 1))}>
+                      Previous
+                    </Button>
+                    <span>Page {registerPage} of {registerPageCount}</span>
+                    <Button variant="secondary" size="sm" disabled={registerPage === registerPageCount} onClick={() => setRegisterPage((page) => Math.min(registerPageCount, page + 1))}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -1653,7 +1610,7 @@ export default function HealthSafetyPage() {
             }
           }
         `}</style>
-      </main>
+      </BusinessPage>
     </HeaderSidebarLayout>
   );
 }

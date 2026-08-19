@@ -16,6 +16,7 @@ import {
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { formatVehicleList } from "@/app/utils/vehicleDisplay";
 import { useVehicleLookup } from "@/app/utils/useVehicleLookup";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* ───────────────────────────────────────────
    Mini design system (matching your page)
@@ -152,26 +153,7 @@ const prettifyStatus = (raw) => {
 };
 
 const statusColors = (label) => {
-  switch (label) {
-    case "Paid":
-      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
-    case "Invoiced":
-      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
-    case "Ready to Invoice":
-      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
-    case "Complete":
-      return { bg: "var(--color-success-border)", border: "var(--color-success-accent)", text: "var(--color-text)" };
-    case "Confirmed":
-      return { bg: "var(--color-warning-border)", border: "var(--color-success-accent)", text: "var(--color-danger-hover)" };
-    case "First Pencil":
-      return { bg: "var(--shell-muted)", border: "var(--color-info)", text: "var(--color-info)" };
-    case "Second Pencil":
-      return { bg: "var(--color-warning-border)", border: "var(--color-warning)", text: "var(--color-danger)" };
-    case "TBC":
-      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
-    default:
-      return { bg: "var(--shell-muted)", border: "var(--color-brand-hover)", text: "var(--color-text)" };
-  }
+  return getFixedJobStatusStyle(label);
 };
 
 const StatusCell = ({ raw }) => {

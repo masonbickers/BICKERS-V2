@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -325,7 +326,7 @@ export default function TrainingPolicyPage() {
     const documentsToUpload = Array.isArray(draft.documents) ? draft.documents : [];
 
     if (!completedAt && !expiresAt && !String(draft.notes || "").trim() && !documentsToUpload.length) {
-      alert("Add a completed date, expiry date, note, or document before saving.");
+      systemDialogs.showSystemNotification("Add a completed date, expiry date, note, or document before saving.");
       return;
     }
 
@@ -366,7 +367,7 @@ export default function TrainingPolicyPage() {
       setToast(`${item.label} saved for ${employeeDisplayName(selectedEmployee)}`);
     } catch (error) {
       console.error("Failed to save training record:", error);
-      alert("Could not save training record.");
+      systemDialogs.showSystemNotification("Could not save training record.");
     } finally {
       setSavingItem("");
     }

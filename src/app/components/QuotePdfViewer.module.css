@@ -1,0 +1,55 @@
+.viewerModal {
+  width: min(92vw, 760px) !important;
+  height: calc(100dvh - 32px);
+  max-height: none !important;
+}
+
+.viewerBody {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden !important;
+  padding: 0 !important;
+  background: #202124;
+}
+
+.frameWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.pdfFrame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: #202124;
+}
+
+.loadingState {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--color-text);
+  text-align: center;
+  background: var(--color-surface);
+}
+
+.loadingState span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .viewerModal {
+    width: 100% !important;
+    height: calc(100dvh - var(--space-2));
+  }
+}

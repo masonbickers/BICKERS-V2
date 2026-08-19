@@ -7,7 +7,13 @@ export default function RouteLoadingOverlay({
   hint = "Preparing details...",
 }) {
   return (
-    <div className={layoutStyles.extracted1} role="status" aria-live="polite">
+    <div
+      className={layoutStyles.extracted1}
+      data-route-loading-overlay
+      role="status"
+      aria-live="polite"
+      aria-label={`${title}: ${progress}%`}
+    >
       <div className={layoutStyles.extracted2}>
         <div className={layoutStyles.extracted3}>
           <span className={layoutStyles.extracted4}>

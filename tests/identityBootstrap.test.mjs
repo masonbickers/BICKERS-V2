@@ -59,6 +59,12 @@ function verifiedEmail(user) {
     : "";
 }
 
+function deploymentEmailAllowed(email, domains = ["bickers.co.uk"]) {
+  const normalized = String(email || "").trim().toLowerCase();
+  const separator = normalized.lastIndexOf("@");
+  return separator > 0 && domains.includes(normalized.slice(separator + 1));
+}
+
 function request() {
   return {
     headers: { get() { return ""; } },
@@ -114,6 +120,13 @@ async function loadBridge(state) {
     }),
     "@/app/utils/accountAccess": synthetic(ctx, { isAccountDisabled: isDisabled }),
     "@/app/utils/clerkFirebaseLink": synthetic(ctx, { preferredVerifiedEmail: verifiedEmail }),
+    "@/app/config/deploymentConfig": synthetic(ctx, {
+      deploymentEmailAccessMessage: () => "Only approved company accounts can access this app.",
+      getDeploymentConfig: () => ({ companyId: state.deploymentCompanyId || "bickers-action" }),
+      isDeploymentEmailAllowed: (email) => deploymentEmailAllowed(email, state.allowedDomains),
+      isDeploymentEmergencyAdmin: (email) => state.emergencyEnabled !== false && ["mason@bickers.co.uk", "paul@bickers.co.uk", "adam@bickers.co.uk"].includes(String(email).toLowerCase()),
+      isDeploymentEmergencyPlatformAdmin: (email) => state.emergencyEnabled !== false && String(email).toLowerCase() === "mason@bickers.co.uk",
+    }),
   };
   const sourceModule = new vm.SourceTextModule(bridgeSource, { context: ctx, identifier: bridgePath.href });
   await sourceModule.link(async (specifier) => {
@@ -195,6 +208,12 @@ async function loadBootstrap(state) {
       verifyFirebaseIdToken: async () => state.verifiedUser,
     }),
     "@/app/utils/accountAccess": synthetic(ctx, { isAccountDisabled: isDisabled }),
+    "@/app/config/deploymentConfig": synthetic(ctx, {
+      getDeploymentConfig: () => ({ companyId: state.deploymentCompanyId || "bickers-action" }),
+      isDeploymentEmailAllowed: (email) => deploymentEmailAllowed(email, state.allowedDomains),
+      isDeploymentEmergencyAdmin: (email) => state.emergencyEnabled !== false && ["mason@bickers.co.uk", "paul@bickers.co.uk", "adam@bickers.co.uk"].includes(String(email).toLowerCase()),
+      isDeploymentEmergencyPlatformAdmin: (email) => state.emergencyEnabled !== false && String(email).toLowerCase() === "mason@bickers.co.uk",
+    }),
   };
   const sourceModule = new vm.SourceTextModule(bootstrapSource, { context: ctx, identifier: bootstrapPath.href });
   await sourceModule.link(async (specifier) => {
@@ -222,6 +241,7 @@ async function loadVerifier(payload) {
     "@/app/utils/accountAccess": synthetic(ctx, {
       hasCanonicalAccessRecord: () => true,
       hasCompanyAccess: () => true,
+      hasServiceWorkspaceAccess: () => true,
       isAccountDisabled: () => false,
     }),
   };
@@ -253,6 +273,7 @@ test("validated Firebase token claims retain the hardened Clerk assurance fields
     identityLinkVersion: 2,
     identityEmployeeId: "employee-1",
     identityCompanyId: "company-1",
+    emergencyBootstrapRole: "admin",
   });
   assert.equal(verified.uid, "user-1");
   assert.equal(verified.authMethod, "clerk");
@@ -262,6 +283,7 @@ test("validated Firebase token claims retain the hardened Clerk assurance fields
   assert.equal(verified.identityLinkVersion, 2);
   assert.equal(verified.identityEmployeeId, "employee-1");
   assert.equal(verified.identityCompanyId, "company-1");
+  assert.equal(verified.emergencyBootstrapRole, "admin");
 });
 
 test("bridge rejects an unverified Clerk email", async () => {
@@ -270,6 +292,25 @@ test("bridge rejects an unverified Clerk email", async () => {
   const response = await (await loadBridge(state))(request());
   assert.equal(response.status, 403);
   assert.equal(state.token, null);
+});
+
+test("bridge uses exact normalized deployment domains", async () => {
+  const uppercase = baseBridgeState();
+  uppercase.allowedDomains = ["example.com", "staff.example.com"];
+  uppercase.clerkUser.emailAddresses[0].emailAddress = "USER@EXAMPLE.COM";
+  uppercase.employees[0].data.email = "user@example.com";
+  assert.equal((await (await loadBridge(uppercase))(request())).status, 200);
+
+  const secondDomain = baseBridgeState();
+  secondDomain.allowedDomains = ["example.com", "staff.example.com"];
+  secondDomain.clerkUser.emailAddresses[0].emailAddress = "user@staff.example.com";
+  secondDomain.employees[0].data.email = "user@staff.example.com";
+  assert.equal((await (await loadBridge(secondDomain))(request())).status, 200);
+
+  const maliciousSuffix = baseBridgeState();
+  maliciousSuffix.allowedDomains = ["bickers.co.uk"];
+  maliciousSuffix.clerkUser.emailAddresses[0].emailAddress = "user@evilbickers.co.uk";
+  assert.equal((await (await loadBridge(maliciousSuffix))(request())).status, 403);
 });
 
 test("bridge mints only a versioned token for a valid explicit employee UID link", async () => {
@@ -421,6 +462,24 @@ test("valid canonical Platform Admin remains explicit and email allowlists are i
   assert.equal(state.token.claims.identityEmployeeId, "");
 });
 
+test("server bridge marks a configured missing emergency account for break-glass bootstrap", async () => {
+  const state = baseBridgeState();
+  state.clerkUser.emailAddresses[0].emailAddress = "MASON@BICKERS.CO.UK";
+  state.employees = [];
+  const response = await (await loadBridge(state))(request());
+  assert.equal(response.status, 200);
+  assert.equal(state.token.claims.emergencyBootstrapRole, "platformAdmin");
+  assert.equal(state.token.claims.identityCompanyId, "bickers-action");
+});
+
+test("disabled emergency bootstrap does not recover a missing canonical account", async () => {
+  const state = baseBridgeState();
+  state.emergencyEnabled = false;
+  state.clerkUser.emailAddresses[0].emailAddress = "mason@bickers.co.uk";
+  state.employees = [];
+  assert.equal((await (await loadBridge(state))(request())).status, 403);
+});
+
 test("bootstrap rejects missing Firebase identity and non-versioned assurance", async () => {
   const missing = baseBootstrapState();
   missing.verifiedUser = null;
@@ -437,6 +496,22 @@ test("bootstrap refreshes a valid explicit employee link", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.body.access.uid, "user-1");
   assert.equal(response.body.access.companyId, "company-1");
+});
+
+test("bootstrap uses the same exact normalized deployment-domain predicate", async () => {
+  const uppercase = baseBootstrapState();
+  uppercase.allowedDomains = ["example.com", "staff.example.com"];
+  uppercase.verifiedUser.email = "USER@EXAMPLE.COM";
+  uppercase.verifiedUser.companyEmail = "USER@EXAMPLE.COM";
+  uppercase.docs.users["user-1"].email = "user@example.com";
+  uppercase.employees[0].data.email = "user@example.com";
+  assert.equal((await (await loadBootstrap(uppercase))(request())).status, 200);
+
+  const maliciousSuffix = baseBootstrapState();
+  maliciousSuffix.allowedDomains = ["bickers.co.uk"];
+  maliciousSuffix.verifiedUser.email = "user@evilbickers.co.uk";
+  maliciousSuffix.verifiedUser.companyEmail = "user@evilbickers.co.uk";
+  assert.equal((await (await loadBootstrap(maliciousSuffix))(request())).status, 403);
 });
 
 test("bootstrap creates a missing canonical record only from the proven employee link", async () => {
@@ -558,6 +633,42 @@ test("valid canonical Platform Admin remains explicit", async () => {
   const response = await (await loadBootstrap(state))(request());
   assert.equal(response.status, 200);
   assert.equal(response.body.access.role, "platformAdmin");
+});
+
+test("bootstrap creates a missing canonical break-glass role only from the verified server claim", async () => {
+  const state = baseBootstrapState();
+  state.verifiedUser = {
+    ...state.verifiedUser,
+    email: "mason@bickers.co.uk",
+    companyEmail: "mason@bickers.co.uk",
+    identityEmployeeId: "",
+    identityCompanyId: "bickers-action",
+    emergencyBootstrapRole: "platformAdmin",
+  };
+  state.docs.users = {};
+  state.employees = [];
+  const response = await (await loadBootstrap(state))(request());
+  assert.equal(response.status, 200);
+  assert.equal(response.body.access.role, "platformAdmin");
+  assert.equal(response.body.access.companyId, "bickers-action");
+  assert.equal(response.body.access.appAccess.user, true);
+  assert.equal(response.body.access.appAccess.service, true);
+});
+
+test("bootstrap will not use an emergency claim when deployment bootstrap is disabled", async () => {
+  const state = baseBootstrapState();
+  state.emergencyEnabled = false;
+  state.verifiedUser = {
+    ...state.verifiedUser,
+    email: "mason@bickers.co.uk",
+    companyEmail: "mason@bickers.co.uk",
+    identityEmployeeId: "",
+    identityCompanyId: "bickers-action",
+    emergencyBootstrapRole: "platformAdmin",
+  };
+  state.docs.users = {};
+  state.employees = [];
+  assert.equal((await (await loadBootstrap(state))(request())).status, 403);
 });
 
 test("repeated valid bootstrap is idempotent", async () => {

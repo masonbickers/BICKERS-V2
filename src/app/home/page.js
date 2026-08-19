@@ -1,6 +1,7 @@
 // src/app/dashboard/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import styles from "./home.module.css";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -9,7 +10,8 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
-import { Alert, Badge, Button, Card, EmptyState, Page, PageHeader, Skeleton } from "@/app/components/ui";
+import { Alert, Badge, Button, Card, EmptyState, MetricCard, Skeleton } from "@/app/components/ui";
+import { OperationsPage, OperationsPageHeader } from "@/app/components/OperationsPage";
 import ViewBookingModal from "../components/ViewBookingModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
@@ -34,8 +36,8 @@ import {
   buildMaintenanceBookingEvents,
   buildMaintenanceJobEvents,
   buildVehicleDueEvents,
+  dedupeMaintenanceCalendarEvents,
 } from "../utils/maintenanceCalendar";
-import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
   AlertTriangle,
   ArrowRight,
@@ -238,7 +240,7 @@ export default function HomePage() {
     const map = new Map();
     vehicles.forEach((v) => {
       if (!v?.id) return;
-      const label = String(v.name || v.registration || v.reg || v.id).trim();
+      const label = String(v.name || v.registration || v.reg || "Unknown vehicle").trim();
       map.set(String(v.id).trim(), label);
     });
     return map;
@@ -247,7 +249,8 @@ export default function HomePage() {
   const vehicleLabel = useCallback((v) => {
     if (v && typeof v === "object") return v.name || v.registration || v.reg || "Vehicle";
     const key = String(v || "").trim();
-    return vehicleNameById.get(key) || key || "Vehicle";
+    const legacyLabel = key && (key.length < 16 || /\s/.test(key)) ? key : "Unknown vehicle";
+    return vehicleNameById.get(key) || legacyLabel || "Vehicle";
   }, [vehicleNameById]);
 
   // Fetch data
@@ -359,15 +362,6 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [accessKey, dataAccessState, reloadVersion]);
 
-  useEffect(() => {
-    syncEightWeekInspectionRollovers({
-      db,
-      vehicles,
-      maintenanceBookings,
-      loggerPrefix: "[home] inspection rollover",
-    }).catch(() => {});
-  }, [vehicles, maintenanceBookings]);
-
   /* ────────────────────────────────────────────────────────────────────────
      Derived: events + windows
   ───────────────────────────────────────────────────────────────────────── */
@@ -413,7 +407,11 @@ export default function HomePage() {
   }, [vehicles, maintenanceBookedMetaByVehicle, vehicleLabel]);
 
   const maintenanceCalendarEvents = useMemo(
-    () => [...maintenanceBookingEvents, ...maintenanceJobEvents, ...motServiceDueEvents],
+    () => dedupeMaintenanceCalendarEvents([
+      ...maintenanceBookingEvents,
+      ...maintenanceJobEvents,
+      ...motServiceDueEvents,
+    ]),
     [maintenanceBookingEvents, maintenanceJobEvents, motServiceDueEvents]
   );
   const homeCalendarEvents = useMemo(
@@ -512,7 +510,7 @@ export default function HomePage() {
         console.error("Open create booking failed:", error);
         setCreateBookingOpening(false);
         setCreateBookingProgress(0);
-        alert("Failed to open create booking. Please try again.");
+        systemDialogs.showSystemNotification("Failed to open create booking. Please try again.");
       }
     }, 80);
   }, [createBookingOpening, router]);
@@ -598,9 +596,9 @@ export default function HomePage() {
   return (
     <ProtectedRoute>
       <HeaderSidebarLayout>
-        <Page width="fluid">
-          <PageHeader
-            title="Operations overview"
+        <OperationsPage>
+          <OperationsPageHeader
+            title="Home"
             subtitle="See the programme, spot operational risk and open the work that needs attention."
             actions={<div className={styles.headerActions}>
               <div className={styles.headerControls}>
@@ -639,28 +637,23 @@ export default function HomePage() {
               {initialLoading ? <div className={styles.statGrid}>{[0,1,2,3,4].map((item) => <Card className={styles.healthSkeleton} key={item}><Skeleton height={72} /></Card>)}</div> : (
                 <div className={styles.statGrid}>
                   {operationalSummary.map((item) => (
-                    <Button
-                      bare
+                    <MetricCard
                       key={item.key}
-                      type="button"
-                      className={styles.healthCard}
-                      data-tone={item.tone}
+                      label={item.label}
+                      value={item.available ? item.value : "—"}
+                      hint={item.available ? item.period : "Data unavailable"}
+                      tone={item.tone}
+                      icon={
+                        item.key === "upcoming" ? <BriefcaseBusiness size={19} /> :
+                        item.key === "follow-up" ? <Clock size={19} /> :
+                        item.key === "preparation" ? <ClipboardList size={19} /> :
+                        item.key === "conflicts" ? <AlertTriangle size={19} /> :
+                        item.key === "fleet" ? <Wrench size={19} /> : null
+                      }
                       disabled={!item.available}
                       onClick={() => openSummaryTarget(item.actionTarget)}
                       aria-label={`${item.label}: ${item.available ? item.value : "unavailable"}. ${item.period}`}
-                    >
-                      <span className={styles.healthIcon}>
-                        {item.key === "upcoming" ? <BriefcaseBusiness size={18} /> : null}
-                        {item.key === "follow-up" ? <Clock size={18} /> : null}
-                        {item.key === "preparation" ? <ClipboardList size={18} /> : null}
-                        {item.key === "conflicts" ? <AlertTriangle size={18} /> : null}
-                        {item.key === "fleet" ? <Wrench size={18} /> : null}
-                      </span>
-                      <span className={styles.healthValue}>{item.available ? item.value : "—"}</span>
-                      <strong className={styles.healthLabel}>{item.label}</strong>
-                      <span className={styles.healthPeriod}>{item.available ? item.period : "Data unavailable"}</span>
-                      <ChevronRight className={styles.healthArrow} size={17} aria-hidden="true" />
-                    </Button>
+                    />
                   ))}
                 </div>
               )}
@@ -889,7 +882,7 @@ export default function HomePage() {
             </section>
 
           </div>
-        </Page>
+        </OperationsPage>
         {selectedBookingId && (
           <ViewBookingModal
             id={selectedBookingId}

@@ -3,10 +3,23 @@
 
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { doc, getDocs, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  PeopleFleetHeaderActions,
+  PeopleFleetPage,
+  PeopleFleetPageHeader,
+} from "@/app/components/PeopleFleetPage";
+import {
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  Input,
+  MetricCard,
+  Select,
+} from "@/app/components/ui";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -37,11 +50,7 @@ import {
 import HolidayForm from "@/app/components/holidayform";
 import EditHolidayForm from "@/app/components/EditHolidayForm";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-
-/* Admin allow-list */
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
+import { getHolidayCarryOverWindow, resolveHolidayCarryOver } from "@/app/utils/holidayCarryOver";
 
 const employeeDisplayName = (employee = {}) =>
   String(
@@ -110,38 +119,8 @@ function isActiveEmployeeRecord(employee = {}) {
   return true;
 }
 
-/* Mini design system */
+/* Calendar-specific tokens */
 const UI = UI_TOKENS;
-
-const pageWrap = {
-  padding: "16px 16px 32px",
-  background: UI.bg,
-  minHeight: "100vh",
-};
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = {
-  color: UI.text,
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 750,
-  letterSpacing: 0,
-  margin: 0,
-};
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-
-const surface = {
-  background: UI.card,
-  borderRadius: UI.radius,
-  border: UI.border,
-  boxShadow: UI.shadowSm,
-};
 
 const chip = {
   padding: "5px 9px",
@@ -154,103 +133,13 @@ const chip = {
   whiteSpace: "nowrap",
 };
 
-const chipSoft = {
-  ...chip,
-  color: UI.brand,
-};
-
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  if (kind === "danger") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 7,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: "1px solid var(--color-danger-border)",
-      background: "var(--color-accent-soft)",
-      color: "var(--color-danger-hover)",
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      fontSize: 12.5,
-      lineHeight: 1.2,
-    };
-  }
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-    color: "var(--color-white)",
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
-};
-
-const cardBase = {
-  ...surface,
-  padding: 12,
-  background: "var(--color-surface)",
-  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
-};
-
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 10,
-  flexWrap: "wrap",
-};
-
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
 
-const inputBase = {
-  width: "100%",
-  minHeight: 36,
-  padding: "7px 9px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  fontSize: 13,
-  outline: "none",
-  background: "var(--color-surface)",
-  color: UI.text,
-};
-
 const mainGrid = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1.55fr) minmax(340px, 0.85fr)",
-  gap: UI.gap,
+  gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 360px)",
+  gap: 16,
   alignItems: "start",
 };
 
@@ -452,81 +341,15 @@ function getStatus(rec) {
 }
 
 function Pill({ children, tone = "default" }) {
-  const tones = {
-    default: { bg: "var(--color-surface-subtle)", fg: UI.text, br: "var(--color-border)" },
-    good: { bg: "var(--color-success-soft)", fg: "var(--color-success)", br: "var(--color-success-border)" },
-    warn: { bg: "var(--color-accent-soft)", fg: "var(--color-danger-hover)", br: "var(--color-danger-border)" },
-    info: { bg: "var(--color-info-soft)", fg: "var(--color-brand-hover)", br: "var(--color-info-border)" },
-    gray: { bg: "var(--color-surface-hover)", fg: "var(--color-text-muted)", br: "var(--color-border)" },
-    pending: { bg: "var(--color-accent-soft)", fg: "var(--color-warning)", br: "var(--color-warning-border)" },
+  const variants = {
+    default: "neutral",
+    good: "success",
+    warn: "danger",
+    info: "info",
+    gray: "neutral",
+    pending: "warning",
   };
-  const t = tones[tone] || tones.default;
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "4px 10px",
-        borderRadius: 999,
-        background: t.bg,
-        color: t.fg,
-        border: `1px solid ${t.br}`,
-        fontSize: 12,
-        fontWeight: 800,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
-function StatTile({ label, value, tone = "default", icon: Icon }) {
-  const tones = {
-    default: { bg: "var(--color-white)", br: "var(--color-border)", fg: UI.brand },
-    soft: { bg: UI.brandSoft, br: UI.brandBorder, fg: UI.brand },
-    warn: { bg: "var(--color-white)7ed", br: "var(--color-warning-border)", fg: "var(--color-warning)" },
-    good: { bg: "var(--color-success-soft)", br: "var(--color-success-border)", fg: "var(--color-success)" },
-    danger: { bg: "var(--color-danger-soft)", br: "var(--color-danger-border)", fg: "var(--color-danger)" },
-  };
-  const t = tones[tone] || tones.default;
-  return (
-    <div
-      style={{
-        background: t.bg,
-        border: `1px solid ${t.br}`,
-        borderRadius: UI.radiusSm,
-        padding: 11,
-        minHeight: 92,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-      }}
-    >
-      <div
-        className={layoutStyles.extracted1}
-      >
-        <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
-          {label}
-        </div>
-        {Icon ? (
-          <span style={iconBox(t.fg, "var(--color-white)", t.br)}>
-            <Icon size={17} />
-          </span>
-        ) : null}
-      </div>
-      <div
-        style={{
-          marginTop: 10,
-          fontSize: 24,
-          fontWeight: 900,
-          color: UI.text,
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
+  return <Badge variant={variants[tone] || "neutral"}>{children}</Badge>;
 }
 
 function LegendSwatch({ color, label }) {
@@ -623,9 +446,9 @@ function Drawer({ open, title, subtitle, onClose, children }) {
               </div>
             ) : null}
           </div>
-          <button style={btn("ghost")} onClick={onClose} type="button">
+          <Button variant="secondary" size="sm" onClick={onClose} type="button">
             Close
-          </button>
+          </Button>
         </div>
         <div className={layoutStyles.extracted7}>{children}</div>
       </div>
@@ -665,7 +488,6 @@ const drawerBody = { padding: 12, overflow: "auto" };
 
 /* Page */
 export default function HolidayUsagePage() {
-  const router = useRouter();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
@@ -698,8 +520,8 @@ export default function HolidayUsagePage() {
     };
   }, []);
   const isAdmin = useMemo(
-    () => ADMIN_EMAILS.map((e) => norm(e)).includes(norm(userEmail)) || userRole === "admin",
-    [userEmail, userRole]
+    () => ["admin", "platformadmin"].includes(userRole),
+    [userRole]
   );
 
   //  modal overlays
@@ -712,6 +534,7 @@ export default function HolidayUsagePage() {
 
   //  Controlled calendar date so Next/Back always works
   const [calDate, setCalDate] = useState(() => new Date());
+  const [calendarView, setCalendarView] = useState("month");
 
   const defaultDateForYear = useMemo(() => {
     const y = Number(yearView);
@@ -739,14 +562,6 @@ export default function HolidayUsagePage() {
   const [onlyUnpaid, setOnlyUnpaid] = useState(false);
   const [sortKey, setSortKey] = useState("name");
   const [selectedName, setSelectedName] = useState(null);
-
-  useEffect(() => {
-    const savedScroll = sessionStorage.getItem("dashboardScroll");
-    if (savedScroll) {
-      window.scrollTo(0, parseInt(savedScroll, 10));
-      sessionStorage.removeItem("dashboardScroll");
-    }
-  }, []);
 
   //  Load UK bank holidays for the selected year (Gov.uk JSON)
   useEffect(() => {
@@ -1019,7 +834,7 @@ export default function HolidayUsagePage() {
     if (event?.bankHoliday) {
       return {
         style: {
-          backgroundColor: "var(--color-brand-soft)",
+          backgroundColor: "var(--color-surface-hover)",
           borderRadius: "8px",
           border: UI.border,
           color: "var(--color-text)",
@@ -1033,7 +848,7 @@ export default function HolidayUsagePage() {
     if (event?.pending) {
       return {
         style: {
-          backgroundColor: "var(--color-accent-soft)",
+          backgroundColor: "var(--color-warning-soft)",
           borderRadius: "8px",
           border: "1px dashed rgba(146,64,14,0.45)",
           color: "var(--color-warning)",
@@ -1046,8 +861,8 @@ export default function HolidayUsagePage() {
     let bg = event.color || "var(--color-border-strong)";
     let textColor = "var(--color-text)";
     if (event.unpaid) {
-      bg = "var(--color-accent-soft)";
-      textColor = "var(--color-danger-hover)";
+      bg = "var(--color-danger-soft)";
+      textColor = "var(--color-danger)";
     }
     return {
       style: {
@@ -1082,13 +897,18 @@ export default function HolidayUsagePage() {
       const preAprilPaid = preAprilPaidDaysByName[name] || 0;
       const allowance = Number(empAllowance[name] ?? DEFAULT_ALLOWANCE);
       const carried = Number(empCarryOver[name] ?? 0);
-      const totalAllowance = allowance + carried;
-      const allowBal = totalAllowance - paid;
       const carryUsedByApril = Math.min(carried, preAprilPaid);
       const carryRemainingByApril = Math.max(
         0,
         Number((carried - carryUsedByApril).toFixed(2))
       );
+      const carryState = resolveHolidayCarryOver({
+        carried,
+        usedByDeadline: carryUsedByApril,
+        year: yearView,
+      });
+      const totalAllowance = allowance + carryState.effective;
+      const allowBal = totalAllowance - paid;
       return {
         paid,
         unpaid,
@@ -1099,12 +919,15 @@ export default function HolidayUsagePage() {
         allowBal,
         carryUsedByApril,
         carryRemainingByApril,
+        effectiveCarryOver: carryState.effective,
+        expiredCarryOver: carryState.expired,
       };
     },
-    [paidDaysByName, unpaidDaysByName, preAprilPaidDaysByName, empAllowance, empCarryOver]
+    [paidDaysByName, unpaidDaysByName, preAprilPaidDaysByName, empAllowance, empCarryOver, yearView]
   );
 
   const carryDeadline = useMemo(() => new Date(yearView, 3, 1), [yearView]);
+  const carryOverWindow = useMemo(() => getHolidayCarryOverWindow(yearView), [yearView]);
 
   const carryOverRows = useMemo(() => {
     return allNames
@@ -1181,6 +1004,34 @@ export default function HolidayUsagePage() {
     [bankHolidayEvents, calendarEvents]
   );
 
+  const calendarHeight = useMemo(() => {
+    if (calendarView !== "month") return 720;
+
+    const monthStart = new Date(calDate.getFullYear(), calDate.getMonth(), 1);
+    const monthEnd = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0);
+    const visibleStart = startOfWeek(monthStart);
+    const visibleEnd = new Date(monthEnd);
+    visibleEnd.setDate(visibleEnd.getDate() + (6 - visibleEnd.getDay()));
+
+    const visibleDays = eachDateInclusive(visibleStart, visibleEnd);
+    const busiestDay = visibleDays.reduce((maximum, day) => {
+      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      const nextDay = new Date(dayStart);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const entries = calendarEventsWithBankHolidays.filter(
+        (event) => event.start < nextDay && event.end > dayStart
+      ).length;
+
+      return Math.max(maximum, entries);
+    }, 0);
+
+    const weekCount = Math.ceil(visibleDays.length / 7);
+    const rowHeight = 38 + Math.max(1, busiestDay) * 27;
+
+    return Math.max(720, 82 + weekCount * rowHeight);
+  }, [calDate, calendarEventsWithBankHolidays, calendarView]);
+
   return (
     <HeaderSidebarLayout>
       <style>{`
@@ -1239,30 +1090,19 @@ export default function HolidayUsagePage() {
           line-height: 1.2;
         }
       `}</style>
-      <div style={pageWrap}>
-        {/* Header */}
-        <div className={layoutStyles.extracted8}>
-          <div>
-            <h1 style={h1}>Holiday Usage</h1>
-            <div style={sub}>
-              Leave calendar, allowance balances, carry-over risk and unpaid holiday tracking for {yearView}.
-            </div>
-          </div>
-
-          <div
-            className={layoutStyles.extracted9}
-          >
-            <div style={chip}>{calendarEvents.length} leave entries</div>
-            {userEmail ? <div style={chipSoft}>{isAdmin ? "Admin" : "Staff"}</div> : null}
-
-            <select
+      <PeopleFleetPage className={layoutStyles.page}>
+        <PeopleFleetPageHeader
+          title="Holiday usage"
+          subtitle={`Plan team coverage, review balances and spot carry-over risk for ${yearView}.`}
+          actions={
+            <PeopleFleetHeaderActions>
+              <Badge variant="info">{calendarEvents.length} leave entries</Badge>
+              {userEmail ? <Badge>{isAdmin ? "Admin" : "Staff"}</Badge> : null}
+              <Select
+              aria-label="Holiday year"
               value={yearView}
               onChange={(e) => setYearView(Number(e.target.value))}
-              style={{
-                ...inputBase,
-                width: 170,
-                fontWeight: 900,
-              }}
+              className={layoutStyles.yearSelect}
             >
               <option value={new Date().getFullYear()}>
                 {new Date().getFullYear()} (current)
@@ -1273,18 +1113,44 @@ export default function HolidayUsagePage() {
               <option value={new Date().getFullYear() - 1}>
                 {new Date().getFullYear() - 1} (prev)
               </option>
-            </select>
+              </Select>
 
-            {/* opens overlay */}
-            <button
-              type="button"
-              onClick={() => setHolidayModalOpen(true)}
-              style={btn()}
-            >
-              <CalendarPlus size={14} /> Add Holiday
-            </button>
-          </div>
-        </div>
+              <Button variant="primary" onClick={() => setHolidayModalOpen(true)}>
+                <CalendarPlus size={16} /> Add holiday
+              </Button>
+            </PeopleFleetHeaderActions>
+          }
+        />
+
+        <section className={layoutStyles.summaryGrid} aria-label="Holiday summary">
+          <MetricCard
+            label="People in view"
+            value={kpis.people}
+            hint={`${namesToShow.length} employees shown`}
+            icon={<Users size={19} />}
+            tone="info"
+          />
+          <MetricCard
+            label="Leave entries"
+            value={kpis.totalBooked}
+            hint={`Selected year ${yearView}`}
+            icon={<FileClock size={19} />}
+          />
+          <MetricCard
+            label="Paid days booked"
+            value={fmtDays(kpis.totalPaid)}
+            hint="Approved leave only"
+            icon={<CalendarDays size={19} />}
+            tone="success"
+          />
+          <MetricCard
+            label="Unpaid days"
+            value={fmtDays(kpis.totalUnpaid)}
+            hint="Approved unpaid leave"
+            tone={kpis.totalUnpaid > 0 ? "warning" : "neutral"}
+            icon={<WalletCards size={19} />}
+          />
+        </section>
 
         {/* Main split layout */}
         <div
@@ -1292,30 +1158,29 @@ export default function HolidayUsagePage() {
           style={mainGrid}
         >
           {/* LEFT: Calendar */}
-          <div style={cardBase}>
+          <Card className={layoutStyles.calendarCard}>
             <div
               className={layoutStyles.extracted10}
             >
               <div>
-                <h2 style={titleMd}>Leave Calendar</h2>
+                <h2 style={titleMd}>Team leave calendar</h2>
                 <div style={hint}>
-                  Paid leave is per-employee colour. Unpaid leave is red. Pending
-                  is amber. Bank holidays are grey.
+                  Select any leave entry to review that employee&apos;s balance and booking details.
                 </div>
               </div>
               <div
                 className={layoutStyles.extracted11}
               >
-                <LegendSwatch color="var(--color-brand-soft)" label="Bank holiday" />
-                <LegendSwatch color="var(--color-accent-soft)" label="Pending" />
-                <LegendSwatch color="var(--color-accent-soft)" label="Unpaid" />
+                <LegendSwatch color="var(--color-surface-hover)" label="Bank holiday" />
+                <LegendSwatch color="var(--color-warning-soft)" label="Pending" />
+                <LegendSwatch color="var(--color-danger-soft)" label="Unpaid" />
                 <LegendSwatch color="var(--color-border-strong)" label="Paid (per employee)" />
               </div>
             </div>
 
             <div
               style={{
-                height: "72vh",
+                height: calendarHeight,
                 border: UI.border,
                 borderRadius: UI.radius,
                 overflow: "hidden",
@@ -1330,6 +1195,7 @@ export default function HolidayUsagePage() {
                 endAccessor="end"
                 views={["month", "week"]}
                 defaultView="month"
+                showAllEvents
                 className={layoutStyles.extracted12}
                 eventPropGetter={eventStyleGetter}
                 date={calDate}
@@ -1338,6 +1204,7 @@ export default function HolidayUsagePage() {
                   const y = nextDate.getFullYear();
                   if (y !== yearView) setYearView(y);
                 }}
+                onView={setCalendarView}
                 onSelectEvent={(e) => {
                   if (e?.bankHoliday) return;
                   if (e?.employee) setSelectedName(String(e.employee));
@@ -1345,15 +1212,7 @@ export default function HolidayUsagePage() {
               />
             </div>
 
-            <div
-              style={{
-                marginTop: UI.gap,
-                border: UI.border,
-                borderRadius: UI.radius,
-                background: "var(--color-surface)",
-                padding: 12,
-              }}
-            >
+            {carryOverWindow.active && <Card className={layoutStyles.carryCard}>
               <div
                 className={layoutStyles.extracted13}
               >
@@ -1365,7 +1224,7 @@ export default function HolidayUsagePage() {
                     Based on approved paid leave booked before 1 April {yearView}.
                   </div>
                 </div>
-                <div style={chipSoft}>{carryOverRows.length} employees</div>
+                <Badge variant="info">{carryOverRows.length} employees</Badge>
               </div>
 
               <div style={tableWrap}>
@@ -1425,20 +1284,22 @@ export default function HolidayUsagePage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
+            </Card>}
+          </Card>
 
           {/* RIGHT: Sidebar */}
           <div
-            style={{
-              display: "grid",
-              gap: UI.gap,
-              position: "sticky",
-              top: 16,
-            }}
+            className={layoutStyles.rightRail}
           >
             {/* Controls */}
-            <div style={cardBase}>
+            <Card className={layoutStyles.filterCard}>
+              <div className={layoutStyles.railHeading}>
+                <div>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>Find an employee</h2>
+                  <div style={hint}>Search or narrow the leave overview.</div>
+                </div>
+                <Badge>{namesToShow.length} shown</Badge>
+              </div>
               <div className={layoutStyles.extracted21}>
                 <div className={layoutStyles.extracted22}>
                   <Search
@@ -1446,112 +1307,66 @@ export default function HolidayUsagePage() {
                     className={layoutStyles.extracted23}
                     aria-hidden="true"
                   />
-                  <input
+                  <Input
+                    aria-label="Search employees"
+                    type="search"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
                     placeholder="Search employee..."
-                    style={{
-                      ...inputBase,
-                      padding: "10px 12px 10px 36px",
-                    }}
+                    className={layoutStyles.searchInput}
                   />
                 </div>
 
                 <div
                   className={layoutStyles.extracted24}
                 >
-                  <label
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontWeight: 800,
-                      color: UI.text,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={onlyUnpaid}
-                      onChange={(e) => setOnlyUnpaid(e.target.checked)}
-                    />
-                    Unpaid &gt; 0
-                  </label>
+                  <Checkbox
+                    label="Unpaid > 0"
+                    checked={onlyUnpaid}
+                    onChange={(e) => setOnlyUnpaid(e.target.checked)}
+                  />
 
                   <div className={layoutStyles.extracted25}>
-                    <button
+                    <Button
                       onClick={() => {
                         setQ("");
                         setOnlyUnpaid(false);
                         setSortKey("name");
                       }}
-                      style={btn("ghost")}
+                      variant="secondary"
+                      size="sm"
                       type="button"
                     >
                       <RotateCcw size={14} /> Reset
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
-                <select
+                <Select
+                  aria-label="Sort employees"
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
-                  style={{
-                    ...inputBase,
-                    fontWeight: 800,
-                  }}
                 >
                   <option value="name">Sort: Name (A-Z)</option>
                   <option value="paid">Sort: Paid used (desc)</option>
                   <option value="unpaid">Sort: Unpaid (desc)</option>
                   <option value="allowBalAsc">Sort: Balance (asc)</option>
                   <option value="allowBalDesc">Sort: Balance (desc)</option>
-                </select>
+                </Select>
 
                 <div style={{ marginTop: 2, color: UI.muted, fontSize: 12 }}>
                   Showing <b>{namesToShow.length}</b> employees.
                 </div>
               </div>
-            </div>
+            </Card>
 
-            {/* KPI tiles */}
-            <div style={cardBase}>
-              <div className={layoutStyles.extracted26}>
-                <div>
-                  <h2 style={{ ...titleMd, fontSize: 15 }}>This View</h2>
-                  <div style={hint}>Totals after search and filter.</div>
-                </div>
-              </div>
-              <div
-                className={layoutStyles.extracted27}
-              >
-                <StatTile label="People" value={kpis.people} tone="soft" icon={Users} />
-                <StatTile label="Entries" value={kpis.totalBooked} icon={FileClock} />
-                <StatTile
-                  label="Paid days"
-                  value={fmtDays(kpis.totalPaid)}
-                  icon={CalendarDays}
-                />
-                <StatTile
-                  label="Unpaid days"
-                  value={fmtDays(kpis.totalUnpaid)}
-                  tone="warn"
-                  icon={WalletCards}
-                />
-              </div>
-              <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
-                Note: <b>Pending</b> holidays show on the calendar but do{" "}
-                <b>not</b> reduce paid allowance totals. <b>Declined</b> holidays
-                do not show at all.
-              </div>
-            </div>
-
-            <div style={cardBase}>
+            <Card className={layoutStyles.upcomingCard}>
               <div className={layoutStyles.extracted28}>
                 <div>
                   <h2 style={{ ...titleMd, fontSize: 15 }}>Upcoming Leave</h2>
                   <div style={hint}>Next booked leave entries in the selected year.</div>
                 </div>
-                <span style={chipSoft}>{upcomingLeaveRows.length} shown</span>
+                <Badge>{upcomingLeaveRows.length} shown</Badge>
               </div>
               <MiniQueue
                 title="Next dates"
@@ -1562,10 +1377,10 @@ export default function HolidayUsagePage() {
                 }
                 onRowClick={(row) => setSelectedName(row.employee)}
               />
-            </div>
+            </Card>
 
             {/* Employee list */}
-            <div style={cardBase}>
+            <Card className={layoutStyles.employeeCard}>
               <div
                 className={layoutStyles.extracted29}
               >
@@ -1577,7 +1392,7 @@ export default function HolidayUsagePage() {
                     Employees
                   </div>
                 </div>
-                <div style={chipSoft}>{namesToShow.length} listed</div>
+                <Badge>{namesToShow.length} listed</Badge>
               </div>
 
               <div
@@ -1646,7 +1461,7 @@ export default function HolidayUsagePage() {
                   </div>
                 ) : null}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
 
@@ -1668,9 +1483,22 @@ export default function HolidayUsagePage() {
               <div
                 className={layoutStyles.extracted35}
               >
-                <StatTile label="Allowance" value={selected.allowance} />
-                <StatTile label="Carry over" value={selected.carried} />
-                <StatTile label="Total" value={selected.totalAllowance} tone="soft" />
+                <MetricCard
+                  label="Allowance"
+                  value={selected.allowance}
+                  icon={<CalendarDays size={18} />}
+                />
+                <MetricCard
+                  label={carryOverWindow.deadlinePassed ? "Carry used" : "Carry over"}
+                  value={selected.effectiveCarryOver}
+                  icon={<FileClock size={18} />}
+                />
+                <MetricCard
+                  label="Total"
+                  value={selected.totalAllowance}
+                  tone="info"
+                  icon={<WalletCards size={18} />}
+                />
               </div>
 
               <div className={layoutStyles.extracted36}>
@@ -1755,13 +1583,14 @@ export default function HolidayUsagePage() {
                             </td>
                             <td className={layoutStyles.extracted46}>
                               {isAdmin ? (
-                                <button
-                                  style={btn("ghost")}
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
                                   type="button"
                                   onClick={() => setEditHolidayId(row.id)}
                                 >
                                   Edit
-                                </button>
+                                </Button>
                               ) : (
                                 <span style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
                                   -
@@ -1788,47 +1617,30 @@ export default function HolidayUsagePage() {
               </div>
 
               <div className={layoutStyles.extracted53}>
-                <button style={btn("ghost")} type="button" onClick={() => setSelectedName(null)}>
+                <Button variant="secondary" type="button" onClick={() => setSelectedName(null)}>
                   Close
-                </button>
-                <button style={btn()} type="button" onClick={() => setHolidayModalOpen(true)}>
-                  + Add Holiday
-                </button>
+                </Button>
+                <Button variant="primary" type="button" onClick={() => setHolidayModalOpen(true)}>
+                  <CalendarPlus size={16} /> Add holiday
+                </Button>
               </div>
             </div>
           ) : (
             <div style={{ color: UI.muted }}>No employee selected.</div>
           )}
         </Drawer>
-      </div>
+      </PeopleFleetPage>
 
-      {/*  Add Holiday overlay */}
+      {/* Add holiday modal */}
       {holidayModalOpen && (
-        <div
-          className={layoutStyles.extracted54}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setHolidayModalOpen(false);
+        <HolidayForm
+          defaultDate={new Date().toISOString().split("T")[0]}
+          onClose={() => setHolidayModalOpen(false)}
+          onSaved={() => {
+            setHolidayModalOpen(false);
+            setReloadKey((k) => k + 1);
           }}
-        >
-          <div
-            style={{
-              maxWidth: 560,
-              width: "95vw",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              borderRadius: UI.radius,
-            }}
-          >
-            <HolidayForm
-              defaultDate={new Date().toISOString().split("T")[0]}
-              onClose={() => setHolidayModalOpen(false)}
-              onSaved={() => {
-                setHolidayModalOpen(false);
-                setReloadKey((k) => k + 1);
-              }}
-            />
-          </div>
-        </div>
+        />
       )}
 
       {/*  Edit Holiday overlay (Admin only) */}
@@ -1853,12 +1665,6 @@ const tableWrap = {
   borderRadius: UI.radius,
   background: "var(--color-surface)",
 };
-const tableEl = {
-  width: "100%",
-  borderCollapse: "separate",
-  borderSpacing: 0,
-  fontSize: 13.5,
-};
 const th = {
   textAlign: "left",
   padding: "9px 11px",
@@ -1872,10 +1678,4 @@ const th = {
   fontSize: 11.5,
   fontWeight: 900,
   textTransform: "uppercase",
-};
-const td = {
-  padding: "9px 11px",
-  borderBottom: "1px solid var(--color-surface-hover)",
-  verticalAlign: "middle",
-  fontSize: 13,
 };

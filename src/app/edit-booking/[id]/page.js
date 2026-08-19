@@ -5,9 +5,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
 import { readCachedBookingForEdit } from "@/app/utils/editBookingCache";
+import {
+  queueSystemNotification,
+  showSystemNotification,
+} from "@/app/utils/systemNotifications";
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import {
   doc,
   getDoc,
@@ -31,7 +37,6 @@ import {
 } from "@/app/utils/bookingAvailability";
 import {
   getCanonicalDueDate,
-  isVehicleOutOfUse,
   ymd as toYmd,
 } from "@/app/utils/maintenanceSchema";
 import {
@@ -52,8 +57,18 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import {
+  buildUCraneArmFittedForSave,
+  isUCraneArmFitted,
+  isUCraneVehicle,
+  normalizeUCraneArmFitted,
+} from "@/app/utils/uCraneBookingConfiguration";
+import {
+  blockingStatusesForPriorityEdit,
+  canAutoAssignVehicleAsSecondPencil,
+  canRetainVehiclePriorityOnEdit,
+} from "@/app/utils/bookingVehiclePriority";
+import {
   CalendarDays,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -66,8 +81,11 @@ import {
   Trash2,
   Truck,
   Users,
+  X,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import { buildBookingCallTimePayload } from "@/app/utils/bookingCallTimes";
 
 const DatePicker = dynamic(() => import("react-multi-date-picker"), {
   ssr: false,
@@ -79,6 +97,10 @@ const DatePicker = dynamic(() => import("react-multi-date-picker"), {
 ──────────────────────────────────────────────────────────────────────────── */
 const UI = { ...UI_TOKENS, bg: UI_TOKENS.card };
 const SPACE = Object.freeze({ xs: 4, sm: 8, md: 12, lg: 16, xl: 24 });
+const jobStatusBadgeStyle = (status) => {
+  const tone = getFixedJobStatusStyle(status);
+  return { background: tone.bg, color: tone.text, borderColor: tone.border };
+};
 
 const pageWrap = {
   minHeight: "100vh",
@@ -292,68 +314,6 @@ const btnDanger = {
   color: "var(--color-danger)",
 };
 
-const summaryCard = {
-  ...subCard,
-  background: UI.card,
-  color: UI.text,
-  border: UI.border,
-  boxShadow: UI.shadow,
-};
-
-const summaryRow = {
-  display: "grid",
-  gridTemplateColumns: "150px 1fr",
-  gap: SPACE.md,
-  padding: `${SPACE.sm}px 0`,
-  borderBottom: "1px dashed var(--color-border)",
-};
-const summaryGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-  gap: SPACE.sm,
-};
-const summarySection = {
-  border: UI.border,
-  borderRadius: UI.radiusSm,
-  background: "var(--color-surface-subtle)",
-  padding: `${SPACE.sm}px ${SPACE.md}px`,
-};
-const summarySectionTitle = {
-  margin: `0 0 ${SPACE.xs}px`,
-  fontSize: 11,
-  fontWeight: 900,
-  color: UI.muted,
-  textTransform: "uppercase",
-  letterSpacing: 0,
-};
-const summaryCompactRow = {
-  ...summaryRow,
-  gridTemplateColumns: "82px 1fr",
-  gap: SPACE.sm,
-  padding: `${SPACE.xs}px 0`,
-  borderBottom: "none",
-  fontSize: 12.5,
-};
-const summaryLabel = { color: UI.muted, fontWeight: 800 };
-const summaryValue = { color: UI.text, fontWeight: 600, minWidth: 0 };
-const summaryPill = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: SPACE.xs,
-  border: UI.border,
-  background: UI.bgAlt,
-  borderRadius: 999,
-  padding: `${SPACE.xs}px ${SPACE.sm}px`,
-  marginRight: SPACE.xs,
-  marginBottom: SPACE.xs,
-  fontSize: 12,
-};
-const SummaryRow = ({ label, children }) => (
-  <div className={layoutStyles.extracted1}>
-    <div style={summaryLabel}>{label}</div>
-    <div style={summaryValue}>{children || "-"}</div>
-  </div>
-);
 const formatSummaryDate = (date) => {
   if (!date) return "";
   const parsed = new Date(`${date}T00:00:00`);
@@ -361,13 +321,6 @@ const formatSummaryDate = (date) => {
   return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
 };
 const formatSummaryDates = (dates) => dates.map(formatSummaryDate).filter(Boolean).join(", ");
-const formatSummaryCallTimes = (dates, times, fallback = "") => {
-  const picked = dates
-    .map((date) => [formatSummaryDate(date), times?.[date]])
-    .filter(([, time]) => time)
-    .map(([date, time]) => `${date} ${time}`);
-  return picked.length ? picked.join(", ") : fallback || "-";
-};
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 32,
@@ -390,7 +343,7 @@ const focusCss = `
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
     border-color: var(--color-info-border) !important;
   }
-  @media (max-width: 1280px) {
+  @media (max-width: 1080px) {
     .edit-booking-grid { grid-template-columns: 1fr !important; }
   }
   @media (max-width: 760px) {
@@ -520,6 +473,11 @@ const expandMaintenanceBookingDates = (b) => {
   if (s && e) return enumerateDaysYMD_UTC(s, e);
   return [];
 };
+
+const isActiveMaintenanceBooking = (booking = {}) =>
+  !["completed", "complete", "cancelled", "canceled", "failed", "archived"].includes(
+    String(booking.status || booking.bookingStatus || "booked").trim().toLowerCase()
+  );
 
 const anyDateOverlap = (datesA, datesB) => {
   if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
@@ -912,6 +870,7 @@ const buildEditBookingPrefillState = (bookingData) => {
         : {},
     vehicles: vehicleIds,
     vehicleStatus,
+    uCraneArmFitted: normalizeUCraneArmFitted(booking.uCraneArmFitted),
     equipment,
     additionalContacts: (Array.isArray(booking.additionalContacts) ? booking.additionalContacts : []).map(
       (contact) => ({
@@ -974,6 +933,7 @@ const AUDIT_FIELDS = [
   "employeesByDate",
   "vehicles",
   "vehicleStatus",
+  "uCraneArmFitted",
   "equipment",
   "notes",
   "notesByDate",
@@ -1013,6 +973,7 @@ const AUDIT_LABELS = {
   employeesByDate: "Employees by day",
   vehicles: "Vehicles",
   vehicleStatus: "Vehicle statuses",
+  uCraneArmFitted: "U-Crane arm setup",
   equipment: "Equipment",
   notes: "Notes",
   notesByDate: "Day notes",
@@ -1094,7 +1055,28 @@ function normalizeAuditValue(key, value) {
   }
 }
 
-function summarizeAuditValue(key, value) {
+function auditVehicleLabel(value, lookup = {}) {
+  const rawKey = String(
+    value && typeof value === "object"
+      ? value.id || value.vehicleId || value.registration || value.reg || value.name || ""
+      : value || ""
+  ).trim();
+  const vehicle =
+    lookup?.byId?.[rawKey] ||
+    lookup?.byReg?.[rawKey.toUpperCase()] ||
+    lookup?.byName?.[rawKey.toLowerCase()] ||
+    (value && typeof value === "object" ? value : null) ||
+    {};
+  return String(
+    vehicle.name ||
+      [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ") ||
+      vehicle.registration ||
+      vehicle.reg ||
+      "Unknown vehicle"
+  ).trim();
+}
+
+function summarizeAuditValue(key, value, vehicleLookup = {}) {
   if (
     value === null ||
     typeof value === "undefined" ||
@@ -1114,9 +1096,12 @@ function summarizeAuditValue(key, value) {
     case "employeesByDate":
       return Object.keys(value || {})
         .sort()
-        .map((date) => `${formatAuditDate(date)} (${summarizeAuditValue("employees", value?.[date])})`)
+        .map((date) => `${formatAuditDate(date)} (${summarizeAuditValue("employees", value?.[date], vehicleLookup)})`)
         .join("; ") || "None";
     case "vehicles":
+      return (Array.isArray(value) ? value : [])
+        .map((item) => auditVehicleLabel(item, vehicleLookup))
+        .join(", ") || "None";
     case "equipment":
     case "bookingDates":
     case "statusReasons":
@@ -1127,6 +1112,10 @@ function summarizeAuditValue(key, value) {
         )
         .join(", ") || "None";
     case "vehicleStatus":
+      return Object.keys(value || {})
+        .sort()
+        .map((vehicleId) => `${auditVehicleLabel(vehicleId, vehicleLookup)}: ${String(value[vehicleId] ?? "").trim() || "None"}`)
+        .join("; ") || "None";
     case "callTimesByDate":
     case "notesByDate":
       return Object.keys(value || {})
@@ -1158,16 +1147,17 @@ function summarizeAuditValue(key, value) {
   }
 }
 
-function buildBookingChangeList(before = {}, after = {}) {
+function buildBookingChangeList(before = {}, after = {}, vehicleLookup = {}) {
   return AUDIT_FIELDS.reduce((changes, key) => {
     const beforeNorm = normalizeAuditValue(key, before?.[key]);
     const afterNorm = normalizeAuditValue(key, after?.[key]);
     if (JSON.stringify(beforeNorm) === JSON.stringify(afterNorm)) return changes;
 
     changes.push(
-      `${AUDIT_LABELS[key] || key}: ${summarizeAuditValue(key, before?.[key])} -> ${summarizeAuditValue(
+      `${AUDIT_LABELS[key] || key}: ${summarizeAuditValue(key, before?.[key], vehicleLookup)} -> ${summarizeAuditValue(
         key,
-        after?.[key]
+        after?.[key],
+        vehicleLookup
       )}`
     );
     return changes;
@@ -1253,7 +1243,6 @@ export default function EditBookingPage() {
   );
 
   const [loading, setLoading] = useState(!prefill.hasBooking);
-  const [supportingDataLoading, setSupportingDataLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Core fields
@@ -1324,18 +1313,20 @@ export default function EditBookingPage() {
   // Vehicles
   const [vehicles, setVehicles] = useState(prefill.vehicles); // vehicleIds
   const [vehicleStatus, setVehicleStatus] = useState(prefill.vehicleStatus); // {vehicleId: status}
+  const [uCraneArmFitted, setUCraneArmFitted] = useState(prefill.uCraneArmFitted);
 
   // Equipment
   const [equipment, setEquipment] = useState(prefill.equipment);
   const [assetSearch, setAssetSearch] = useState("");
+  const [resourceTab, setResourceTab] = useState("vehicles");
 
   // Contacts block
   const [additionalContacts, setAdditionalContacts] = useState(prefill.additionalContacts);
   const [savedContacts, setSavedContacts] = useState([]);
   const [savedContactsLoaded, setSavedContactsLoaded] = useState(false);
   const [savedContactsLoading, setSavedContactsLoading] = useState(false);
-  const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
   const [savedContactSearch, setSavedContactSearch] = useState("");
+  const [contactsExpanded, setContactsExpanded] = useState(false);
 
   // Attachments
   const [attachments, setAttachments] = useState(prefill.attachments); // existing
@@ -1456,6 +1447,32 @@ export default function EditBookingPage() {
     () => [...vehicles].filter(Boolean).sort().join("|"),
     [vehicles]
   );
+  const retainedPriorityVehicleIds = useMemo(() => {
+    if (!originalBookingData) return new Set();
+
+    const originalDates = expandBookingDates(originalBookingData).map(toYMD).filter(Boolean);
+    const originalVehicleIds = normalizeVehicleKeysListForLookup(
+      originalBookingData.vehicles || [],
+      vehicleLookup
+    );
+    const originalStatusesById = {};
+
+    Object.entries(originalBookingData.vehicleStatus || {}).forEach(([rawKey, rawStatus]) => {
+      const [resolvedId] = normalizeVehicleKeysListForLookup([rawKey], vehicleLookup);
+      if (resolvedId) originalStatusesById[resolvedId] = rawStatus;
+    });
+
+    return new Set(
+      originalVehicleIds.filter((vehicleId) =>
+        canRetainVehiclePriorityOnEdit({
+          originalStatus: originalStatusesById[vehicleId] || originalBookingData.status,
+          requestedStatus: vehicleStatus[vehicleId] || status,
+          originalDates,
+          requestedDates: selectedDates,
+        })
+      )
+    );
+  }, [originalBookingData, selectedDates, status, vehicleLookup, vehicleStatus]);
 
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
@@ -1566,12 +1583,10 @@ export default function EditBookingPage() {
       if (!gate.allowed) {
         reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load edit booking" });
         setLoading(false);
-        setSupportingDataLoading(false);
         return;
       }
 
       setLoading(!prefill.hasBooking);
-      setSupportingDataLoading(false);
 
       const bookingLoadStartedAt =
         typeof performance !== "undefined" && typeof performance.now === "function"
@@ -1581,7 +1596,7 @@ export default function EditBookingPage() {
       const bookingDocSnap = await getDoc(doc(db, "bookings", bookingId));
 
       if (!bookingDocSnap.exists()) {
-        alert("Booking not found.");
+        systemDialogs.showSystemNotification("Booking not found.");
         router.push(returnHref);
         return;
       }
@@ -1730,6 +1745,7 @@ export default function EditBookingPage() {
         if (!vsFixed[vid]) vsFixed[vid] = bookingData.status || "Confirmed";
       });
       setVehicleStatus(vsFixed);
+      setUCraneArmFitted(normalizeUCraneArmFitted(bookingData.uCraneArmFitted));
 
       // equipment
       const rawEquip = Array.isArray(bookingData.equipment)
@@ -1833,11 +1849,6 @@ export default function EditBookingPage() {
       }
 
       setLoading(false);
-
-      // Give the browser a chance to paint the booking form before the large
-      // supporting reads compete for network and main-thread work.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      setSupportingDataLoading(true);
       try {
         const referenceData = await referenceDataPromise;
 
@@ -1865,8 +1876,6 @@ export default function EditBookingPage() {
         });
       } catch (err) {
         console.error("Failed loading edit page supporting data:", err);
-      } finally {
-        setSupportingDataLoading(false);
       }
     };
 
@@ -1878,13 +1887,12 @@ export default function EditBookingPage() {
           bookingId,
         });
         setLoading(false);
-        setSupportingDataLoading(false);
         return;
       }
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "load edit booking" })) {
         console.error("Failed loading edit page:", err);
       }
-      alert(`Failed to load booking${err?.code ? ` (${err.code})` : ""}.`);
+      systemDialogs.showSystemNotification(`Failed to load booking${err?.code ? ` (${err.code})` : ""}.`);
       router.push(returnHref);
     });
   }, [accessKey, bookingId, dataAccessState, prefill.hasBooking, returnHref, router]);
@@ -2063,7 +2071,7 @@ export default function EditBookingPage() {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -2103,7 +2111,7 @@ export default function EditBookingPage() {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -2131,21 +2139,17 @@ export default function EditBookingPage() {
       if (!id) return;
 
       const taxStatus = String(vehicle?.taxStatus || "").trim().toLowerCase();
-      const offRoadStatus = isVehicleOutOfUse(vehicle);
-
-      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax" || offRoadStatus) {
+      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax") {
         ids.add(id);
-        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "VOR";
+        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : taxStatus.toUpperCase();
         return;
       }
 
       const motDue = getCanonicalDueDate(vehicle, "mot");
       const serviceDue = getCanonicalDueDate(vehicle, "service");
-      const inspectionDue = getCanonicalDueDate(vehicle, "inspection");
       const overdueMatch = [
         ["MOT overdue", motDue],
         ["Service overdue", serviceDue],
-        ["Inspection overdue", inspectionDue],
       ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < refDate);
 
       if (overdueMatch) {
@@ -2365,19 +2369,27 @@ export default function EditBookingPage() {
   /* ────────────────────────────────────────────────────────────
      Vehicle toggle
   ───────────────────────────────────────────────────────────── */
-  const toggleVehicle = (vehicleId, checked) => {
+  const toggleVehicle = (vehicleId, checked, selectedStatus = "") => {
     setVehicles((prev) =>
       checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)
     );
     setVehicleStatus((prev) => {
       const next = { ...prev };
       if (checked) {
-        if (!next[vehicleId]) next[vehicleId] = status;
+        if (selectedStatus) next[vehicleId] = selectedStatus;
+        else if (!next[vehicleId]) next[vehicleId] = status;
       } else {
         delete next[vehicleId];
       }
       return next;
     });
+    if (!checked) {
+      setUCraneArmFitted((prev) => {
+        const next = { ...prev };
+        delete next[vehicleId];
+        return next;
+      });
+    }
   };
 
   /* ────────────────────────────────────────────────────────────
@@ -2399,13 +2411,16 @@ export default function EditBookingPage() {
     (selectedIds || [])
       .filter((vehicleId) =>
         existingVehicleStatusConflictsWithRequested(
-          blockingStatuses[vehicleId] || [],
+          blockingStatusesForPriorityEdit(
+            blockingStatuses[vehicleId] || [],
+            retainedPriorityVehicleIds.has(vehicleId)
+          ),
           statuses?.[vehicleId] || status
         )
       )
       .map((vehicleId) => {
         const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
-        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
+        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || "Unknown vehicle";
         const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
         return `${label} (${existingStatus})`;
       });
@@ -2415,10 +2430,10 @@ export default function EditBookingPage() {
 
     if (dateEntryEnabled) {
       if (useCustomDates) {
-        if (!customDates.length) return alert("Please select at least one date.");
+        if (!customDates.length) return systemDialogs.showSystemNotification("Please select at least one date.");
       } else {
-        if (!startDate) return alert("Please select a start date.");
-        if (isRange && !endDate) return alert("Please select an end date.");
+        if (!startDate) return systemDialogs.showSystemNotification("Please select a start date.");
+        if (isRange && !endDate) return systemDialogs.showSystemNotification("Please select an end date.");
       }
     }
 
@@ -2426,14 +2441,14 @@ export default function EditBookingPage() {
       const missing = [];
       if (!isMaintenance && !(client || "").trim()) missing.push("Production Company");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
-      return alert("Please provide: " + missing.join(", ") + ".");
+      return systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
     }
 
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
     if (needsReason) {
-      if (!statusReasons.length) return alert("Please choose at least one reason.");
+      if (!statusReasons.length) return systemDialogs.showSystemNotification("Please choose at least one reason.");
       if (statusReasons.includes("Other") && !statusReasonOther.trim())
-        return alert("Please enter the 'Other' reason.");
+        return systemDialogs.showSystemNotification("Please enter the 'Other' reason.");
     }
 
     const customNames = customEmployee
@@ -2449,6 +2464,11 @@ export default function EditBookingPage() {
     const vehicleStatusForSave = inactiveBooking
       ? buildSynchronizedVehicleStatus({ vehicles, vehicleStatus }, status)
       : vehicleStatus;
+    const uCraneArmFittedForSave = buildUCraneArmFittedForSave({
+      vehicleIds: vehicles,
+      vehicleLookup,
+      configuration: uCraneArmFitted,
+    });
 
     const bookingDates = dateEntryEnabled ? selectedDates : [];
     let availabilityForSave = null;
@@ -2466,13 +2486,14 @@ export default function EditBookingPage() {
         if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "check edit booking availability" })) {
           console.error("Failed checking booking availability before update:", err);
         }
-        return alert("Could not check availability for the selected dates. Please try saving again.");
+        return systemDialogs.showSystemNotification("Could not check availability for the selected dates. Please try saving again.");
       }
     }
 
     const freshVehicleBlocking = availabilityForSave
       ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
       : null;
+
     const vehicleConflicts = selectedVehicleConflictLabels(
       vehicles,
       vehicleStatusForSave,
@@ -2480,7 +2501,7 @@ export default function EditBookingPage() {
       freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
     );
     if (bookingDates.length && vehicleConflicts.length) {
-      return alert(
+      return systemDialogs.showSystemNotification(
         `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
           "\n"
         )}\n\nUse Second Pencil where the vehicle is already Confirmed or First Pencil. Vehicles already on Second Pencil cannot be booked again for those date(s).`
@@ -2548,12 +2569,12 @@ export default function EditBookingPage() {
         return list.some((e) => e.name === employee.name && e.role === employee.role);
       });
       if (datesForEmp.length && isEmployeeOnHolidayForSave(employee.name, datesForEmp)) {
-        alert(`${employee.name} is on holiday for one or more selected dates.`);
+        systemDialogs.showSystemNotification(`${employee.name} is on holiday for one or more selected dates.`);
         return;
       }
       const unavailableNote = getEmployeeUnavailableNoteForSave(employee.name, datesForEmp);
       if (datesForEmp.length && unavailableNote) {
-        alert(
+        systemDialogs.showSystemNotification(
           `${employee.name} is marked unavailable on a note for one or more selected dates.${unavailableNote.text ? `\n\nNote: ${unavailableNote.text}` : ""}`
         );
         return;
@@ -2564,12 +2585,12 @@ export default function EditBookingPage() {
       .map((e) => nameToCode[String(e?.name || "").trim().toLowerCase()])
       .filter(Boolean);
 
-    const callTimesByDatePayload = {};
-    if (bookingDates.length) {
-      bookingDates.forEach((d) => {
-        if (callTimesByDate[d]) callTimesByDatePayload[d] = callTimesByDate[d];
-      });
-    }
+    const callTimePayload = buildBookingCallTimePayload({
+      bookingDates,
+      callTimesByDate,
+      isRange,
+      useCustomDates,
+    });
 
     let nextAttachments = [...(attachments || [])];
     let nextInvoiceDocument = invoiceDocument || null;
@@ -2770,6 +2791,7 @@ export default function EditBookingPage() {
 
       vehicles,
       vehicleStatus: vehicleStatusForSave,
+      uCraneArmFitted: uCraneArmFittedForSave,
       equipment,
 
       isSecondPencil,
@@ -2804,11 +2826,9 @@ export default function EditBookingPage() {
           ? hotelNightsNum * hotelPricePerNightNum
           : 0,
 
-      // call times
-      callTime: (!isRange && !useCustomDates ? callTimesByDate[bookingDates[0]] || callTime || "" : ""),
-      ...(Object.keys(callTimesByDatePayload).length
-        ? { callTimesByDate: callTimesByDatePayload }
-        : {}),
+      // Always overwrite both call-time fields so clearing a selection removes
+      // the old value rather than leaving it behind in Firestore.
+      ...callTimePayload,
 
       hasRiggingAddress,
       riggingAddress: hasRiggingAddress ? riggingAddress || "" : "",
@@ -2852,7 +2872,7 @@ export default function EditBookingPage() {
     payload.endDateISO = payload.endDate ? String(payload.endDate).slice(0, 10) : "";
     payload.dateISO = payload.date ? String(payload.date).slice(0, 10) : "";
 
-    const changeLines = buildBookingChangeList(originalBookingData || {}, payload);
+    const changeLines = buildBookingChangeList(originalBookingData || {}, payload, vehicleLookup);
 
     payload.history = [
       ...(Array.isArray(existingHistory) ? existingHistory : []),
@@ -2890,13 +2910,21 @@ export default function EditBookingPage() {
       setNewFiles([]);
       setInvoiceDocument(nextInvoiceDocument);
       setInvoiceDocumentFile(null);
-      alert("Booking Updated ");
+      queueSystemNotification({
+        type: "success",
+        title: "Booking updated",
+        message: `Job ${jobNumber || bookingId} was saved successfully.`,
+      });
       router.push(updatedReturnHref);
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "update booking" })) {
         console.error(" Error updating booking:", err);
       }
-      alert("Failed to update booking \n\n" + err.message);
+      showSystemNotification({
+        type: "danger",
+        title: "Booking update failed",
+        message: err?.message || "The booking could not be saved. Please try again.",
+      });
     } finally {
       setSaving(false);
     }
@@ -2941,7 +2969,7 @@ export default function EditBookingPage() {
     if (!targetQuoteNumber) return;
 
     if (!quoteCard.isSaved) {
-      const confirmed = window.confirm(
+      const confirmed = await systemDialogs.confirmSystem(
         `Cancel draft quote ${quoteCard.quoteNumber}?\n\nThis draft quote has not been saved to Firestore and will be removed from this booking edit screen.`
       );
       if (!confirmed) return;
@@ -2950,11 +2978,11 @@ export default function EditBookingPage() {
       );
       setQuoteNumber(remainingPublicNumbers.join("\n"));
       setPreviewQuoteNumber((current) => (current === quoteCard.quoteNumber ? "" : current));
-      alert("Draft quote cancelled.");
+      systemDialogs.showSystemNotification("Draft quote cancelled.");
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await systemDialogs.confirmSystem(
       `Delete quote ${quoteCard.quoteNumber}?\n\nThis quote will be permanently removed from Firestore, including the quote builder data linked to this booking. This cannot be undone.`
     );
     if (!confirmed) return;
@@ -3006,12 +3034,12 @@ export default function EditBookingPage() {
         return next;
       });
       setPreviewQuoteNumber((current) => (current === quoteCard.quoteNumber ? "" : current));
-      alert(`Quote ${quoteCard.quoteNumber} deleted successfully.`);
+      systemDialogs.showSystemNotification(`Quote ${quoteCard.quoteNumber} deleted successfully.`);
       router.push("/completed-quotes");
     } catch (error) {
       if (!handleFirestoreAccessError(error, { collectionName: "bookings", operation: "delete quote from edit booking" })) {
         console.error("Failed deleting quote:", error);
-        alert("Failed to delete quote. Please try again.");
+        systemDialogs.showSystemNotification("Failed to delete quote. Please try again.");
       }
     } finally {
       setDeletingQuoteNumber("");
@@ -3095,60 +3123,48 @@ export default function EditBookingPage() {
       <style>{focusCss}</style>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          <div className={layoutStyles.extracted2}>
-            <div>
-              <h1 style={h1Style}>Edit Booking</h1>
-              <div style={pageSub}>Update the job, dates, crew, vehicles, equipment, files and notes in the same compact workflow.</div>
-            </div>
-              <div style={{ ...pill, alignSelf: "flex-start", padding: `${SPACE.sm}px ${SPACE.md}px` }}>
-              <ClipboardList size={14} />
-              Job {jobNumber || "Draft"}
-            </div>
-          </div>
-          {supportingDataLoading && (
-            <div style={{ ...subCard, color: UI.muted, fontSize: 12, marginBottom: 12 }}>
-              Loading employees, vehicles and equipment...
-            </div>
-          )}
-
-          <div className={layoutStyles.extracted3}>
-            {!isBickersJob && (
-              <div style={headerChecksBox}>
-                <span style={iconBox(hasHS && hasRiskAssessment ? UI.green : UI.amber, hasHS && hasRiskAssessment ? UI.greenSoft : UI.amberSoft, hasHS && hasRiskAssessment ? UI.greenBorder : UI.amberBorder)}>
-                  <CheckCircle2 size={17} />
-                </span>
-                <div className={layoutStyles.extracted4}>
-                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
-                    <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
-                    Health & Safety Completed
-                  </label>
-
-                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
-                    <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
-                    Risk Assessment Completed
-                  </label>
-                </div>
+          <div className={`${layoutStyles.extracted2} ${layoutStyles.compactPageHeader}`}>
+            <div className={layoutStyles.compactTitleBlock}>
+              <div className={layoutStyles.compactTitleLine}>
+                <h1 style={h1Style}>Edit Booking</h1>
+                <span className={layoutStyles.jobReference}><ClipboardList size={13} /> Job {jobNumber || "Draft"}</span>
               </div>
+              <div style={pageSub}>
+                {client || "Production company"} · {production || "Production"} · {selectedDates.length || 0} day{selectedDates.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push(quoteCards.length ? addAnotherQuoteHref : `/quote/${bookingId}`)}
+              style={{ ...btnPrimary, whiteSpace: "nowrap" }}
+            ><FileText size={14} /> {quoteCards.length ? "Add another quote" : "Create Quote"}</button>
+          </div>
+          <div className={layoutStyles.compactControlBar}>
+            {!isBickersJob && (
+              <>
+                  <label className={layoutStyles.compactControl}>
+                    <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
+                    Health & Safety
+                  </label>
+                  <label className={layoutStyles.compactControl}>
+                    <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
+                    Risk Assessment
+                  </label>
+                  <span className={layoutStyles.controlDivider} aria-hidden="true" />
+              </>
             )}
-            <div style={headerChecksBox}>
-              <span style={iconBox(offRoadTracking ? UI.green : UI.brand, offRoadTracking ? UI.greenSoft : UI.brandSoft, offRoadTracking ? UI.greenBorder : UI.brandBorder)}>
-                <Truck size={17} />
-              </span>
-              <div className={layoutStyles.extracted5}>
-                <label style={{ ...field.checkboxRow, marginBottom: 0 }} title={offRoadEligibility.reason || ""}>
+                <label className={layoutStyles.compactControl} title={offRoadEligibility.reason || ""}>
                   <input
                     type="checkbox"
                     checked={offRoadTracking}
                     disabled={!offRoadEligibility.eligible}
                     onChange={(e) => setOffRoadTracking(e.target.checked)}
                   />
-                  Off Road Tracking
+                  <Truck size={14} /> Off Road Tracking
                 </label>
-                <div style={{ fontSize: 12, color: UI.muted }}>
+                <span className={layoutStyles.compactControlHint}>
                   {offRoadEligibility.reason || "Skips tax/SORN compliance only. Insurance is still required."}
-                </div>
-              </div>
-            </div>
+                </span>
           </div>
 
           <form
@@ -3157,7 +3173,7 @@ export default function EditBookingPage() {
               handleUpdate();
             }}
           >
-            <div className={`edit-booking-grid ${layoutStyles.extracted6}`} >
+            <div className={`edit-booking-grid ${layoutStyles.extracted6} ${layoutStyles.bookingColumns}`} >
               {/* Column 1: Job Info */}
               <div style={card}>
                 <div className={layoutStyles.extracted7}>
@@ -3197,26 +3213,35 @@ export default function EditBookingPage() {
                   </div>
                 </div>
 
-                <label style={field.label}>Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setStatus(next);
-                    setEnquiryDatesEnabled(next !== "Enquiry");
-                    if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
-                      setStatusReasons([]);
-                      setStatusReasonOther("");
-                    }
-                  }}
-                  style={field.input}
-                >
-                  {VEHICLE_STATUSES.filter((s) => s !== "Complete").map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                <div className={`edit-booking-two ${layoutStyles.extracted8}`}>
+                  <div>
+                    <label style={field.label}>Status</label>
+                    <select
+                      value={status}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setStatus(next);
+                        setEnquiryDatesEnabled(next !== "Enquiry");
+                        if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
+                          setStatusReasons([]);
+                          setStatusReasonOther("");
+                        }
+                      }}
+                      style={field.input}
+                    >
+                      {VEHICLE_STATUSES.filter((s) => s !== "Complete" || status === "Complete").map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={field.label}>Shoot Type</label>
+                    <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
+                      <option value="Day">Day</option>
+                      <option value="Night">Night</option>
+                    </select>
+                  </div>
+                </div>
 
                 {["Lost", "Postponed", "Cancelled"].includes(status) && (
                   <div
@@ -3264,30 +3289,16 @@ export default function EditBookingPage() {
 
                 <div className={layoutStyles.extracted12} />
 
-                <label style={field.label}>Shoot Type</label>
-                <select
-                  value={shootType}
-                  onChange={(e) => setShootType(e.target.value)}
-                  style={field.input}
-                >
-                  <option value="Day">Day</option>
-                  <option value="Night">Night</option>
-                </select>
-
-                <label style={field.label}>Production Company</label>
-                <input
-                  value={client}
-                  onChange={(e) => setClient(e.target.value)}
-                  style={field.input}
-                  required={!isMaintenance}
-                />
-
-                <label style={field.label}>Production</label>
-                <input
-                  value={production}
-                  onChange={(e) => setProduction(e.target.value)}
-                  style={field.input}
-                />
+                <div className={`edit-booking-two ${layoutStyles.extracted8}`}>
+                  <div>
+                    <label style={field.label}>Production Company</label>
+                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
+                  </div>
+                  <div>
+                    <label style={field.label}>Production</label>
+                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} />
+                  </div>
+                </div>
 
                 {/* Contacts block only */}
                 <div
@@ -3305,20 +3316,52 @@ export default function EditBookingPage() {
                     <span className={layoutStyles.extracted14}>
                       Contacts
                     </span>
-                    <button
-                      type="button"
-                      onClick={handleAddContactRow}
-                      style={{
-                        ...btn,
-                        padding: "4px 8px",
-                        fontSize: 12,
-                        borderRadius: 999,
-                      }}
-                    >
-                      + Add contact
-                    </button>
+                    <div className={layoutStyles.contactActions}>
+                      {contactsExpanded && (
+                        <button
+                          type="button"
+                          onClick={handleAddContactRow}
+                          style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
+                        >
+                          + Add contact
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!contactsExpanded) ensureSavedContactsLoaded();
+                          setContactsExpanded((open) => !open);
+                        }}
+                        style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
+                      >
+                        {contactsExpanded ? "Done" : additionalContacts.length ? "Edit" : "Add contact"}
+                      </button>
+                    </div>
                   </div>
 
+                  {!contactsExpanded ? (
+                    <button
+                      type="button"
+                      className={layoutStyles.contactSummary}
+                      onClick={() => setContactsExpanded(true)}
+                    >
+                      <span>
+                        {additionalContacts.length
+                          ? additionalContacts
+                              .map((contact) => {
+                                const department = contact.department === "Other"
+                                  ? contact.departmentOther
+                                  : contact.department;
+                                return [contact.name || contact.email || "Unnamed contact", department]
+                                  .filter(Boolean)
+                                  .join(" · ");
+                              })
+                              .join(", ")
+                          : "No contacts added"}
+                      </span>
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </button>
+                  ) : (<>
                   {additionalContacts.map((row, idx) => (
                     <div
                       key={idx}
@@ -3479,62 +3522,17 @@ export default function EditBookingPage() {
                     </div>
                   ))}
 
-                  <div className={layoutStyles.extracted18}>
-                    <label
-                      style={{
-                        ...field.label,
-                        fontWeight: 500,
-                        marginTop: 0,
-                        marginBottom: 4,
-                      }}
-                    >
-                      Quick add from saved contacts
-                    </label>
-                    {!savedContactsLoaded ? (
-                      <button
-                        type="button"
-                        onClick={ensureSavedContactsLoaded}
-                        disabled={savedContactsLoading}
-                        style={{ ...btn, width: "100%", justifyContent: "center" }}
-                      >
-                        {savedContactsLoading ? "Loading saved contacts..." : "Load saved contacts"}
-                      </button>
-                    ) : (
-                      <>
-                        <input
-                          type="text"
-                          value={savedContactSearch}
-                          onChange={(e) => setSavedContactSearch(e.target.value)}
-                          placeholder="Search saved contacts..."
-                    style={{ ...field.input, marginBottom: SPACE.sm }}
-                        />
-                        <select
-                          value={selectedSavedContactId}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSelectedSavedContactId(val);
-                            if (val) {
-                              handleQuickAddSavedContact(val);
-                              setSelectedSavedContactId("");
-                            }
-                          }}
-                          style={field.input}
-                        >
-                          <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
-                          {filteredSavedContacts.map((c) => {
-                            const labelBase = c.name || c.email || "Unnamed";
-                            const deptLabel = c.department ? ` - ${c.department}` : "";
-                            return (
-                              <option key={c.id} value={c.id}>
-                                {labelBase}
-                                {deptLabel}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </>
-                    )}
-                  </div>
+                  <SavedContactPicker
+                    contacts={filteredSavedContacts}
+                    existingContacts={additionalContacts}
+                    loaded={savedContactsLoaded}
+                    loading={savedContactsLoading}
+                    query={savedContactSearch}
+                    onQueryChange={setSavedContactSearch}
+                    onLoad={ensureSavedContactsLoaded}
+                    onSelect={handleQuickAddSavedContact}
+                  />
+                  </>)}
                 </div>
 
                 <label style={field.label}>Location</label>
@@ -3631,6 +3629,45 @@ export default function EditBookingPage() {
                     />
                   )}
                 </div>
+
+                <div className={layoutStyles.inlineSection}>
+                  <div className={layoutStyles.inlineSectionHeader}>
+                    <FileText size={15} />
+                    <strong>Files</strong>
+                    <span>{attachments.length + newFiles.length} attached</span>
+                  </div>
+                  {attachments.length > 0 && (
+                    <div className={layoutStyles.compactFileList}>
+                      {attachments.map((attachment, index) => (
+                        <div key={`${attachment?.url || "file"}-${index}`}>
+                          <span title={attachment?.name || "Unnamed file"}>
+                            {attachment?.name || "Unnamed file"}
+                          </span>
+                          <div>
+                            {attachment?.url && (
+                              <a href={attachment.url} target="_blank" rel="noreferrer">Open</a>
+                            )}
+                            <button type="button" onClick={() => removeAttachment(index)}>Remove</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.xls,.xlsx,.csv,.jpg,.jpeg,image/jpeg"
+                    onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
+                    className={layoutStyles.fileInput}
+                    style={{ ...field.input, height: "auto", padding: SPACE.sm }}
+                  />
+                  {pdfProgress > 0 && <div className={layoutStyles.inlineHint}>Uploading: {pdfProgress}%</div>}
+                  {newFiles.length > 0 && (
+                    <div className={layoutStyles.inlineHint}>
+                      {newFiles.length} file{newFiles.length === 1 ? "" : "s"} selected — uploads on Update.
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Column 2: Dates & People */}
@@ -3653,29 +3690,27 @@ export default function EditBookingPage() {
 
                 {dateEntryEnabled ? (
                   <>
-                    <label style={field.checkboxRow}>
-                      <input
-                        type="checkbox"
-                        checked={useCustomDates}
-                        onChange={(e) => {
-                          const on = e.target.checked;
-                          setUseCustomDates(on);
-                          if (on) setIsRange(false);
-                        }}
-                      />
-                      Select non-consecutive dates
-                    </label>
-
-                    {!useCustomDates && (
+                    <div className={layoutStyles.dateModeRow}>
                       <label style={field.checkboxRow}>
                         <input
                           type="checkbox"
-                          checked={isRange}
-                          onChange={() => setIsRange(!isRange)}
+                          checked={useCustomDates}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setUseCustomDates(on);
+                            if (on) setIsRange(false);
+                          }}
                         />
-                        Multi-day booking (consecutive)
+                        Select non-consecutive dates
                       </label>
-                    )}
+
+                      {!useCustomDates && (
+                        <label style={field.checkboxRow}>
+                          <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
+                          Multi-day booking (consecutive)
+                        </label>
+                      )}
+                    </div>
 
                     {useCustomDates ? (
                       <div className={layoutStyles.extracted23}>
@@ -3865,6 +3900,31 @@ export default function EditBookingPage() {
 
                 <div className={layoutStyles.extracted31} />
 
+                <div className={layoutStyles.crewSummaryHeader}>
+                  <div className={layoutStyles.crewSelection}>
+                    <Users size={15} aria-hidden="true" />
+                    {employees.filter((employee) => employee.name).length ? (
+                      employees.filter((employee) => employee.name).map((employee) => (
+                        <span key={`${employee.role}-${employee.name}`} className={layoutStyles.selectionChip}>
+                          {employee.name}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${employee.name}`}
+                            onClick={() => {
+                              setEmployees((current) => current.filter((item) => !(item.name === employee.name && item.role === employee.role)));
+                              upsertEmployeeDates(employee.role, employee.name, false);
+                            }}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))
+                    ) : (
+                      <span className={layoutStyles.emptySelection}>No crew selected</span>
+                    )}
+                  </div>
+                </div>
+
                 <h4 className={layoutStyles.extracted32}>
                   <Users size={15} /> Precision Driver
                 </h4>
@@ -3917,32 +3977,20 @@ export default function EditBookingPage() {
                 </div>
 
                 {/* Required crew guidance + manual crewed checkbox */}
-                <div
-                  style={{
-                    marginTop: 8,
-                              padding: SPACE.sm,
-                    borderRadius: UI.radiusSm,
-                    border: UI.border,
-                    background: "var(--color-surface-subtle)",
-                  }}
-                >
-                  <div
-                    className={`edit-booking-crew-box ${layoutStyles.extracted35}`}
-
-                  >
-                          <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: 13, minHeight: 36, padding: `0 ${SPACE.sm}px`, borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                <div className={layoutStyles.crewAllocationBar}>
+                    <label className={layoutStyles.crewVisibilityToggle}>
                       <input
                         type="checkbox"
                         checked={isCrewed}
                         onChange={(e) => setIsCrewed(e.target.checked)}
                         className={layoutStyles.extracted36}
                       />
-                      Crewed — show in employee app
+                      <span><strong>Employee app</strong><small>Show assigned crew</small></span>
                     </label>
-
-                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-                      <label style={{ ...field.label, marginTop: 0, marginBottom: 0, fontSize: 9.5, lineHeight: 1 }}>Required</label>
+                    <label className={layoutStyles.crewRequiredMetric}>
+                      <span>Required</span>
                       <input
+                        aria-label="Required crew"
                         type="number"
                         min={0}
                         step={1}
@@ -3951,17 +3999,15 @@ export default function EditBookingPage() {
                           const v = Math.max(0, parseInt(e.target.value || "0", 10));
                           setRequiredCrewCount(Number.isFinite(v) ? v : 0);
                         }}
-                        style={{ ...field.input, height: 20, width: "100%", textAlign: "right", padding: 0, border: "none", background: "transparent", boxShadow: "none", fontWeight: 800 }}
                       />
+                    </label>
+                    <div className={layoutStyles.crewAllocatedMetric}>
+                      <span>Allocated</span>
+                      <strong>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</strong>
                     </div>
-                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-                      <span style={{ fontSize: 9.5, color: UI.muted, fontWeight: 800, textTransform: "uppercase", lineHeight: 1 }}>Allocated</span>
-                      <span className={layoutStyles.extracted37}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
-                    </div>
-                          <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--color-success)" : "var(--color-warning)", background: isCrewed ? "var(--color-success-soft)" : "var(--color-warning-soft)", border: `1px solid ${isCrewed ? "var(--color-success-border)" : "var(--color-warning-border)"}`, borderRadius: 999, padding: `${SPACE.xs}px ${SPACE.sm}px`, fontWeight: 900 }}>
-                      {isCrewed ? "Visible in employee app" : "Hidden from employee app"}
+                    <span className={`${layoutStyles.crewVisibilityStatus} ${isCrewed ? layoutStyles.crewVisibilityStatusActive : ""}`}>
+                      {isCrewed ? "Visible in app" : "Hidden from app"}
                     </span>
-                  </div>
                 </div>
 
                 <h4 className={layoutStyles.extracted38}>
@@ -4113,25 +4159,145 @@ export default function EditBookingPage() {
                       </div>
                     </>
                   )}
+
+                <div className={layoutStyles.inlineSection}>
+                  <div className={layoutStyles.inlineSectionHeader}>
+                    <FileText size={15} />
+                    <strong>Notes & accommodation</strong>
+                  </div>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    style={{ ...field.textarea, minHeight: 70, background: "var(--color-surface)" }}
+                    placeholder="Anything extra to include for this booking..."
+                  />
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={hasHotel}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setHasHotel(on);
+                        if (!on) {
+                          setHotelPaidBy("");
+                          setHotelNights("");
+                          setHotelPricePerNight("");
+                        }
+                      }}
+                    />
+                    Hotel Booked
+                  </label>
+                  {hasHotel && (
+                    <>
+                      <div className={`edit-booking-hotel ${layoutStyles.extracted84}`}>
+                        <div>
+                          <label style={field.label}>Paid by</label>
+                          <select value={hotelPaidBy} onChange={(e) => setHotelPaidBy(e.target.value)} style={field.input}>
+                            <option value="">Select</option>
+                            <option value="Production">Production</option>
+                            <option value="Bickers">Bickers</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={field.label}>Nights</label>
+                          <input type="number" min={0} step={1} value={hotelNights} onChange={(e) => setHotelNights(e.target.value)} style={field.input} />
+                        </div>
+                        <div>
+                          <label style={field.label}>Price per night</label>
+                          <input type="number" min={0} step="0.01" value={hotelPricePerNight} onChange={(e) => setHotelPricePerNight(e.target.value)} style={field.input} />
+                        </div>
+                      </div>
+                      <div className={layoutStyles.inlineHint}>
+                        Total: <b>{hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}</b>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Column 3: Vehicles + Equipment */}
-              <div style={card}>
+              <div className={layoutStyles.resourceCard} style={card}>
                 <div className={layoutStyles.extracted47}>
                   <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
-                  <h3 style={cardTitle}>Vehicles</h3>
+                  <h3 style={cardTitle}>Vehicles & Resources</h3>
                 </div>
+                <div className={layoutStyles.resourceHeader}>
+                  <div className={layoutStyles.resourceTabs} role="tablist" aria-label="Booking resources">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={resourceTab === "vehicles"}
+                      className={`${layoutStyles.resourceTab} ${resourceTab === "vehicles" ? layoutStyles.resourceTabActive : ""}`}
+                      onClick={() => setResourceTab("vehicles")}
+                    >
+                      <Truck size={15} />
+                      Vehicles
+                      <span>{vehicles.length}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={resourceTab === "equipment"}
+                      className={`${layoutStyles.resourceTab} ${resourceTab === "equipment" ? layoutStyles.resourceTabActive : ""}`}
+                      onClick={() => setResourceTab("equipment")}
+                    >
+                      <Package size={15} />
+                      Equipment
+                      <span>{equipment.length}</span>
+                    </button>
+                  </div>
+                  <div className={layoutStyles.resourceSelectionSummary}>
+                    {vehicles.length + equipment.length} selected
+                  </div>
+                </div>
+                {(selectedVehicleDetails.length > 0 || equipment.length > 0) && (
+                  <div className={layoutStyles.selectedResources} aria-label="Selected resources">
+                    {selectedVehicleDetails.map((vehicle) => {
+                      const label = vehicle.registration
+                        ? `${vehicle.name} · ${vehicle.registration}`
+                        : vehicle.name;
+                      return (
+                        <span key={vehicle.id} className={layoutStyles.selectionChip}>
+                          <Truck size={12} aria-hidden="true" />
+                          {label}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${label}`}
+                            onClick={() => toggleVehicle(vehicle.id, false)}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                    {equipment.map((name) => (
+                      <span key={name} className={layoutStyles.selectionChip}>
+                        <Package size={12} aria-hidden="true" />
+                        {name}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${name}`}
+                          onClick={() => setEquipment((current) => current.filter((item) => item !== name))}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className={layoutStyles.extracted48}>
                   <Search size={16} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
                   <input
                     type="text"
-                    placeholder="Search vehicles or equipment..."
+                    placeholder={resourceTab === "vehicles" ? "Search vehicles..." : "Search equipment..."}
                     value={assetSearch}
                     onChange={(e) => setAssetSearch(e.target.value)}
                     style={{ ...field.input, paddingLeft: 34 }}
                   />
                 </div>
 
+                {resourceTab === "vehicles" && <>
                 <div className={`edit-booking-assets ${layoutStyles.extracted49}`} >
                 {Object.entries(filteredVehicleGroups).map(([group, items]) => {
                   const isOpen = openGroups[group] || false;
@@ -4156,10 +4322,20 @@ export default function EditBookingPage() {
                           {items.map((vehicle) => {
                             const key = vehicle.id;
                             const isBooked = bookedVehicleIds.includes(key);
-                            const hasBookingConflict = existingVehicleStatusConflictsWithRequested(vehicleBlockingStatusesById[key] || [], status);
+                            const statusesForConflict = blockingStatusesForPriorityEdit(
+                              vehicleBlockingStatusesById[key] || [],
+                              retainedPriorityVehicleIds.has(key)
+                            );
+                            const hasBookingConflict = existingVehicleStatusConflictsWithRequested(statusesForConflict, status);
                             const blockedStatus = vehicleBlockingStatusById[key];
                             const isHeld = heldVehicleIds.includes(key);
                             const isSelected = vehicles.includes(key);
+                            const priorityStatuses = statusesForConflict.filter((existingStatus) =>
+                              ["Confirmed", "First Pencil"].includes(String(existingStatus || "").trim())
+                            );
+                            const canAddAsSecondPencil =
+                              hasBookingConflict &&
+                              canAutoAssignVehicleAsSecondPencil(statusesForConflict, status);
 
                             const isMaintBlocked = maintenanceVehicleBlocking.ids.has(key);
                             const maintReason = maintenanceVehicleBlocking.reasonById[key] || "Maintenance";
@@ -4167,7 +4343,13 @@ export default function EditBookingPage() {
                             const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                             const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                             const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                            const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
+                            // Maintenance, inspection/compliance and defect states remain visible as
+                            // warnings. Only the existing booking pencil/status rules prevent selection.
+                            const disabled = hasBookingConflict && !isSelected && !canAddAsSecondPencil;
+                            const selectedBehindPriority =
+                              isSelected &&
+                              priorityStatuses.length > 0 &&
+                              (vehicleStatus[key] || status) === SECOND_PENCIL_STATUS;
 
                             return (
                               <div
@@ -4175,6 +4357,7 @@ export default function EditBookingPage() {
                                 style={{
                                   display: "flex",
                                   alignItems: "center",
+                                  flexWrap: "wrap",
                                   gap: 8,
                                   marginBottom: 8,
                                   opacity: disabled ? 0.55 : 1,
@@ -4182,23 +4365,32 @@ export default function EditBookingPage() {
                                 }}
                                 title={
                                   disabled
-                                    ? isMaintBlocked
-                                      ? `Vehicle is already booked for ${maintReason} on overlapping date(s)`
-                                      : isDefectBlocked
-                                      ? `Vehicle is blocked: ${defectReason}`
-                                      : status === SECOND_PENCIL_STATUS
+                                    ? status === SECOND_PENCIL_STATUS
                                       ? "Vehicle already has a Second Pencil booking on overlapping date(s)"
                                       : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s). Use Second Pencil to add a softer hold.`
-                                    : ""
+                                    : [
+                                        canAddAsSecondPencil
+                                          ? `Already ${priorityStatuses.join(" / ")} on the selected date(s). Selecting it will add it as Second Pencil.`
+                                          : "",
+                                        isMaintBlocked ? `${maintReason} overlaps the selected date(s)` : "",
+                                        isComplianceBlocked ? complianceReason : "",
+                                        isDefectBlocked ? defectReason : "",
+                                      ].filter(Boolean).join("; ")
                                 }
                               >
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   disabled={disabled}
-                                  onChange={(e) => toggleVehicle(key, e.target.checked)}
+                                  onChange={(e) =>
+                                    toggleVehicle(
+                                      key,
+                                      e.target.checked,
+                                      e.target.checked && canAddAsSecondPencil ? SECOND_PENCIL_STATUS : ""
+                                    )
+                                  }
                                 />
-                                <span style={{ flex: 1, color: disabled ? "var(--color-text-muted)" : UI.text }}>
+                                <span style={{ flex: "1 1 180px", color: disabled ? "var(--color-text-muted)" : UI.text }}>
                                   {vehicle.name}
                                   {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                   {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
@@ -4207,6 +4399,24 @@ export default function EditBookingPage() {
                                   {isBooked && ` (${blockedStatus || "Blocked"})`}
                                   {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                 </span>
+
+                                {isSelected && isUCraneVehicle(vehicle) && (
+                                  <select
+                                    value={isUCraneArmFitted(uCraneArmFitted, key) ? "fitted" : "not-fitted"}
+                                    onChange={(e) =>
+                                      setUCraneArmFitted((prev) => ({
+                                        ...prev,
+                                        [key]: e.target.value === "fitted",
+                                      }))
+                                    }
+                                    className={layoutStyles.extracted52}
+                                    aria-label={`${vehicle.name || "U-Crane vehicle"} arm setup`}
+                                    title="Choose whether the U-Crane arm is fitted for this booking"
+                                  >
+                                    <option value="fitted">Arm fitted</option>
+                                    <option value="not-fitted">Vehicle only — no arm</option>
+                                  </select>
+                                )}
 
                                 {isSelected && (
                                   <select
@@ -4227,6 +4437,28 @@ export default function EditBookingPage() {
                                     ))}
                                   </select>
                                 )}
+
+                                {selectedBehindPriority && (
+                                  <div
+                                    role="status"
+                                    style={{
+                                      flex: "1 1 calc(100% - 24px)",
+                                      maxWidth: "calc(100% - 24px)",
+                                      minWidth: 0,
+                                      marginLeft: 24,
+                                      boxSizing: "border-box",
+                                      padding: "6px 8px",
+                                      border: `1px solid ${UI.amberBorder}`,
+                                      borderRadius: UI.radiusSm,
+                                      background: UI.amberSoft,
+                                      color: UI.amber,
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    This vehicle is already {priorityStatuses.join(" / ")} on the selected date(s). It has been added as Second Pencil.
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -4240,14 +4472,9 @@ export default function EditBookingPage() {
                 {Object.entries(filteredVehicleGroups).length === 0 && (
                   <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
                 )}
+                </>}
 
-                <div className={layoutStyles.extracted53} />
-
-                <div className={layoutStyles.extracted54}>
-                  <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}><Package size={17} /></span>
-                  <h3 style={cardTitle}>Equipment</h3>
-                </div>
-
+                {resourceTab === "equipment" && <>
                 <div className={`edit-booking-assets ${layoutStyles.extracted55}`} >
                 {Object.entries(filteredEquipmentGroups).map(([group, items]) => {
                   const isOpen = openEquipGroups[group] || false;
@@ -4325,33 +4552,24 @@ export default function EditBookingPage() {
                 {Object.entries(filteredEquipmentGroups).length === 0 && (
                   <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
                 )}
+                </>}
               </div>
             </div>
 
-            <div style={card}>
+            {quoteCards.length ? (
+              <div style={card}>
               <div className={layoutStyles.extracted58}>
                 <div className={layoutStyles.extracted59}>
                   <span style={iconBox()}><FileText size={17} /></span>
                   <div>
-                    <h3 style={cardTitle}>Quote</h3>
-                <div style={{ color: UI.muted, fontSize: 12.5, marginTop: SPACE.xs }}>
-                      {quoteCards.length
-                        ? `${quoteCards.length} quote${quoteCards.length === 1 ? "" : "s"} on this booking`
-                        : "Create or edit the quote on its own page in the Bickers quote format."}
+                    <h3 style={cardTitle}>Quotes on this booking</h3>
+                    <div style={{ color: UI.muted, fontSize: 12.5, marginTop: SPACE.xs }}>
+                      Open, preview, print, download or remove an existing quote.
                     </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => router.push(quoteCards.length ? addAnotherQuoteHref : `/quote/${bookingId}`)}
-                  style={btnPrimary}
-                >
-                  <FileText size={14} />
-                  {quoteCards.length ? "Add another quote" : "Create Quote"}
-                </button>
               </div>
-              {quoteCards.length ? (
-                <div className={layoutStyles.extracted60}>
+              <div className={layoutStyles.extracted60}>
                   {quoteCards.map((quoteCard) => (
                     <div
                       key={quoteCard.quoteNumber}
@@ -4580,295 +4798,38 @@ export default function EditBookingPage() {
                       )}
                     </div>
                   ) : null}
-                </div>
-              ) : null}
-            </div>
-
-            {/* Files & Notes */}
-            <div className={`edit-booking-two ${layoutStyles.extracted74}`} >
-                <div style={card}>
-                  <div className={layoutStyles.extracted75}>
-                    <span style={iconBox()}><FileText size={17} /></span>
-                    <h3 style={cardTitle}>Files</h3>
-                  </div>
-
-              {attachments?.length > 0 && (
-                <div className={layoutStyles.extracted76}>
-                  <div className={layoutStyles.extracted77}>
-                    Existing files
-                  </div>
-                  <div className={layoutStyles.extracted78}>
-                    {attachments.map((a, idx) => (
-                      <div
-                        key={`${a?.url || "file"}-${idx}`}
-                        style={{
-                          display: "flex",
-                  gap: SPACE.md,
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                  padding: SPACE.md,
-                          borderRadius: UI.radiusSm,
-                          border: UI.border,
-                          background: UI.bgAlt,
-                        }}
-                      >
-                        <div className={layoutStyles.extracted79}>
-                          <div
-                            className={layoutStyles.extracted80}
-                          >
-                            {a?.name || "Unnamed file"}
-                          </div>
-                          <div style={{ fontSize: 12, color: UI.muted }}>
-                            {a?.contentType || "file"}{" "}
-                            {a?.size ? `- ${(a.size / 1024).toFixed(1)} KB` : ""}
-                          </div>
-                        </div>
-
-                        <div className={layoutStyles.extracted81}>
-                          {a?.url && (
-                            <a
-                              href={a.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{
-                                ...btnGhost,
-                            padding: `${SPACE.xs}px ${SPACE.sm}px`,
-                                textDecoration: "none",
-                              }}
-                            >
-                              Open
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => removeAttachment(idx)}
-                          style={{ ...btnDanger, padding: `${SPACE.xs}px ${SPACE.sm}px` }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-                  <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV/JPG/JPEG)</label>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.xls,.xlsx,.csv,.jpg,.jpeg,image/jpeg"
-                    onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
-                    style={{ ...field.input, height: "auto", padding: SPACE.md }}
-                  />
-
-              {pdfProgress > 0 && (
-                <div className={layoutStyles.extracted82}>
-                  Uploading: {pdfProgress}%
-                </div>
-              )}
-              {newFiles?.length > 0 && (
-                  <div style={{ marginTop: SPACE.sm, fontSize: 12, color: UI.muted }}>
-                  {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected - they will upload on Update.
-                </div>
-              )}
-
-                </div>
-
-                <div style={{ ...card, display: "grid", gap: 8 }}>
-                  <div className={layoutStyles.extracted83}>
-                    <span style={iconBox()}><FileText size={17} /></span>
-                    <h3 style={cardTitle}>Notes</h3>
-                  </div>
-                    <label style={{ ...field.label, marginTop: 0, marginBottom: SPACE.xs }}>Additional Notes</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={4}
-                    style={{ ...field.textarea, minHeight: 92, background: "var(--color-surface)" }}
-                    placeholder="Anything extra to include for this booking..."
-                  />
-
-                    <label style={{ ...field.checkboxRow, marginBottom: 0, marginTop: SPACE.xs }}>
-                    <input
-                      type="checkbox"
-                      checked={hasHotel}
-                      onChange={(e) => {
-                        const on = e.target.checked;
-                        setHasHotel(on);
-                        if (!on) {
-                          setHotelPaidBy("");
-                          setHotelNights("");
-                          setHotelPricePerNight("");
-                        }
-                      }}
-                    />
-                    Hotel Booked
-                  </label>
-
-                  {hasHotel && (
-                    <div
-                      className={`edit-booking-hotel ${layoutStyles.extracted84}`}
-
-                    >
-                      <div>
-                        <label style={field.label}>Paid by</label>
-                        <select
-                          value={hotelPaidBy}
-                          onChange={(e) => setHotelPaidBy(e.target.value)}
-                          style={field.input}
-                        >
-                          <option value="">Select</option>
-                          <option value="Production">Production</option>
-                          <option value="Bickers">Bickers</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label style={field.label}>Nights</label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={hotelNights}
-                          onChange={(e) => setHotelNights(e.target.value)}
-                          style={field.input}
-                          placeholder="e.g. 2"
-                        />
-                      </div>
-
-                      <div>
-                        <label style={field.label}>Price per night</label>
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={hotelPricePerNight}
-                          onChange={(e) => setHotelPricePerNight(e.target.value)}
-                          style={field.input}
-                          placeholder="e.g. 160"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {hasHotel && (
-                    <div style={{ fontSize: 12, color: UI.muted }}>
-                      Total: <b>{hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}</b>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className={layoutStyles.extracted85}>
-                <button
-                  type="submit"
-                  disabled={!coreFilled || saving}
-                  title={saveTooltip}
-                  style={{
-                    ...btnPrimary,
-                    opacity: coreFilled && !saving ? 1 : 0.5,
-                    cursor: coreFilled && !saving ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <Save size={14} />
-                  {saving ? "Updating..." : "Update Booking"}
-                </button>
-
-                <button type="button" onClick={() => router.push(returnHref)} style={btnGhost}>
-                  Cancel
-                </button>
-              </div>
-
-            {/* Summary */}
-            <div className={layoutStyles.extracted86}>
-              <div style={summaryCard}>
-                <div className={layoutStyles.extracted87}>
-                  <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><ClipboardList size={17} /></span>
-                  <h3 style={cardTitle}>Summary</h3>
-                </div>
-
-                <div className={layoutStyles.extracted88}>
-                  <div style={summarySection}>
-                    <h4 style={summarySectionTitle}>Job</h4>
-                    <SummaryRow label={quoteNumbers.length > 1 ? "Quotes" : "Quote"}>{quoteNumberSummary}</SummaryRow>
-                    <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
-                    <SummaryRow label="Status">{status || "-"}</SummaryRow>
-                    <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>
-                    <SummaryRow label="Production Company">{client || "-"}</SummaryRow>
-                    <SummaryRow label="Production">{production || "-"}</SummaryRow>
-                  </div>
-
-                  <div style={summarySection}>
-                    <h4 style={summarySectionTitle}>Schedule</h4>
-                    <SummaryRow label="Dates">
-                      {!dateEntryEnabled
-                        ? "-"
-                        : useCustomDates
-                        ? customDates.length
-                          ? formatSummaryDates(customDates)
-                          : "-"
-                        : isRange
-                        ? `${formatSummaryDate(startDate) || "-"} to ${formatSummaryDate(endDate) || "-"}`
-                        : formatSummaryDate(startDate) || "-"}
-                    </SummaryRow>
-                    <SummaryRow label="Call">
-                      {formatSummaryCallTimes(selectedDates, callTimesByDate, callTime)}
-                    </SummaryRow>
-                    <SummaryRow label="Location">{location || "-"}</SummaryRow>
-                  </div>
-
-                  <div style={summarySection}>
-                    <h4 style={summarySectionTitle}>People</h4>
-                    <SummaryRow label="Contacts">
-                      {additionalContacts.length
-                        ? additionalContacts
-                            .map((c) => {
-                              const dept =
-                                c.department === "Other" && c.departmentOther
-                                  ? c.departmentOther
-                                  : c.department;
-                              return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""]
-                                .filter(Boolean)
-                                .join(" ");
-                            })
-                            .join(", ")
-                        : "-"}
-                    </SummaryRow>
-                    <SummaryRow label="Drivers">{employees.filter((e) => e.role === "Precision Driver").map((e) => e.name).join(", ") || "-"}</SummaryRow>
-                    <SummaryRow label="Freelancers">{employees.filter((e) => e.role === "Freelancer").map((e) => e.name).join(", ") || "-"}</SummaryRow>
-                    <SummaryRow label="Crew">{`${isCrewed ? "Visible in employee app" : "Hidden from employee app"} - ${allocatedCrewCount} / ${Number(requiredCrewCount) || 0}`}</SummaryRow>
-                  </div>
-
-                  <div style={summarySection}>
-                    <h4 style={summarySectionTitle}>Assets</h4>
-                    <SummaryRow label="Vehicles">
-                      {Object.values(vehicleGroups)
-                        .flat()
-                        .filter((v) => vehicles.includes(v.id))
-                        .map((v) => {
-                          const vs = vehicleStatus[v.id] || status;
-                          const label = v.registration ? `${v.name} - ${v.registration}` : v.name;
-                          return <span key={v.id} style={summaryPill}>{label} - {vs}</span>;
-                        })}
-                      {vehicles.length === 0 && "-"}
-                    </SummaryRow>
-                    <SummaryRow label="Equipment">{equipment.join(", ") || "-"}</SummaryRow>
-                  </div>
-
-                  <div style={summarySection}>
-                    <h4 style={summarySectionTitle}>Logistics</h4>
-                    <SummaryRow label="Hotel">{hasHotel ? "Yes" : "No"}</SummaryRow>
-                    {hasHotel && (
-                      <SummaryRow label="Cost">{`${hotelPaidBy || "-"} - ${hotelNights || "-"} nights - ${hotelPricePerNight ? `GBP ${Number(hotelPricePerNight).toFixed(2)}/night` : "-"} - ${hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}`}</SummaryRow>
-                    )}
-                    {hasRiggingAddress && (
-                      <SummaryRow label="Rigging">{riggingAddress || "-"}</SummaryRow>
-                    )}
-                  </div>
-                </div>
               </div>
             </div>
+            ) : null}
+
+              <div className={layoutStyles.stickyActionBar}>
+                <div className={layoutStyles.compactReview} aria-label="Booking review">
+                  <strong>Job {jobNumber || "Draft"}</strong>
+                  <span className={layoutStyles.reviewStatus} style={jobStatusBadgeStyle(status)}>{status || "No status"}</span>
+                  <span>{formatSummaryDates(selectedDates) || "No dates"}</span>
+                  <span>{location || "No location"}</span>
+                  <span>{employees.filter((employee) => employee.name).length} crew</span>
+                  <span>{vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} · {equipment.length} equipment</span>
+                </div>
+                <div className={layoutStyles.stickyActions}>
+                  <button type="button" onClick={() => router.push(returnHref)} style={btnGhost}>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!coreFilled || saving}
+                    title={saveTooltip}
+                    style={{
+                      ...btnPrimary,
+                      opacity: coreFilled && !saving ? 1 : 0.5,
+                      cursor: coreFilled && !saving ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    <Save size={14} />
+                    {saving ? "Updating..." : "Update Booking"}
+                  </button>
+                </div>
+              </div>
           </form>
         </div>
       </div>

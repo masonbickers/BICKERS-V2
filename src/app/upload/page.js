@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";import { useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../../firebaseConfig";
@@ -18,7 +19,7 @@ export default function UploadPage() {
         setImageUrls((prev) => [...prev, url]);
       });
     }).catch((error) => {
-      alert("Upload failed: " + error.message);
+      systemDialogs.showSystemNotification("Upload failed: " + error.message);
     });
   };
 

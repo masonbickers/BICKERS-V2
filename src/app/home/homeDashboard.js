@@ -115,9 +115,11 @@ const ATTENTION_SEVERITY = { critical: 0, urgent: 1, upcoming: 2 };
 
 function readableVehicle(vehicle) {
   if (vehicle && typeof vehicle === "object") {
-    return String(vehicle.name || vehicle.registration || vehicle.reg || vehicle.id || "Vehicle").trim();
+    return String(vehicle.name || vehicle.registration || vehicle.reg || "Unknown vehicle").trim();
   }
-  return String(vehicle || "Vehicle").trim() || "Vehicle";
+  const value = String(vehicle || "").trim();
+  if (!value) return "Vehicle";
+  return value.length >= 16 && !/\s/.test(value) ? "Unknown vehicle" : value;
 }
 
 function attentionDate(value) {

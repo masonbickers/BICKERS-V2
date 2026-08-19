@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -38,6 +39,7 @@ import {
   findAcceptedQuoteSnapshot,
 } from "@/app/utils/commercialPosition";
 import { Button, Checkbox, Input, Modal, Select, Textarea } from "@/app/components/ui";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* ───────────────────────────────────────────
    Mini design system (same look & feel)
@@ -140,28 +142,7 @@ const prettifyStatus = (raw) => {
     .replace(/\b\w/g, (m) => m.toUpperCase()) || "TBC";
 };
 const statusColors = (label) => {
-  switch (label) {
-    case "Ready to Invoice":
-      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
-    case "Invoiced":
-      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
-    case "Paid":
-      return { bg: "var(--color-border)", border: "var(--color-success-border)", text: "var(--color-success)" };
-    case "Action Required":
-      return { bg: "var(--color-accent-soft)", border: "var(--color-danger-border)", text: "var(--color-danger)" };
-    case "Complete":
-      return { bg: "var(--color-success-border)", border: "var(--color-success-accent)", text: "var(--color-text)" };
-    case "Confirmed":
-      return { bg: "var(--color-warning-border)", border: "var(--color-success-accent)", text: "var(--color-danger-hover)" };
-    case "First Pencil":
-      return { bg: "var(--shell-muted)", border: "var(--color-info)", text: "var(--color-info)" };
-    case "Second Pencil":
-      return { bg: "var(--color-warning-border)", border: "var(--color-warning)", text: "var(--color-danger)" };
-    case "TBC":
-      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
-    default:
-      return { bg: "var(--shell-muted)", border: "var(--color-brand-hover)", text: "var(--color-text)" };
-  }
+  return getFixedJobStatusStyle(label);
 };
 const StatusBadge = ({ value, tone = value }) => {
   const c = statusColors(tone);
@@ -589,37 +570,6 @@ export default function JobSummaryWithTimesheetsPage() {
     };
   }, [accessKey, dataAccessState]);
 
-  // The shared modal handles initial/return focus; keep Tab navigation inside these finance dialogs.
-  useEffect(() => {
-    if (!warningDialogOpen && !returnDialogOpen) return undefined;
-    const trapFocus = (event) => {
-      if (event.key !== "Tab") return;
-      const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
-      if (!dialog) return;
-      const focusable = Array.from(
-        dialog.querySelectorAll(
-          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-        )
-      );
-      if (!focusable.length) {
-        event.preventDefault();
-        dialog.focus();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", trapFocus);
-    return () => document.removeEventListener("keydown", trapFocus);
-  }, [returnDialogOpen, warningDialogOpen]);
-
   const operationalStatus = useMemo(() => resolveOperationalStatus(job || {}), [job]);
   const financeStage = useMemo(
     () => resolveFinanceStage(job || {}, invoiceRecord),
@@ -759,11 +709,11 @@ export default function JobSummaryWithTimesheetsPage() {
         ...updates,
         updatedAt: serverTimestamp(),
       }));
-      alert(successMessage);
+      systemDialogs.showSystemNotification(successMessage);
       return true;
     } catch (e) {
       console.error(e);
-      alert("Failed to save. Please try again.");
+      systemDialogs.showSystemNotification("Failed to save. Please try again.");
       return false;
     } finally {
       setSaving(false);

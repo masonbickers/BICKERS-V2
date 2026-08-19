@@ -6,8 +6,9 @@ import Link from "next/link";
 import { onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { BusinessPage, BusinessPageHeader } from "@/app/components/BusinessPage";
 import DailyBriefingPanel from "./DailyBriefingPanel";
-import { Button, Page, PageHeader, Panel } from "@/app/components/ui";
+import { Button, Panel } from "@/app/components/ui";
 import {
   CalculationDetails,
   CompactRankingTable,
@@ -46,7 +47,12 @@ import {
   X,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-import { FIXED_JOB_STATUS_STYLES } from "@/app/utils/jobStatusColors";
+import {
+  FIXED_JOB_STATUS_STYLES,
+  getFixedJobStatusStyle,
+  normalizeJobStatus,
+} from "@/app/utils/jobStatusColors";
+import { buildCanonicalLocationRanking } from "@/app/utils/locationNormalization";
 
 function StatisticsEmptyState({ title, description, action = null }) {
   return (
@@ -318,45 +324,24 @@ const prettifyStatus = (raw) => {
 };
 
 const statusColors = (label) => {
-  if (FIXED_JOB_STATUS_STYLES[label]) return FIXED_JOB_STATUS_STYLES[label];
-  switch (label) {
-    case "Confirmed":
-      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "First Pencil":
-      return { bg: "var(--color-info-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Second Pencil":
-      return { bg: "var(--color-warning)", text: "var(--color-white)", border: "var(--color-border-strong)" };
-    case "Complete":
-      return { bg: "var(--color-success-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Action Required":
-      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Maintenance":
-      return { bg: "var(--color-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Bickers":
-      return { bg: "var(--color-white)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Stunt":
-      return { bg: "var(--color-warning-border)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Holiday":
-      return { bg: "var(--color-border-strong)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "DNH":
-    case "Postponed":
-    case "Deleted":
-      return { bg: "var(--shell-muted)", text: "var(--color-text)", border: "var(--shell-muted)" };
-    case "Ready to Invoice":
-      return { bg: "var(--color-accent-soft)", border: "var(--color-warning-border)", text: "var(--color-warning)" };
-    case "Invoiced":
-      return { bg: "var(--color-brand-soft)", border: "var(--color-info-border)", text: "var(--color-brand)" };
-    case "Paid":
-      return { bg: "var(--color-success-accent)", text: "var(--color-text)", border: "var(--color-border-strong)" };
-    case "Cancelled":
-      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
-    case "Enquiry":
-      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
-    case "TBC":
-      return { bg: "var(--color-canvas)", border: "var(--color-border)", text: "var(--color-text-muted)" };
-    default:
-      return { bg: "var(--color-border)", border: "var(--color-border)", text: "var(--color-text)" };
+  return getFixedJobStatusStyle(label);
+};
+
+const CHART_STATUS_COLORS = {
+  "Ready to Invoice": { fill: "#0891b2", soft: "#cffafe", border: "#67e8f9", text: "#155e75" },
+  Invoiced: { fill: "#8b5cf6", soft: "#ede9fe", border: "#c4b5fd", text: "#5b21b6" },
+  Paid: { fill: "#059669", soft: "#d1fae5", border: "#6ee7b7", text: "#065f46" },
+};
+
+const chartStatusColors = (label) => {
+  const fixed = FIXED_JOB_STATUS_STYLES[normalizeJobStatus(label)];
+  if (fixed) {
+    return { fill: fixed.bg, soft: fixed.bg, border: fixed.border, text: fixed.text };
   }
+  const mapped = CHART_STATUS_COLORS[label];
+  if (mapped) return mapped;
+  const fallback = statusColors(label);
+  return { fill: fallback.border, soft: fallback.bg, border: fallback.border, text: fallback.text };
 };
 
 const STACKED_STATUS_ORDER = [
@@ -826,9 +811,10 @@ function StackedBarChart({ title, subtitle, summary, data = [], rightLabel = "Co
 
       <div className={layoutStyles.extracted9}>
         {segmentLabels.map((label) => {
-          const colors = statusColors(label);
+          const colors = chartStatusColors(label);
           return (
-            <span key={label} style={{ ...chip, padding: "4px 8px", background: colors.bg, borderColor: colors.border, color: colors.text }}>
+            <span key={label} style={{ ...chip, padding: "4px 8px", background: colors.soft, borderColor: colors.border, color: colors.text }}>
+              <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: 999, background: colors.fill, flex: "0 0 auto" }} />
               {label}
             </span>
           );
@@ -884,14 +870,14 @@ function StackedBarChart({ title, subtitle, summary, data = [], rightLabel = "Co
                     }}
                   >
                     {(row.segments || []).map((segment) => {
-                      const colors = statusColors(segment.label);
+                      const colors = chartStatusColors(segment.label);
                       return (
                         <div
                           key={segment.label}
                           style={{
                             width: `${Math.max(0, (segment.value / row.total) * 100)}%`,
                             height: "100%",
-                            background: colors.bg,
+                            background: colors.fill,
                           }}
                         />
                       );
@@ -2109,9 +2095,7 @@ export default function StatisticsPage() {
   }, [jobsFiltered]);
 
   const topLocations = useMemo(() => {
-    const m = new Map();
-    for (const j of jobsFiltered) inc(m, (j.location || "-").trim(), 1);
-    return clampTopN(m.entries(), 8).map(([label, value]) => ({ label, value }));
+    return buildCanonicalLocationRanking(jobsFiltered, 8);
   }, [jobsFiltered]);
 
   const topCrew = useMemo(() => {
@@ -2187,7 +2171,11 @@ export default function StatisticsPage() {
     );
   };
 
-  const locationRows = topLocations.map((row) => ({ name: row.label, count: row.value }));
+  const locationRows = topLocations.map((row) => ({
+    name: row.label,
+    count: row.value,
+    bookingIds: row.bookingIds,
+  }));
   const accessGate = resolveDataAccess(dataAccessState);
   const tabTitles = {
     overview: "Business overview",
@@ -2214,8 +2202,8 @@ export default function StatisticsPage() {
 
   return (
     <HeaderSidebarLayout>
-      <Page width="fluid" className={styles.page}>
-          <PageHeader
+      <BusinessPage className={styles.page}>
+          <BusinessPageHeader
             title="Statistics"
             subtitle="A clear view of booking performance, workload and business health."
             eyebrow="Management dashboard"
@@ -2340,7 +2328,7 @@ export default function StatisticsPage() {
                     <CompactRankingTable title="Top vehicles" rows={resolvedTopVehicles} onRowClick={(row) => drilldownBookingsByIds(`Vehicle: ${row.name}`, row.bookingIds)} />
                     <CompactRankingTable title="Top crew" rows={analytics.topEmployees} onRowClick={(row) => drilldownBookingsByIds(`Crew: ${row.name}`, row.bookingIds)} />
                     <CompactRankingTable title="Top equipment" rows={analytics.topEquipment} onRowClick={(row) => drilldownBookingsByIds(`Equipment: ${row.name}`, row.bookingIds)} />
-                    <CompactRankingTable title="Top locations" rows={locationRows} onRowClick={(row) => drilldownByPredicate(`Location: ${row.name}`, (booking) => booking.location === row.name)} />
+                    <CompactRankingTable title="Top locations" rows={locationRows} onRowClick={(row) => drilldownBookingsByIds(`Location: ${row.name}`, row.bookingIds)} />
                     <AnalyticsSummarySection title="Crew overview" summary={`${crewStats.crewedJobs} jobs have recorded crew. The average recorded allocation is ${crewStats.avgCrewPerJob} people per crewed job and ${crewStats.avgConfirmedCrewPerJob} for currently confirmed jobs; this describes allocation volume, not employee performance.`} items={[
                       { label: "Average crew", value: crewStats.avgCrewPerJob },
                       { label: "Confirmed average", value: crewStats.avgConfirmedCrewPerJob },
@@ -2382,7 +2370,7 @@ export default function StatisticsPage() {
               ) : null}
             </>
           )}
-      </Page>
+      </BusinessPage>
 
       <DrilldownModal drilldown={drilldown} onClose={() => setDrilldown(null)} onExport={exportDrilldown} formatVehicle={resolveVehicleLabel} formatCredits={formatCredits} displayToken={displayToken} />
     </HeaderSidebarLayout>
@@ -2429,8 +2417,8 @@ export default function StatisticsPage() {
   return (
     <HeaderSidebarLayout>
       <style>{statisticsCss}</style>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted37}>
+      <div data-sidebar-page style={pageWrap}>
+        <div data-sidebar-page-header className={layoutStyles.extracted37}>
           <div>
             <h1 style={{ ...h1, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <BarChart3 size={22} color={UI.brand} />

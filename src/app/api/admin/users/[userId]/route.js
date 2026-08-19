@@ -12,7 +12,7 @@ import {
   adminPatchDocument,
   adminReadDocument,
 } from "../../../_firebaseAdminRest";
-import { isAdminEmail } from "@/app/utils/adminAccess";
+import { isDeploymentEmergencyAdmin } from "@/app/config/deploymentConfig";
 
 const ROLE_ALIASES = {
   platformadmin: "platformAdmin",
@@ -497,7 +497,7 @@ export async function DELETE(req, context) {
     if (targetUserId === admin.verifiedUser.uid || (targetEmail && targetEmail === actorEmail)) {
       return jsonError("You cannot delete your own access account.", 400);
     }
-    if (targetEmail && isAdminEmail(targetEmail)) {
+    if (targetEmail && isDeploymentEmergencyAdmin(targetEmail)) {
       return jsonError("Admin gate accounts cannot be deleted.", 400);
     }
 

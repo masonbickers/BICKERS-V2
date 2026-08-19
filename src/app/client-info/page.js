@@ -15,6 +15,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
 const UI = UI_TOKENS;
 
@@ -28,6 +29,20 @@ const chip = {
   color: UI.text,
   fontSize: 12,
   fontWeight: 700,
+};
+
+const jobStatusBadgeStyle = (status) => {
+  const tone = getFixedJobStatusStyle(status);
+  return {
+    display: "inline-flex",
+    padding: "4px 8px",
+    borderRadius: 999,
+    border: `1px solid ${tone.border}`,
+    background: tone.bg,
+    color: tone.text,
+    fontSize: 12,
+    fontWeight: 800,
+  };
 };
 
 const DELETED_BOOKING_WRAPPER_KEYS = new Set([
@@ -511,7 +526,7 @@ export default function ClientInfoPage() {
                               <div className={layoutStyles.extracted19}>{job.location || "No location"}</div>
                               <div style={{ color: UI.muted, fontSize: 12 }}>{fmtDate(anchorDate)}</div>
                             </div>
-                            <div style={{ color: UI.muted, fontSize: 13 }}>{status}</div>
+                            <div><span style={jobStatusBadgeStyle(status)}>{status}</span></div>
                             <div style={{ color: UI.muted, fontSize: 13, textAlign: "right" }}>
                               {normaliseJobDates(job).length || Number(job.bookingLengthDays) || 0} day(s)
                             </div>

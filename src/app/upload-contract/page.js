@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -265,7 +266,7 @@ export default function UploadContractPage() {
 
     const err = validate();
     if (err) {
-      alert(err);
+      systemDialogs.showSystemNotification(err);
       return;
     }
 
@@ -313,11 +314,11 @@ export default function UploadContractPage() {
         createdAt: serverTimestamp(),
       }));
 
-      alert("Uploaded successfully");
+      systemDialogs.showSystemNotification("Uploaded successfully");
       resetForm();
     } catch (error) {
       console.error("Upload failed:", error);
-      alert(`Upload failed.\n${error?.message || ""}`);
+      systemDialogs.showSystemNotification(`Upload failed.\n${error?.message || ""}`);
     } finally {
       setSaving(false);
     }

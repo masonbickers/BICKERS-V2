@@ -1,16 +1,21 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
 import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import {
+  buildExistingJobDetailsLookup,
   contactIdFromEmail,
   employeesKey,
+  mergeBookingContacts,
+  normalizeJobNumberForLookup,
   normalizeVehicleKeysListForLookup,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
@@ -25,7 +30,6 @@ import {
 } from "@/app/utils/bookingAvailability";
 import {
   getCanonicalDueDate,
-  isVehicleOutOfUse,
   ymd as toYmd,
 } from "@/app/utils/maintenanceSchema";
 import {
@@ -46,8 +50,14 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import {
+  buildUCraneArmFittedForSave,
+  isUCraneArmFitted,
+  isUCraneVehicle,
+  normalizeUCraneArmFitted,
+} from "@/app/utils/uCraneBookingConfiguration";
+import { canAutoAssignVehicleAsSecondPencil } from "@/app/utils/bookingVehiclePriority";
+import {
   CalendarDays,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -57,8 +67,12 @@ import {
   Search,
   Truck,
   Users,
+  X,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import { hasMeaningfulCreateBookingDraft } from "@/app/utils/createBookingDraft";
+import { buildBookingCallTimePayload } from "@/app/utils/bookingCallTimes";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 /* ────────────────────────────────────────────────────────────────────────────
@@ -69,6 +83,10 @@ const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 // so form sections remain visually separate from the surrounding page.
 const UI = { ...UI_TOKENS, bg: UI_TOKENS.card };
 const SPACE = Object.freeze({ xs: 4, sm: 8, md: 12, lg: 16, xl: 24 });
+const jobStatusBadgeStyle = (status) => {
+  const tone = getFixedJobStatusStyle(status);
+  return { background: tone.bg, color: tone.text, borderColor: tone.border };
+};
 
 const pageWrap = {
   minHeight: "100vh",
@@ -386,7 +404,7 @@ const focusCss = `
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
     border-color: var(--color-info-border) !important;
   }
-  @media (max-width: 1280px) {
+  @media (max-width: 1080px) {
     .create-booking-grid { grid-template-columns: 1fr !important; }
   }
   @media (max-width: 760px) {
@@ -498,6 +516,11 @@ const expandMaintenanceBookingDates = (b) => {
   if (s && e) return enumerateDaysYMD_UTC(s, e);
   return [];
 };
+
+const isActiveMaintenanceBooking = (booking = {}) =>
+  !["completed", "complete", "cancelled", "canceled", "failed", "archived"].includes(
+    String(booking.status || booking.bookingStatus || "booked").trim().toLowerCase()
+  );
 
 const anyDateOverlap = (datesA, datesB) => {
   if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
@@ -698,10 +721,12 @@ function CreateBookingForm({ initialStatus }) {
   // Vehicles
   const [vehicles, setVehicles] = useState([]); // vehicleIds
   const [vehicleStatus, setVehicleStatus] = useState({}); // {vehicleId: status}
+  const [uCraneArmFitted, setUCraneArmFitted] = useState({});
 
   // Equipment
   const [equipment, setEquipment] = useState([]);
   const [assetSearch, setAssetSearch] = useState("");
+  const [resourceTab, setResourceTab] = useState("vehicles");
 
   // Data lists
   const [allBookings, setAllBookings] = useState([]);
@@ -711,6 +736,8 @@ function CreateBookingForm({ initialStatus }) {
   const [employeeList, setEmployeeList] = useState([]); // [{id,name}]
   const [freelancerList, setFreelancerList] = useState([]); // [{id,name}]
   const [referenceDataLoading, setReferenceDataLoading] = useState(true);
+  const [existingJobDetailsByNumber, setExistingJobDetailsByNumber] = useState({});
+  const [dismissedExistingJobNumber, setDismissedExistingJobNumber] = useState("");
 
   const [vehicleGroups, setVehicleGroups] = useState({});
   const [openGroups, setOpenGroups] = useState({});
@@ -730,10 +757,10 @@ function CreateBookingForm({ initialStatus }) {
 
   // Contacts block (only)
   const [additionalContacts, setAdditionalContacts] = useState([]);
+  const [contactsExpanded, setContactsExpanded] = useState(false);
   const [savedContacts, setSavedContacts] = useState([]);
   const [savedContactsLoaded, setSavedContactsLoaded] = useState(false);
   const [savedContactsLoading, setSavedContactsLoading] = useState(false);
-  const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
   const [savedContactSearch, setSavedContactSearch] = useState("");
 
   // Files
@@ -788,6 +815,15 @@ function CreateBookingForm({ initialStatus }) {
   const quoteNumbers = useMemo(() => normalizeQuoteNumbers(quoteNumber), [quoteNumber]);
   const quoteNumberFieldIsMulti = vehicles.length > 1 || quoteNumbers.length > 1;
   const quoteNumberSummary = quoteNumbers.length ? quoteNumbers.join(", ") : "-";
+  const normalizedJobNumber = normalizeJobNumberForLookup(jobNumber);
+  const existingJobDetails = existingJobDetailsByNumber[normalizedJobNumber] || null;
+  const shouldOfferExistingJobDetails = Boolean(
+    existingJobDetails &&
+      dismissedExistingJobNumber !== normalizedJobNumber &&
+      (String(client || "").trim() !== existingJobDetails.client ||
+        String(production || "").trim() !== existingJobDetails.production ||
+        (existingJobDetails.additionalContacts.length > 0 && additionalContacts.length === 0))
+  );
 
   const draftData = useMemo(
     () => ({
@@ -833,6 +869,7 @@ function CreateBookingForm({ initialStatus }) {
       customEmployee,
       vehicles,
       vehicleStatus,
+      uCraneArmFitted,
       equipment,
       additionalContacts,
     }),
@@ -879,86 +916,16 @@ function CreateBookingForm({ initialStatus }) {
       customEmployee,
       vehicles,
       vehicleStatus,
+      uCraneArmFitted,
       equipment,
       additionalContacts,
     ]
   );
 
-  const hasMeaningfulDraft = useMemo(() => {
-    return Boolean(
-      (client || "").trim() ||
-        (production || "").trim() ||
-        (location || "").trim() ||
-        (notes || "").trim() ||
-        (statusReasonOther || "").trim() ||
-        startDate ||
-        endDate ||
-        (callTime || "").trim() ||
-        (hotelPaidBy || "").trim() ||
-        (hotelNights || "").trim() ||
-        (hotelPricePerNight || "").trim() ||
-        (riggingAddress || "").trim() ||
-        (customEmployee || "").trim() ||
-        status !== "Confirmed" ||
-        shootType !== "Day" ||
-        isRange ||
-        useCustomDates ||
-        hasHotel ||
-        hasRiggingAddress ||
-        isSecondPencil ||
-        isCrewed ||
-        hasHS ||
-        hasRiskAssessment ||
-        offRoadTracking ||
-        Number(requiredCrewCount) !== 1 ||
-        (Array.isArray(statusReasons) && statusReasons.length) ||
-        (Array.isArray(customDates) && customDates.length) ||
-        (Array.isArray(employees) && employees.length) ||
-        (Array.isArray(vehicles) && vehicles.length) ||
-        (Array.isArray(equipment) && equipment.length) ||
-        (Array.isArray(additionalContacts) && additionalContacts.length) ||
-        Object.keys(notesByDate || {}).length ||
-        Object.keys(callTimesByDate || {}).length ||
-        Object.keys(employeesByDate || {}).length ||
-        Object.keys(vehicleStatus || {}).length
-    );
-  }, [
-    additionalContacts,
-    callTime,
-    callTimesByDate,
-    client,
-    production,
-    customDates,
-    customEmployee,
-    employees,
-    employeesByDate,
-    endDate,
-    equipment,
-    hasHS,
-    hasHotel,
-    hasRiggingAddress,
-    hasRiskAssessment,
-    offRoadTracking,
-    hotelNights,
-    hotelPaidBy,
-    hotelPricePerNight,
-    isCrewed,
-    isRange,
-    isSecondPencil,
-    location,
-    notes,
-    notesByDate,
-    requiredCrewCount,
-    riggingAddress,
-    shootType,
-    startDate,
-    status,
-    statusReasonOther,
-    statusReasons,
-    useCustomDates,
-    vehicleStatus,
-    vehicles,
-  ]);
+  const hasMeaningfulDraft = useMemo(
+    () => hasMeaningfulCreateBookingDraft(draftData, { initialStatus: statusFromQuery }),
+    [draftData, statusFromQuery]
+  );
 
   const draftTitle = useMemo(() => {
     const parts = [jobNumber, client, location]
@@ -1071,6 +1038,9 @@ function CreateBookingForm({ initialStatus }) {
           const value = /^\d+$/.test(String(raw || "")) ? parseInt(raw, 10) : 0;
           return Math.max(currentMax, value);
         }, 0);
+        setExistingJobDetailsByNumber(
+          buildExistingJobDetailsLookup((latestBookingSnap?.docs || []).map((docSnap) => docSnap.data()))
+        );
         if (!draftIdFromQuery || !hydratedDraftRef.current) {
           setJobNumber(String(max + 1).padStart(4, "0"));
         }
@@ -1222,6 +1192,7 @@ function CreateBookingForm({ initialStatus }) {
     setCustomEmployee(saved.customEmployee || "");
     setVehicles(Array.isArray(saved.vehicles) ? saved.vehicles : []);
     setVehicleStatus(saved.vehicleStatus && typeof saved.vehicleStatus === "object" ? saved.vehicleStatus : {});
+    setUCraneArmFitted(normalizeUCraneArmFitted(saved.uCraneArmFitted));
     setEquipment(Array.isArray(saved.equipment) ? saved.equipment : []);
     setAdditionalContacts(Array.isArray(saved.additionalContacts) ? saved.additionalContacts : []);
     hydratedDraftRef.current = true;
@@ -1393,7 +1364,7 @@ function CreateBookingForm({ initialStatus }) {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -1433,7 +1404,7 @@ function CreateBookingForm({ initialStatus }) {
       return "Maintenance";
     };
 
-    maintenanceBookings.forEach((b) => {
+    maintenanceBookings.filter(isActiveMaintenanceBooking).forEach((b) => {
       const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
       const reason = reasonFromType(b);
@@ -1461,21 +1432,17 @@ function CreateBookingForm({ initialStatus }) {
       if (!id) return;
 
       const taxStatus = String(vehicle?.taxStatus || "").trim().toLowerCase();
-      const offRoadStatus = isVehicleOutOfUse(vehicle);
-
-      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax" || offRoadStatus) {
+      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax") {
         ids.add(id);
-        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "VOR";
+        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : taxStatus.toUpperCase();
         return;
       }
 
       const motDue = getCanonicalDueDate(vehicle, "mot");
       const serviceDue = getCanonicalDueDate(vehicle, "service");
-      const inspectionDue = getCanonicalDueDate(vehicle, "inspection");
       const overdueMatch = [
         ["MOT overdue", motDue],
         ["Service overdue", serviceDue],
-        ["Inspection overdue", inspectionDue],
       ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < refDate);
 
       if (overdueMatch) {
@@ -1752,17 +1719,25 @@ function CreateBookingForm({ initialStatus }) {
   /* ────────────────────────────────────────────────────────────
      Vehicle toggle
   ───────────────────────────────────────────────────────────── */
-  const toggleVehicle = (vehicleId, checked) => {
+  const toggleVehicle = (vehicleId, checked, selectedStatus = "") => {
     setVehicles((prev) => (checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)));
     setVehicleStatus((prev) => {
       const next = { ...prev };
       if (checked) {
-        if (!next[vehicleId]) next[vehicleId] = status;
+        if (selectedStatus) next[vehicleId] = selectedStatus;
+        else if (!next[vehicleId]) next[vehicleId] = status;
       } else {
         delete next[vehicleId];
       }
       return next;
     });
+    if (!checked) {
+      setUCraneArmFitted((prev) => {
+        const next = { ...prev };
+        delete next[vehicleId];
+        return next;
+      });
+    }
   };
 
   /* ────────────────────────────────────────────────────────────
@@ -1783,7 +1758,7 @@ function CreateBookingForm({ initialStatus }) {
       )
       .map((vehicleId) => {
         const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
-        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
+        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || "Unknown vehicle";
         const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
         return `${label} (${existingStatus})`;
       });
@@ -1791,10 +1766,10 @@ function CreateBookingForm({ initialStatus }) {
   const handleSubmit = async ({ openQuote = false } = {}) => {
     if (dateEntryEnabled) {
       if (useCustomDates) {
-        if (!customDates.length) return alert("Please select at least one date.");
+        if (!customDates.length) return systemDialogs.showSystemNotification("Please select at least one date.");
       } else {
-        if (!startDate) return alert("Please select a start date.");
-        if (isRange && !endDate) return alert("Please select an end date.");
+        if (!startDate) return systemDialogs.showSystemNotification("Please select a start date.");
+        if (isRange && !endDate) return systemDialogs.showSystemNotification("Please select an end date.");
       }
     }
 
@@ -1802,14 +1777,14 @@ function CreateBookingForm({ initialStatus }) {
       const missing = [];
       if (!isMaintenance && !(client || "").trim()) missing.push("Production Company");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
-      return alert("Please provide: " + missing.join(", ") + ".");
+      return systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
     }
 
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
     if (needsReason) {
-      if (!statusReasons.length) return alert("Please choose at least one reason.");
+      if (!statusReasons.length) return systemDialogs.showSystemNotification("Please choose at least one reason.");
       if (statusReasons.includes("Other") && !statusReasonOther.trim())
-        return alert("Please enter the 'Other' reason.");
+        return systemDialogs.showSystemNotification("Please enter the 'Other' reason.");
     }
 
     const customNames = customEmployee
@@ -1825,6 +1800,11 @@ function CreateBookingForm({ initialStatus }) {
     const vehicleStatusForSave = inactiveBooking
       ? buildSynchronizedVehicleStatus({ vehicles, vehicleStatus }, status)
       : vehicleStatus;
+    const uCraneArmFittedForSave = buildUCraneArmFittedForSave({
+      vehicleIds: vehicles,
+      vehicleLookup,
+      configuration: uCraneArmFitted,
+    });
 
     const bookingDates = dateEntryEnabled ? selectedDates : [];
     let availabilityForSave = null;
@@ -1839,13 +1819,14 @@ function CreateBookingForm({ initialStatus }) {
         setMaintenanceBookings(availabilityForSave.maintenanceBookings || []);
       } catch (err) {
         console.error("Failed checking booking availability before save:", err);
-        return alert("Could not check availability for the selected dates. Please try saving again.");
+        return systemDialogs.showSystemNotification("Could not check availability for the selected dates. Please try saving again.");
       }
     }
 
     const freshVehicleBlocking = availabilityForSave
       ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
       : null;
+
     const vehicleConflicts = selectedVehicleConflictLabels(
       vehicles,
       vehicleStatusForSave,
@@ -1853,7 +1834,7 @@ function CreateBookingForm({ initialStatus }) {
       freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
     );
     if (bookingDates.length && vehicleConflicts.length) {
-      return alert(
+      return systemDialogs.showSystemNotification(
         `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
           "\n"
         )}\n\nUse Second Pencil where the vehicle is already Confirmed or First Pencil. Vehicles already on Second Pencil cannot be booked again for those date(s).`
@@ -1920,12 +1901,12 @@ function CreateBookingForm({ initialStatus }) {
         return list.some((e) => e.name === employee.name && e.role === employee.role);
       });
       if (datesForEmp.length && isEmployeeOnHolidayForSave(employee.name, datesForEmp)) {
-        alert(`${employee.name} is on holiday for one or more selected dates.`);
+        systemDialogs.showSystemNotification(`${employee.name} is on holiday for one or more selected dates.`);
         return;
       }
       const unavailableNote = getEmployeeUnavailableNoteForSave(employee.name, datesForEmp);
       if (datesForEmp.length && unavailableNote) {
-        alert(
+        systemDialogs.showSystemNotification(
           `${employee.name} is marked unavailable on a note for one or more selected dates.${unavailableNote.text ? `\n\nNote: ${unavailableNote.text}` : ""}`
         );
         return;
@@ -1936,12 +1917,12 @@ function CreateBookingForm({ initialStatus }) {
       .map((e) => nameToCode[String(e?.name || "").trim().toLowerCase()])
       .filter(Boolean);
 
-    const callTimesByDatePayload = {};
-    if (bookingDates.length) {
-      bookingDates.forEach((d) => {
-        if (callTimesByDate[d]) callTimesByDatePayload[d] = callTimesByDate[d];
-      });
-    }
+    const callTimePayload = buildBookingCallTimePayload({
+      bookingDates,
+      callTimesByDate,
+      isRange,
+      useCustomDates,
+    });
 
     let nextAttachments = [...(attachments || [])];
     let nextInvoiceDocument = null;
@@ -2113,6 +2094,7 @@ function CreateBookingForm({ initialStatus }) {
 
       vehicles,
       vehicleStatus: vehicleStatusForSave,
+      uCraneArmFitted: uCraneArmFittedForSave,
       equipment,
 
       isSecondPencil,
@@ -2144,8 +2126,7 @@ function CreateBookingForm({ initialStatus }) {
         hasHotel && Number.isFinite(hotelNightsNum) && Number.isFinite(hotelPricePerNightNum)
           ? hotelNightsNum * hotelPricePerNightNum
           : 0,
-      callTime: (!isRange && !useCustomDates ? callTimesByDate[bookingDates[0]] || callTime || "" : ""),
-      ...(Object.keys(callTimesByDatePayload).length ? { callTimesByDate: callTimesByDatePayload } : {}),
+      ...callTimePayload,
 
       hasRiggingAddress,
       riggingAddress: hasRiggingAddress ? riggingAddress || "" : "",
@@ -2218,11 +2199,11 @@ function CreateBookingForm({ initialStatus }) {
         removeDraftEntry(activeDraftId);
         setActiveDraftId("");
       }
-      alert("Booking Saved");
+      systemDialogs.showSystemNotification("Booking Saved");
       router.push(openQuote ? `/quote/${bookingRef.id}` : "/dashboard?saved=true");
     } catch (err) {
       console.error(" Error saving booking:", err);
-      alert("Failed to save booking \n\n" + err.message);
+      systemDialogs.showSystemNotification("Failed to save booking \n\n" + err.message);
     }
   };
 
@@ -2234,15 +2215,25 @@ function CreateBookingForm({ initialStatus }) {
       <style>{focusCss}</style>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          <div className={layoutStyles.extracted2}>
-            <div>
-              <h1 style={h1Style}>Create Booking</h1>
-              <div style={pageSub}>Build the job, dates, crew, vehicles, equipment, files and notes in one compact workflow.</div>
+          <div className={`${layoutStyles.extracted2} ${layoutStyles.compactPageHeader}`}>
+            <div className={layoutStyles.compactTitleBlock}>
+              <div className={layoutStyles.compactTitleLine}>
+                <h1 style={h1Style}>Create Booking</h1>
+                <span className={layoutStyles.jobReference}><ClipboardList size={13} /> Job {jobNumber || "Draft"}</span>
+              </div>
+              <div style={pageSub}>
+                {client || "Production company"} · {production || "Production"} · {selectedDates.length || 0} day{selectedDates.length === 1 ? "" : "s"}
+              </div>
             </div>
-            <div style={{ ...pill, alignSelf: "flex-start", padding: `${SPACE.sm}px ${SPACE.md}px` }}>
-              <ClipboardList size={14} />
-              Job {jobNumber || "Draft"}
-            </div>
+            <button
+              type="button"
+              disabled={!coreFilled}
+              title={saveTooltip || "Save booking and open quote page"}
+              onClick={() => handleSubmit({ openQuote: true })}
+              style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed", whiteSpace: "nowrap" }}
+            >
+              <FileText size={14} /> Save & Open Quote
+            </button>
           </div>
           {referenceDataLoading && (
             <div style={{ ...subCard, color: UI.muted, fontSize: 12, marginBottom: 12 }}>
@@ -2250,44 +2241,32 @@ function CreateBookingForm({ initialStatus }) {
             </div>
           )}
 
-          <div className={layoutStyles.extracted3}>
+          <div className={layoutStyles.compactControlBar}>
             {!isBickersJob && (
-              <div style={headerChecksBox}>
-                <span style={iconBox(hasHS && hasRiskAssessment ? UI.green : UI.amber, hasHS && hasRiskAssessment ? UI.greenSoft : UI.amberSoft, hasHS && hasRiskAssessment ? UI.greenBorder : UI.amberBorder)}>
-                  <CheckCircle2 size={17} />
-                </span>
-                <div className={layoutStyles.extracted4}>
-                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+              <>
+                  <label className={layoutStyles.compactControl}>
                     <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
-                    Health & Safety Completed
+                    Health & Safety
                   </label>
-
-                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                  <label className={layoutStyles.compactControl}>
                     <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
-                    Risk Assessment Completed
+                    Risk Assessment
                   </label>
-                </div>
-              </div>
+                  <span className={layoutStyles.controlDivider} aria-hidden="true" />
+              </>
             )}
-            <div style={headerChecksBox}>
-              <span style={iconBox(offRoadTracking ? UI.green : UI.brand, offRoadTracking ? UI.greenSoft : UI.brandSoft, offRoadTracking ? UI.greenBorder : UI.brandBorder)}>
-                <Truck size={17} />
-              </span>
-              <div className={layoutStyles.extracted5}>
-                <label style={{ ...field.checkboxRow, marginBottom: 0 }} title={offRoadEligibility.reason || ""}>
+                <label className={layoutStyles.compactControl} title={offRoadEligibility.reason || ""}>
                   <input
                     type="checkbox"
                     checked={offRoadTracking}
                     disabled={!offRoadEligibility.eligible}
                     onChange={(e) => setOffRoadTracking(e.target.checked)}
                   />
-                  Off Road Tracking
+                  <Truck size={14} /> Off Road Tracking
                 </label>
-                <div style={{ fontSize: 12, color: UI.muted }}>
+                <span className={layoutStyles.compactControlHint}>
                   {offRoadEligibility.reason || "Skips tax/SORN compliance only. Insurance is still required."}
-                </div>
-              </div>
-            </div>
+                </span>
           </div>
 
           <form
@@ -2297,7 +2276,7 @@ function CreateBookingForm({ initialStatus }) {
             }}
           >
             <div className={layoutStyles.extracted6}>
-            <div className={`create-booking-grid ${layoutStyles.extracted7}`} >
+            <div className={`create-booking-grid ${layoutStyles.extracted7} ${layoutStyles.bookingColumns}`}>
               {/* Column 1: Job Info */}
               <div style={seamlessSection}>
                 <div className={layoutStyles.extracted8}>
@@ -2308,7 +2287,15 @@ function CreateBookingForm({ initialStatus }) {
                 <div className={`create-booking-two ${layoutStyles.extracted9}`} >
                   <div>
                     <label style={field.label}>Job Number</label>
-                    <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={field.input} />
+                    <input
+                      value={jobNumber}
+                      onChange={(e) => {
+                        setJobNumber(e.target.value);
+                        setDismissedExistingJobNumber("");
+                      }}
+                      required
+                      style={field.input}
+                    />
                   </div>
 
                   <div>
@@ -2332,26 +2319,90 @@ function CreateBookingForm({ initialStatus }) {
                   </div>
                 </div>
 
-                <label style={field.label}>Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setStatus(next);
-                    setEnquiryDatesEnabled(next !== "Enquiry");
-                    if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
-                      setStatusReasons([]);
-                      setStatusReasonOther("");
-                    }
-                  }}
-                  style={field.input}
-                >
-                  {VEHICLE_STATUSES.filter((s) => s !== "Complete").map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                {shouldOfferExistingJobDetails && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                      marginTop: SPACE.sm,
+                      padding: SPACE.md,
+                      borderRadius: UI.radiusSm,
+                      border: `1px solid ${UI.brandBorder}`,
+                      background: UI.brandSoft,
+                      color: UI.text,
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 800 }}>
+                      Job {jobNumber.trim()} already has {existingJobDetails.bookingCount}{" "}
+                      {existingJobDetails.bookingCount === 1 ? "booking" : "bookings"}.
+                    </div>
+                    <div style={{ marginTop: SPACE.xs, color: UI.muted, fontSize: 12 }}>
+                      Use Production Company: {existingJobDetails.client || "Not set"} · Production:{" "}
+                      {existingJobDetails.production || "Not set"}
+                      {existingJobDetails.additionalContacts.length > 0
+                        ? ` · ${existingJobDetails.additionalContacts.length} ${
+                            existingJobDetails.additionalContacts.length === 1 ? "contact" : "contacts"
+                          }`
+                        : ""}
+                      ?
+                    </div>
+                    <div style={{ display: "flex", gap: SPACE.sm, marginTop: SPACE.sm }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (existingJobDetails.client) setClient(existingJobDetails.client);
+                          if (existingJobDetails.production) setProduction(existingJobDetails.production);
+                          if (existingJobDetails.additionalContacts.length) {
+                            setAdditionalContacts((current) =>
+                              mergeBookingContacts(existingJobDetails.additionalContacts, current)
+                            );
+                          }
+                          setDismissedExistingJobNumber(normalizedJobNumber);
+                        }}
+                        style={{ ...btnPrimary, padding: "6px 10px", fontSize: 12 }}
+                      >
+                        Use details & contacts
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDismissedExistingJobNumber(normalizedJobNumber)}
+                        style={{ ...btn, padding: "6px 10px", fontSize: 12 }}
+                      >
+                        Keep my details
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className={`create-booking-two ${layoutStyles.extracted9}`}>
+                  <div>
+                    <label style={field.label}>Status</label>
+                    <select
+                      value={status}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setStatus(next);
+                        setEnquiryDatesEnabled(next !== "Enquiry");
+                        if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
+                          setStatusReasons([]);
+                          setStatusReasonOther("");
+                        }
+                      }}
+                      style={field.input}
+                    >
+                      {VEHICLE_STATUSES.filter((s) => s !== "Complete").map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={field.label}>Shoot Type</label>
+                    <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
+                      <option value="Day">Day</option>
+                      <option value="Night">Night</option>
+                    </select>
+                  </div>
+                </div>
 
                 {["Lost", "Postponed", "Cancelled"].includes(status) && (
                   <div
@@ -2395,17 +2446,16 @@ function CreateBookingForm({ initialStatus }) {
 
                 <div className={layoutStyles.extracted13} />
 
-                <label style={field.label}>Shoot Type</label>
-                <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
-                  <option value="Day">Day</option>
-                  <option value="Night">Night</option>
-                </select>
-
-                <label style={field.label}>Production Company</label>
-                <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
-
-                <label style={field.label}>Production</label>
-                <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} />
+                <div className={`create-booking-two ${layoutStyles.extracted9}`}>
+                  <div>
+                    <label style={field.label}>Production Company</label>
+                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
+                  </div>
+                  <div>
+                    <label style={field.label}>Production</label>
+                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} />
+                  </div>
+                </div>
 
                 {/* Contacts block only */}
                 <div
@@ -2419,11 +2469,39 @@ function CreateBookingForm({ initialStatus }) {
                 >
                   <div className={layoutStyles.extracted14}>
                     <span className={layoutStyles.extracted15}>Contacts</span>
-                    <button type="button" onClick={handleAddContactRow} style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
-                      + Add contact
-                    </button>
+                    <div className={layoutStyles.contactActions}>
+                      {contactsExpanded && (
+                        <button type="button" onClick={handleAddContactRow} style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>+ Add contact</button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!contactsExpanded) ensureSavedContactsLoaded();
+                          setContactsExpanded((open) => !open);
+                        }}
+                        style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
+                      >
+                        {contactsExpanded ? "Done" : additionalContacts.length ? "Edit" : "+ Add contact"}
+                      </button>
+                    </div>
                   </div>
 
+                  {!contactsExpanded ? (
+                    <button type="button" className={layoutStyles.contactSummary} onClick={() => setContactsExpanded(true)}>
+                      {additionalContacts.length ? (
+                        additionalContacts.map((contact, index) => (
+                          <span key={`${contact.name || contact.email || "contact"}-${index}`}>
+                            <strong>{contact.name || contact.email || "Unnamed contact"}</strong>
+                            <small>{contact.department === "Other" ? contact.departmentOther : contact.department || "No department"}</small>
+                          </span>
+                        ))
+                      ) : (
+                        <span><strong>No contacts added</strong><small>Add a production contact</small></span>
+                      )}
+                      <ChevronRight size={16} />
+                    </button>
+                  ) : (
+                    <>
                   {additionalContacts.map((row, idx) => (
                     <div
                       key={idx}
@@ -2494,55 +2572,18 @@ function CreateBookingForm({ initialStatus }) {
                     </div>
                   ))}
 
-                  <div className={layoutStyles.extracted19}>
-                    <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>
-                      Quick add from saved contacts
-                    </label>
-                    {!savedContactsLoaded ? (
-                      <button
-                        type="button"
-                        onClick={ensureSavedContactsLoaded}
-                        disabled={savedContactsLoading}
-                        style={{ ...btn, width: "100%", justifyContent: "center" }}
-                      >
-                        {savedContactsLoading ? "Loading saved contacts..." : "Load saved contacts"}
-                      </button>
-                    ) : (
-                      <>
-                        <input
-                          type="text"
-                          value={savedContactSearch}
-                          onChange={(e) => setSavedContactSearch(e.target.value)}
-                          placeholder="Search saved contacts..."
-                          style={{ ...field.input, marginBottom: 6 }}
-                        />
-                        <select
-                          value={selectedSavedContactId}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSelectedSavedContactId(val);
-                            if (val) {
-                              handleQuickAddSavedContact(val);
-                              setSelectedSavedContactId("");
-                            }
-                          }}
-                          style={field.input}
-                        >
-                          <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
-                          {filteredSavedContacts.map((c) => {
-                            const labelBase = c.name || c.email || "Unnamed";
-                            const deptLabel = c.department ? ` - ${c.department}` : "";
-                            return (
-                              <option key={c.id} value={c.id}>
-                                {labelBase}
-                                {deptLabel}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </>
-                    )}
-                  </div>
+                  <SavedContactPicker
+                    contacts={filteredSavedContacts}
+                    existingContacts={additionalContacts}
+                    loaded={savedContactsLoaded}
+                    loading={savedContactsLoading}
+                    query={savedContactSearch}
+                    onQueryChange={setSavedContactSearch}
+                    onLoad={ensureSavedContactsLoaded}
+                    onSelect={handleQuickAddSavedContact}
+                  />
+                    </>
+                  )}
                 </div>
 
                 <label style={field.label}>Location</label>
@@ -2609,6 +2650,25 @@ function CreateBookingForm({ initialStatus }) {
                     />
                   )}
                 </div>
+
+                <div className={layoutStyles.inlineSection}>
+                  <div className={layoutStyles.inlineSectionHeader}>
+                    <span><FileText size={15} /> Files</span>
+                    <small>{attachments.length + newFiles.length} attached</small>
+                  </div>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.xls,.xlsx,.csv,.jpg,.jpeg,image/jpeg"
+                    onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
+                    className={layoutStyles.fileInput}
+                    style={{ ...field.input, height: "auto", padding: SPACE.md }}
+                  />
+                  {pdfProgress > 0 && <div className={layoutStyles.inlineHint}>Uploading: {pdfProgress}%</div>}
+                  {newFiles.length > 0 && (
+                    <div className={layoutStyles.inlineHint}>{newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — uploads on Save.</div>
+                  )}
+                </div>
               </div>
 
               {/* Column 2: Dates & People */}
@@ -2631,25 +2691,27 @@ function CreateBookingForm({ initialStatus }) {
 
                 {dateEntryEnabled ? (
                   <>
-                    <label style={field.checkboxRow}>
-                      <input
-                        type="checkbox"
-                        checked={useCustomDates}
-                        onChange={(e) => {
-                          const on = e.target.checked;
-                          setUseCustomDates(on);
-                          if (on) setIsRange(false);
-                        }}
-                      />
-                      Select non-consecutive dates
-                    </label>
-
-                    {!useCustomDates && (
+                    <div className={layoutStyles.dateModeRow}>
                       <label style={field.checkboxRow}>
-                        <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
-                        Multi-day booking (consecutive)
+                        <input
+                          type="checkbox"
+                          checked={useCustomDates}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setUseCustomDates(on);
+                            if (on) setIsRange(false);
+                          }}
+                        />
+                        Select non-consecutive dates
                       </label>
-                    )}
+
+                      {!useCustomDates && (
+                        <label style={field.checkboxRow}>
+                          <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
+                          Multi-day booking (consecutive)
+                        </label>
+                      )}
+                    </div>
 
                     {useCustomDates ? (
                       <div className={layoutStyles.extracted23}>
@@ -2791,6 +2853,24 @@ function CreateBookingForm({ initialStatus }) {
 
                 <div className={layoutStyles.extracted31} />
 
+                <div className={layoutStyles.crewSummaryHeader}>
+                  <div className={layoutStyles.crewSelection}>
+                    {employees.filter((employee) => employee.name && employee.name !== "Other").length ? (
+                      employees.filter((employee) => employee.name && employee.name !== "Other").map((employee) => (
+                        <span className={layoutStyles.selectionChip} key={`${employee.role}-${employee.name}`}>
+                          <Users size={13} />
+                          {employee.name}
+                          <small>{employee.role}</small>
+                          <button type="button" aria-label={`Remove ${employee.name}`} onClick={() => {
+                            setEmployees((current) => current.filter((item) => !(item.role === employee.role && item.name === employee.name)));
+                            upsertEmployeeDates(employee.role, employee.name, false);
+                          }}><X size={12} /></button>
+                        </span>
+                      ))
+                    ) : <span className={layoutStyles.emptySelection}>No crew selected</span>}
+                  </div>
+                </div>
+
                 <h4 className={layoutStyles.extracted32}>
                   <Users size={15} /> Precision Driver
                 </h4>
@@ -2833,20 +2913,20 @@ function CreateBookingForm({ initialStatus }) {
                 </div>
 
                 {/* Required crew guidance + manual crewed checkbox */}
-                <div style={{ marginTop: SPACE.sm, padding: SPACE.sm, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-surface-subtle)" }}>
-                  <div className={`create-booking-crew-box ${layoutStyles.extracted35}`} >
-                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: SPACE.sm, fontSize: 13, minHeight: 36, padding: `0 ${SPACE.sm}px`, borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+                <div className={layoutStyles.crewAllocationBar}>
+                    <label className={layoutStyles.crewVisibilityToggle}>
                       <input
                         type="checkbox"
                         checked={isCrewed}
                         onChange={(e) => setIsCrewed(e.target.checked)}
                         className={layoutStyles.extracted36}
                       />
-                      Crewed — show in employee app
+                      <span><strong>Employee app</strong><small>Show assigned crew</small></span>
                     </label>
-                    <div style={{ display: "grid", gap: SPACE.xs, padding: SPACE.xs, borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-                      <label style={{ ...field.label, marginTop: 0, marginBottom: 0, fontSize: 9.5, lineHeight: 1 }}>Required</label>
+                    <label className={layoutStyles.crewRequiredMetric}>
+                      <span>Required</span>
                       <input
+                        aria-label="Required crew"
                         type="number"
                         min={0}
                         step={1}
@@ -2855,17 +2935,15 @@ function CreateBookingForm({ initialStatus }) {
                           const v = Math.max(0, parseInt(e.target.value || "0", 10));
                           setRequiredCrewCount(Number.isFinite(v) ? v : 0);
                         }}
-                        style={{ ...field.input, height: 20, width: "100%", textAlign: "right", padding: 0, border: "none", background: "transparent", boxShadow: "none", fontWeight: 800 }}
                       />
+                    </label>
+                    <div className={layoutStyles.crewAllocatedMetric}>
+                      <span>Allocated</span>
+                      <strong>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</strong>
                     </div>
-                    <div style={{ display: "grid", gap: SPACE.xs, alignContent: "center", padding: `${SPACE.xs}px ${SPACE.sm}px`, borderRadius: UI.radiusXs, background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-                      <span style={{ fontSize: 9.5, color: UI.muted, fontWeight: 800, textTransform: "uppercase", lineHeight: 1 }}>Allocated</span>
-                      <span className={layoutStyles.extracted37}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
-                    </div>
-                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--color-success)" : "var(--color-warning)", background: isCrewed ? "var(--color-success-soft)" : "var(--color-warning-soft)", border: `1px solid ${isCrewed ? "var(--color-success-border)" : "var(--color-warning-border)"}`, borderRadius: 999, padding: `${SPACE.xs}px ${SPACE.sm}px`, fontWeight: 900 }}>
-                      {isCrewed ? "Visible in employee app" : "Hidden from employee app"}
+                    <span className={`${layoutStyles.crewVisibilityStatus} ${isCrewed ? layoutStyles.crewVisibilityStatusActive : ""}`}>
+                      {isCrewed ? "Visible in app" : "Hidden from app"}
                     </span>
-                  </div>
                 </div>
 
                 <h4 className={layoutStyles.extracted38}>
@@ -2963,25 +3041,84 @@ function CreateBookingForm({ initialStatus }) {
                     </div>
                   </>
                 )}
+
+                <div className={layoutStyles.inlineSection}>
+                  <div className={layoutStyles.inlineSectionHeader}>
+                    <span><FileText size={15} /> Notes & accommodation</span>
+                  </div>
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} style={{ ...field.textarea, minHeight: 72, background: "var(--color-surface)" }} placeholder="Anything extra to include for this booking..." />
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input type="checkbox" checked={hasHotel} onChange={(e) => {
+                      const checked = e.target.checked;
+                      setHasHotel(checked);
+                      if (!checked) {
+                        setHotelPaidBy("");
+                        setHotelNights("");
+                        setHotelPricePerNight("");
+                      }
+                    }} />
+                    Hotel Booked
+                  </label>
+                  {hasHotel && (
+                    <>
+                      <div className={`create-booking-hotel ${layoutStyles.extracted64}`}>
+                        <div><label style={field.label}>Paid by</label><select value={hotelPaidBy} onChange={(e) => setHotelPaidBy(e.target.value)} style={field.input}><option value="">Select</option><option value="Production">Production</option><option value="Bickers">Bickers</option></select></div>
+                        <div><label style={field.label}>Nights</label><input type="number" min={0} step={1} value={hotelNights} onChange={(e) => setHotelNights(e.target.value)} style={field.input} /></div>
+                        <div><label style={field.label}>Price per night</label><input type="number" min={0} step="0.01" value={hotelPricePerNight} onChange={(e) => setHotelPricePerNight(e.target.value)} style={field.input} /></div>
+                      </div>
+                      <div className={layoutStyles.inlineHint}>Total: <b>{hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}</b></div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Column 3: Vehicles + Equipment */}
-              <div style={{ ...seamlessSection, borderBottom: "none", paddingBottom: 0 }}>
+              <div className={layoutStyles.resourceCard} style={seamlessSection}>
                 <div className={layoutStyles.extracted47}>
                   <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
-                  <h3 style={cardTitle}>Vehicles</h3>
+                  <h3 style={cardTitle}>Vehicles & Resources</h3>
                 </div>
+                <div className={layoutStyles.resourceHeader}>
+                  <div className={layoutStyles.resourceTabs} role="tablist" aria-label="Booking resources">
+                    <button type="button" role="tab" aria-selected={resourceTab === "vehicles"} className={resourceTab === "vehicles" ? layoutStyles.resourceTabActive : layoutStyles.resourceTab} onClick={() => setResourceTab("vehicles")}>
+                      <Truck size={15} /> Vehicles <span>{vehicles.length}</span>
+                    </button>
+                    <button type="button" role="tab" aria-selected={resourceTab === "equipment"} className={resourceTab === "equipment" ? layoutStyles.resourceTabActive : layoutStyles.resourceTab} onClick={() => setResourceTab("equipment")}>
+                      <Package size={15} /> Equipment <span>{equipment.length}</span>
+                    </button>
+                  </div>
+                  <small className={layoutStyles.resourceSelectionSummary}>{vehicles.length + equipment.length} selected</small>
+                </div>
+
+                {(vehicles.length > 0 || equipment.length > 0) && (
+                  <div className={layoutStyles.selectedResources} aria-label="Selected resources">
+                    {selectedVehicleDetails.map((vehicle) => (
+                      <span className={layoutStyles.selectionChip} key={vehicle.id}>
+                        <Truck size={13} /> {vehicle.name}{vehicle.registration ? ` · ${vehicle.registration}` : ""}
+                        <button type="button" aria-label={`Remove ${vehicle.name}`} onClick={() => toggleVehicle(vehicle.id, false)}><X size={12} /></button>
+                      </span>
+                    ))}
+                    {equipment.map((name) => (
+                      <span className={layoutStyles.selectionChip} key={name}>
+                        <Package size={13} /> {name}
+                        <button type="button" aria-label={`Remove ${name}`} onClick={() => setEquipment((current) => current.filter((item) => item !== name))}><X size={12} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className={layoutStyles.extracted48}>
                   <Search size={16} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
                   <input
                     type="text"
                     value={assetSearch}
                     onChange={(e) => setAssetSearch(e.target.value)}
-                    placeholder="Search vehicles and equipment..."
+                    placeholder={resourceTab === "vehicles" ? "Search vehicles..." : "Search equipment..."}
                     style={{ ...field.input, paddingLeft: 34 }}
                   />
                 </div>
 
+                {resourceTab === "vehicles" && (
+                  <>
                 <div className={`create-booking-assets ${layoutStyles.extracted49}`} >
                   {filteredVehicleGroups.map(([group, items]) => {
                     const isOpen = openGroups[group] || false;
@@ -3000,10 +3137,17 @@ function CreateBookingForm({ initialStatus }) {
                             {items.map((vehicle) => {
                               const key = vehicle.id;
                               const isBooked = bookedVehicleIds.includes(key);
-                              const hasBookingConflict = existingVehicleStatusConflictsWithRequested(vehicleBlockingStatusesById[key] || [], status);
+                              const existingStatuses = vehicleBlockingStatusesById[key] || [];
+                              const hasBookingConflict = existingVehicleStatusConflictsWithRequested(existingStatuses, status);
                               const blockedStatus = vehicleBlockingStatusById[key];
                               const isHeld = heldVehicleIds.includes(key);
                               const isSelected = vehicles.includes(key);
+                              const priorityStatuses = existingStatuses.filter((existingStatus) =>
+                                ["Confirmed", "First Pencil"].includes(String(existingStatus || "").trim())
+                              );
+                              const canAddAsSecondPencil =
+                                hasBookingConflict &&
+                                canAutoAssignVehicleAsSecondPencil(existingStatuses, status);
 
                               const isMaintBlocked = maintenanceVehicleBlocking.ids.has(key);
                               const maintReason = maintenanceVehicleBlocking.reasonById[key] || "Maintenance";
@@ -3011,7 +3155,13 @@ function CreateBookingForm({ initialStatus }) {
                               const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                               const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                               const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                              const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
+                              // Maintenance, inspection/compliance and defect states remain visible as
+                              // warnings. Only the existing booking pencil/status rules prevent selection.
+                              const disabled = hasBookingConflict && !isSelected && !canAddAsSecondPencil;
+                              const selectedBehindPriority =
+                                isSelected &&
+                                priorityStatuses.length > 0 &&
+                                (vehicleStatus[key] || status) === SECOND_PENCIL_STATUS;
 
                               return (
                                 <div
@@ -3019,6 +3169,7 @@ function CreateBookingForm({ initialStatus }) {
                                   style={{
                                     display: "flex",
                                     alignItems: "center",
+                                    flexWrap: "wrap",
                                     gap: 8,
                                     marginBottom: 8,
                                     opacity: disabled ? 0.55 : 1,
@@ -3026,18 +3177,32 @@ function CreateBookingForm({ initialStatus }) {
                                   }}
                                   title={
                                     disabled
-                                      ? isMaintBlocked
-                                        ? `Vehicle is out for ${maintReason} during selected date(s)`
-                                        : isDefectBlocked
-                                        ? `Vehicle is blocked: ${defectReason}`
-                                        : status === SECOND_PENCIL_STATUS
+                                      ? status === SECOND_PENCIL_STATUS
                                         ? "Vehicle already has a Second Pencil booking on overlapping date(s)"
                                         : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s). Use Second Pencil to add a softer hold.`
-                                      : ""
+                                      : [
+                                          canAddAsSecondPencil
+                                            ? `Already ${priorityStatuses.join(" / ")} on the selected date(s). Selecting it will add it as Second Pencil.`
+                                            : "",
+                                          isMaintBlocked ? `${maintReason} overlaps the selected date(s)` : "",
+                                          isComplianceBlocked ? complianceReason : "",
+                                          isDefectBlocked ? defectReason : "",
+                                        ].filter(Boolean).join("; ")
                                   }
                                 >
-                                  <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
-                                  <span style={{ flex: 1, color: disabled ? "var(--color-text-muted)" : UI.text }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    disabled={disabled}
+                                    onChange={(e) =>
+                                      toggleVehicle(
+                                        key,
+                                        e.target.checked,
+                                        e.target.checked && canAddAsSecondPencil ? SECOND_PENCIL_STATUS : ""
+                                      )
+                                    }
+                                  />
+                                  <span style={{ flex: "1 1 180px", color: disabled ? "var(--color-text-muted)" : UI.text }}>
                                     {vehicle.name}
                                     {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                     {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
@@ -3047,6 +3212,24 @@ function CreateBookingForm({ initialStatus }) {
                                     {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                   </span>
 
+                                  {isSelected && isUCraneVehicle(vehicle) && (
+                                    <select
+                                      value={isUCraneArmFitted(uCraneArmFitted, key) ? "fitted" : "not-fitted"}
+                                      onChange={(e) =>
+                                        setUCraneArmFitted((prev) => ({
+                                          ...prev,
+                                          [key]: e.target.value === "fitted",
+                                        }))
+                                      }
+                                      className={layoutStyles.extracted52}
+                                      aria-label={`${vehicle.name || "U-Crane vehicle"} arm setup`}
+                                      title="Choose whether the U-Crane arm is fitted for this booking"
+                                    >
+                                      <option value="fitted">Arm fitted</option>
+                                      <option value="not-fitted">Vehicle only — no arm</option>
+                                    </select>
+                                  )}
+
                                   {isSelected && (
                                     <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} className={layoutStyles.extracted52} title="Vehicle status">
                                       {VEHICLE_STATUSES.map((s) => (
@@ -3055,6 +3238,28 @@ function CreateBookingForm({ initialStatus }) {
                                         </option>
                                       ))}
                                     </select>
+                                  )}
+
+                                  {selectedBehindPriority && (
+                                    <div
+                                      role="status"
+                                      style={{
+                                        flex: "1 1 calc(100% - 24px)",
+                                        maxWidth: "calc(100% - 24px)",
+                                        minWidth: 0,
+                                        marginLeft: 24,
+                                        boxSizing: "border-box",
+                                        padding: "6px 8px",
+                                        border: `1px solid ${UI.amberBorder}`,
+                                        borderRadius: UI.radiusSm,
+                                        background: UI.amberSoft,
+                                        color: UI.amber,
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      This vehicle is already {priorityStatuses.join(" / ")} on the selected date(s). It has been added as Second Pencil.
+                                    </div>
                                   )}
                                 </div>
                               );
@@ -3069,14 +3274,11 @@ function CreateBookingForm({ initialStatus }) {
                 {filteredVehicleGroups.length === 0 && (
                   <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
                 )}
+                  </>
+                )}
 
-                <div className={layoutStyles.extracted53} />
-
-                <div className={layoutStyles.extracted54}>
-                  <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}><Package size={17} /></span>
-                  <h3 style={cardTitle}>Equipment</h3>
-                </div>
-
+                {resourceTab === "equipment" && (
+                  <>
                 <div className={`create-booking-assets ${layoutStyles.extracted55}`} >
                   {filteredEquipmentGroups.map(([group, items]) => {
                     const isOpen = openEquipGroups[group] || false;
@@ -3147,41 +3349,14 @@ function CreateBookingForm({ initialStatus }) {
                 {filteredEquipmentGroups.length === 0 && (
                   <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
                 )}
+                  </>
+                )}
 
-              </div>
-            </div>
-
-            <div style={seamlessSection}>
-              <div className={layoutStyles.extracted58}>
-                <div className={layoutStyles.extracted59}>
-                  <span style={iconBox()}><FileText size={17} /></span>
-                  <div>
-                    <h3 style={cardTitle}>Quote</h3>
-                    <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
-                      Save this booking first, then build the quote in the Bickers quote format.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={!coreFilled}
-                  title={saveTooltip || "Save booking and open quote page"}
-                  onClick={() => handleSubmit({ openQuote: true })}
-                  style={{
-                    ...btnPrimary,
-                    background: UI.green,
-                    opacity: coreFilled ? 1 : 0.5,
-                    cursor: coreFilled ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <FileText size={14} />
-                  Save & Open Quote
-                </button>
               </div>
             </div>
 
             {/* Files & Notes */}
-            <div className={`create-booking-two ${layoutStyles.extracted60}`} >
+            <div className={`create-booking-two ${layoutStyles.extracted60} ${layoutStyles.legacyFilesNotes}`}>
                 <div style={seamlessSection}>
                   <div className={layoutStyles.extracted61}>
                     <span style={iconBox()}><FileText size={17} /></span>
@@ -3299,8 +3474,32 @@ function CreateBookingForm({ initialStatus }) {
                 </div>
             </div>
 
-            {/* Summary */}
-            <div className={layoutStyles.extracted66}>
+            <div className={layoutStyles.stickyActionBar}>
+              <div className={layoutStyles.compactReview} aria-label="Booking review">
+                <span><strong>Job</strong> {jobNumber || "Draft"}</span>
+                <span className={layoutStyles.reviewStatus} style={jobStatusBadgeStyle(status)}>{status || "No status"}</span>
+                <span>{selectedDates.length ? formatSummaryDates(selectedDates) : "No dates"}</span>
+                <span>{location || "No location"}</span>
+                <span>{employees.filter((employee) => employee.name && employee.name !== "Other").length} crew</span>
+                <span>{vehicles.length} vehicles · {equipment.length} equipment</span>
+              </div>
+              <div className={layoutStyles.stickyActions}>
+                <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>Cancel</button>
+                <button
+                  type="button"
+                  disabled={!coreFilled}
+                  title={saveTooltip || "Save booking and open quote page"}
+                  onClick={() => handleSubmit({ openQuote: true })}
+                  style={{ ...btnPrimary, background: UI.green, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
+                ><FileText size={14} /> Save & Quote</button>
+                <button type="submit" disabled={!coreFilled} title={saveTooltip} style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}>
+                  <Save size={14} /> Save Booking
+                </button>
+              </div>
+            </div>
+
+            {/* Kept mounted for draft compatibility; hidden by the compact layout. */}
+            <div className={`${layoutStyles.extracted66} ${layoutStyles.legacySummary}`}>
               <div style={summaryCard}>
                 <div className={layoutStyles.extracted67}>
                   <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><ClipboardList size={17} /></span>
@@ -3392,5 +3591,5 @@ function CreateBookingForm({ initialStatus }) {
 }
 
 export default function CreateBookingPage() {
-  return <CreateBookingForm initialStatus="Confirmed" />;
+  return <CreateBookingForm initialStatus="First Pencil" />;
 }

@@ -1,6 +1,6 @@
 {
   "name": "bickers-booking",
-  "version": "3.0.5",
+  "version": "3.1.0-rc.1",
   "private": true,
   "scripts": {
     "predev": "node scripts/prepare-next-dev-cache.mjs",
@@ -8,23 +8,34 @@
     "dev:clean": "node scripts/prepare-next-dev-cache.mjs --reset && next dev",
     "predev:turbo": "node scripts/prepare-next-dev-cache.mjs",
     "dev:turbo": "next dev --turbopack",
-    "prebuild": "node scripts/write-build-info.mjs",
+    "prebuild": "npm run config:validate && node scripts/write-build-info.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --incremental false",
+    "config:validate": "node scripts/validate-deployment-config.mjs",
+    "audit:deployment-admins": "node scripts/audit-deployment-admin-roles.mjs",
     "audit:access": "node scripts/security-access-audit.mjs",
     "audit:auth-repair": "node scripts/auth-access-repair-report.mjs",
     "audit:styles": "node scripts/style-audit.mjs",
     "audit:styles:check": "node scripts/style-audit.mjs --check",
+    "audit:maintenance": "node scripts/audit-maintenance-data.mjs",
+    "backup:maintenance": "node scripts/export-maintenance-backup.mjs",
     "test:access": "node --test tests/accessControl.test.mjs",
     "test:appearance": "node --test tests/globalAppearance.test.mjs",
     "test:firestore-rules": "firebase emulators:exec --only firestore --project demo-bickers-service-access-rules \"node --test tests/firestoreServiceAccess.rules.test.mjs\"",
     "test:storage-rules": "firebase emulators:exec --only firestore,storage --project demo-bickers-storage-access-rules \"node --test tests/storageAccess.rules.test.mjs\"",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
     "test:dates": "node --test tests/dateNormalization.test.mjs",
-    "test:vehicle-maintenance-flow": "node --test tests/vehicleMaintenanceFlow.test.mjs",
-    "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
+    "test:activity-tracking": "node --test tests/activityTracking.test.mjs",
+    "test:vehicle-maintenance-flow": "node --test tests/vehicleMaintenanceFlow.test.mjs tests/maintenanceRecord.test.mjs tests/maintenanceMutationPolicy.test.mjs tests/maintenanceDataAudit.test.mjs tests/maintenanceAlerts.test.mjs",
+    "test:unit": "node scripts/run-node-test-suite.mjs",
+    "test:rules": "node scripts/run-with-jdk21.mjs -- npm run test:firestore-rules && node scripts/run-with-jdk21.mjs -- npm run test:storage-rules",
+    "test:browser": "playwright test",
+    "verify:production": "npm run test:unit && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:browser",
+    "verify:clean-checkout": "node scripts/verify-clean-checkout.mjs",
+    "migrate:employee-access": "node scripts/migrate-employee-access.mjs",
+    "migrate:receipt-groups": "node scripts/migrate-receipt-groups.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.18",
@@ -58,6 +69,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@firebase/rules-unit-testing": "^4.0.1",
+    "@playwright/test": "^1.62.1",
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
     "firebase-tools": "^15.24.0"

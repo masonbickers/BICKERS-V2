@@ -1,8 +1,10 @@
 
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./ViewBookingModal.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Modal } from "@/app/components/ui";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
   doc,
@@ -14,7 +16,6 @@ import {
 } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
-import RouteLoadingOverlay from "./RouteLoadingOverlay";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   dataAccessKey,
@@ -24,6 +25,10 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import {
+  isUCraneArmFitted,
+  isUCraneVehicle,
+} from "@/app/utils/uCraneBookingConfiguration";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -315,7 +320,7 @@ export default function ViewBookingModal({
   const [deleteReasonOther, setDeleteReasonOther] = useState("");
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
-  const [editProgress, setEditProgress] = useState(0);
+  const deleteInProgressRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -323,63 +328,47 @@ export default function ViewBookingModal({
     if (editLoading) return;
 
     setEditLoading(true);
-    setEditProgress(8);
 
     try {
       const bookingForCache = booking?.id ? booking : { ...(booking || {}), id };
       cacheBookingForEdit(bookingForCache);
 
-      setTimeout(() => {
-        try {
-          if (typeof onEdit === "function") {
-            onEdit(bookingForCache);
-            return;
-          }
-          const returnTo =
-            typeof window !== "undefined"
-              ? `${pathname || "/dashboard"}${window.location.search || ""}`
-              : pathname || "/dashboard";
-          router.push(`/edit-booking/${id}?returnTo=${encodeURIComponent(returnTo)}`);
-        } catch (error) {
-          console.error("Open edit booking failed:", error);
-          setEditLoading(false);
-          setEditProgress(0);
-          alert("Failed to open edit page. Please try again.");
+      let editHref = "";
+      if (typeof onEdit === "function") {
+        editHref = onEdit(bookingForCache);
+        if (
+          typeof editHref !== "string" ||
+          !editHref.startsWith("/") ||
+          editHref.startsWith("//")
+        ) {
+          throw new Error("Edit destination was not provided.");
         }
-      }, 80);
+      } else {
+        const returnTo =
+          typeof window !== "undefined"
+            ? `${pathname || "/dashboard"}${window.location.search || ""}`
+            : pathname || "/dashboard";
+        editHref = `/edit-booking/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(returnTo)}`;
+      }
+
+      router.push(editHref);
     } catch (error) {
-      console.error("Prepare edit booking failed:", error);
+      console.error("Open edit booking failed:", error);
       setEditLoading(false);
-      setEditProgress(0);
-      alert("Failed to open edit page. Please try again.");
+      systemDialogs.showSystemNotification("Failed to open edit page. Please try again.");
     }
   };
-
-  useEffect(() => {
-    if (!editLoading) return undefined;
-
-    const timer = setInterval(() => {
-      setEditProgress((current) => {
-        if (current >= 95) return current;
-        const step = current < 45 ? 9 : current < 75 ? 5 : 2;
-        return Math.min(95, current + step);
-      });
-    }, 320);
-
-    return () => clearInterval(timer);
-  }, [editLoading]);
-
-  useEffect(() => {
-    const onEsc = (e) => e.key === "Escape" && !editLoading && onClose?.();
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [onClose, editLoading]);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
+        // The dashboard's live listener removes this booking from
+        // `initialBooking` as soon as deleteDoc runs. Do not interpret that
+        // expected update as a reason to reload the document being deleted.
+        if (deleteInProgressRef.current) return;
+
         if (!fromDeleted && String(initialBooking?.id || "") === String(id || "")) {
           setBooking(initialBooking);
           return;
@@ -399,7 +388,7 @@ export default function ViewBookingModal({
           if (!mounted) return;
 
           if (!delSnap.exists()) {
-            alert("Deleted booking not found");
+            systemDialogs.showSystemNotification("Deleted booking not found");
             onClose?.();
             return;
           }
@@ -428,10 +417,11 @@ export default function ViewBookingModal({
         if (!mounted) return;
 
         if (snap.exists()) setBooking({ id: snap.id, ...snap.data() });
-        else alert("Booking not found");
+        else if (!deleteInProgressRef.current) systemDialogs.showSystemNotification("Booking not found");
       } catch (e) {
+        if (deleteInProgressRef.current) return;
         console.error("Load booking failed:", e);
-        alert(`Failed to load booking${e?.code ? ` (${e.code})` : ""}. Check console.`);
+        systemDialogs.showSystemNotification(`Failed to load booking${e?.code ? ` (${e.code})` : ""}. Check console.`);
       }
     })();
 
@@ -493,9 +483,12 @@ export default function ViewBookingModal({
       const name =
         v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(vid || "");
       const plate = v?.registration ? String(v.registration).toUpperCase() : "";
-      return { id: vid || `${name}-${plate}`, name, plate, status };
+      const armFitted = isUCraneVehicle(v)
+        ? isUCraneArmFitted(booking?.uCraneArmFitted, vid)
+        : null;
+      return { id: vid || `${name}-${plate}`, name, plate, status, armFitted };
     });
-  }, [normalizedVehicles, vehicleStatusById, booking?.status]);
+  }, [normalizedVehicles, vehicleStatusById, booking?.status, booking?.uCraneArmFitted]);
 
   const dayKeys = useMemo(() => listBookingDaysYMD(booking), [booking]);
 
@@ -525,23 +518,25 @@ export default function ViewBookingModal({
 
   const handleDelete = async () => {
     if (!deleteReasons.length) {
-      alert("Please choose at least one reason for delete.");
+      systemDialogs.showSystemNotification("Please choose at least one reason for delete.");
       return;
     }
     if (deleteReasons.includes("Other") && !deleteReasonOther.trim()) {
-      alert("Please enter the 'Other' reason.");
+      systemDialogs.showSystemNotification("Please enter the 'Other' reason.");
       return;
     }
 
-    const confirmDelete = confirm("Are you sure you want to delete this booking?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this booking?");
     if (!confirmDelete) return;
+
+    deleteInProgressRef.current = true;
 
     try {
       const bookingRef = doc(db, "bookings", String(id));
       const snap = await getDoc(bookingRef);
 
       if (!snap.exists()) {
-        alert("Booking not found (already deleted?)");
+        systemDialogs.showSystemNotification("Booking not found (already deleted?)");
         onClose?.();
         return;
       }
@@ -562,18 +557,19 @@ export default function ViewBookingModal({
 
       await deleteDoc(bookingRef);
 
-      alert("Booking deleted (stored in Deleted Bookings)");
+      systemDialogs.showSystemNotification("Booking deleted (stored in Deleted Bookings)");
       onClose?.();
     } catch (err) {
+      deleteInProgressRef.current = false;
       console.error("Delete failed:", err);
-      alert("Delete failed. Check console.");
+      systemDialogs.showSystemNotification("Delete failed. Check console.");
     }
   };
 
   const handleRestore = async () => {
     if (!fromDeleted) return;
 
-    const ok = confirm("Restore this booking back into Bookings?");
+    const ok = await systemDialogs.confirmSystem("Restore this booking back into Bookings?");
     if (!ok) return;
 
     try {
@@ -594,11 +590,11 @@ export default function ViewBookingModal({
       const delDocId = booking?.__deletedDocId || deletedId || id;
       await deleteDoc(doc(db, "deletedBookings", String(delDocId)));
 
-      alert("Restored ");
+      systemDialogs.showSystemNotification("Restored ");
       onClose?.();
     } catch (e) {
       console.error("Restore failed:", e);
-      alert("Restore failed. Check console.");
+      systemDialogs.showSystemNotification("Restore failed. Check console.");
     }
   };
 
@@ -625,6 +621,9 @@ export default function ViewBookingModal({
   const additionalContacts = Array.isArray(booking.additionalContacts)
     ? booking.additionalContacts
     : [];
+  const hasDayNotes =
+    booking.notesByDate &&
+    Object.keys(booking.notesByDate).some((key) => /^\d{4}-\d{2}-\d{2}$/.test(key));
   const historyTrail = Array.isArray(booking.history)
     ? [...booking.history]
         .map((entry, index) => ({
@@ -651,23 +650,18 @@ export default function ViewBookingModal({
     : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
   return (
-    <div
-      className={layoutStyles.extracted1}
-      onClick={(e) => e.target === e.currentTarget && !editLoading && onClose?.()}
-    >
-      <div className={layoutStyles.extracted2}>
-        {/* Header */}
-        <div className={layoutStyles.extracted3}>
-          <div>
-            <div className={layoutStyles.extracted4}>Job #{booking.jobNumber || "-"}</div>
-            <h2 className={layoutStyles.extracted5}>{booking.client || "Booking Details"}</h2>
-            {fromDeleted && (
-              <div className={layoutStyles.extracted6}>
+    <Modal
+      open
+      onClose={() => !editLoading && onClose?.()}
+      eyebrow={`Job #${booking.jobNumber || "-"}`}
+      title={booking.client || "Booking details"}
+      description={fromDeleted ? (
+              <span className={layoutStyles.extracted6}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
-              </div>
-            )}
-          </div>
+              </span>
+            ) : null}
+      headerActions={
           <span
             style={{
               ...badge,
@@ -677,7 +671,25 @@ export default function ViewBookingModal({
           >
             {booking.status || "-"}
           </span>
-        </div>
+      }
+      size="xl"
+      density="compact"
+      footer={fromDeleted ? (
+        <>
+          <Button onClick={handleRestore} variant="success" size="sm">Restore</Button>
+          <Button onClick={onClose} variant="secondary" size="sm">Close</Button>
+        </>
+      ) : (
+        <>
+          {canViewQuote ? (
+            <Button onClick={() => router.push(quoteViewHref)} disabled={editLoading} size="sm">View quote</Button>
+          ) : null}
+          <Button onClick={handleEdit} disabled={editLoading} loading={editLoading} size="sm">Edit</Button>
+          <Button onClick={handleDelete} disabled={editLoading} variant="danger" size="sm">Delete</Button>
+          <Button onClick={onClose} disabled={editLoading} variant="secondary" size="sm">Close</Button>
+        </>
+      )}
+    >
 
         {/* Quick chips */}
         <div className={layoutStyles.extracted7}>
@@ -792,6 +804,9 @@ export default function ViewBookingModal({
                         <span key={`${v.id}-${i}`} className={layoutStyles.extracted29}>
                           {v.name}
                           {v.plate && <span className={layoutStyles.extracted30}>{v.plate}</span>}
+                          {v.armFitted === false && (
+                            <span className={layoutStyles.uCraneNoArmBadge}>No arm fitted</span>
+                          )}
                           {v.status && <span className={layoutStyles.extracted31}>{v.status}</span>}
                         </span>
                       ))}
@@ -824,12 +839,26 @@ export default function ViewBookingModal({
 
         {/*  REST OF CONTENT full width below */}
         <div className={layoutStyles.extracted34}>
-          {hasEmployeesByDate && dayKeys.length > 0 && (
-            <Section title="Employees by Day">
-              <div className={layoutStyles.extracted35}>
+          {(hasEmployeesByDate || hasDayNotes) && dayKeys.length > 0 && (
+            <Section title="Employees & Day Notes" full>
+              <div className={layoutStyles.extracted85}>
+                <div className={layoutStyles.extracted86} aria-hidden="true">
+                  <span>Date</span>
+                  <span>Employees</span>
+                  <span>Day note</span>
+                </div>
                 {dayKeys.map((date) => {
                   const list = employeesByDate?.[date] || [];
                   const grouped = groupEmployeesByRole(list);
+                  const note = booking.notesByDate?.[date] || "";
+                  const other = booking.notesByDate?.[`${date}-other`];
+                  const mins = booking.notesByDate?.[`${date}-travelMins`];
+                  const finalNote =
+                    note === "Other" && other
+                      ? `${note} - ${other}`
+                      : note === "Travel Time" && mins
+                      ? `Travel Time - ${mins} mins`
+                      : note;
                   const d = toDateSafe(date);
                   const pretty = d
                     ? d.toLocaleDateString("en-GB", {
@@ -840,21 +869,29 @@ export default function ViewBookingModal({
                     : date;
 
                   return (
-                    <div key={date} className={layoutStyles.extracted36}>
-                      <div className={layoutStyles.extracted37}>{pretty}</div>
-
-                      {Object.keys(grouped).length ? (
-                        <div className={layoutStyles.extracted38}>
-                          {Object.entries(grouped).map(([role, names]) => (
-                            <div key={role} className={layoutStyles.extracted39}>
-                              <div className={layoutStyles.extracted40}>{role}</div>
-                              <div className={layoutStyles.extracted41}>{names.join(", ")}</div>
-                            </div>
-                          ))}
+                    <div key={date} className={layoutStyles.extracted87}>
+                      <div className={layoutStyles.extracted88}>{pretty}</div>
+                      <div className={layoutStyles.extracted89}>
+                        <span className={layoutStyles.extracted90}>Employees</span>
+                        <div className={layoutStyles.extracted93}>
+                          {Object.keys(grouped).length ? (
+                            Object.entries(grouped).map(([role, names]) => (
+                              <div key={role} className={layoutStyles.extracted91}>
+                                <strong>{role}</strong>
+                                <span>{names.join(", ")}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className={layoutStyles.extracted94}>No one assigned</span>
+                          )}
                         </div>
-                      ) : (
-                        <div className={layoutStyles.extracted42}>No one assigned.</div>
-                      )}
+                      </div>
+                      <div className={layoutStyles.extracted92}>
+                        <span className={layoutStyles.extracted90}>Day note</span>
+                        <span className={!finalNote ? layoutStyles.extracted94 : undefined}>
+                          {finalNote || "No note"}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -883,46 +920,6 @@ export default function ViewBookingModal({
               </div>
             </Section>
           )}
-
-          {booking.notesByDate &&
-            Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length >
-              0 && (
-              <Section title="Day Notes">
-                <div className={layoutStyles.extracted47}>
-                  {Object.keys(booking.notesByDate)
-                    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
-                    .sort((a, b) => new Date(a) - new Date(b))
-                    .map((date) => {
-                      const note = booking.notesByDate[date] || "-";
-                      const other = booking.notesByDate[`${date}-other`];
-                      const mins = booking.notesByDate[`${date}-travelMins`];
-
-                      const final =
-                        note === "Other" && other
-                          ? `${note} - ${other}`
-                          : note === "Travel Time" && mins
-                          ? `Travel Time - ${mins} mins`
-                          : note;
-
-                      const d = toDateSafe(date);
-                      const pretty = d
-                        ? d.toLocaleDateString("en-GB", {
-                            weekday: "short",
-                            day: "2-digit",
-                            month: "short",
-                          })
-                        : date;
-
-                      return (
-                        <div key={date} className={layoutStyles.extracted48}>
-                          <div className={layoutStyles.extracted49}>{pretty}</div>
-                          <div className={layoutStyles.extracted50}>{final}</div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </Section>
-            )}
 
           {booking.notes && (
             <Section title="Notes">
@@ -1077,81 +1074,7 @@ export default function ViewBookingModal({
           )}
         </div>
 
-        <div className={layoutStyles.extracted76}>
-          {fromDeleted ? (
-            <>
-              <button onClick={handleRestore} className={layoutStyles.extracted77}>
-                Restore
-              </button>
-              <button onClick={onClose} className={layoutStyles.extracted78}>
-                Close
-              </button>
-            </>
-          ) : (
-            <>
-              {canViewQuote ? (
-                <button
-                  onClick={() => router.push(quoteViewHref)}
-                  disabled={editLoading}
-                  style={{
-                    ...btn,
-                    background: "var(--color-brand)",
-                    cursor: editLoading ? "not-allowed" : "pointer",
-                    opacity: editLoading ? 0.58 : 1,
-                  }}
-                >
-                  View Quote
-                </button>
-              ) : null}
-              <button
-                onClick={handleEdit}
-                disabled={editLoading}
-                style={{
-                  ...btn,
-                  background: "var(--color-info)",
-                  cursor: editLoading ? "wait" : "pointer",
-                  opacity: editLoading ? 0.82 : 1,
-                }}
-              >
-                {editLoading ? `Opening ${editProgress}%` : "Edit"}
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={editLoading}
-                style={{
-                  ...btn,
-                  background: "var(--color-danger)",
-                  cursor: editLoading ? "not-allowed" : "pointer",
-                  opacity: editLoading ? 0.58 : 1,
-                }}
-              >
-                Delete
-              </button>
-              <button
-                onClick={onClose}
-                disabled={editLoading}
-                style={{
-                  ...btn,
-                  background: "var(--color-text-muted)",
-                  cursor: editLoading ? "not-allowed" : "pointer",
-                  opacity: editLoading ? 0.58 : 1,
-                }}
-              >
-                Close
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {editLoading && (
-        <RouteLoadingOverlay
-          progress={editProgress}
-          title="Opening edit page"
-          hint="Preparing booking details..."
-        />
-      )}
-    </div>
+    </Modal>
   );
 }
 

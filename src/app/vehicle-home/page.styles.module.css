@@ -122,11 +122,6 @@
   min-width: 0;
 }
 
-.extracted16 {
-  display: grid;
-  gap: 8px;
-}
-
 .extracted17 {
   display: flex;
   align-items: flex-start;

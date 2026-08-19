@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import {
   countUniqueVehiclesByDeadlineState,
+  getRegisterAdditionalMaintenanceDate,
   getRegisterComplianceState,
   isRetentionPlateRecord,
   RETENTION_PLATE_CATEGORY,
@@ -43,6 +45,7 @@ import {
 import Papa from "papaparse";
 import { ArrowLeft, Download, FilePlus2, Plus, RotateCcw, Search, Settings } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { useSessionState } from "@/app/utils/useSessionState";
 
 /* UI tokens */
 const UI = UI_TOKENS;
@@ -160,7 +163,6 @@ const formatDateWithStyle = (raw, options = {}) => {
 };
 
 const norm = (s) => String(s || "").trim().toLowerCase();
-const isTradePlate = (vehicle = {}) => norm(vehicle.plateType) === "trade";
 const categorySort = (a, b) => {
   const aRetention = norm(a) === norm(RETENTION_PLATE_CATEGORY);
   const bRetention = norm(b) === norm(RETENTION_PLATE_CATEGORY);
@@ -254,7 +256,7 @@ const reportSettledPermissionFailures = (results, context) => {
 };
 
 /* columns count (IMPORTANT for colSpan) */
-const COLS = 16;
+const COLS = 15;
 
 export default function VehicleMaintenancePage() {
   const router = useRouter();
@@ -278,9 +280,9 @@ export default function VehicleMaintenancePage() {
     compliance: DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
   });
   const [categorySettingsOpen, setCategorySettingsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("none"); // none | service | mot | mileage | az
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [search, setSearch] = useSessionState("vehicles:search", "");
+  const [sort, setSort] = useSessionState("vehicles:sort", "none"); // none | service | mot | mileage | az
+  const [categoryFilter, setCategoryFilter] = useSessionState("vehicles:categoryFilter", "All");
   const [savingKey, setSavingKey] = useState(null);
   const [importing, setImporting] = useState(false);
   const [syncingMotHistory, setSyncingMotHistory] = useState(false);
@@ -411,7 +413,7 @@ export default function VehicleMaintenancePage() {
         operation: `update ${field}`,
       });
       if (!denied) console.error("Failed to update vehicle:", err);
-      alert(denied ? "Permission denied. This user cannot update vehicles." : "Could not save. Please try again.");
+      systemDialogs.showSystemNotification(denied ? "Permission denied. This user cannot update vehicles." : "Could not save. Please try again.");
       // rollback not attempted (optional)
     } finally {
       setSavingKey(null);
@@ -447,7 +449,7 @@ export default function VehicleMaintenancePage() {
     }
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(insuredUntil) || !safeDate(insuredUntil)) {
-      alert("Select an insured until date before marking this vehicle as insured.");
+      systemDialogs.showSystemNotification("Select an insured until date before marking this vehicle as insured.");
       return;
     }
 
@@ -484,7 +486,7 @@ export default function VehicleMaintenancePage() {
     }
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(taxedUntil) || !safeDate(taxedUntil)) {
-      alert("Select a road tax date before marking this vehicle as taxed.");
+      systemDialogs.showSystemNotification("Select a road tax date before marking this vehicle as taxed.");
       return;
     }
 
@@ -495,14 +497,14 @@ export default function VehicleMaintenancePage() {
   };
 
   const handleSyncAllMotHistory = async () => {
-    const ok = window.confirm(
+    const ok = await systemDialogs.confirmSystem(
       "Fetch DVSA MOT data for all vehicles now?\n\nThis will update MOT dates and odometer readings where newer DVSA data is found."
     );
     if (!ok) return;
 
     const currentUser = auth.currentUser;
     if (!currentUser) {
-      alert("You need to be signed in to fetch MOT data.");
+      systemDialogs.showSystemNotification("You need to be signed in to fetch MOT data.");
       return;
     }
 
@@ -523,14 +525,14 @@ export default function VehicleMaintenancePage() {
 
       await fetchVehicles();
       await fetchMotSyncMeta();
-      alert(
+      systemDialogs.showSystemNotification(
         `DVSA MOT sync complete.\n\nChecked: ${data.checked || 0}\nUpdated: ${data.updated || 0}\nSkipped: ${
           data.skipped || 0
         }\nFailed: ${data.failed || 0}`
       );
     } catch (err) {
       console.error("Failed to sync MOT history:", err);
-      alert(err.message || "Could not fetch MOT data.");
+      systemDialogs.showSystemNotification(err.message || "Could not fetch MOT data.");
     } finally {
       setSyncingMotHistory(false);
     }
@@ -637,6 +639,7 @@ export default function VehicleMaintenancePage() {
   const groupedByCategory = useMemo(() => {
     const acc = {};
     filteredVehicles.forEach((v) => {
+      if (isRetentionPlateRecord(v)) return;
       const cat = v.category || "Uncategorised";
       if (!acc[cat]) acc[cat] = [];
       acc[cat].push(v);
@@ -651,6 +654,20 @@ export default function VehicleMaintenancePage() {
     return acc;
   }, [filteredVehicles]);
 
+  const retentionPlates = useMemo(
+    () => filteredVehicles.filter((vehicle) => isRetentionPlateRecord(vehicle)),
+    [filteredVehicles]
+  );
+
+  const orderedCategorySections = useMemo(
+    () =>
+      [
+        ...Object.entries(groupedByCategory),
+        ...(retentionPlates.length ? [[RETENTION_PLATE_CATEGORY, retentionPlates]] : []),
+      ].sort(([a], [b]) => compareVehicleCategories(a, b)),
+    [compareVehicleCategories, groupedByCategory, retentionPlates]
+  );
+
   // KPIs (overdue/soon)
   const kpis = useMemo(() => {
     let overdue = 0;
@@ -664,12 +681,12 @@ export default function VehicleMaintenancePage() {
     const vehicleDeadlines = [];
 
     const fields = [
-      ["inspectionDate", 21],
-      ["nextRFL", complianceSettings.taxRflWarningDays],
-      ["nextTacho", 21],
-      ["nextBrakeTest", 21],
-      ["nextPMI", 21],
-      ["nextTachoDownload", 21],
+      { field: "inspectionDate", warningDays: 21 },
+      { field: "nextRFL", warningDays: complianceSettings.taxRflWarningDays },
+      { maintenanceType: "tacho_inspection", warningDays: 21 },
+      { maintenanceType: "brake_test", warningDays: 21 },
+      { maintenanceType: "pmi", warningDays: 21 },
+      { maintenanceType: "tacho_download", warningDays: 21 },
     ];
 
     for (const v of filteredVehicles) {
@@ -696,8 +713,10 @@ export default function VehicleMaintenancePage() {
             warningDays: complianceSettings.insuranceWarningDays,
           },
           { value: serviceState.value, warningDays: 21 },
-          ...fields.map(([field, warningDays]) => ({
-            value: v[field],
+          ...fields.map(({ field, maintenanceType, warningDays }) => ({
+            value: maintenanceType
+              ? getRegisterAdditionalMaintenanceDate(v, maintenanceType)
+              : v[field],
             warningDays,
           })),
           { value: motState.value, warningDays: 21 },
@@ -939,8 +958,9 @@ export default function VehicleMaintenancePage() {
           ) : null}
         </div>
 
-        {/* Table */}
-        <div style={{ ...card, overflow: "hidden", marginLeft: -18, marginRight: -18, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
+        {/* Vehicle compliance table */}
+        {orderedCategorySections.length ? (
+        <div style={{ ...card, overflow: "hidden" }}>
           <div className={layoutStyles.extracted7}>
             <div className="vh-sticky">
               <table className={layoutStyles.extracted8}>
@@ -957,7 +977,6 @@ export default function VehicleMaintenancePage() {
                       { label: "Insured Until" },
                       { label: "MOT" },
                       { label: "Service" },
-                      { label: "Retention Expiry" },
                       { label: "PMI" },
                       { label: "Brake Test" },
                       { label: "Tacho Insp." },
@@ -996,9 +1015,10 @@ export default function VehicleMaintenancePage() {
                   </tr>
                 </thead>
 
-                {Object.entries(groupedByCategory).sort(([a], [b]) => compareVehicleCategories(a, b)).map(([category, list]) => {
+                {orderedCategorySections.map(([category, list]) => {
                   const categoryColor = getCategoryColor(category);
                   const categoryBackground = categoryColor ? `${categoryColor}18` : "var(--color-brand-soft)";
+                  const retentionSection = norm(category) === norm(RETENTION_PLATE_CATEGORY);
                   return (
                   <tbody key={category}>
                     <tr
@@ -1044,7 +1064,53 @@ export default function VehicleMaintenancePage() {
                     </tr>
 
                     {expandedCategories[category] &&
-                      list.map((v, i) => {
+                      (retentionSection ? (
+                        <tr>
+                          <td colSpan={COLS} className={layoutStyles.retentionTableCell}>
+                            <table className={layoutStyles.retentionTable}>
+                              <thead>
+                                <tr>
+                                  <th>Registration</th>
+                                  <th>Description</th>
+                                  <th>Retention Expiry</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {list.map((plate, index) => {
+                                  const retentionCell = {
+                                    padding: "5px 10px",
+                                    borderBottom: "1px solid var(--color-border)",
+                                    whiteSpace: "nowrap",
+                                  };
+                                  return (
+                                    <tr
+                                      key={plate.id}
+                                      onClick={() => router.push(`/vehicle-edit/${plate.id}`)}
+                                      style={{
+                                        background:
+                                          index % 2 === 0
+                                            ? "var(--color-white)"
+                                            : "var(--color-surface-subtle)",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      <td style={{ ...retentionCell, fontWeight: 900 }}>
+                                        {plate.registration || plate.reg || "-"}
+                                      </td>
+                                      <td style={retentionCell}>
+                                        {plate.name || "Retained number plate"}
+                                      </td>
+                                      {renderDateCell(plate.retentionExpiry, retentionCell, {
+                                        soonDays: complianceSettings.retentionPlateWarningDays,
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      ) : list.map((v, i) => {
                         const zebra = i % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
                         const retentionPlate = isRetentionPlateRecord(v);
                         const outOfUse = isVehicleOutOfUse(v);
@@ -1084,12 +1150,6 @@ export default function VehicleMaintenancePage() {
                         };
                         const serviceDateOptions = {
                           soonDays: 21,
-                          suppressStatus: outOfUse,
-                        };
-                        const retentionDateOptions = {
-                          soonDays: isTradePlate(v)
-                            ? complianceSettings.tradePlateWarningDays
-                            : complianceSettings.retentionPlateWarningDays,
                           suppressStatus: outOfUse,
                         };
                         const rowBackground = outOfUse ? "var(--color-surface-hover)" : zebra;
@@ -1159,34 +1219,27 @@ export default function VehicleMaintenancePage() {
                             {retentionPlate ? <td style={rowTd}>N/A</td> : renderDateCell(getInsuredUntil(v), rowTd, insuranceDateOptions)}
                             {renderComplianceDateCell(v, "mot", rowTd, dateOptions)}
                             {renderComplianceDateCell(v, "service", rowTd, serviceDateOptions)}
-                            {retentionPlate
-                              ? renderDateCell(v.retentionExpiry, rowTd, retentionDateOptions)
-                              : <td style={rowTd}>-</td>}
-                            {renderDateCell(v.nextPMI, rowTd, dateOptions)}
-                            {renderDateCell(v.nextBrakeTest, rowTd, dateOptions)}
-                            {renderDateCell(v.nextTacho, rowTd, dateOptions)}
-                            {renderDateCell(v.nextTachoDownload, rowTd, dateOptions)}
+                            {renderDateCell(getRegisterAdditionalMaintenanceDate(v, "pmi"), rowTd, dateOptions)}
+                            {renderDateCell(getRegisterAdditionalMaintenanceDate(v, "brake_test"), rowTd, dateOptions)}
+                            {renderDateCell(getRegisterAdditionalMaintenanceDate(v, "tacho_inspection"), rowTd, dateOptions)}
+                            {renderDateCell(getRegisterAdditionalMaintenanceDate(v, "tacho_download"), rowTd, dateOptions)}
                             <td style={rowTd}>{formatOdometer(v)}</td>
                           </tr>
                         );
-                      })}
+                      }))}
                   </tbody>
                   );
                 })}
 
-                {Object.keys(groupedByCategory).length === 0 && (
-                  <tbody>
-                    <tr>
-                      <td colSpan={COLS} style={{ padding: 14, textAlign: "center", color: UI.muted }}>
-                        No vehicles found. Try clearing filters.
-                      </td>
-                    </tr>
-                  </tbody>
-                )}
               </table>
             </div>
           </div>
         </div>
+        ) : retentionPlates.length === 0 ? (
+          <div style={{ ...card, padding: 14, textAlign: "center", color: UI.muted }}>
+            No vehicles found. Try clearing filters.
+          </div>
+        ) : null}
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
@@ -1369,11 +1422,11 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled, dataAcces
             }));
           }
 
-          alert(" Vehicle data imported successfully!");
+          systemDialogs.showSystemNotification(" Vehicle data imported successfully!");
           await onImportComplete?.();
         } catch (err) {
           console.error(" Error importing vehicles:", err);
-          alert("Import failed. Check console for details.");
+          systemDialogs.showSystemNotification("Import failed. Check console for details.");
         } finally {
           // reset file input so same file can be re-uploaded
           event.target.value = "";
@@ -1381,7 +1434,7 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled, dataAcces
       },
       error: (err) => {
         console.error("Papa parse error:", err);
-        alert("Could not read CSV file.");
+        systemDialogs.showSystemNotification("Could not read CSV file.");
         event.target.value = "";
       },
     });

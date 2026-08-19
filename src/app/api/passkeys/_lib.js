@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { adminListDocuments, adminReadDocument } from "@/app/api/_firebaseAdminRest";
 import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
+import { getDeploymentConfig, isDeploymentEmailAllowed } from "@/app/config/deploymentConfig";
 
 export const runtime = "nodejs";
 
-export const RP_NAME = "Bickers Booking";
+export const RP_NAME = getDeploymentConfig().displayName;
 
 export function passkeyError(message, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -50,7 +51,7 @@ export async function requireActiveUser(uid) {
 
 export async function findUserByEmail(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
-  if (!cleanEmail || !cleanEmail.endsWith("@bickers.co.uk")) return null;
+  if (!cleanEmail || !isDeploymentEmailAllowed(cleanEmail)) return null;
 
   const users = await adminListDocuments("users");
   return (

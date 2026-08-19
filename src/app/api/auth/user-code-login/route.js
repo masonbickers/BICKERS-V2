@@ -7,10 +7,11 @@ import {
   adminReadDocument,
   createFirebaseCustomToken,
 } from "@/app/api/_firebaseAdminRest";
+import { getDeploymentConfig, isDeploymentEmailAllowed } from "@/app/config/deploymentConfig";
 
 export const runtime = "nodejs";
 
-const DEFAULT_COMPANY_ID = "bickers-action";
+const DEFAULT_COMPANY_ID = getDeploymentConfig().companyId;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 8;
 const RATE_LIMIT_LOCK_MS = 30 * 60 * 1000;
@@ -264,7 +265,7 @@ export async function POST(req) {
     ip = clientIp(req);
     ua = userAgent(req);
 
-    if (!cleanEmail.endsWith("@bickers.co.uk") || !cleanCode) {
+    if (!isDeploymentEmailAllowed(cleanEmail) || !cleanCode) {
       await writeLoginSecurityLog({
         email: cleanEmail,
         loginMethod: "user-code",

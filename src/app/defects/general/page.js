@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,8 +16,8 @@ import {
   Save,
   Search,
   Wrench,
-  X,
 } from "lucide-react";
+import { Button, Modal } from "@/app/components/ui";
 import {
   collection,
   getDocsFromServer,
@@ -26,6 +27,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* UI tokens */
 const UI = UI_TOKENS;
@@ -241,10 +243,8 @@ const pill = (bg, fg, borderColor = "var(--color-border)") => ({
 });
 
 const maintenanceBadge = (m) => {
-  if (!m) return pill("var(--color-info-soft)", "var(--color-brand)", "var(--color-info-border)"); // pending
-  if (m === "scheduled") return pill("var(--color-success-soft)", "var(--color-success)", "var(--color-success-border)");
-  if (m === "resolved") return pill("var(--color-info-soft)", "var(--color-brand)", "var(--color-info-border)");
-  return pill("var(--color-surface-subtle)", "var(--color-text)", "var(--color-border)");
+  const tone = getSemanticStatusStyle(m || "Pending");
+  return pill(tone.bg, tone.text, tone.border);
 };
 
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -506,14 +506,14 @@ export default function GeneralDefectsPage() {
       setNotesModal(null);
     } catch (e) {
       console.error(e);
-      alert("Could not save status. Please try again.");
+      systemDialogs.showSystemNotification("Could not save status. Please try again.");
     } finally {
       setSavingId(null);
     }
   };
 
   const rerouteToImmediate = async (row) => {
-    const ok = confirm("Move this defect to Immediate Defects? This will change its category to 'immediate'.");
+    const ok = await systemDialogs.confirmSystem("Move this defect to Immediate Defects? This will change its category to 'immediate'.");
     if (!ok) return;
 
     const key = rowKey(row);
@@ -550,7 +550,7 @@ export default function GeneralDefectsPage() {
       router.refresh?.();
     } catch (e) {
       console.error(e);
-      alert("Could not re-route. Please try again.");
+      systemDialogs.showSystemNotification("Could not re-route. Please try again.");
       setSavingId(null);
     }
   };
@@ -801,23 +801,7 @@ export default function GeneralDefectsPage() {
 
         {/* Notes Modal */}
         {notesModal && (
-          <div className={layoutStyles.extracted19} onMouseDown={() => setNotesModal(null)}>
-            <div style={modalCard} onMouseDown={(e) => e.stopPropagation()}>
-              <div className={layoutStyles.extracted20}>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>
-                    Mark as {notesModal.newStatus === "scheduled" ? "Scheduled" : "Resolved"}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: UI.muted, marginTop: 4 }}>
-                    {notesModal.row.vehicle || "-"} - {notesModal.row.jobLabel} - #{notesModal.row.defectIndex + 1}
-                  </div>
-                </div>
-                <button type="button" style={btn("ghost")} onClick={() => setNotesModal(null)}>
-                  <X size={14} />
-                  Close
-                </button>
-              </div>
-
+          <Modal open onClose={() => setNotesModal(null)} eyebrow="General maintenance" title={`Mark as ${notesModal.newStatus === "scheduled" ? "scheduled" : "resolved"}`} description={`${notesModal.row.vehicle || "-"} - ${notesModal.row.jobLabel} - #${notesModal.row.defectIndex + 1}`} size="sm" density="compact" footer={<><Button variant="secondary" size="sm" onClick={() => setNotesModal(null)} disabled={!!savingId}>Cancel</Button><Button variant={notesModal.newStatus === "resolved" ? "success" : "primary"} size="sm" onClick={saveMaintenanceStatus} disabled={!!savingId} loading={!!savingId}><Save size={14} />Save</Button></>}>
               <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--color-surface)" }}>
                 <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
                   Note (optional)
@@ -830,23 +814,8 @@ export default function GeneralDefectsPage() {
                   style={{ ...inputBase, marginTop: 8, resize: "vertical" }}
                 />
 
-                <div className={layoutStyles.extracted21}>
-                  <button type="button" style={btn("ghost")} onClick={() => setNotesModal(null)} disabled={!!savingId}>
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    style={notesModal.newStatus === "resolved" ? btn("success") : btn("primary")}
-                    onClick={saveMaintenanceStatus}
-                    disabled={!!savingId}
-                  >
-                    <Save size={14} />
-                    {savingId ? "Saving..." : "Save"}
-                  </button>
-                </div>
               </div>
-            </div>
-          </div>
+          </Modal>
         )}
       </div>
 

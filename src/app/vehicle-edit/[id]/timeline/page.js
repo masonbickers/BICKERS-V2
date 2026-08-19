@@ -14,7 +14,14 @@ import {
   isVehicleOutOfUse,
 } from "@/app/utils/maintenanceSchema";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-import { buildVorTimelineEvents } from "@/app/utils/vehicleTimelineEvents";
+import {
+  buildVorTimelineEvents,
+  isArchivedTimelineRecord,
+  mergeVehicleTimelineEvents,
+  partitionVehicleTimelineEvents,
+  timelineMaintenanceBookingLabel,
+  timelineMaintenanceOriginLabel,
+} from "@/app/utils/vehicleTimelineEvents";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -144,6 +151,9 @@ function collectDocuments(source, sourceLabel, fallbackDate = "", path = "", see
 function buildTimeline(vehicle, bookings, serviceRecords) {
   if (!vehicle) return [];
   const events = [];
+  const activeBookings = safeArr(bookings).filter(
+    (booking) => !isArchivedTimelineRecord(booking)
+  );
 
   events.push(...buildVorTimelineEvents(vehicle));
 
@@ -168,9 +178,12 @@ function buildTimeline(vehicle, bookings, serviceRecords) {
   });
 
   const serviceItems = buildServiceHistoryItems({ vehicle, serviceRecords });
-  serviceItems.forEach((item, index) => {
+  serviceItems.filter((item) => !isArchivedTimelineRecord(item)).forEach((item, index) => {
     pushEvent(events, {
       id: `service-${item.serviceRecordId || item.maintenanceBookingId || index}`,
+      bookingId: item.maintenanceBookingId || "",
+      maintenanceTypeIds: ["service"],
+      timelineKind: "maintenance_completion",
       type: "service",
       date: item.completedDate,
       title: item.serviceType || "Vehicle service",
@@ -184,9 +197,14 @@ function buildTimeline(vehicle, bookings, serviceRecords) {
     });
   });
 
-  safeArr(vehicle.eightWeekInspectionHistory).forEach((inspection, index) => {
+  safeArr(vehicle.eightWeekInspectionHistory)
+    .filter((inspection) => !isArchivedTimelineRecord(inspection))
+    .forEach((inspection, index) => {
     pushEvent(events, {
       id: `inspection-history-${inspection.bookingId || index}`,
+      bookingId: inspection.bookingId || "",
+      maintenanceTypeIds: ["pmi"],
+      timelineKind: "maintenance_completion",
       type: "inspection",
       date: inspection.completedDate,
       title: "Safety inspection completed",
@@ -197,14 +215,19 @@ function buildTimeline(vehicle, bookings, serviceRecords) {
       ].filter(Boolean),
       tone: "warning",
     });
-  });
+    });
 
   ADDITIONAL_MAINTENANCE_WORKFLOWS.forEach((workflow) => {
-    const history = safeArr(vehicle[workflow.historyField]);
+    const history = safeArr(vehicle[workflow.historyField]).filter(
+      (entry) => !isArchivedTimelineRecord(entry)
+    );
     history.forEach((entry, index) => {
       pushEvent(events, {
         id: `${workflow.key}-history-${index}`,
+        bookingId: entry.bookingId || entry.sourceRecordId || "",
         maintenanceTypeId: workflow.maintenanceTypeId,
+        maintenanceTypeIds: [workflow.maintenanceTypeId],
+        timelineKind: "maintenance_completion",
         type: "inspection",
         date: entry.completedDate || entry.completedAt,
         title: workflow.label,
@@ -240,19 +263,43 @@ function buildTimeline(vehicle, bookings, serviceRecords) {
     }
   });
 
-  bookings.forEach((booking, index) => {
+  activeBookings.forEach((booking, index) => {
     const type = eventType(booking.type);
     const maintenanceTypeId = getMaintenanceTypeId(booking);
     const status = String(booking.status || "").trim();
-    const title = `${booking.type || "Maintenance"}${status ? ` · ${status}` : ""}`;
+    const completed = ["complete", "completed"].includes(status.toLowerCase());
+    const maintenanceTypeIds = [
+      maintenanceTypeId,
+      ...safeArr(booking.maintenanceTypeIds),
+      ...safeArr(booking.items).map((item) => item?.maintenanceTypeId),
+    ]
+      .map((item) => String(item || "").trim().toLowerCase())
+      .filter(Boolean);
+    const maintenanceLabel = timelineMaintenanceBookingLabel(booking);
+    const originLabel = timelineMaintenanceOriginLabel(booking);
+    const dueLabel = booking.sourceDueIsoWeek
+      ? `Legal due: ${booking.sourceDueIsoWeek}`
+      : booking.sourceDueDateISO
+        ? `Legal due: ${displayDate(booking.sourceDueDateISO)}`
+        : "";
+    const title = `${maintenanceLabel}${status ? ` · ${status}` : ""}`;
     pushEvent(events, {
       id: `booking-${booking.id || index}`,
+      bookingId: booking.id || "",
       maintenanceTypeId,
+      maintenanceTypeIds,
+      timelineKind: completed ? "maintenance_completion" : "maintenance_booking",
       type,
       date: bookingDate(booking),
       title,
-      description: booking.notes || booking.bookingNotes || "Maintenance booking activity.",
+      description:
+        booking.notes || booking.bookingNotes || `${maintenanceLabel} appointment.`,
       details: [
+        dueLabel,
+        originLabel,
+        booking.scheduleExceptionReason
+          ? `Schedule reason: ${booking.scheduleExceptionReason}`
+          : "",
         booking.provider ? `Provider: ${booking.provider}` : "",
         booking.bookingRef ? `Ref: ${booking.bookingRef}` : "",
         booking.location ? `Location: ${booking.location}` : "",
@@ -267,7 +314,7 @@ function buildTimeline(vehicle, bookings, serviceRecords) {
       "Vehicle record",
       vehicle.updatedAt || vehicle.createdAt || new Date().toISOString()
     ),
-    ...bookings.flatMap((booking) =>
+    ...activeBookings.flatMap((booking) =>
       collectDocuments(
         booking,
         `${booking.type || "Maintenance"} booking`,
@@ -311,15 +358,57 @@ function buildTimeline(vehicle, bookings, serviceRecords) {
     });
   }
 
-  const seen = new Set();
-  return events
-    .filter((event) => {
-      const key = `${event.type}|${event.date}|${event.title}|${event.description}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
+  return mergeVehicleTimelineEvents(events)
     .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function TimelineEventCard({ event, timing }) {
+  return (
+    <article className={styles.event}>
+      <div className={`${styles.marker} ${styles[event.tone] || styles.neutral}`}>
+        {event.type === "status" ? (
+          <Activity size={16} />
+        ) : event.type === "document" ? (
+          <FileText size={16} />
+        ) : (
+          <CalendarDays size={16} />
+        )}
+      </div>
+      <div className={styles.eventCard}>
+        <div className={styles.eventHeader}>
+          <div>
+            <div className={styles.eventLabels}>
+              <span className={styles.eventType}>{typeLabels[event.type]}</span>
+              <span className={timing === "upcoming" ? styles.upcomingBadge : styles.pastBadge}>
+                {timing === "upcoming" ? "Upcoming" : "Past"}
+              </span>
+            </div>
+            <h2>{event.title}</h2>
+          </div>
+          <time dateTime={event.date}>{displayDate(event.date)}</time>
+        </div>
+        {event.description ? <p>{event.description}</p> : null}
+        {event.details.length ? (
+          <div className={styles.eventDetails}>
+            {event.details.map((detail) => (
+              <span key={detail}>{detail}</span>
+            ))}
+          </div>
+        ) : null}
+        {event.documentUrl ? (
+          <a
+            className={styles.documentLink}
+            href={event.documentUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open document
+            <ExternalLink size={14} />
+          </a>
+        ) : null}
+      </div>
+    </article>
+  );
 }
 
 export default function VehicleTimelinePage() {
@@ -399,6 +488,15 @@ export default function VehicleTimelinePage() {
     [bookings, serviceRecords, vehicle]
   );
   const visibleEvents = filter === "all" ? events : events.filter((event) => event.type === filter);
+  const timelineGroups = useMemo(
+    () => partitionVehicleTimelineEvents(visibleEvents),
+    [visibleEvents]
+  );
+  const allTimelineGroups = useMemo(
+    () => partitionVehicleTimelineEvents(events),
+    [events]
+  );
+  const summaryEvent = allTimelineGroups.upcoming[0] || allTimelineGroups.past[0] || null;
   const status = isVehicleOutOfUse(vehicle || {}) ? "VOR" : "Active";
   const vehicleLabel = vehicle?.name || vehicle?.registration || vehicle?.reg || "Vehicle";
 
@@ -439,8 +537,8 @@ export default function VehicleTimelinePage() {
                 <strong>{events.length}</strong>
               </div>
               <div>
-                <span>Latest activity</span>
-                <strong>{events[0] ? displayDate(events[0].date) : "—"}</strong>
+                <span>{allTimelineGroups.upcoming.length ? "Next upcoming" : "Latest past activity"}</span>
+                <strong>{summaryEvent ? displayDate(summaryEvent.date) : "—"}</strong>
               </div>
             </section>
 
@@ -460,51 +558,38 @@ export default function VehicleTimelinePage() {
               ))}
             </nav>
 
-            <section className={styles.timeline} aria-label="Vehicle timeline events">
+            <section className={styles.timelineSections} aria-label="Vehicle timeline events">
               {visibleEvents.length === 0 ? (
                 <div className={styles.statePanel}>No activity is recorded for this filter.</div>
               ) : (
-                visibleEvents.map((event) => (
-                  <article key={event.id} className={styles.event}>
-                    <div className={`${styles.marker} ${styles[event.tone] || styles.neutral}`}>
-                      {event.type === "status" ? (
-                        <Activity size={16} />
-                      ) : event.type === "document" ? (
-                        <FileText size={16} />
-                      ) : (
-                        <CalendarDays size={16} />
-                      )}
-                    </div>
-                    <div className={styles.eventCard}>
-                      <div className={styles.eventHeader}>
-                        <div>
-                          <span className={styles.eventType}>{typeLabels[event.type]}</span>
-                          <h2>{event.title}</h2>
-                        </div>
-                        <time dateTime={event.date}>{displayDate(event.date)}</time>
+                <>
+                  {timelineGroups.upcoming.length ? (
+                    <section className={styles.timelineGroup} aria-label="Upcoming activity">
+                      <div className={styles.groupHeader}>
+                        <div><strong>Upcoming</strong><span>Nearest date first</span></div>
+                        <b>{timelineGroups.upcoming.length}</b>
                       </div>
-                      {event.description ? <p>{event.description}</p> : null}
-                      {event.details.length ? (
-                        <div className={styles.eventDetails}>
-                          {event.details.map((detail) => (
-                            <span key={detail}>{detail}</span>
-                          ))}
-                        </div>
-                      ) : null}
-                      {event.documentUrl ? (
-                        <a
-                          className={styles.documentLink}
-                          href={event.documentUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open document
-                          <ExternalLink size={14} />
-                        </a>
-                      ) : null}
-                    </div>
-                  </article>
-                ))
+                      <div className={styles.timeline}>
+                        {timelineGroups.upcoming.map((event) => (
+                          <TimelineEventCard key={event.id} event={event} timing="upcoming" />
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                  {timelineGroups.past.length ? (
+                    <section className={styles.timelineGroup} aria-label="Past activity">
+                      <div className={styles.groupHeader}>
+                        <div><strong>Past activity</strong><span>Most recent first</span></div>
+                        <b>{timelineGroups.past.length}</b>
+                      </div>
+                      <div className={styles.timeline}>
+                        {timelineGroups.past.map((event) => (
+                          <TimelineEventCard key={event.id} event={event} timing="past" />
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                </>
               )}
             </section>
           </>

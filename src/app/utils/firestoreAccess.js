@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { collection, query, where } from "firebase/firestore";
+import { collection, query } from "firebase/firestore";
 import { useAuth } from "@/app/context/authContext";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
+import { BICKERS_DEPLOYMENT_DEFAULTS } from "@/app/config/deploymentConfigCore";
 import { normalizePlatformRole } from "@/app/utils/accessControl";
 import {
   isPermissionDeniedError,
@@ -18,6 +20,7 @@ export const TENANT_COLLECTIONS = new Set([
   "clientEmails",
   "deletedBookings",
   "employees",
+  "employeePersonnel",
   "equipment",
   "holidays",
   "jobSheets",
@@ -40,6 +43,8 @@ export const TENANT_COLLECTIONS = new Set([
   "timesheetQueries",
   "contacts",
   "invoiceQueue",
+  "receipts",
+  "receiptGroups",
   "sickLeave",
   "uCraneFreelancers",
   "lorries",
@@ -51,8 +56,10 @@ export const TENANT_COLLECTIONS = new Set([
   "employeeTrainingRecords",
 ]);
 
+export const SINGLE_COMPANY_ID = BICKERS_DEPLOYMENT_DEFAULTS.companyId;
+
 function currentCompanyId(authState = {}) {
-  return String(authState?.userDoc?.companyId || "").trim();
+  return String(authState?.userDoc?.companyId || authState?.deploymentCompanyId || "").trim();
 }
 
 function reportTenantQueryDebug({ authState, collectionName, companyId, tenantFilterApplied }) {
@@ -123,17 +130,6 @@ export function resolveDataAccess(authState = {}, options = {}) {
     };
   }
 
-  if (!isPlatformAdmin && !companyId) {
-    return {
-      allowed: false,
-      checking: false,
-      reason: "Company access is not configured.",
-      role,
-      companyId,
-      isPlatformAdmin,
-    };
-  }
-
   return {
     allowed: true,
     checking: false,
@@ -169,19 +165,14 @@ export function tenantCollectionQuery(db, collectionName, authState, constraints
 
   const ref = collection(db, collectionName);
   const queryConstraints = Array.isArray(constraints) ? constraints : [];
-  const tenantConstraints =
-    !gate.isPlatformAdmin && TENANT_COLLECTIONS.has(collectionName)
-      ? [where("companyId", "==", gate.companyId)]
-      : [];
 
   reportTenantQueryDebug({
     authState,
     collectionName,
     companyId: currentCompanyId(authState),
-    tenantFilterApplied: tenantConstraints.length > 0,
+    tenantFilterApplied: false,
   });
-  const allConstraints = [...tenantConstraints, ...queryConstraints];
-  return allConstraints.length ? query(ref, ...allConstraints) : ref;
+  return queryConstraints.length ? query(ref, ...queryConstraints) : ref;
 }
 
 export function emergencyBroadCollectionRef(db, collectionName, authState, operation = "Firestore broad read") {
@@ -209,7 +200,10 @@ export function tenantPayload(authState, payload = {}, options = {}) {
   });
   if (!gate.allowed) throw createDataAccessError(gate.reason);
 
-  return gate.isPlatformAdmin ? { ...payload } : { ...payload, companyId: gate.companyId };
+  return {
+    ...payload,
+    companyId: gate.companyId || SINGLE_COMPANY_ID,
+  };
 }
 
 export function dataAccessKey(authState = {}) {
@@ -225,6 +219,7 @@ export function dataAccessKey(authState = {}) {
 
 export function useDataAccessState() {
   const authAccess = useAuth() || {};
+  const deployment = useDeploymentConfig();
   return useMemo(
     () => ({
       user: authAccess.user,
@@ -232,7 +227,8 @@ export function useDataAccessState() {
       isEnabled: authAccess.isEnabled,
       loading: authAccess.loading,
       accessReady: authAccess.accessReady,
+      deploymentCompanyId: deployment.companyId,
     }),
-    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc]
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc, deployment.companyId]
   );
 }

@@ -1,6 +1,7 @@
 // src/app/u-crane-crew/page.js
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -334,7 +335,7 @@ export default function UCrewManagePage() {
       pulseSaved();
     } catch (e) {
       console.error("Failed to update:", e);
-      alert("Failed to save changes. Check console.");
+      systemDialogs.showSystemNotification("Failed to save changes. Check console.");
     } finally {
       setSavingKey(null);
     }
@@ -371,7 +372,7 @@ export default function UCrewManagePage() {
   );
 
   const addFreelancer = useCallback(async () => {
-    if (!newF.name.trim()) return alert("Please enter freelancer name.");
+    if (!newF.name.trim()) return systemDialogs.showSystemNotification("Please enter freelancer name.");
 
     try {
       setSavingKey("addFreelancer");
@@ -399,7 +400,7 @@ export default function UCrewManagePage() {
       });
     } catch (e) {
       console.error("Add freelancer failed:", e);
-      alert("Failed to add freelancer. Check console.");
+      systemDialogs.showSystemNotification("Failed to add freelancer. Check console.");
     } finally {
       setSavingKey(null);
     }
@@ -407,7 +408,7 @@ export default function UCrewManagePage() {
 
   const deleteFreelancer = useCallback(async (row) => {
     if (row.__collection !== "uCraneFreelancers") return;
-    const ok = confirm(`Delete freelancer "${getDisplayName(row)}"?`);
+    const ok = await systemDialogs.confirmSystem(`Delete freelancer "${getDisplayName(row)}"?`);
     if (!ok) return;
 
     try {
@@ -416,7 +417,7 @@ export default function UCrewManagePage() {
       pulseSaved();
     } catch (e) {
       console.error("Delete failed:", e);
-      alert("Failed to delete freelancer. Check console.");
+      systemDialogs.showSystemNotification("Failed to delete freelancer. Check console.");
     } finally {
       setSavingKey(null);
     }

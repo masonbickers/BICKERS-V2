@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -83,7 +84,7 @@ export default function NoteForm() {
     e.preventDefault();
 
     if (!noteText.trim()) {
-      alert("Note text cannot be empty.");
+      systemDialogs.showSystemNotification("Note text cannot be empty.");
       return;
     }
 
@@ -91,7 +92,7 @@ export default function NoteForm() {
     try {
       if (isMultiDay) {
         if (!startDate || !endDate) {
-          alert("Select both start and end dates.");
+          systemDialogs.showSystemNotification("Select both start and end dates.");
           setSaving(false);
           return;
         }
@@ -99,7 +100,7 @@ export default function NoteForm() {
         const s = new Date(startDate);
         const ed = new Date(endDate);
         if (Number.isNaN(+s) || Number.isNaN(+ed) || s > ed) {
-          alert("End date must be the same or after start date.");
+          systemDialogs.showSystemNotification("End date must be the same or after start date.");
           setSaving(false);
           return;
         }
@@ -120,7 +121,7 @@ export default function NoteForm() {
         }
       } else {
         if (!noteDate) {
-          alert("Please select a date.");
+          systemDialogs.showSystemNotification("Please select a date.");
           setSaving(false);
           return;
         }
@@ -135,11 +136,11 @@ export default function NoteForm() {
         }));
       }
 
-      alert("Note saved!");
+      systemDialogs.showSystemNotification("Note saved!");
       router.push("/dashboard");
     } catch (err) {
       console.error("Error saving note:", err);
-      alert("Failed to save note.");
+      systemDialogs.showSystemNotification("Failed to save note.");
       setSaving(false);
     }
   };

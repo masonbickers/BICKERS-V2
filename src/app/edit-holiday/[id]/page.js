@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -87,7 +88,7 @@ export default function EditHolidayPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!employee || !startDate || !endDate || !holidayReason) {
-      alert("Please fill in all fields");
+      systemDialogs.showSystemNotification("Please fill in all fields");
       return;
     }
 
@@ -95,11 +96,11 @@ export default function EditHolidayPage() {
       const startAsDate = ymdToDate(startDate);
       const endAsDate = ymdToDate(endDate);
       if (!startAsDate || !endAsDate) {
-        alert("Please enter valid start and end dates.");
+        systemDialogs.showSystemNotification("Please enter valid start and end dates.");
         return;
       }
       if (startAsDate > endAsDate) {
-        alert("End date must be the same or after the start date.");
+        systemDialogs.showSystemNotification("End date must be the same or after the start date.");
         return;
       }
 
@@ -111,11 +112,11 @@ export default function EditHolidayPage() {
         holidayReason: holidayReason.trim(),
         paidStatus,
       }));
-      alert("Holiday updated successfully!");
+      systemDialogs.showSystemNotification("Holiday updated successfully!");
       router.push("/dashboard");
     } catch (error) {
       console.error("Error updating holiday: ", error);
-      alert("Failed to update holiday.");
+      systemDialogs.showSystemNotification("Failed to update holiday.");
     }
   };
 
@@ -123,16 +124,16 @@ export default function EditHolidayPage() {
 
   const handleDelete = async () => {
     if (!holidayId) return;
-    const confirmDelete = window.confirm("Are you sure you want to delete this holiday?");
+    const confirmDelete = await systemDialogs.confirmSystem("Are you sure you want to delete this holiday?");
     if (!confirmDelete) return;
 
     try {
       await deleteDoc(doc(db, "holidays", holidayId));
-      alert("Holiday deleted.");
+      systemDialogs.showSystemNotification("Holiday deleted.");
       router.push("/dashboard");
     } catch (error) {
       console.error("Error deleting holiday: ", error);
-      alert("Failed to delete holiday.");
+      systemDialogs.showSystemNotification("Failed to delete holiday.");
     }
   };
 

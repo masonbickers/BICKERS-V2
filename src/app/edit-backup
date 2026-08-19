@@ -1,5 +1,6 @@
 "use client";
 
+import * as systemDialogs from "@/app/utils/systemNotifications";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
@@ -400,16 +401,16 @@ const handleSubmit = async () => {
   console.log(" Submitting booking for ID:", bookingId);
 
   if (status !== "Enquiry") {
-    if (!startDate) return alert("Please select a start date.");
-    if (isRange && !endDate) return alert("Please select an end date.");
+    if (!startDate) return systemDialogs.showSystemNotification("Please select a start date.");
+    if (isRange && !endDate) return systemDialogs.showSystemNotification("Please select an end date.");
   }
 
   //  NEW: reason validation goes here
   const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
   if (needsReason) {
-    if (!statusReasons.length) return alert("Please choose at least one reason.");
+    if (!statusReasons.length) return systemDialogs.showSystemNotification("Please choose at least one reason.");
     if (statusReasons.includes("Other") && !statusReasonOther.trim()) {
-      return alert("Please enter the 'Other' reason.");
+      return systemDialogs.showSystemNotification("Please enter the 'Other' reason.");
     }
   }
 
@@ -430,7 +431,7 @@ const cleanedEmployees = [
 
 for (const employee of cleanedEmployees) {
   if (isEmployeeOnHoliday(employee.name)) {
-    alert(`${employee.name} is on holiday during the selected dates.`);
+    systemDialogs.showSystemNotification(`${employee.name} is on holiday during the selected dates.`);
     return;
   }
 }
@@ -540,20 +541,20 @@ riggingAddress: hasRiggingAddress ? (riggingAddress || "") : "",
           console.log(" Booking updated successfully");
         } catch (err) {
           console.error(" Firestore update error:", err);
-          alert("Update failed: " + err.message);
+          systemDialogs.showSystemNotification("Update failed: " + err.message);
         }
       }
        else {
         await addDoc(collection(db, "bookings"), booking);
       }
       
-alert(bookingId ? "Booking Updated " : "Booking Saved ");
+systemDialogs.showSystemNotification(bookingId ? "Booking Updated " : "Booking Saved ");
 router.back();  //  return to previous page instead of forcing dashboard
 
 
     } catch (err) {
       console.error(" Error saving booking:", err);
-      alert("Failed to save booking \n\n" + err.message);
+      systemDialogs.showSystemNotification("Failed to save booking \n\n" + err.message);
     }
   };
 

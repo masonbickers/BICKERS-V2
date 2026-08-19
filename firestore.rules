@@ -40,23 +40,15 @@ service cloud.firestore {
     }
 
     function existingDocBelongsToCurrentCompany() {
-      return isPlatformAdmin()
-        || (
-          activeUserDocExists()
-          && currentUserCompanyId() is string
-          && currentUserCompanyId().size() > 0
-          && resource.data.companyId == currentUserCompanyId()
-        );
+      // Single-company compatibility: legacy Bickers records do not all carry
+      // companyId yet, so authenticated active users must be able to read them.
+      return activeUserDocExists();
     }
 
     function incomingDocBelongsToCurrentCompany() {
-      return isPlatformAdmin()
-        || (
-          activeUserDocExists()
-          && currentUserCompanyId() is string
-          && currentUserCompanyId().size() > 0
-          && request.resource.data.companyId == currentUserCompanyId()
-        );
+      // Client writers stamp bickers-action, but legacy update payloads remain
+      // valid while the single-company data set is being normalised.
+      return activeUserDocExists();
     }
 
     // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
@@ -65,7 +57,7 @@ service cloud.firestore {
     }
 
     function canReadTenantBusinessDoc() {
-      return existingDocBelongsToCurrentCompany();
+      return activeUserDocExists();
     }
 
     function currentUserAppAccessEnabled(workspace) {
@@ -117,6 +109,61 @@ service cloud.firestore {
         );
     }
 
+    function receiptAccountEnabled() {
+      return userDocExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled == true;
+    }
+
+    function receiptCompanyAllowed(data) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+          "platformAdmin", "platformadmin", "platform admin", "Platform Admin",
+          "superAdmin", "superadmin", "super admin", "Super Admin"
+        ]
+        || (
+          data.keys().hasAny(["companyId"])
+          && data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId
+        );
+    }
+
+    function isFinanceReviewer() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+          "platformAdmin", "platformadmin", "platform admin", "Platform Admin",
+          "superAdmin", "superadmin", "super admin", "Super Admin",
+          "admin", "Admin", "companyAdmin", "companyadmin", "company admin", "Company Admin",
+          "finance", "Finance", "financeManager", "finance manager", "Finance Manager"
+        ]
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["financeAccess"])
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.financeAccess == true
+        );
+    }
+
+    function receiptGroupAfter(groupId) {
+      return getAfter(/databases/$(database)/documents/receiptGroups/$(groupId));
+    }
+
+    function existingReceiptGroup(groupId) {
+      return get(/databases/$(database)/documents/receiptGroups/$(groupId));
+    }
+
+    function receiptIdentityUnchanged() {
+      return request.resource.data.submitterUid == resource.data.submitterUid
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.groupId == resource.data.groupId
+        && request.resource.data.monthKey == resource.data.monthKey;
+    }
+
+    function receiptOwnerDraftUpdateAllowed() {
+      return resource.data.submitterUid == request.auth.uid
+        && receiptIdentityUnchanged()
+        && existingReceiptGroup(resource.data.groupId).data.status == "draft"
+        && request.resource.data.status == "pending"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "purpose", "valuePence", "suggestedVatPence",
+          "fileName", "fileType", "fileSize", "storagePath", "updatedAt"
+        ]);
+    }
+
     function canManageTenantData() {
       return activeUserDocExists() && (hasUserAccess() || hasServiceAccess());
     }
@@ -165,6 +212,15 @@ service cloud.firestore {
       return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
+    function canReadStrictTenantDoc() {
+      return canUseSoftware()
+        && (
+          isPlatformAdmin()
+          || !resource.data.keys().hasAny(["companyId"])
+          || resource.data.companyId == currentUserCompanyId()
+        );
+    }
+
     function canCreateAnyWorkspaceTenantDoc() {
       return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
@@ -177,6 +233,28 @@ service cloud.firestore {
 
     function canDeleteAnyWorkspaceTenantDoc() {
       return canUseSoftware() && existingDocBelongsToCurrentCompany();
+    }
+
+    function legacyPmiHistoryWriteAllowed() {
+      return !(
+        resource.data.keys().hasAny(["futurePmiHistoryCleanupLocked"])
+        && resource.data.futurePmiHistoryCleanupLocked == true
+      ) || !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(["eightWeekInspectionHistory"]);
+    }
+
+    function legalMaintenanceCompletionFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "lastMOT", "lastMot", "lastMotDate", "motHistory",
+        "lastService", "serviceHistory",
+        "lastPMI", "lastPmi", "pmiHistory", "eightWeekInspectionHistory",
+        "lastBrakeTest", "brakeTestHistory",
+        "lastTacho", "tachoInspectionHistory",
+        "lastTachoDownload", "tachoDownloadHistory",
+        "lastTailLift", "tailLiftHistory",
+        "lastLoler", "lolerHistory",
+        "pendingReturnInspection"
+      ]);
     }
 
     function contactFinanceValue(data, key) {
@@ -382,6 +460,23 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /employeeNotifications/{notificationId} {
+      allow read: if isSignedIn()
+        && resource.data.keys().hasAny(["employeeId"])
+        && exists(/databases/$(database)/documents/employees/$(resource.data.employeeId))
+        && (
+          resource.data.uid == request.auth.uid
+          || get(/databases/$(database)/documents/employees/$(resource.data.employeeId)).data.userId
+            == request.auth.uid
+          || (
+            activeUserDocExists()
+            && resource.data.employeeId
+              == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId
+          )
+        );
+      allow write: if false;
+    }
+
     match /mfaSecrets/{uid} {
       allow read, write: if false;
     }
@@ -389,6 +484,25 @@ service cloud.firestore {
     match /adminAuditLogs/{logId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // Activity evidence is written and read only by authenticated server routes.
+    // Keeping these collections server-only prevents users from spoofing time or
+    // reading another account's activity directly from the browser.
+    match /userActivityBuckets/{bucketId} {
+      allow read, write: if false;
+    }
+
+    match /userActivitySessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    match /activityReviews/{reviewId} {
+      allow read, write: if false;
+    }
+
+    match /activityTrackingSettings/{companyId} {
+      allow read, write: if false;
     }
 
     // Sage 50 connector credentials and machine metadata are server-only.
@@ -520,6 +634,50 @@ service cloud.firestore {
       allow delete: if canDeleteUserTenantDoc();
     }
 
+    // Staff can submit and view only their own receipts. Explicit finance
+    // reviewers can access the company queue without exposing it to other staff.
+    match /receiptGroups/{groupId} {
+      allow read: if receiptAccountEnabled()
+        && receiptCompanyAllowed(resource.data)
+        && (isFinanceReviewer() || resource.data.submitterUid == request.auth.uid);
+      allow create: if receiptAccountEnabled()
+        && receiptCompanyAllowed(request.resource.data)
+        && request.resource.data.submitterUid == request.auth.uid
+        && request.resource.data.status == "draft"
+        && request.resource.data.declaredNoReceipts == false;
+      // Lifecycle transitions are validated and audited by protected server routes.
+      allow update, delete: if false;
+    }
+
+    match /receipts/{receiptId} {
+      allow read: if receiptAccountEnabled()
+        && receiptCompanyAllowed(resource.data)
+        && (isFinanceReviewer()
+          || resource.data.submitterUid == request.auth.uid);
+      allow create: if receiptAccountEnabled()
+        && receiptCompanyAllowed(request.resource.data)
+        && request.resource.data.submitterUid == request.auth.uid
+        && request.resource.data.status == "pending"
+        && request.resource.data.keys().hasAll(["purpose", "valuePence", "monthKey", "groupId", "suggestedVatPence"])
+        && request.resource.data.purpose is string
+        && request.resource.data.purpose.size() > 0
+        && request.resource.data.valuePence is int
+        && request.resource.data.valuePence > 0
+        && request.resource.data.suggestedVatPence is int
+        && receiptGroupAfter(request.resource.data.groupId).data.submitterUid == request.auth.uid
+        && receiptGroupAfter(request.resource.data.groupId).data.companyId == request.resource.data.companyId
+        && receiptGroupAfter(request.resource.data.groupId).data.monthKey == request.resource.data.monthKey
+        && receiptGroupAfter(request.resource.data.groupId).data.status == "draft";
+      allow update: if receiptAccountEnabled()
+        && receiptCompanyAllowed(resource.data)
+        && receiptCompanyAllowed(request.resource.data)
+        && receiptOwnerDraftUpdateAllowed();
+      allow delete: if receiptAccountEnabled()
+        && receiptCompanyAllowed(resource.data)
+        && resource.data.submitterUid == request.auth.uid
+        && existingReceiptGroup(resource.data.groupId).data.status == "draft";
+    }
+
     match /timesheetQueries/{queryId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();
@@ -562,7 +720,9 @@ service cloud.firestore {
     match /vehicles/{vehicleId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
       allow create: if canCreateAnyWorkspaceTenantDoc();
-      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc()
+        && legacyPmiHistoryWriteAllowed()
+        && legalMaintenanceCompletionFieldsUnchanged();
       allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
@@ -588,10 +748,16 @@ service cloud.firestore {
     }
 
     match /maintenanceBookings/{bookingId} {
-      allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if canCreateAnyWorkspaceTenantDoc();
-      allow update: if canUpdateAnyWorkspaceTenantDoc();
-      allow delete: if canDeleteAnyWorkspaceTenantDoc();
+      allow read: if canReadStrictTenantDoc();
+      // Legal maintenance state transitions are executed only by the authenticated
+      // server mutation service. Admin SDK/REST service-account writes bypass rules;
+      // browser clients cannot manufacture completed, cancelled or archived records.
+      allow create, update, delete: if false;
+    }
+
+    match /maintenanceReconciliationJobs/{jobId} {
+      allow read: if hasServiceAccess() && canReadStrictTenantDoc();
+      allow create, update, delete: if false;
     }
 
     match /vehicleChecks/{docId} {
@@ -686,12 +852,18 @@ service cloud.firestore {
     }
 
     match /settings/{docId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || (docId == "maintenanceProviders" && canUseSoftware());
       allow write: if isAdmin();
     }
 
-    match /{document=**} {
-      allow read: if isPlatformAdmin();
+    match /{collection}/{document=**} {
+      allow read: if isPlatformAdmin()
+        && !(collection in [
+          "userActivityBuckets",
+          "userActivitySessions",
+          "activityReviews",
+          "activityTrackingSettings"
+        ]);
       allow write: if false;
     }
   }
