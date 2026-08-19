@@ -738,27 +738,6 @@
   align-items: center;
 }
 
-.extracted115 {
-  margin-top: 6px;
-}
-
-.extracted116 {
-  font-weight: 700;
-}
-
-.extracted117 {
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.extracted118 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
-  margin-top: 10px;
-  font-size: 12px;
-}
-
 .extracted119 {
   font-size: 12px;
   color: var(--color-danger);

@@ -1,7 +1,12 @@
-// Client authorization is role-based. Deployment-specific break-glass email
-// lists live exclusively in the server-only deployment configuration module.
-export const ADMIN_EMAILS = [];
-export const PLATFORM_ADMIN_EMAILS = [];
+export const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adam@bickers.co.uk",
+];
+
+export const PLATFORM_ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+];
 
 export function cleanAccessEmail(value) {
   return String(value || "").trim().toLowerCase();

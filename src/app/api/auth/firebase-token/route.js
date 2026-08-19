@@ -6,13 +6,6 @@ import {
 } from "@/app/api/_firebaseAdminRest";
 import { isAccountDisabled } from "@/app/utils/accountAccess";
 import { preferredVerifiedEmail } from "@/app/utils/clerkFirebaseLink";
-import {
-  deploymentEmailAccessMessage,
-  getDeploymentConfig,
-  isDeploymentEmailAllowed,
-  isDeploymentEmergencyAdmin,
-  isDeploymentEmergencyPlatformAdmin,
-} from "@/app/config/deploymentConfig";
 
 export const runtime = "nodejs";
 
@@ -180,13 +173,13 @@ export async function POST(req) {
         "A verified Clerk email address is required."
       );
     }
-    if (!isDeploymentEmailAllowed(email)) {
+    if (!email.endsWith("@bickers.co.uk")) {
       return denyBridge(
         req,
         clerkUserId,
         email,
         "Clerk email domain denied",
-        deploymentEmailAccessMessage()
+        "Only @bickers.co.uk accounts can access this app."
       );
     }
 
@@ -324,14 +317,7 @@ export async function POST(req) {
       );
     }
 
-    const emergencyRole = !canonicalUser
-      ? isDeploymentEmergencyPlatformAdmin(email)
-        ? "platformAdmin"
-        : isDeploymentEmergencyAdmin(email)
-          ? "admin"
-          : ""
-      : "";
-    const role = emergencyRole || canonicalRole(canonicalUser?.role);
+    const role = canonicalRole(canonicalUser?.role);
     const isPlatformAdmin = role === "platformAdmin";
     const isAdmin = isPlatformAdmin || role === "admin";
     const employeeRow = isAdmin ? null : linkedEmployees[0] || null;
@@ -382,15 +368,13 @@ export async function POST(req) {
         "Company access requires manual review."
       );
     }
-    const companyId = canonicalCompanyId || employeeCompanyId || (emergencyRole ? getDeploymentConfig().companyId : "");
+    const companyId = canonicalCompanyId || employeeCompanyId;
     if (!companyId && !isPlatformAdmin) {
       return denyBridge(req, clerkUserId, email, "Company access missing", "Company access is not configured.");
     }
 
     const workspaceSource = isAdmin ? canonicalUser : employee;
-    const workspace = emergencyRole
-      ? { configured: true, appAccess: { user: true, service: true } }
-      : explicitWorkspaceAccess(workspaceSource || {});
+    const workspace = explicitWorkspaceAccess(workspaceSource || {});
     if (!workspace.configured) {
       return denyBridge(
         req,
@@ -409,7 +393,6 @@ export async function POST(req) {
       identityLinkVersion: 2,
       identityEmployeeId: employeeRow?.id || "",
       identityCompanyId: companyId,
-      emergencyBootstrapRole: emergencyRole,
     });
 
     return Response.json({ customToken, uid, email });

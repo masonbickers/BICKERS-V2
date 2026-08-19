@@ -72,22 +72,9 @@ test("reconciles a successful Sage result through the protected issue transition
   assert.equal(result.invoice.issuedSnapshot.invoiceNumber, "SI-1001");
   assert.equal(result.invoice.issuedSnapshot.jobNumber, "9164");
   assert.equal(result.invoice.issuedSnapshot.companyId, "company-1");
-  assert.deepEqual(result.invoice.issuedSnapshot.supplier, {
-    legalName: "Bickers Action",
-    description: "Film and TV Action Vehicles",
-    website: "www.bickers.co.uk",
-  });
   assert.equal(result.invoice.audit.at(-1).action, "sage50_export_reconciled");
   assert.equal(result.booking.financeState, "invoiced");
   assert.equal(result.job.invoiceReconciled, true);
-});
-
-test("newly issued supplier identity comes from the deployment and is copied immutably", () => {
-  const supplier = { legalName: "Example Transport Ltd", description: "Transport operations", website: "https://example.com" };
-  const result = buildSage50Reconciliation({ job, invoice, booking, actor: "finance@example.com", supplier });
-  supplier.legalName = "Changed later";
-  assert.equal(result.invoice.issuedSnapshot.supplier.legalName, "Example Transport Ltd");
-  assert.equal(result.invoice.issuedSnapshot.supplier.website, "https://example.com");
 });
 
 test("reconciliation is idempotent for the same official Sage identity", () => {

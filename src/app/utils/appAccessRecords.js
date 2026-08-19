@@ -3,9 +3,8 @@ import {
   normalizeAppAccess,
   resolveDefaultWorkspace,
 } from "./accessControl.js";
-import { BICKERS_DEPLOYMENT_DEFAULTS } from "../config/deploymentConfigCore.js";
 
-export const DEFAULT_COMPANY_ID = BICKERS_DEPLOYMENT_DEFAULTS.companyId;
+export const DEFAULT_COMPANY_ID = "bickers-action";
 
 export function cleanAccessEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -31,7 +30,6 @@ export function normalizeAccessRecordContext({
   employeeId = "",
   employee = {},
   user = {},
-  defaultCompanyId = DEFAULT_COMPANY_ID,
 } = {}) {
   const normalizedUid = cleanAccessString(uid || user.uid || employee.authUid || employee.uid);
   const normalizedEmployeeId = cleanAccessString(employeeId || user.employeeId || employee.employeeId);
@@ -57,7 +55,7 @@ export function normalizeAccessRecordContext({
       user.phoneNumber ||
       user.phone
   );
-  const companyId = cleanAccessString(user.companyId || employee.companyId || defaultCompanyId);
+  const companyId = cleanAccessString(user.companyId || employee.companyId || DEFAULT_COMPANY_ID);
   const appAccess = normalizeAppAccess({ ...employee, ...user });
   const defaultWorkspace = resolveDefaultWorkspace({ ...employee, ...user }, appAccess);
   const role = derivePlatformRoleFromAccess(user.role || employee.role ? { role: user.role || employee.role } : {});

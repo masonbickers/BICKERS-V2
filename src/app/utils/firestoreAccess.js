@@ -3,8 +3,6 @@
 import { useMemo } from "react";
 import { collection, query } from "firebase/firestore";
 import { useAuth } from "@/app/context/authContext";
-import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
-import { BICKERS_DEPLOYMENT_DEFAULTS } from "@/app/config/deploymentConfigCore";
 import { normalizePlatformRole } from "@/app/utils/accessControl";
 import {
   isPermissionDeniedError,
@@ -56,10 +54,10 @@ export const TENANT_COLLECTIONS = new Set([
   "employeeTrainingRecords",
 ]);
 
-export const SINGLE_COMPANY_ID = BICKERS_DEPLOYMENT_DEFAULTS.companyId;
+export const SINGLE_COMPANY_ID = "bickers-action";
 
 function currentCompanyId(authState = {}) {
-  return String(authState?.userDoc?.companyId || authState?.deploymentCompanyId || "").trim();
+  return String(authState?.userDoc?.companyId || "").trim();
 }
 
 function reportTenantQueryDebug({ authState, collectionName, companyId, tenantFilterApplied }) {
@@ -219,7 +217,6 @@ export function dataAccessKey(authState = {}) {
 
 export function useDataAccessState() {
   const authAccess = useAuth() || {};
-  const deployment = useDeploymentConfig();
   return useMemo(
     () => ({
       user: authAccess.user,
@@ -227,8 +224,7 @@ export function useDataAccessState() {
       isEnabled: authAccess.isEnabled,
       loading: authAccess.loading,
       accessReady: authAccess.accessReady,
-      deploymentCompanyId: deployment.companyId,
     }),
-    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc, deployment.companyId]
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc]
   );
 }

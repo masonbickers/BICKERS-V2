@@ -7,8 +7,7 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { cleanAccessEmail } from "@/app/utils/appAccessRecords";
-import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
+import { DEFAULT_COMPANY_ID, cleanAccessEmail } from "@/app/utils/appAccessRecords";
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -174,7 +173,6 @@ const focusCss = `
 
 export default function AddEmployeePage() {
   const router = useRouter();
-  const deployment = useDeploymentConfig();
 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -209,7 +207,7 @@ export default function AddEmployeePage() {
         employeeName: name,
         email,
         emails: [email].filter(Boolean),
-        companyId: deployment.companyId,
+        companyId: DEFAULT_COMPANY_ID,
         isEnabled: true,
         active: true,
         appAccess: { user: true, service: false },

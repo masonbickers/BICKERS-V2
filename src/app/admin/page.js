@@ -36,6 +36,7 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
+import { ADMIN_EMAILS } from "@/app/utils/adminAccess";
 import {
   handleFirestoreAccessError,
   tenantPayload,
@@ -53,7 +54,8 @@ import UserActivityPanel from "@/app/admin/_components/UserActivityPanel";
 import SystemActivityPanel from "@/app/admin/_components/SystemActivityPanel";
 
 /* -------------------------------------------
-   Admin gate uses canonical server-bootstrapped roles.
+   Admin gate
+    allow if email is in ADMIN_EMAILS OR users.role === "admin"
 ------------------------------------------- */
 /* -------------------------------------------
    Mini design system (matches your style)
@@ -561,6 +563,7 @@ export default function AdminPage() {
 
   /* -------------------------------------------
      Auth + Admin gate
+      allow if email in ADMIN_EMAILS OR server-bootstrapped role is admin/platformAdmin
   -------------------------------------------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -571,11 +574,13 @@ export default function AdminPage() {
           return;
         }
 
+        const email = String(u.email || "").trim().toLowerCase();
         const access = await refreshServerAccess(u);
         const role = String(access?.role || "").trim().toLowerCase();
         const isAdminRole = ["admin", "platformadmin"].includes(role);
+        const isAllowListed = ADMIN_EMAILS.includes(email);
 
-        if (!isAdminRole) {
+        if (!isAllowListed && !isAdminRole) {
           router.push("/home");
           return;
         }
@@ -1205,7 +1210,7 @@ export default function AdminPage() {
                     ) : (
                       filteredUsers.map((u) => {
                         const email = (u.email || "").toLowerCase();
-                        const locked = ["admin", "platformadmin"].includes(String(u.role || "").trim().toLowerCase());
+                        const locked = ADMIN_EMAILS.includes(email);
                         const enabled = u.isEnabled ?? true;
                         const mfaEnabled = u.mfaEnabled === true && u.mfaMethod === "totp";
                         const resetInProgress = resettingMfaUserId === u.id;
