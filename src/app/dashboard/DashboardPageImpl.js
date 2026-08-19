@@ -1675,10 +1675,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const workDiarySectionRef = useRef(null);
   const authAccess = useAuth() || {};
   const canUseAdminDashboardFallback = !!authAccess.isAdmin;
-  // Admin Firestore listeners are intentionally rejected by the tenant rules.
-  // Load through the authorised server endpoint immediately so the diary does
-  // not render as empty while it waits for a permission error and fallback.
-  const useAdminDashboardData = canUseAdminDashboardFallback;
+  const useAdminDashboardData = false;
   const dataAccessState = useMemo(
     () => ({
       user: authAccess.user?.uid ? { uid: authAccess.user.uid } : null,
