@@ -23,7 +23,6 @@ import {
   Users,
 } from "lucide-react";
 import { auth } from "../../../../firebaseConfig";
-import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 
 const navItems = [
   ["/platform-admin", "Dashboard", Home],
@@ -44,7 +43,6 @@ const navItems = [
 export default function PlatformAdminShell({ children, title, subtitle, onRefresh, loading }) {
   const router = useRouter();
   const pathname = usePathname();
-  const deployment = useDeploymentConfig();
   const [checking, setChecking] = useState(true);
   const [me, setMe] = useState(null);
 
@@ -94,7 +92,7 @@ export default function PlatformAdminShell({ children, title, subtitle, onRefres
   if (checking) {
     return (
       <main style={styles.loadingPage}>
-        <Image src={deployment.companyLogoUrl} alt={`${deployment.displayName} logo`} width={160} height={80} style={styles.loadingLogo} unoptimized />
+        <Image src="/bas-software-logo.png" alt="BAS Software" width={92} height={92} />
         <strong>Checking platform access...</strong>
       </main>
     );
@@ -104,9 +102,9 @@ export default function PlatformAdminShell({ children, title, subtitle, onRefres
     <main style={styles.page}>
       <aside style={styles.sidebar}>
         <div style={styles.brand}>
-          <Image src={deployment.companyLogoUrl} alt={`${deployment.displayName} logo`} width={72} height={48} style={styles.brandLogo} unoptimized />
+          <Image src="/bas-software-logo.png" alt="BAS Software" width={48} height={48} />
           <div>
-            <div style={styles.kicker}>{deployment.shortName || deployment.displayName}</div>
+            <div style={styles.kicker}>BAS Software</div>
             <div style={styles.brandTitle}>Platform Admin</div>
           </div>
         </div>
@@ -168,7 +166,6 @@ const styles = {
     color: "var(--color-text)",
     fontFamily: "Arial, sans-serif",
   },
-  loadingLogo: { width: 160, height: 80, objectFit: "contain" },
   sidebar: {
     minHeight: "100vh",
     padding: 16,
@@ -178,7 +175,6 @@ const styles = {
     top: 0,
   },
   brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 20 },
-  brandLogo: { width: 72, height: 48, objectFit: "contain" },
   kicker: { fontSize: 12, color: "var(--color-text-muted)", fontWeight: 800, textTransform: "uppercase" },
   brandTitle: { fontSize: 18, fontWeight: 900 },
   nav: { display: "grid", gap: 6 },
