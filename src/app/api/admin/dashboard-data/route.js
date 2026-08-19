@@ -1,5 +1,6 @@
-import { requireAdminFromRequest, jsonError } from "@/app/api/admin/_lib";
+import { requireActiveUserFromRequest, jsonError } from "@/app/api/admin/_lib";
 import { adminListDocuments } from "@/app/api/_firebaseAdminRest";
+import { BICKERS_DEPLOYMENT_DEFAULTS } from "@/app/config/deploymentConfigCore";
 
 const PRIORITY_COLLECTIONS = ["bookings"];
 
@@ -17,8 +18,10 @@ const SUPPORTING_COLLECTIONS = [
 const DASHBOARD_COLLECTIONS = [...PRIORITY_COLLECTIONS, ...SUPPORTING_COLLECTIONS];
 
 export async function GET(req) {
-  const admin = await requireAdminFromRequest(req);
-  if (admin.error) return admin.error;
+  const activeUser = await requireActiveUserFromRequest(req, { module: "diary" });
+  if (activeUser.error) return activeUser.error;
+  const isPlatformAdmin = activeUser.userData?.role === "platformAdmin";
+  const companyId = String(activeUser.userData?.companyId || "").trim();
 
   try {
     const scope = new URL(req.url).searchParams.get("scope") || "all";
@@ -32,9 +35,15 @@ export async function GET(req) {
     const entries = await Promise.all(
       collectionNames.map(async (collectionName) => {
         const docs = await adminListDocuments(collectionName);
+        const visibleDocs = docs.filter(({ data }) => {
+          if (isPlatformAdmin) return true;
+          const documentCompanyId = String(data?.companyId || "").trim();
+          if (documentCompanyId) return documentCompanyId === companyId;
+          return companyId === BICKERS_DEPLOYMENT_DEFAULTS.companyId;
+        });
         return [
           collectionName,
-          docs.map(({ id, data }) => ({ id, ...(data || {}) })),
+          visibleDocs.map(({ id, data }) => ({ id, ...(data || {}) })),
         ];
       })
     );
