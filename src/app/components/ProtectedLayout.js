@@ -38,7 +38,6 @@ export default function ProtectedLayout({ children }) {
     (path) => pathname === path || String(pathname || "").startsWith(`${path}/`)
   );
   const isEmbeddedQuoteView = String(pathname || "").startsWith("/quote-view/");
-  const isPlatformAdminWorkspace = String(pathname || "").startsWith("/platform-admin");
   const role = normalizePlatformRole(userDoc?.role);
   const moduleEnabled = isModuleEnabledForPath(pathname, featureFlags);
   const financeHandoffPath = isFinanceHandoffPath(pathname);
@@ -102,7 +101,7 @@ export default function ProtectedLayout({ children }) {
   return (
     <>
       <UserActivityTracker />
-      {isPlatformAdminWorkspace ? children : <HeaderSidebarLayout>{children}</HeaderSidebarLayout>}
+      <HeaderSidebarLayout>{children}</HeaderSidebarLayout>
     </>
   );
 }

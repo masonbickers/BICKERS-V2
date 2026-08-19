@@ -32,7 +32,7 @@ import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 const sectionCopy = {
   dashboard: ["Platform Dashboard", "Companies, users, security warnings and recent events."],
   companies: ["Companies", "Create, review and control tenant settings."],
-  branding: ["Branding Settings", "Global and company-specific deployment branding."],
+  branding: ["Branding Settings", "Global and company-specific BAS Software branding."],
   users: ["All Users", "Manage user access, workspace permissions and MFA readiness."],
   employeeLinking: ["Employee Linking", "Repair links between Firebase users and employee records."],
   security: ["Security Centre", "Users and companies that need security attention."],
@@ -47,7 +47,6 @@ const sectionCopy = {
 
 function usePlatformData({ includeAudit = false } = {}) {
   const [loading, setLoading] = useState(true);
-  const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState("");
   const [data, setData] = useState({ companies: [], users: [], employees: [], audits: [], loginLogs: [], cleanupPreview: [], platformSettings: {}, stats: {} });
   const [audit, setAudit] = useState({ rows: [], summary: {} });
@@ -57,15 +56,8 @@ function usePlatformData({ includeAudit = false } = {}) {
     if (!user) return;
     setLoading(true);
     setNotice("");
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 30_000);
-    const auditRequest = includeAudit
-      ? authedFetch("/api/admin/security-audit", { cache: "no-store", signal: controller.signal })
-        .then((value) => ({ value, error: null }))
-        .catch((error) => ({ value: null, error }))
-      : null;
     try {
-      const platformData = await authedFetch("/api/platform-admin", { cache: "no-store", signal: controller.signal });
+      const platformData = await authedFetch("/api/platform-admin", { cache: "no-store" });
       setData({
         companies: platformData.companies || [],
         users: platformData.users || [],
@@ -76,28 +68,15 @@ function usePlatformData({ includeAudit = false } = {}) {
         platformSettings: platformData.platformSettings || {},
         stats: platformData.stats || {},
       });
-      setLoaded(true);
+      if (includeAudit) {
+        const auditData = await authedFetch("/api/admin/security-audit", { cache: "no-store" });
+        setAudit({ rows: auditData.rows || [], summary: auditData.summary || {} });
+      }
     } catch (error) {
-      setNotice(error?.name === "AbortError"
-        ? "Platform data took too long to respond. Try Refresh again."
-        : error?.message || "Could not load platform data.");
-      window.clearTimeout(timeout);
-      return;
+      setNotice(error?.message || "Could not load platform data.");
     } finally {
       setLoading(false);
     }
-
-    if (auditRequest) {
-      const { value: auditData, error } = await auditRequest;
-      if (!error) {
-        setAudit({ rows: auditData.rows || [], summary: auditData.summary || {} });
-      } else {
-        setNotice(error?.name === "AbortError"
-          ? "Security audit data timed out; the platform summary is still available."
-          : `Platform summary loaded, but security audit data is unavailable: ${error?.message || "request failed"}`);
-      }
-    }
-    window.clearTimeout(timeout);
   }, [includeAudit]);
 
   useEffect(() => {
@@ -107,13 +86,13 @@ function usePlatformData({ includeAudit = false } = {}) {
     return () => unsub();
   }, [load]);
 
-  return { data, audit, loading, loaded, notice, load };
+  return { data, audit, loading, notice, load };
 }
 
 export default function PlatformAdminSectionPage({ section }) {
   const deployment = useDeploymentConfig();
   const needsAudit = ["security", "mfa", "cleanup", "dashboard"].includes(section);
-  const { data, audit, loading, loaded, notice, load } = usePlatformData({ includeAudit: needsAudit });
+  const { data, audit, loading, notice, load } = usePlatformData({ includeAudit: needsAudit });
   const [query, setQuery] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
 
@@ -148,26 +127,8 @@ export default function PlatformAdminSectionPage({ section }) {
           companies={data.companies}
         />
       ) : null}
-      {!loaded ? (
-        <PlatformDataState loading={loading} onRetry={load} />
-      ) : (
-        renderSection(section, { data, audit, filteredUsers, filteredEmployees, loading, load, deployment })
-      )}
+      {renderSection(section, { data, audit, filteredUsers, filteredEmployees, loading, load, deployment })}
     </PlatformAdminShell>
-  );
-}
-
-function PlatformDataState({ loading, onRetry }) {
-  return (
-    <div style={{ ...ui.card, minHeight: 180, display: "grid", placeItems: "center", textAlign: "center" }}>
-      <div>
-        <h2 style={{ margin: "0 0 8px" }}>{loading ? "Loading platform data…" : "Platform data is unavailable"}</h2>
-        <p style={{ margin: "0 0 16px", color: "var(--color-text-muted)", fontWeight: 700 }}>
-          {loading ? "Checking companies, users and security records." : "No totals are shown until a verified response is received."}
-        </p>
-        {!loading ? <button type="button" onClick={onRetry} style={ui.button}>Try again</button> : null}
-      </div>
-    </div>
   );
 }
 
