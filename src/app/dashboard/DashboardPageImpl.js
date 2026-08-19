@@ -1870,6 +1870,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const userEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase() || null;
   const userUid = authAccess.user?.uid || null;
   const adminDashboardFallbackRef = useRef({ inFlight: false, loaded: false });
+  const [adminDiaryLoading, setAdminDiaryLoading] = useState(canUseAdminDashboardFallback);
 
   useEffect(() => {
     const nextDate = parseLocalDate(initialDate);
@@ -2087,37 +2088,46 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     if (!currentUser?.getIdToken) return;
 
     adminDashboardFallbackRef.current.inFlight = true;
+    setAdminDiaryLoading(true);
     try {
       const token = await currentUser.getIdToken();
-      const res = await fetch("/api/admin/dashboard-data", {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Dashboard admin data failed: ${res.status}`);
+      const fetchScope = async (scope) => {
+        const res = await fetch(`/api/admin/dashboard-data?scope=${scope}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || `Dashboard admin data failed: ${res.status}`);
+        return data.collections || {};
+      };
 
-      const collections = data.collections || {};
-      setBookings(Array.isArray(collections.bookings) ? collections.bookings : []);
-      applyHolidayRows(Array.isArray(collections.holidays) ? collections.holidays : []);
+      const priorityCollections = await fetchScope("priority");
+      setBookings(Array.isArray(priorityCollections.bookings) ? priorityCollections.bookings : []);
+      setAdminDiaryLoading(false);
+
+      // Do not let the much larger supporting payload compete with the first
+      // paint. Once booking cards are visible, fill the secondary calendars.
+      const supportingCollections = await fetchScope("supporting");
+      applyHolidayRows(Array.isArray(supportingCollections.holidays) ? supportingCollections.holidays : []);
       setNotes(
         mapNoteDocsToCalendarEvents(
-          (Array.isArray(collections.notes) ? collections.notes : []).map((row) => ({
+          (Array.isArray(supportingCollections.notes) ? supportingCollections.notes : []).map((row) => ({
             id: row.id,
             data: () => row,
           }))
         )
       );
-      setMaintenanceBookings(Array.isArray(collections.maintenanceBookings) ? collections.maintenanceBookings : []);
-      setMaintenanceJobs(Array.isArray(collections.maintenanceJobs) ? collections.maintenanceJobs : []);
-      setVehiclesData(Array.isArray(collections.vehicles) ? collections.vehicles : []);
+      setMaintenanceBookings(Array.isArray(supportingCollections.maintenanceBookings) ? supportingCollections.maintenanceBookings : []);
+      setMaintenanceJobs(Array.isArray(supportingCollections.maintenanceJobs) ? supportingCollections.maintenanceJobs : []);
+      setVehiclesData(Array.isArray(supportingCollections.vehicles) ? supportingCollections.vehicles : []);
       setEquipmentOptions(
-        (Array.isArray(collections.equipment) ? collections.equipment : [])
+        (Array.isArray(supportingCollections.equipment) ? supportingCollections.equipment : [])
           .map((row) => String(row.name || row.label || row.id || "").trim())
           .filter(Boolean)
           .sort((a, b) => a.localeCompare(b))
       );
       setDeletedBookings(
-        (Array.isArray(collections.deletedBookings) ? collections.deletedBookings : []).map((raw) => {
+        (Array.isArray(supportingCollections.deletedBookings) ? supportingCollections.deletedBookings : []).map((raw) => {
           const payload = raw.data || raw.payload || raw.booking || {};
           return {
             id: raw.originalId || raw.id,
@@ -2132,6 +2142,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       clearPagePermissionDenied();
       console.warn(`[dashboard] loaded via admin fallback after ${reason}`);
     } catch (error) {
+      setAdminDiaryLoading(false);
       console.error("[dashboard] admin fallback failed:", error);
     } finally {
       adminDashboardFallbackRef.current.inFlight = false;
@@ -3287,7 +3298,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 >
                   <Plus size={14} />
                   Enquiries
-                  <span className={layoutStyles.countBadge}>{enquiryCount}</span>
+                  <span className={layoutStyles.countBadge}>{adminDiaryLoading ? "…" : enquiryCount}</span>
                 </Button>
                 <Button variant="secondary"
                   type="button"
@@ -3427,7 +3438,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             </div>
           </div>
 
-          <BigCalendar
+          {adminDiaryLoading ? (
+            <div className={layoutStyles.diaryLoadingState} role="status" aria-live="polite">
+              <Spinner />
+              <strong>Loading diary…</strong>
+              <span>Fetching the latest bookings.</span>
+            </div>
+          ) : (
+            <BigCalendar
               localizer={localizer}
               //  include bank holidays in Work Diary
               events={workCalendarEvents}
@@ -3603,6 +3621,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               };
               }}
             />
+          )}
         </section>
 
         {isUCraneMode && (
