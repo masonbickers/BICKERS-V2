@@ -217,6 +217,11 @@ function computeTravelHours(entry) {
   return diffHours(entry?.leaveTime, entry?.arriveTime);
 }
 
+function computeTravelPaidHours(entry) {
+  const actualHours = computeTravelHours(entry);
+  return actualHours > 0 ? Math.max(10, actualHours) : 0;
+}
+
 function computeOfficeHours(entry) {
   return diffHours(entry?.startTime, entry?.endTime);
 }
@@ -225,8 +230,26 @@ function getPrecallHours(entry) {
   return getPrecallInfo(entry).hours;
 }
 
+function computeWaitingAllowanceHours(entry) {
+  const arriveMinutes = toMinutes(entry?.arriveTime);
+  const callMinutes = toMinutes(entry?.callTime);
+  if (arriveMinutes == null || callMinutes == null) return 0;
+
+  let targetMinutes = callMinutes - Math.round(getPrecallHours(entry) * 60);
+  while (targetMinutes < 0) targetMinutes += 24 * 60;
+  let diffMinutes = targetMinutes - arriveMinutes;
+  if (diffMinutes < 0) diffMinutes += 24 * 60;
+  return Math.min(Math.max(0, diffMinutes / 60), 1);
+}
+
+function computeEarlyCallOvertimeHours(entry) {
+  const callMinutes = toMinutes(entry?.callTime);
+  return callMinutes != null && callMinutes < 7 * 60 ? (7 * 60 - callMinutes) / 60 : 0;
+}
+
 function computeOnSetBreakdown(entry) {
   const travelToHrs = computeTravelHours(entry);
+  const paidEarlyArrivalHrs = computeWaitingAllowanceHours(entry);
   const preCallHrs = getPrecallHours(entry);
   const callToWrapHrs =
     entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
@@ -239,10 +262,22 @@ function computeOnSetBreakdown(entry) {
       : 0;
 
     const onSetPaidHrs = 10;
-    const extraAfterTenHrs = Math.max(0, callToFinishHrs - onSetPaidHrs);
+    const wrapOvertimeHrs = Math.max(0, callToWrapHrs - onSetPaidHrs);
+    const onSetOvertimeHrs = Math.max(wrapOvertimeHrs, computeEarlyCallOvertimeHours(entry));
+    const rawTravelAfterTenHrs = Math.max(
+      0,
+      callToFinishHrs - Math.max(onSetPaidHrs, callToWrapHrs || 0)
+    );
+    const travelAfterTenHrs = Math.max(0, rawTravelAfterTenHrs - (entry?.overnight ? 0.5 : 0));
 
     return {
-      totalHrs: travelToHrs + preCallHrs + onSetPaidHrs + extraAfterTenHrs,
+      totalHrs:
+        travelToHrs +
+        paidEarlyArrivalHrs +
+        preCallHrs +
+        onSetPaidHrs +
+        onSetOvertimeHrs +
+        travelAfterTenHrs,
     };
   }
 
@@ -251,7 +286,7 @@ function computeOnSetBreakdown(entry) {
   const legacyOnSetHrs = callToWrapHrs || fallbackWindowHrs;
 
   return {
-    totalHrs: Math.max(0, legacyOnSetHrs + preCallHrs),
+    totalHrs: Math.max(0, legacyOnSetHrs + paidEarlyArrivalHrs + preCallHrs),
   };
 }
 
@@ -267,13 +302,30 @@ function isTurnaroundDay(entry) {
 }
 
 function computeTurnaroundHours(entry) {
-  const segs = extractYardSegments(entry);
-  if (!segs?.length) return 0;
-  let total = 0;
-  segs.forEach((s) => {
-    total += diffHours(s.start, s.end);
-  });
-  return Math.max(0, total);
+  return entry ? 10 : 0;
+}
+
+function computeWorkshopHours(entry) {
+  const segments = Array.isArray(entry?.workshopSegments)
+    ? entry.workshopSegments
+    : Array.isArray(entry?.yardSegments)
+    ? entry.yardSegments
+    : Array.isArray(entry?.timeBlocks)
+    ? entry.timeBlocks
+    : [];
+  if (segments.length > 0) {
+    return segments.reduce(
+      (total, segment) =>
+        total + diffHours(segment.start || segment.startTime, segment.end || segment.finish || segment.endTime),
+      0
+    );
+  }
+  return Array.isArray(entry?.workshopJobs)
+    ? entry.workshopJobs.reduce(
+        (total, row) => total + Number(row?.hours ?? row?.allocatedHours ?? row?.hrs ?? 0),
+        0
+      )
+    : 0;
 }
 
 function detectMode(entry, isWeekend) {
@@ -287,6 +339,7 @@ function detectMode(entry, isWeekend) {
   if (rawMode === "travel") return "travel";
   if (rawMode === "onset") return "onset";
   if (rawMode === "office") return "office";
+  if (rawMode === "workshop") return "workshop";
   if (rawMode === "yard") return "yard";
   return "yard";
 }
@@ -374,7 +427,8 @@ function getTimesheetWeekHours(ts, employee) {
     if (!entry) return total;
     const mode = detectMode(entry, day === "Saturday" || day === "Sunday");
     if (mode === "yard") return total + computeYardHours(entry, day);
-    if (mode === "travel") return total + computeTravelHours(entry);
+    if (mode === "workshop") return total + computeWorkshopHours(entry);
+    if (mode === "travel") return total + computeTravelPaidHours(entry);
     if (mode === "onset") return total + computeOnSetHours(entry);
     if (mode === "office") return total + computeOfficeHours(entry);
     if (mode === "turnaround") return total + computeTurnaroundHours(entry);

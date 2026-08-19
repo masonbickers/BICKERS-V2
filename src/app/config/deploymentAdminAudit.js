@@ -1,8 +1,8 @@
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 const normalizeRole = (value) => {
-  const role = String(value || "").trim().toLowerCase();
-  if (role === "platformadmin") return "platformAdmin";
-  if (role === "admin") return "admin";
+  const role = String(value || "").trim().toLowerCase().replace(/[^a-z]/g, "");
+  if (role === "platformadmin" || role === "superadmin") return "platformAdmin";
+  if (role === "admin" || role === "companyadmin") return "admin";
   return "user";
 };
 
@@ -31,6 +31,7 @@ export function auditDeploymentAdminRoles(users = [], config = {}) {
         email,
         expectedRole,
         actualRole: record ? actualRole : "missing",
+        rawRole: record ? String(record?.role || "") : "",
         status: !record ? "missing" : disabled ? "disabled" : "role_mismatch",
       });
     }

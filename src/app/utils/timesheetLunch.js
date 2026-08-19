@@ -1,6 +1,7 @@
 export function shouldDeductYardLunch(entry, day) {
-  // Saturday yard work is paid in full, regardless of legacy/default lunch flags.
-  if (String(day || "").trim().toLowerCase() === "saturday") return false;
+  // Weekend yard work is paid in full, regardless of legacy/default lunch flags.
+  const normalisedDay = String(day || "").trim().toLowerCase();
+  if (normalisedDay === "saturday" || normalisedDay === "sunday") return false;
 
   if (!entry) return true;
   if (entry.managerLunchDeduct === true) return true;
