@@ -12,13 +12,13 @@ export default defineConfig({
     { name: "mobile-safari", use: { ...devices["iPhone 13"] } },
   ],
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: "http://127.0.0.1:3210",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "MAINTENANCE_E2E_HARNESS=1 npm run dev:clean -- --hostname 127.0.0.1 --port 3100",
-    url: "http://127.0.0.1:3100/maintenance-e2e",
+    command: "MAINTENANCE_E2E_HARNESS=1 npm run dev:clean -- --hostname 127.0.0.1 --port 3210",
+    url: "http://127.0.0.1:3210/bas-software-logo.png",
     reuseExistingServer: false,
     timeout: 120_000,
   },
