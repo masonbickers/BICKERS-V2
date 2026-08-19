@@ -21,7 +21,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
 import moment from "moment";
-import { auth, db } from "../../../firebaseConfig";
+import { db } from "../../../firebaseConfig";
 import { getDocs } from "firebase/firestore";
 import {
   dataAccessKey,
@@ -301,7 +301,7 @@ export default function HomePage() {
         }
       };
 
-      let [bookingResult, vehicleResult, maintenanceBookingResult, maintenanceJobResult, holidayResult, noteResult] =
+      const [bookingResult, vehicleResult, maintenanceBookingResult, maintenanceJobResult, holidayResult, noteResult] =
         await Promise.all([
           loadCollection("bookings", (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
           loadCollection("vehicles", (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
@@ -310,50 +310,6 @@ export default function HomePage() {
           loadCollection("holidays", (snap) => snap.docs.map(asHolidayEvent).filter(Boolean)),
           loadCollection("notes", (snap) => snap.docs.map(asNoteEvent).filter(Boolean)),
         ]);
-
-      const directResults = [
-        bookingResult,
-        vehicleResult,
-        maintenanceBookingResult,
-        maintenanceJobResult,
-        holidayResult,
-        noteResult,
-      ];
-      if (directResults.some((result) => !result.ok)) {
-        try {
-          const token = await auth.currentUser?.getIdToken?.();
-          if (!token) throw new Error("Firebase session is not ready.");
-
-          const response = await fetch("/api/admin/dashboard-data?scope=all", {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: "no-store",
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(payload?.error || `Home data fallback failed: ${response.status}`);
-
-          const collections = payload?.collections || {};
-          const asRows = (name) => Array.isArray(collections[name]) ? collections[name] : [];
-          bookingResult = { ok: true, rows: asRows("bookings") };
-          vehicleResult = { ok: true, rows: asRows("vehicles") };
-          maintenanceBookingResult = { ok: true, rows: asRows("maintenanceBookings") };
-          maintenanceJobResult = { ok: true, rows: asRows("maintenanceJobs") };
-          holidayResult = {
-            ok: true,
-            rows: asRows("holidays")
-              .map((row) => asHolidayEvent({ id: row.id, data: () => row }))
-              .filter(Boolean),
-          };
-          noteResult = {
-            ok: true,
-            rows: asRows("notes")
-              .map((row) => asNoteEvent({ id: row.id, data: () => row }))
-              .filter(Boolean),
-          };
-          console.warn("[home] loaded via authenticated server fallback");
-        } catch (fallbackError) {
-          console.error("[home] server fallback failed:", fallbackError);
-        }
-      }
 
       if (cancelled) return;
 
