@@ -1,8 +1,4 @@
 import "server-only";
-import { getDeploymentConfig } from "@/app/config/deploymentConfig";
-import { formatEmailFrom } from "@/app/utils/emailIdentity";
-
-export { formatEmailFrom } from "@/app/utils/emailIdentity";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const DEFAULT_EMAIL_FROM = process.env.RESEND_FROM_EMAIL || "";
@@ -32,7 +28,7 @@ export async function sendServerEmail({
       ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: JSON.stringify({
-      from: formatEmailFrom(getDeploymentConfig().emailFromName, DEFAULT_EMAIL_FROM),
+      from: DEFAULT_EMAIL_FROM,
       to: [to],
       subject,
       html,

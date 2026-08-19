@@ -110,11 +110,11 @@ test("keeps personal settings available without exposing admin settings", () => 
   assert.equal(isPathAllowedForAccess("/settings", serviceOnly), true);
 });
 
-test("client admin email allowlists remain disabled", () => {
-  assert.equal(isAdminEmail("mason@bickers.co.uk"), false);
-  assert.equal(isAdminEmail("paul@bickers.co.uk"), false);
-  assert.equal(isAdminEmail("adam@bickers.co.uk"), false);
-  assert.equal(isPlatformAdminEmail("mason@bickers.co.uk"), false);
+test("keeps admin and platform-admin allowlists explicit", () => {
+  assert.equal(isAdminEmail("mason@bickers.co.uk"), true);
+  assert.equal(isAdminEmail("paul@bickers.co.uk"), true);
+  assert.equal(isAdminEmail("adam@bickers.co.uk"), true);
+  assert.equal(isPlatformAdminEmail("mason@bickers.co.uk"), true);
   assert.equal(isPlatformAdminEmail("paul@bickers.co.uk"), false);
 });
 

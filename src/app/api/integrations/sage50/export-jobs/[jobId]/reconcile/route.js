@@ -9,7 +9,6 @@ import {
 } from "@/app/api/admin/_lib";
 import { buildSage50Reconciliation } from "@/app/utils/sage50Reconciliation";
 import { ensureIssuedInvoiceDocument } from "@/app/utils/issuedInvoiceDocumentService";
-import { getDeploymentSupplier } from "@/app/config/deploymentConfig";
 import {
   EXPORT_JOB_COLLECTION,
   writeExportJobAudit,
@@ -49,7 +48,6 @@ export async function POST(req, context) {
       booking: { id: job.invoiceId, ...bookingSnapshot.data },
       actor,
       now,
-      supplier: getDeploymentSupplier(),
     });
 
     if (!reconciliation.idempotent) {

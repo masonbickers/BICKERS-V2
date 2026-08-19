@@ -2,7 +2,6 @@ import { adminListDocuments, adminPatchDocument, adminReadDocument } from "@/app
 import { jsonError } from "@/app/api/admin/_lib";
 import { cleanId, jsonOk, requirePlatformAdmin, writePlatformAudit } from "../../_lib";
 import { buildUserAccessPatch } from "@/app/utils/appAccessRecords";
-import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 export const runtime = "nodejs";
 
@@ -20,11 +19,11 @@ async function findEmployeeForUid(uid) {
   return employees.find(({ data }) => cleanId(data?.authUid || data?.uid) === uid) || null;
 }
 
-function seedUserFromEmployee(uid, employeeDoc, defaultCompanyId) {
+function seedUserFromEmployee(uid, employeeDoc) {
   const employee = employeeDoc?.data || {};
   const employeeId = employeeDoc?.id || employee.employeeId || "";
   return {
-    ...buildUserAccessPatch({ uid, employeeId, employee, user: { role: "user" }, defaultCompanyId }),
+    ...buildUserAccessPatch({ uid, employeeId, employee, user: { role: "user" } }),
     createdAt: new Date().toISOString(),
     accessCreatedFrom: "employee-link",
   };
@@ -87,7 +86,7 @@ export async function POST(req) {
     if (!existing && !employeeDoc) {
       return jsonError("User access record not found. Link this Firebase user to an employee before updating access.", 404);
     }
-    const before = existing || seedUserFromEmployee(uid, employeeDoc, getDeploymentConfig().companyId);
+    const before = existing || seedUserFromEmployee(uid, employeeDoc);
 
     const patch = cleanPatch(body.patch || body);
     if (!Object.keys(patch).length) return jsonError("No supported user fields supplied.", 400);

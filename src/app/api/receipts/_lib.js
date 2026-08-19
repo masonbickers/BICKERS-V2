@@ -3,7 +3,6 @@ import "server-only";
 import { adminListDocuments, adminReadDocument } from "@/app/api/_firebaseAdminRest";
 import { jsonError, requireActiveUserFromRequest } from "@/app/api/admin/_lib";
 import { isAccountDisabled } from "@/app/utils/accountAccess";
-import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 const FINANCE_ROLES = new Set([
   "admin",
@@ -31,7 +30,7 @@ export function receiptActor(access = {}) {
 }
 
 export function receiptCompanyId(userData = {}) {
-  return String(userData.companyId || getDeploymentConfig().companyId).trim();
+  return String(userData.companyId || "bickers-action").trim();
 }
 
 export function canAccessReceiptCompany(userData = {}, companyId = "") {

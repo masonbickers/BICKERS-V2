@@ -17,7 +17,6 @@ import {
   readInterfaceScalePreference,
   writeInterfaceScalePreference,
 } from "@/app/utils/interfaceScale";
-import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 
 export const GLOBAL_THEME_UPDATED_EVENT = "bickers:global-theme-updated";
 export const APPEARANCE_UPDATED_EVENT = "bickers:appearance-updated";
@@ -64,23 +63,12 @@ export function useAppearance() {
 }
 
 export default function GlobalThemeProvider({ children }) {
-  const deployment = useDeploymentConfig();
   const authAccess = useAuth() || {};
-  const companyId = String(authAccess.userDoc?.companyId || deployment.companyId).trim() || deployment.companyId;
-  const deploymentTheme = useMemo(() => normalizeGlobalTheme({
-    ...DEFAULT_GLOBAL_THEME,
-    appName: deployment.displayName,
-    companyLogo: deployment.companyLogoUrl,
-  }), [deployment.companyLogoUrl, deployment.displayName]);
-  const deploymentLabels = useMemo(() => normalizeContentLabels({
-    ...DEFAULT_CONTENT_LABELS,
-    "app.name": deployment.displayName,
-    "login.title": deployment.displayName,
-  }), [deployment.displayName]);
+  const companyId = String(authAccess.userDoc?.companyId || "__platform__").trim() || "__platform__";
   const [appearance, setAppearance] = useState(() => ({
-    companyId: deployment.companyId,
-    theme: normalizeGlobalTheme({ ...DEFAULT_GLOBAL_THEME, appName: deployment.displayName, companyLogo: deployment.companyLogoUrl }),
-    labels: normalizeContentLabels({ ...DEFAULT_CONTENT_LABELS, "app.name": deployment.displayName, "login.title": deployment.displayName }),
+    companyId: "__platform__",
+    theme: DEFAULT_GLOBAL_THEME,
+    labels: DEFAULT_CONTENT_LABELS,
     themeVersion: 0,
     labelsVersion: 0,
   }));
@@ -91,8 +79,8 @@ export default function GlobalThemeProvider({ children }) {
   const applyAppearance = useCallback((incoming) => {
     const resolved = {
       companyId: incoming?.companyId || companyId || "__platform__",
-      theme: normalizeGlobalTheme(incoming?.theme || deploymentTheme),
-      labels: normalizeContentLabels(incoming?.labels || deploymentLabels),
+      theme: normalizeGlobalTheme(incoming?.theme || DEFAULT_GLOBAL_THEME),
+      labels: normalizeContentLabels(incoming?.labels || DEFAULT_CONTENT_LABELS),
       themeVersion: Number(incoming?.themeVersion || 0),
       labelsVersion: Number(incoming?.labelsVersion || 0),
     };
@@ -100,7 +88,7 @@ export default function GlobalThemeProvider({ children }) {
     cacheGlobalTheme(resolved.theme, resolved.companyId, resolved.themeVersion);
     writeAppearanceCache(resolved);
     return resolved;
-  }, [companyId, deploymentLabels, deploymentTheme]);
+  }, [companyId]);
 
   const refresh = useCallback(async () => {
     const authenticated = authAccess.user && authAccess.accessReady;
@@ -109,7 +97,7 @@ export default function GlobalThemeProvider({ children }) {
     if (cached) applyAppearance(cached);
     else {
       const cachedTheme = readCachedGlobalTheme(targetCompany);
-      if (cachedTheme) applyAppearance({ companyId: targetCompany, theme: cachedTheme, labels: deploymentLabels });
+      if (cachedTheme) applyAppearance({ companyId: targetCompany, theme: cachedTheme, labels: DEFAULT_CONTENT_LABELS });
     }
     try {
       const token = authenticated ? await authAccess.user.getIdToken?.() : "";
@@ -124,7 +112,7 @@ export default function GlobalThemeProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [applyAppearance, authAccess.accessReady, authAccess.user, companyId, deploymentLabels]);
+  }, [applyAppearance, authAccess.accessReady, authAccess.user, companyId]);
 
   useEffect(() => {
     setModePreferenceState(readColorModePreference());

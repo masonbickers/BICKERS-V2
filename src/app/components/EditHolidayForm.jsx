@@ -16,6 +16,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
+import { isAdminEmail } from "@/app/utils/adminAccess";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -126,10 +127,16 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         return;
       }
 
+      const allowlisted = isAdminEmail(email);
+      if (allowlisted) {
+        setIsAdmin(true);
+        return;
+      }
+
       try {
         const userSnap = await getDoc(doc(db, "users", u.uid));
         const role = String(userSnap.data()?.role || "").trim().toLowerCase();
-        setIsAdmin(role === "admin" || role === "platformadmin");
+        setIsAdmin(role === "admin");
       } catch {
         setIsAdmin(false);
       }
