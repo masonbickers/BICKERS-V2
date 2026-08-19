@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./UserActivityTracker.styles.module.css";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { auth } from "@/app/utils/firebaseClient";
@@ -128,19 +129,19 @@ export default function UserActivityTracker() {
 
   if (!notice) return null;
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="activity-notice-title" style={overlayStyle}>
-      <div style={noticeStyle}>
-        <div id="activity-notice-title" style={{ fontSize: 20, fontWeight: 900 }}>Activity tracking notice</div>
-        <p style={copyStyle}>
+    <div role="dialog" aria-modal="true" aria-labelledby="activity-notice-title" className={layoutStyles.extracted1}>
+      <div className={layoutStyles.extracted2}>
+        <div id="activity-notice-title" className={layoutStyles.extracted3}>Activity tracking notice</div>
+        <p className={layoutStyles.extracted4}>
           Bickers records active session times, broad areas of the system used and counts of saved actions so administrators can review possible out-of-hours use.
         </p>
-        <p style={copyStyle}>
+        <p className={layoutStyles.extracted5}>
           It does not record what you type, form contents, keystrokes, screenshots or document contents. Activity does not automatically count as overtime and is not added to timesheets.
         </p>
-        <p style={copyStyle}>
+        <p className={layoutStyles.extracted6}>
           Raw activity is retained for 90 days and session summaries for two years. Only administrators can view the reports.
         </p>
-        <button type="button" onClick={dismissNotice} style={buttonStyle}>I understand</button>
+        <button type="button" onClick={dismissNotice} className={layoutStyles.extracted7}>I understand</button>
       </div>
     </div>
   );

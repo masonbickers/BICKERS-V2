@@ -10,6 +10,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
+import { formatUkDate } from "@/app/utils/dateDisplay";
 
 /* UI tokens (unchanged) */
 const UI = UI_TOKENS;
@@ -145,7 +146,7 @@ export default function VehicleCheckDetailPage() {
           {/* Summary */}
           <div style={{ ...card, marginTop: 14 }}>
             <div className={layoutStyles.extracted7}>
-              <Field label="Date"><div style={value}>{row.dateISO || "-"}</div></Field>
+              <Field label="Date"><div style={value}>{formatUkDate(row.dateISO)}</div></Field>
               <Field label="Time"><div style={value}>{row.time || "-"}</div></Field>
               <Field label="Job"><div style={value}>{row.jobId || "-"}</div></Field>
               <Field label="Vehicle"><div style={value}>{row.vehicle || "-"}</div></Field>

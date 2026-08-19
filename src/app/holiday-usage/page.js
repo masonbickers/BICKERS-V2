@@ -1153,10 +1153,7 @@ export default function HolidayUsagePage() {
         </section>
 
         {/* Main split layout */}
-        <div
-          className="holiday-main-grid"
-          style={mainGrid}
-        >
+        <div className={`holiday-main-grid ${layoutStyles.extracted54}`}>
           {/* LEFT: Calendar */}
           <Card className={layoutStyles.calendarCard}>
             <div

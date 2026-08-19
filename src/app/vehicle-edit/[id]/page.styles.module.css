@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   display: flex;
   justify-content: space-between;
@@ -1060,4 +1058,19 @@
   .complianceGroupFields {
     grid-template-columns: 1fr;
   }
+}
+
+.extracted44 {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.extracted45 {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-weight: 750;
 }

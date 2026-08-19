@@ -99,7 +99,7 @@ const fmtDate = (s) => {
   if (!s) return "—";
   const d = s?.toDate ? s.toDate() : new Date(s);
   if (isNaN(d)) return s;
-  return d.toLocaleDateString();
+  return d.toLocaleDateString("en-GB");
 };
 
 function extractApprovedGeneral(checkDocs) {

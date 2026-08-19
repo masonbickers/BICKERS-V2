@@ -3580,8 +3580,8 @@ export default function TimesheetDetailPage() {
                         </div>
                       ))}
                       {Array.isArray(entry.workshopJobs) && entry.workshopJobs.length > 0 ? (
-                        <div style={{ marginTop: 6 }}>
-                          <div style={{ fontWeight: 700 }}>Job allocations:</div>
+                        <div className={layoutStyles.extracted115}>
+                          <div className={layoutStyles.extracted116}>Job allocations:</div>
                           {entry.workshopJobs.map((row, index) => (
                             <div key={`${day}-workshop-job-${index}`}>
                               {row?.jobNumber || row?.jobNo || row?.bookingId || "Job"}: {" "}
@@ -3687,15 +3687,9 @@ export default function TimesheetDetailPage() {
               color: UI.ink,
             }}
           >
-            <summary style={{ cursor: "pointer", fontWeight: 800 }}>Week Summary</summary>
+            <summary className={layoutStyles.extracted117}>Week Summary</summary>
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-                gap: 12,
-                marginTop: 10,
-                fontSize: 12,
-              }}
+              className={layoutStyles.extracted118}
             >
               <div>
                 <strong>Paid hours</strong>
@@ -3865,7 +3859,7 @@ export default function TimesheetDetailPage() {
               </button>
             </div>
             {payAdvicePinError ? (
-              <div style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 700 }}>
+              <div className={layoutStyles.extracted119}>
                 {payAdvicePinError}
               </div>
             ) : null}

@@ -29,6 +29,7 @@ import {
   isUCraneArmFitted,
   isUCraneVehicle,
 } from "@/app/utils/uCraneBookingConfiguration";
+import { formatUkDate, formatUkDateTime } from "@/app/utils/dateDisplay";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -45,11 +46,7 @@ const toDateSafe = (v) => {
 };
 
 const fmtGB = (d) => {
-  if (!d) return "-";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
+  return formatUkDate(d, "-");
 };
 
 const fmtDate = (iso) => {
@@ -58,14 +55,7 @@ const fmtDate = (iso) => {
 };
 
 const fmtDateTimeShort = (raw) => {
-  const d = toDateSafe(raw);
-  if (!d) return "Unknown time";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yy} ${hh}:${min}`;
+  return formatUkDateTime(raw, "Unknown time");
 };
 
 const fmtDateRange = (b) => {
@@ -74,7 +64,7 @@ const fmtDateRange = (b) => {
     return b.bookingDates
       .map((x) => {
         const d = toDateSafe(x);
-        return d ? fmtGB(d) : String(x);
+        return d ? fmtGB(d) : "-";
       })
       .join(", ");
   }

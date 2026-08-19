@@ -758,7 +758,7 @@ export default function InvoiceJobPage() {
             </div>
             <div className={layoutStyles.invoiceHeaderActions}>
               <span className={layoutStyles.builderDate}>{fmtLong(new Date())}</span>
-              <span style={chip}>{prettifyStatus(invoice.status)}</span>
+              <span className={layoutStyles.extracted33}>{prettifyStatus(invoice.status)}</span>
               <button onClick={() => openInvoiceDocument("view")} disabled={saving}>Print / preview</button>
               <button onClick={() => openInvoiceDocument("download")} disabled={saving}>Save PDF</button>
               {invoice.status === INVOICE_STATUSES.DRAFT ? (

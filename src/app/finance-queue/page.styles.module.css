@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   display: flex;
   align-items: center;
@@ -62,4 +60,92 @@
 .extracted12 {
   position: relative;
   display: block;
+}
+
+.extracted13 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.extracted14 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.extracted15 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.extracted16 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.extracted17 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.extracted18 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.extracted19 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.extracted20 {
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
 }

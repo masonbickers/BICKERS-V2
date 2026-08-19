@@ -14,6 +14,7 @@ import layoutStyles from "./EditMaintenanceBookingForm.styles.module.css";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button, Modal } from "@/app/components/ui";
 import DatePicker from "react-multi-date-picker";
+import { datePickerValues, formatUkDate } from "@/app/utils/dateDisplay";
 import { db } from "../../../firebaseConfig";
 import { ADDITIONAL_MAINTENANCE_WORKFLOWS } from "../utils/maintenanceSchema";
 import {
@@ -862,8 +863,8 @@ export default function EditMaintenanceBookingForm({
                   <label id={`${fieldPrefix}-selected-dates-label`} className={layoutStyles.extracted23}>Selected dates</label>
                   <DatePicker
                     multiple
-                    value={customDates}
-                    format="YYYY-MM-DD"
+                    value={datePickerValues(customDates)}
+                    format="DD/MM/YYYY"
                     inputProps={{ "aria-labelledby": `${fieldPrefix}-selected-dates-label` }}
                     onChange={(vals) => {
                       const normalised = (Array.isArray(vals) ? vals : [])
@@ -875,7 +876,7 @@ export default function EditMaintenanceBookingForm({
                   />
                   {customDates.length > 0 ? (
                     <div className={layoutStyles.extracted24}>
-                      {customDates.join(", ")}
+                      {customDates.map((date) => formatUkDate(date)).join(", ")}
                     </div>
                   ) : null}
                 </div>

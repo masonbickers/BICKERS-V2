@@ -415,14 +415,14 @@ function SectionTable({ title, jobs, vehicleLookup }) {
           </colgroup>
           <thead>
             <tr>
-              <th style={th}>Job #</th>
-              <th style={th}>Client</th>
-              <th style={th}>Location</th>
-              <th style={th}>Dates</th>
-              <th style={th}>Crew</th>
-              <th style={th}>Vehicles / Kit</th>
-              <th style={th}>Status</th>
-              <th style={th}>Action</th>
+              <th className={layoutStyles.extracted13}>Job #</th>
+              <th className={layoutStyles.extracted14}>Client</th>
+              <th className={layoutStyles.extracted15}>Location</th>
+              <th className={layoutStyles.extracted16}>Dates</th>
+              <th className={layoutStyles.extracted17}>Crew</th>
+              <th className={layoutStyles.extracted18}>Vehicles / Kit</th>
+              <th className={layoutStyles.extracted19}>Status</th>
+              <th className={layoutStyles.extracted20}>Action</th>
             </tr>
           </thead>
           <tbody>

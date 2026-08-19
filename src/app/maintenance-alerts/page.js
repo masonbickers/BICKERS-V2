@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./page.styles.module.css";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -201,8 +202,8 @@ export default function MaintenanceAlertsPage() {
 
   const breakdown = (title, items = []) => (
     <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10 }}>
-      <div style={{ fontWeight: 800, fontSize: 12.5, marginBottom: 6 }}>{title}</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      <div className={layoutStyles.extracted1}>{title}</div>
+      <div className={layoutStyles.extracted2}>
         {items.map((item) => (
           <span key={item.key} style={{ padding: "4px 7px", borderRadius: 999, background: UI.bg, border: UI.border, fontSize: 11.5 }}>
             {String(item.key || "missing").replaceAll("_", " ")}: <b>{item.count}</b>
@@ -214,8 +215,8 @@ export default function MaintenanceAlertsPage() {
   );
 
   const emailField = (key, label, help) => (
-    <label style={{ display: "grid", gap: 5 }}>
-      <span style={{ fontWeight: 800, fontSize: 13 }}>{label}</span>
+    <label className={layoutStyles.extracted3}>
+      <span className={layoutStyles.extracted4}>{label}</span>
       <Input
         value={(settings[key] || []).join(", ")}
         onChange={(event) => setSettings((current) => ({ ...current, [key]: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) }))}
@@ -239,7 +240,7 @@ export default function MaintenanceAlertsPage() {
           <div style={{ ...surface, padding: 18, display: "flex", gap: 10, alignItems: "center" }}><CheckCircle2 size={20} color={UI.successText} /><div><b>No open maintenance alerts</b><div style={{ color: UI.muted, fontSize: 13 }}>The hourly compliance check has no current warning or VOR alert.</div></div></div>
         ) : null}
 
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className={layoutStyles.extracted5}>
           {alerts.map((alert) => (
             <article
               key={alert.id}
@@ -254,10 +255,10 @@ export default function MaintenanceAlertsPage() {
                 padding: 13,
               }}
             >
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div className={layoutStyles.extracted6}>
                 {alert.severity === "critical" ? <ShieldAlert size={20} color={UI.danger} /> : <AlertTriangle size={20} color={UI.warnText} />}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 850 }}>{alert.title}</div>
+                <div className={layoutStyles.extracted7}>
+                  <div className={layoutStyles.extracted8}>{alert.title}</div>
                   <div style={{ color: UI.muted, fontSize: 13, marginTop: 3 }}>{alert.message}</div>
                   <div style={{ color: UI.muted, fontSize: 12, marginTop: 7 }}>Due {alert.dueDateISO || alert.startedDateISO || "—"}{alert.dueIsoWeek ? ` · ${alert.dueIsoWeek}` : ""}</div>
                 </div>
@@ -269,12 +270,12 @@ export default function MaintenanceAlertsPage() {
 
         {isAdmin ? (
           <section style={{ ...surface, padding: 14, marginTop: 18 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <div><h2 style={{ margin: 0, fontSize: 18 }}>Notification recipients</h2><p style={{ color: UI.muted, fontSize: 13, margin: "5px 0 0" }}>Comma-separated email addresses. Urgent VOR messages are immediate; warnings are included in the weekday digest.</p></div>
+            <div className={layoutStyles.extracted9}>
+              <div><h2 className={layoutStyles.extracted10}>Notification recipients</h2><p style={{ color: UI.muted, fontSize: 13, margin: "5px 0 0" }}>Comma-separated email addresses. Urgent VOR messages are immediate; warnings are included in the weekday digest.</p></div>
               <Button type="button" onClick={saveSettings} disabled={savingSettings}><Save size={15} /> {savingSettings ? "Saving…" : "Save recipients"}</Button>
             </div>
-            <div style={{ margin: "13px 0" }}><Checkbox label="Maintenance alerts enabled" checked={settings.enabled !== false} onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))} /></div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+            <div className={layoutStyles.extracted11}><Checkbox label="Maintenance alerts enabled" checked={settings.enabled !== false} onChange={(event) => setSettings((current) => ({ ...current, enabled: event.target.checked }))} /></div>
+            <div className={layoutStyles.extracted12}>
               {emailField("warningRecipients", "Warning recipients", "Receives the one-week PMI/brake warning through the digest.")}
               {emailField("immediateVorRecipients", "Urgent VOR recipients", "Receives an email immediately when automatic VOR starts.")}
               {emailField("digestRecipients", "Digest recipients", "Receives the full list of open maintenance alerts each weekday.")}
@@ -284,17 +285,17 @@ export default function MaintenanceAlertsPage() {
 
         {isAdmin ? (
           <section style={{ ...surface, padding: 14, marginTop: 18 }}>
-            <h2 style={{ margin: 0, fontSize: 18 }}>Data reconciliation review</h2>
+            <h2 className={layoutStyles.extracted13}>Data reconciliation review</h2>
             <p style={{ color: UI.muted, fontSize: 13, margin: "5px 0 12px" }}>The review is read-only. The separate guarded reset below runs only after export and explicit confirmation.</p>
             {review ? (
               <>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <div className={layoutStyles.extracted14}>
                   {[['Manual review', review.summary?.manualReviewCount], ['Invalid', review.summary?.invalidRecordCount], ['Due conflicts', review.summary?.dueDateConflictCount], ['Duplicates', review.summary?.duplicateGroupCount]].map(([label, value]) => <Badge key={label} variant="info">{label}: {value || 0}</Badge>)}
                 </div>
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className={layoutStyles.extracted15}>
                   {(review.reconciliationPreview || []).map((item) => (
                     <div key={`${item.collection}-${item.documentId}-${item.action}`} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10 }}>
-                      <div style={{ fontWeight: 800 }}>
+                      <div className={layoutStyles.extracted16}>
                         {item.vehicleName || "Unknown vehicle"}
                         {item.registration ? ` · ${item.registration}` : ""}
                       </div>
@@ -305,11 +306,11 @@ export default function MaintenanceAlertsPage() {
                   {!review.reconciliationPreview?.length ? <div style={{ color: UI.muted }}>No records need manual reconciliation.</div> : null}
                 </div>
                 <div style={{ borderTop: UI.border, marginTop: 16, paddingTop: 14 }}>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>Future schedule cleanup dry-run</h3>
+                  <h3 className={layoutStyles.extracted17}>Future schedule cleanup dry-run</h3>
                   <p style={{ color: UI.muted, fontSize: 13, margin: "5px 0 10px" }}>
                     Preview only. Each vehicle keeps its nearest upcoming automatic Inspection. Later automatic appointments are archived, never hard-deleted.
                   </p>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div className={layoutStyles.extracted18}>
                     {[
                       ["Would archive", review.futureScheduleReset?.summary?.archiveCandidateCount],
                       ["Next inspections kept", review.futureScheduleReset?.summary?.preservedInspectionRecordCount],
@@ -322,16 +323,16 @@ export default function MaintenanceAlertsPage() {
                       </Badge>
                     ))}
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 8, marginBottom: 12 }}>
+                  <div className={layoutStyles.extracted19}>
                     {breakdown("Archive candidates by type", review.futureScheduleReset?.summary?.archiveByType)}
                     {breakdown("Next inspections kept by type", review.futureScheduleReset?.summary?.preservedInspectionByType)}
                     {breakdown("Protected by reason", review.futureScheduleReset?.summary?.protectedByReason)}
                     {breakdown("Preserved MOT/service by type", review.futureScheduleReset?.summary?.preservedCoreByType)}
                   </div>
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div className={layoutStyles.extracted20}>
                     {(review.futureScheduleReset?.archiveCandidates || []).map((item) => (
                       <div key={`archive-${item.documentId}`} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10 }}>
-                        <div style={{ fontWeight: 800 }}>{item.vehicleName || "Unknown vehicle"}{item.registration ? ` · ${item.registration}` : ""}</div>
+                        <div className={layoutStyles.extracted21}>{item.vehicleName || "Unknown vehicle"}{item.registration ? ` · ${item.registration}` : ""}</div>
                         <div style={{ color: UI.muted, fontSize: 13, marginTop: 3 }}>
                           Would archive {item.maintenanceTypeIds?.join(" + ") || "maintenance"} on {item.appointmentDateISO || "unknown date"}
                         </div>
@@ -344,12 +345,12 @@ export default function MaintenanceAlertsPage() {
                   </div>
                   <div style={{ borderTop: UI.border, marginTop: 14, paddingTop: 14, display: "grid", gap: 10 }}>
                     <div>
-                      <div style={{ fontWeight: 850 }}>Guarded live reset</div>
+                      <div className={layoutStyles.extracted22}>Guarded live reset</div>
                       <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
                         Export this exact dry-run, then type the confirmation phrase. The server rejects stale fingerprints and rechecks every record before archiving it.
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <div className={layoutStyles.extracted23}>
                       <Button variant="secondary" type="button" onClick={exportFutureScheduleReset} disabled={applyingReset || !review.futureScheduleReset?.fingerprint}>
                         <Download size={15} /> Export dry-run JSON
                       </Button>
@@ -359,7 +360,7 @@ export default function MaintenanceAlertsPage() {
                         onChange={(event) => setResetConfirmation(event.target.value)}
                         placeholder={review.futureScheduleReset?.confirmationPhrase || "Confirmation phrase"}
                         disabled={!resetExported || applyingReset}
-                        style={{ minWidth: 320, flex: "1 1 320px" }}
+                        className={layoutStyles.extracted24}
                       />
                       <Button
                         type="button"
@@ -382,17 +383,17 @@ export default function MaintenanceAlertsPage() {
                     {resetResult ? (
                       <div style={{ padding: 10, borderRadius: UI.radiusSm, background: resetResult.partial ? UI.warnSoft : UI.successSoft, color: resetResult.partial ? UI.warnText : UI.successText, fontSize: 13 }}>
                         <b>{resetResult.message}</b>
-                        <div style={{ marginTop: 3 }}>Archived {resetResult.archived} · Next inspections kept {resetResult.kept} · Skipped {resetResult.skipped}</div>
+                        <div className={layoutStyles.extracted25}>Archived {resetResult.archived} · Next inspections kept {resetResult.kept} · Skipped {resetResult.skipped}</div>
                       </div>
                     ) : null}
                   </div>
                 </div>
                 <div style={{ borderTop: UI.border, marginTop: 16, paddingTop: 14 }}>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>Future PMI completion-history cleanup dry-run</h3>
+                  <h3 className={layoutStyles.extracted26}>Future PMI completion-history cleanup dry-run</h3>
                   <p style={{ color: UI.muted, fontSize: 13, margin: "5px 0 10px" }}>
                     Preview only. Removes impossible future PMI completions from the active vehicle history while archiving an exact copy for audit. Upcoming bookings, genuine past history, MOT and Service are unchanged.
                   </p>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div className={layoutStyles.extracted27}>
                     {[
                       ["PMI history entries", review.futurePmiHistoryCleanup?.summary?.historyEntryCount],
                       ["Affected vehicles", review.futurePmiHistoryCleanup?.summary?.candidateVehicleCount],
@@ -404,13 +405,13 @@ export default function MaintenanceAlertsPage() {
                       </Badge>
                     ))}
                   </div>
-                  <div style={{ marginBottom: 12 }}>
+                  <div className={layoutStyles.extracted28}>
                     {breakdown("PMI history entries by field", review.futurePmiHistoryCleanup?.summary?.entriesByField)}
                   </div>
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div className={layoutStyles.extracted29}>
                     {(review.futurePmiHistoryCleanup?.candidates || []).map((item) => (
                       <div key={`future-pmi-${item.documentId}`} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10 }}>
-                        <div style={{ fontWeight: 800 }}>{item.vehicleName || "Unknown vehicle"}{item.registration ? ` · ${item.registration}` : ""}</div>
+                        <div className={layoutStyles.extracted30}>{item.vehicleName || "Unknown vehicle"}{item.registration ? ` · ${item.registration}` : ""}</div>
                         <div style={{ color: UI.muted, fontSize: 13, marginTop: 3 }}>
                           Would archive and remove {item.historyEntryCount} false future PMI {item.historyEntryCount === 1 ? "completion" : "completions"}: {item.entries?.map((entry) => entry.completionDateISO).join(", ") || "unknown date"}
                         </div>
@@ -428,12 +429,12 @@ export default function MaintenanceAlertsPage() {
                   </div>
                   <div style={{ borderTop: UI.border, marginTop: 14, paddingTop: 14, display: "grid", gap: 10 }}>
                     <div>
-                      <div style={{ fontWeight: 850 }}>Guarded live history cleanup</div>
+                      <div className={layoutStyles.extracted31}>Guarded live history cleanup</div>
                       <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
                         Export this exact dry-run, then type the confirmation phrase. The server reloads every vehicle, rejects stale fingerprints and commits all vehicle patches atomically.
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <div className={layoutStyles.extracted32}>
                       <Button
                         type="button"
                         variant="secondary"
@@ -448,7 +449,7 @@ export default function MaintenanceAlertsPage() {
                         onChange={(event) => setHistoryCleanupConfirmation(event.target.value)}
                         placeholder={review.futurePmiHistoryCleanup?.confirmationPhrase || "Confirmation phrase"}
                         disabled={!historyCleanupExported || applyingHistoryCleanup}
-                        style={{ minWidth: 320, flex: "1 1 320px" }}
+                        className={layoutStyles.extracted33}
                       />
                       <Button
                         type="button"
@@ -471,7 +472,7 @@ export default function MaintenanceAlertsPage() {
                     {historyCleanupResult ? (
                       <div style={{ padding: 10, borderRadius: UI.radiusSm, background: historyCleanupResult.partial ? UI.warnSoft : UI.successSoft, color: historyCleanupResult.partial ? UI.warnText : UI.successText, fontSize: 13 }}>
                         <b>{historyCleanupResult.message}</b>
-                        <div style={{ marginTop: 3 }}>
+                        <div className={layoutStyles.extracted34}>
                           Vehicles {historyCleanupResult.vehicles} · PMI entries removed {historyCleanupResult.entries} · Markers repaired {historyCleanupResult.repairedMarkers} · Skipped {historyCleanupResult.skipped}
                         </div>
                       </div>

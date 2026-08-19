@@ -257,12 +257,7 @@ export default function FinanceDashboard() {
         </div>
 
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-            gap: 9,
-            marginTop: 18,
-          }}
+          className={layoutStyles.extracted4}
         >
           {GROUP_ORDER.filter(
             (group) =>
@@ -292,10 +287,10 @@ export default function FinanceDashboard() {
                     : "none",
               }}
             >
-              <span style={{ display: "block", color: "var(--color-text-muted)", fontSize: 11, fontWeight: 800 }}>
+              <span className={layoutStyles.extracted5}>
                 {FINANCE_GROUP_LABELS[group]}
               </span>
-              <strong style={{ display: "block", marginTop: 3, fontSize: 23 }}>
+              <strong className={layoutStyles.extracted6}>
                 {counts[group] || 0}
               </strong>
             </button>
@@ -320,13 +315,13 @@ export default function FinanceDashboard() {
           <button type="button" onClick={load} style={{ ...control, cursor: "pointer", fontWeight: 800 }}>
             Refresh
           </button>
-          <span style={{ marginLeft: "auto", color: "var(--color-text-muted)", fontSize: 12 }}>
+          <span className={layoutStyles.extracted7}>
             {visibleRows.length} of {classifiedRows.length} records
           </span>
         </div>
 
         {loadError ? (
-          <div style={{ marginBottom: 12, padding: 12, color: "var(--color-danger)", background: "var(--color-danger-soft)", borderRadius: 9 }}>
+          <div className={layoutStyles.extracted8}>
             {loadError}
           </div>
         ) : null}
@@ -363,18 +358,18 @@ export default function FinanceDashboard() {
                     <tr key={`${row.bookingId}-${row.id}-${row.group}`}>
                       <td style={td}>
                         <strong>Job #{row.jobNumber || row.bookingId || "—"}</strong>
-                        <span style={{ display: "block", marginTop: 3, color: "var(--color-text-muted)" }}>
+                        <span className={layoutStyles.extracted9}>
                           {row.customer?.name || row.client || "Customer not recorded"}
                         </span>
                         {row.purchaseOrderNumber || row.poNumber || row.finance?.poNumber ? (
-                          <small style={{ display: "block", marginTop: 4 }}>
+                          <small className={layoutStyles.extracted10}>
                             PO: {row.purchaseOrderNumber || row.poNumber || row.finance?.poNumber}
                           </small>
                         ) : null}
                       </td>
                       <td style={td}>
                         <strong>{getInvoiceDraftReferenceDisplay(row)}</strong>
-                        <span style={{ display: "block", marginTop: 4, color: "var(--color-text-muted)" }}>
+                        <span className={layoutStyles.extracted11}>
                           {row.invoiceNumber
                             ? `Official: ${row.invoiceNumber}`
                             : "Official invoice number pending"}
@@ -383,35 +378,26 @@ export default function FinanceDashboard() {
                       <td style={td}>
                         <StatusBadge row={row} />
                         {row.warnings?.map((warning) => (
-                          <div key={warning} style={{ maxWidth: 260, marginTop: 6, color: "var(--color-danger)", fontSize: 11, fontWeight: 700 }}>
+                          <div key={warning} className={layoutStyles.extracted12}>
                             ⚠ {warning}
                           </div>
                         ))}
                       </td>
                       <td style={td}>
                         <strong>{money(gross, row.currency)}</strong>
-                        <span style={{ display: "block", marginTop: 4, color: "var(--color-text-muted)" }}>
+                        <span className={layoutStyles.extracted13}>
                           Outstanding: {money(outstanding, row.currency)}
                         </span>
                       </td>
                       <td style={td}>
                         <span>Issued: {fmtDate(row.issueDate || row.issuedAt)}</span>
-                        <span style={{ display: "block", marginTop: 4 }}>Due: {fmtDate(row.dueDate)}</span>
+                        <span className={layoutStyles.extracted14}>Due: {fmtDate(row.dueDate)}</span>
                       </td>
                       <td style={td}>
                         <button
                           type="button"
                           onClick={() => router.push(actionHref)}
-                          style={{
-                            minHeight: 36,
-                            padding: "8px 11px",
-                            color: "var(--color-text)",
-                            background: "var(--color-surface)",
-                            border: "1px solid var(--color-border-strong)",
-                            borderRadius: 8,
-                            cursor: "pointer",
-                            fontWeight: 800,
-                          }}
+                          className={layoutStyles.extracted15}
                         >
                           {actionLabel}
                         </button>

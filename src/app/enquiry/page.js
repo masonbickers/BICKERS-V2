@@ -198,7 +198,7 @@ const toDate = (value) => {
 const fmtDate = (value) => {
   const d = toDate(value);
   if (!d) return "-";
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
 const formatAddedTimestamp = (booking) => {
@@ -527,7 +527,7 @@ export default function EnquiryPage() {
         <div className={layoutStyles.filterToolbar} style={filterToolbar}>
           <div className={layoutStyles.searchWrap}>
             <Search size={14} className={layoutStyles.searchIcon} aria-hidden />
-            <Input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by job #, production, company, location or contact..." style={{ paddingLeft: 29 }} />
+            <Input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by job #, production, company, location or contact..." className={layoutStyles.extracted29} />
           </div>
           <Select value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} aria-label="Filter by production company">
             {companies.map((company) => <option key={company} value={company}>{company === "all" ? "Production Company: All" : company}</option>)}

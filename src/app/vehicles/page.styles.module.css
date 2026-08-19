@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   display: flex;
   align-items: center;
@@ -164,4 +162,9 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.extracted19 {
+  color: var(--color-danger);
+  font-weight: 900;
 }

@@ -1534,26 +1534,13 @@ export default function AddVehiclePage() {
         }
       >
         <div
-          style={{
-            marginBottom: 12,
-            padding: "10px 12px",
-            border: "1px solid var(--color-warning-border)",
-            borderRadius: 10,
-            background: "var(--color-warning-soft)",
-            fontSize: 12.5,
-            fontWeight: 700,
-            lineHeight: 1.45,
-          }}
+          className={layoutStyles.extracted22}
         >
           This record must be completed on the day the vehicle is taken off the fleet.
           Compliance schedules will remain paused while its status is VOR.
         </div>
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: 12,
-          }}
+          className={layoutStyles.extracted23}
         >
           <FormField label="Vehicle registration / identification">
             <Input value={formData.registration || ""} readOnly />
@@ -1595,7 +1582,7 @@ export default function AddVehiclePage() {
               onChange={(event) => updateVorPrompt("approvedPosition", event.target.value)}
             />
           </FormField>
-          <div style={{ gridColumn: "1 / -1" }}>
+          <div className={layoutStyles.extracted24}>
             <FormField
               label="Reason for VOR classification"
               htmlFor="add-vor-reason"

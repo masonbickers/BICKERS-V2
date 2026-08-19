@@ -3076,7 +3076,7 @@ export default function EditVehiclePage() {
                       )}. The vehicle remains VOR until it is completed.`
                     : "This vehicle must remain VOR until every item below is resolved and a fresh PMI is recorded."}
                 </div>
-                <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
+                <div className={layoutStyles.extracted44}>
                   {getHgvComplianceVorDisplayRows(vehicle).map((reason) => (
                     <div
                       key={`${reason.type}-${reason.date}-${reason.status}`}
@@ -3931,14 +3931,7 @@ export default function EditVehiclePage() {
           {vorPromptError ? (
             <div
               role="alert"
-              style={{
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: "1px solid var(--color-danger-border)",
-                background: "var(--color-danger-soft)",
-                color: "var(--color-danger)",
-                fontWeight: 750,
-              }}
+              className={layoutStyles.extracted45}
             >
               {vorPromptError}
             </div>

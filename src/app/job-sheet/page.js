@@ -1132,7 +1132,7 @@ export default function JobSheetPage() {
     return (
       <>
         <div className={layoutStyles.quoteToolbar} style={surface}>
-          <div style={searchWrap} title="Press / to focus">
+          <div className={layoutStyles.extracted59} title="Press / to focus">
             <Search size={17} style={searchIcon} aria-hidden />
             <input
               ref={searchRef}
@@ -1144,7 +1144,7 @@ export default function JobSheetPage() {
               aria-label="Search quotes"
             />
           </div>
-          <div style={tabsWrap}>
+          <div className={layoutStyles.extracted60}>
             <button type="button" onClick={() => setQuoteView("saved")} style={pillBtn(quoteView === "saved")}>
               <FileText size={14} /> Saved quotes <span>{quoteRecords.length}</span>
             </button>

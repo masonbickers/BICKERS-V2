@@ -757,7 +757,7 @@ export default function ReviewQueuePage() {
               placeholder="Search by job #, production, production company, location or notes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: 29 }}
+              className={layoutStyles.extracted27}
               aria-label="Search review queue"
             />
           </div>

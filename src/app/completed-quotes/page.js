@@ -60,7 +60,7 @@ const chip = (kind = "neutral") => {
   };
   if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
   if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
-  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.var(--color-danger) };
   return base;
 };
 const actionButton = {
@@ -304,7 +304,7 @@ export default function CompletedQuotesPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search quote, job, production, company, location..."
-              style={{ paddingLeft: 29 }}
+              className={layoutStyles.extracted1}
               aria-label="Search completed quotes"
             />
           </div>

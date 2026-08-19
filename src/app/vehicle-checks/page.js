@@ -452,7 +452,7 @@ export default function VehicleChecksDashboardPage() {
                 />
                 <Input
                   placeholder="Search job, vehicle, employee, notes..."
-                  style={{ paddingLeft: 34 }}
+                  className={layoutStyles.extracted18}
                   value={qText}
                   onChange={(e) => setQText(e.target.value)}
                 />

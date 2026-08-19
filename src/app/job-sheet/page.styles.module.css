@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   display: flex;
   min-width: 0;
@@ -547,4 +545,17 @@
   .quoteStats {
     grid-template-columns: 1fr;
   }
+}
+
+.extracted59 {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.extracted60 {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
 }

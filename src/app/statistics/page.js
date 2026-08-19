@@ -222,8 +222,7 @@ const fmtDDMMYY = (d) => {
   if (!d) return "-";
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
+  return `${dd}/${mm}/${d.getFullYear()}`;
 };
 
 const isoDay = (d) => {
@@ -1085,8 +1084,8 @@ function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
             <b>{booking.jobNumber || "-"}</b>
             <span className={layoutStyles.extracted31}>{booking.client || "-"}</span>
             <span>{booking.status || "-"}</span>
-            <span>{booking.firstDate || "-"}</span>
-            <span>{booking.lastDate || "-"}</span>
+            <span>{fmtDDMMYY(parseDate(booking.firstDate))}</span>
+            <span>{fmtDDMMYY(parseDate(booking.lastDate))}</span>
             <span>{booking.bookingDayCount}</span>
             <span>{formatCredits(booking.creditTotal)}</span>
             <span className={layoutStyles.extracted32}>
@@ -2990,7 +2989,7 @@ export default function StatisticsPage() {
                       paddingTop: idx ? 6 : 0,
                     }}
                   >
-                    <span className={layoutStyles.extracted88}>{row.date.slice(5)}</span>
+                    <span className={layoutStyles.extracted88}>{fmtDDMMYY(parseDate(row.date))}</span>
                     <b>{row.jobNumber}</b>
                     <span
                       style={{

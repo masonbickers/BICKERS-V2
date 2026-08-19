@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   width: 100%;
   max-width: 1600px;
@@ -105,4 +103,10 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.extracted17 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }

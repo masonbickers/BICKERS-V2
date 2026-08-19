@@ -8,6 +8,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
+import { datePickerValues } from "@/app/utils/dateDisplay";
 import { readCachedBookingForEdit } from "@/app/utils/editBookingCache";
 import {
   queueSystemNotification,
@@ -95,7 +96,7 @@ const DatePicker = dynamic(() => import("react-multi-date-picker"), {
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles (MATCH CREATE)
 ──────────────────────────────────────────────────────────────────────────── */
-const UI = { ...UI_TOKENS, bg: UI_TOKENS.card };
+const UI = UI_TOKENS;
 const SPACE = Object.freeze({ xs: 4, sm: 8, md: 12, lg: 16, xl: 24 });
 const jobStatusBadgeStyle = (status) => {
   const tone = getFixedJobStatusStyle(status);
@@ -318,7 +319,7 @@ const formatSummaryDate = (date) => {
   if (!date) return "";
   const parsed = new Date(`${date}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 const formatSummaryDates = (dates) => dates.map(formatSummaryDate).filter(Boolean).join(", ");
 
@@ -3716,8 +3717,8 @@ export default function EditBookingPage() {
                       <div className={layoutStyles.extracted23}>
                         <DatePicker
                           multiple
-                          value={customDates}
-                          format="YYYY-MM-DD"
+                          value={datePickerValues(customDates)}
+                          format="DD/MM/YYYY"
                           onChange={(vals) => {
                             const normalised = (Array.isArray(vals) ? vals : [])
                               .map((v) =>
@@ -3799,7 +3800,7 @@ export default function EditBookingPage() {
                             }}
                           >
                             <div className={layoutStyles.extracted27}>
-                              {new Date(date).toDateString()}
+                              {formatSummaryDate(date)}
                             </div>
 
                             <div className={`edit-booking-two ${layoutStyles.extracted28}`} >
@@ -4084,7 +4085,7 @@ export default function EditBookingPage() {
                       >
                         {selectedDates.map((date) => {
                           const assigned = employeesByDate[date] || [];
-                          const pretty = new Date(date).toDateString();
+                          const pretty = formatSummaryDate(date);
 
                           return (
                             <div

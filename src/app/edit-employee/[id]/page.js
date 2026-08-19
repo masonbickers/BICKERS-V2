@@ -67,6 +67,7 @@ import WorkScheduleEditor from "@/app/components/WorkScheduleEditor";
 import { DEFAULT_WORK_SCHEDULE, normalizeWorkSchedule } from "@/app/utils/activityTracking";
 import { useAuth } from "@/app/context/authContext";
 import { tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { formatUkDate } from "@/app/utils/dateDisplay";
 import {
   EMPLOYEE_PERSONNEL_COLLECTION,
   PRIVATE_EMPLOYEE_FIELDS,
@@ -1804,7 +1805,7 @@ export default function EditEmployeePage() {
             <div>
               <strong>Employment {String(formData.employmentStatus || "inactive").toLowerCase()}</strong>
               <span>
-                Effective {formData.employmentStatusEffectiveDate || formData.endDate || "date not recorded"}
+                Effective {formatUkDate(formData.employmentStatusEffectiveDate || formData.endDate, "date not recorded")}
                 {formData.employmentStatusReason ? ` · ${formData.employmentStatusReason}` : ""}
               </span>
             </div>
@@ -1851,7 +1852,7 @@ export default function EditEmployeePage() {
                     <a href="#employment" className={layoutStyles.overviewCard}>
                       <span>Employment</span>
                       <strong>{formData.employmentStatus || "Active"}</strong>
-                      <small>{formData.startDate ? `Started ${formData.startDate}` : "Start date missing"}</small>
+                      <small>{formData.startDate ? `Started ${formatUkDate(formData.startDate)}` : "Start date missing"}</small>
                     </a>
                     <a href="#checklist" className={layoutStyles.overviewCard}>
                       <span>Onboarding</span>
@@ -1879,7 +1880,7 @@ export default function EditEmployeePage() {
                     <div><span>Paid used</span><strong>{absenceSummary.approvedPaidDays}</strong></div>
                     <div><span>Paid remaining</span><strong>{absenceSummary.allowance ? absenceSummary.remainingPaidDays : "—"}</strong></div>
                     <div><span>Sick days</span><strong>{absenceSummary.sickDays}</strong></div>
-                    <div><span>Next leave</span><strong>{absenceSummary.nextLeaveDate || "None"}</strong></div>
+                    <div><span>Next leave</span><strong>{formatUkDate(absenceSummary.nextLeaveDate, "None")}</strong></div>
                     <div className={layoutStyles.absenceLinks}>
                       <Button as="a" href={`/holiday-usage?employeeId=${employeeId}`} variant="secondary" size="sm"><CalendarClock size={15} /> Holiday details</Button>
                       <Button as="a" href={`/sick-leave?employeeId=${employeeId}`} variant="secondary" size="sm">Sick leave</Button>
@@ -2053,9 +2054,9 @@ export default function EditEmployeePage() {
                         <strong>{formData.employmentStatus || "Active"}</strong>
                         <small>
                           {formData.employmentStatusEffectiveDate
-                            ? `Effective ${formData.employmentStatusEffectiveDate}`
+                            ? `Effective ${formatUkDate(formData.employmentStatusEffectiveDate)}`
                             : "No status change recorded"}
-                          {formData.expectedReturnDate ? ` · Expected back ${formData.expectedReturnDate}` : ""}
+                          {formData.expectedReturnDate ? ` · Expected back ${formatUkDate(formData.expectedReturnDate)}` : ""}
                         </small>
                       </div>
                       <Badge variant={employmentBadgeVariant(formData.employmentStatus, formData.archived)}>
@@ -2092,7 +2093,7 @@ export default function EditEmployeePage() {
                         <ol>
                           {[...(formData.employmentHistory || [])].reverse().slice(0, 8).map((entry, index) => (
                             <li key={entry.id || `${entry.changedAt}-${index}`}>
-                              <span><strong>{entry.status || entry.action}</strong><small>{entry.effectiveDate || "No date"}</small></span>
+                              <span><strong>{entry.status || entry.action}</strong><small>{formatUkDate(entry.effectiveDate, "No date")}</small></span>
                               <p>{entry.reason || "No reason recorded"}</p>
                               <small>{entry.changedBy ? `Changed by ${entry.changedBy}` : ""}</small>
                             </li>
@@ -2157,7 +2158,7 @@ export default function EditEmployeePage() {
                   <div className={layoutStyles.complianceList}>
                     {complianceSummary.items.map((item) => (
                       <a key={item.key} href={item.href} data-tone={item.tone}>
-                        <span><strong>{item.label}</strong><small>{item.expiryDate || "Expiry date not recorded"}</small></span>
+                        <span><strong>{item.label}</strong><small>{formatUkDate(item.expiryDate, "Expiry date not recorded")}</small></span>
                         <Badge variant={item.tone}>
                           {item.state === "overdue"
                             ? `${Math.abs(item.daysRemaining)} days overdue`
@@ -2799,7 +2800,7 @@ export default function EditEmployeePage() {
                         <ol>
                           {[...(formData.payrollRateHistory || [])].reverse().slice(0, 10).map((entry) => (
                             <li key={entry.id}>
-                              <div><strong>{entry.effectiveDate || "No effective date"}</strong><small>{entry.reason || "No reason"}</small></div>
+                              <div><strong>{formatUkDate(entry.effectiveDate, "No effective date")}</strong><small>{entry.reason || "No reason"}</small></div>
                               <div>
                                 {(entry.changes || []).map((change) => (
                                   <span key={change.field}>{change.field}: {change.from === "" ? "—" : change.from} → {change.to === "" ? "—" : change.to}</span>
@@ -2879,7 +2880,7 @@ export default function EditEmployeePage() {
 
                   <dl className={layoutStyles.quickFacts}>
                     <div><dt>Employment</dt><dd>{formData.employmentStatus || "Not added"}</dd></div>
-                    <div><dt>Started</dt><dd>{formData.startDate || "Not added"}</dd></div>
+                    <div><dt>Started</dt><dd>{formatUkDate(formData.startDate, "Not added")}</dd></div>
                     <div><dt>Employee code</dt><dd>{formData.employeeCode || "Not added"}</dd></div>
                     <div><dt>Payroll no.</dt><dd>{formData.payrollNumber || "Not added"}</dd></div>
                   </dl>
