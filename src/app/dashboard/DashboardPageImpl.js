@@ -1864,7 +1864,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [bankHolidays, setBankHolidays] = useState([]);
 
   const authReady = !authAccess.loading && !!authAccess.user;
-  const userEmail = authEmail || null;
+  const userEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase() || null;
   const userUid = authAccess.user?.uid || null;
   const adminDashboardFallbackRef = useRef({ inFlight: false, loaded: false });
 
