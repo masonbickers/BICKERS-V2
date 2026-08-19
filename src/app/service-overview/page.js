@@ -833,13 +833,13 @@ export default function ServiceOverviewPage() {
                         </td>
 
                         <td className={layoutStyles.extracted16}>{v.category}</td>
-                        <td className={layoutStyles.extracted17}>{v.nextServiceDate}</td>
+                        <td className={layoutStyles.extracted17}>{fmtShort(parseDateAny(v.nextServiceDate))}</td>
                         <td className={layoutStyles.extracted18}>{diff === null || diff === undefined ? "-" : diff}</td>
                         <td className={layoutStyles.extracted19}>
                           <span style={statusPillStyle(status)}>{statusText(status)}</span>
                         </td>
                         <td className={layoutStyles.extracted20}>{bookedPill(v)}</td>
-                        <td className={layoutStyles.extracted21}>{v.lastServiceDate}</td>
+                        <td className={layoutStyles.extracted21}>{fmtShort(parseDateAny(v.lastServiceDate))}</td>
                         <td className={layoutStyles.extracted22}>{v.odometer ? v.odometer.toLocaleString("en-GB") : "-"}</td>
                         <td className={layoutStyles.extracted23}>
                           <span style={pill(historyCount ? UI.tealBg : "var(--color-surface-hover)", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "var(--color-border)")}>

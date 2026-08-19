@@ -12,6 +12,7 @@ import layoutStyles from "./MaintenanceBookingForm.styles.module.css";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button, Modal } from "@/app/components/ui";
 import DatePicker from "react-multi-date-picker";
+import { datePickerValues, formatUkDate } from "@/app/utils/dateDisplay";
 import { db } from "../../../firebaseConfig";
 import { ADDITIONAL_MAINTENANCE_WORKFLOWS } from "../utils/maintenanceSchema";
 import {
@@ -668,8 +669,8 @@ export default function MaintenanceBookingForm({
                 ? " The MOT appointment is on or before its legal expiry date."
                 : " This booking is inside the planned ISO week."}
               {scheduleRule.requiresExceptionReason ? (
-                <div style={{ marginTop: 8 }}>
-                  <label htmlFor={`${fieldPrefix}-schedule-exception-reason`} style={{ display: "block", fontWeight: 800, marginBottom: 5 }}>
+                <div className={layoutStyles.extracted65}>
+                  <label htmlFor={`${fieldPrefix}-schedule-exception-reason`} className={layoutStyles.extracted66}>
                     Reason for booking outside the due week
                   </label>
                   <input
@@ -690,8 +691,8 @@ export default function MaintenanceBookingForm({
                 <label id={`${fieldPrefix}-selected-dates-label`} className={layoutStyles.extracted20}>Selected dates</label>
                 <DatePicker
                   multiple
-                  value={customDates}
-                  format="YYYY-MM-DD"
+                  value={datePickerValues(customDates)}
+                  format="DD/MM/YYYY"
                   inputProps={{ "aria-labelledby": `${fieldPrefix}-selected-dates-label` }}
                   onChange={(vals) => {
                     const normalised = (Array.isArray(vals) ? vals : [])
@@ -703,7 +704,7 @@ export default function MaintenanceBookingForm({
                 />
                 {customDates.length > 0 ? (
                   <div className={layoutStyles.extracted21}>
-                    {customDates.join(", ")}
+                    {customDates.map((date) => formatUkDate(date)).join(", ")}
                   </div>
                 ) : null}
               </div>

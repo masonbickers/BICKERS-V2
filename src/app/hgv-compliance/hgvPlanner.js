@@ -523,7 +523,7 @@ export function isComplianceVorStartingInIsoWeek(
 
 export const formatDate = (value) => {
   const date = parseIsoDate(value);
-  return date ? date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "-";
+  return date ? date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }) : "-";
 };
 
 const addWeeks = (value, weeks) => {

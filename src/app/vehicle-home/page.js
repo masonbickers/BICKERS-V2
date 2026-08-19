@@ -2243,7 +2243,7 @@ export default function VehiclesHomePage() {
                 <h2 style={{ ...titleMd, fontSize: 15 }}>Fleet workspaces</h2>
                 <div style={hint}>Common vehicle actions grouped by how the workshop uses them.</div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted61}>
                 <Button type="button" onClick={() => router.push("/hgv-compliance")}>
                   <CalendarCheck size={15} />
                   HGV inspection planner

@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   flex: 1;
   width: 100%;
@@ -157,4 +155,25 @@
   .extracted9 {
     padding: 12px 10px 28px;
   }
+}
+
+.extracted22 {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: 10px;
+  background: var(--color-warning-soft);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.extracted23 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.extracted24 {
+  grid-column: 1 / -1;
 }

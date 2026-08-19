@@ -29,6 +29,7 @@ import {
   isUCraneArmFitted,
   isUCraneVehicle,
 } from "@/app/utils/uCraneBookingConfiguration";
+import { formatUkDate } from "@/app/utils/dateDisplay";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -45,11 +46,7 @@ const toDateSafe = (v) => {
 };
 
 const fmtGB = (d) => {
-  if (!d) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
+  return formatUkDate(d, "—");
 };
 
 const fmtDate = (iso) => {
@@ -63,7 +60,7 @@ const fmtDateRange = (b) => {
     return b.bookingDates
       .map((x) => {
         const d = toDateSafe(x);
-        return d ? fmtGB(d) : String(x);
+        return d ? fmtGB(d) : "—";
       })
       .join(", ");
   }
@@ -579,7 +576,7 @@ export default function ViewUCraneBookingModal({
                       <span key={`${v.id}-${i}`} style={tagPill}>
                         {v.name}
                         {v.plate && <span className={layoutStyles.extracted12}>{v.plate}</span>}
-                        {v.armFitted === false && <span style={tagNoArm}>No arm fitted</span>}
+                        {v.armFitted === false && <span className={layoutStyles.extracted24}>No arm fitted</span>}
                         {v.status && <span style={tagStatus}>{v.status}</span>}
                       </span>
                     ))}

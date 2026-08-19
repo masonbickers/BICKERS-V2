@@ -2023,7 +2023,7 @@ export default function TimesheetListPage() {
                             >
                               {status.clickable ? "Open timesheet" : "Awaiting submission"}
                             </span>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div className={layoutStyles.extracted17}>
                               {canNotify ? (
                                 <button
                                   type="button"

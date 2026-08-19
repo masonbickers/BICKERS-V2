@@ -5,10 +5,13 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import shellStyles from "./PlatformAdminShell.module.css";
 import {
   Activity,
   Building2,
   Brush,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Flag,
   Home,
@@ -16,13 +19,24 @@ import {
   Link2,
   ListChecks,
   LockKeyhole,
+  Monitor,
+  Moon,
   RefreshCw,
   Settings,
   ShieldCheck,
-  Sparkles,
+  Sun,
   Users,
 } from "lucide-react";
 import { auth } from "../../../../firebaseConfig";
+import { useAppearance } from "@/app/components/GlobalThemeProvider";
+
+const SIDEBAR_PREFERENCE_KEY = "bickers-sidebar:v1";
+const PLATFORM_BRAND = {
+  companyLogoUrl: "/bas-software-logo.png",
+  displayName: "BAS Software",
+  shortName: "BAS",
+  siteTitle: "BAS Software",
+};
 
 const navItems = [
   ["/platform-admin", "Dashboard", Home],
@@ -43,8 +57,32 @@ const navItems = [
 export default function PlatformAdminShell({ children, title, subtitle, onRefresh, loading }) {
   const router = useRouter();
   const pathname = usePathname();
+  const deployment = PLATFORM_BRAND;
+  const appearance = useAppearance();
   const [checking, setChecking] = useState(true);
   const [me, setMe] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(SIDEBAR_PREFERENCE_KEY) || "null");
+      setIsCollapsed(saved?.collapsed === true);
+    } catch {
+      // Device storage is optional; keep the platform navigation expanded.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(SIDEBAR_PREFERENCE_KEY) || "null");
+      window.localStorage.setItem(
+        SIDEBAR_PREFERENCE_KEY,
+        JSON.stringify({ ...(saved && typeof saved === "object" ? saved : {}), collapsed: isCollapsed })
+      );
+    } catch {
+      // Keep the in-memory preference when device storage is unavailable.
+    }
+  }, [isCollapsed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,149 +129,186 @@ export default function PlatformAdminShell({ children, title, subtitle, onRefres
 
   if (checking) {
     return (
-      <main style={styles.loadingPage}>
-        <Image src="/bas-software-logo.png" alt="BAS Software" width={92} height={92} />
+      <main className={shellStyles.loadingPage}>
+        <Image
+          src={deployment.companyLogoUrl}
+          alt={`${deployment.displayName} logo`}
+          width={160}
+          height={80}
+          className={shellStyles.loadingLogo}
+          unoptimized
+        />
         <strong>Checking platform access...</strong>
       </main>
     );
   }
 
+  const accountName = String(me?.displayName || me?.email?.split("@")[0] || "Platform Admin").trim();
+  const initials = accountName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "PA";
+  const emailVerified = me?.emailVerified === true;
+
   return (
-    <main style={styles.page}>
-      <aside style={styles.sidebar}>
-        <div style={styles.brand}>
-          <Image src="/bas-software-logo.png" alt="BAS Software" width={48} height={48} />
-          <div>
-            <div style={styles.kicker}>BAS Software</div>
-            <div style={styles.brandTitle}>Platform Admin</div>
+    <main className={shellStyles.shellRoot}>
+      <aside
+        className={shellStyles.sidebar}
+        data-collapsed={isCollapsed}
+        style={{ "--sidebar-width": isCollapsed ? "var(--shell-sidebar-collapsed-width)" : "clamp(248px, var(--shell-sidebar-width), 300px)" }}
+      >
+        <div className={shellStyles.sidebarBrandRow}>
+          <div className={shellStyles.sidebarBrand}>
+            <Image
+              src={deployment.companyLogoUrl}
+              alt={`${deployment.displayName} logo`}
+              width={180}
+              height={68}
+              className={shellStyles.sidebarLogo}
+              unoptimized
+            />
+            {!isCollapsed ? (
+              <span className={shellStyles.sidebarBrandCopy}>
+                <strong>{deployment.shortName || deployment.displayName} System</strong>
+                <small>Operations platform</small>
+              </span>
+            ) : null}
           </div>
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((current) => !current)}
+            className={shellStyles.sidebarCollapse}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
+          </button>
         </div>
 
-        <nav style={styles.nav}>
-          {navItems.map(([href, label, Icon]) => {
-            const active = pathname === href;
-            return (
-              <Link key={href} href={href} style={{ ...styles.navItem, ...(active ? styles.navActive : null) }}>
-                <Icon size={16} />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+        {!isCollapsed ? (
+          <div className={shellStyles.sidebarControls}>
+            <div className={shellStyles.workspaceControl}>
+              <ShieldCheck size={16} aria-hidden="true" />
+              <span>Platform workspace</span>
+            </div>
+          </div>
+        ) : null}
+
+        <div className={shellStyles.sidebarScroll}>
+          <nav className={shellStyles.sidebarNav} aria-label="Platform administration">
+            {!isCollapsed ? <div className={shellStyles.sidebarGroupLabel}>Platform</div> : null}
+            <div className={shellStyles.sidebarItems}>
+              {navItems.map(([href, label, Icon]) => {
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`${shellStyles.navButton} ${active ? shellStyles.navButtonActive : ""} ${isCollapsed ? shellStyles.navButtonCollapsed : ""}`}
+                    aria-current={active ? "page" : undefined}
+                    title={label}
+                  >
+                    <Icon size={17} strokeWidth={1.9} aria-hidden="true" />
+                    {!isCollapsed ? <span>{label}</span> : null}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        </div>
+
+        <div className={shellStyles.sidebarFooter}>
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className={shellStyles.sidebarAccount}
+            title={`${accountName} · Platform Admin`}
+          >
+            <span className={shellStyles.sidebarAvatar}>{initials}</span>
+            {!isCollapsed ? (
+              <span className={shellStyles.sidebarAccountCopy}>
+                <strong>{accountName}</strong>
+                <small>Platform Admin</small>
+              </span>
+            ) : null}
+          </button>
+        </div>
       </aside>
 
-      <section style={styles.content}>
-        <header style={styles.topbar}>
-          <div>
-            <div style={styles.kicker}>Signed in as {me?.email}</div>
-            <h1 style={styles.title}>{title}</h1>
-            {subtitle ? <p style={styles.subtitle}>{subtitle}</p> : null}
-          </div>
-          <div style={styles.actions}>
-            <span style={styles.badge}><Sparkles size={14} /> Platform Admin</span>
-            <button type="button" onClick={() => router.push("/dashboard")} style={styles.button}>
-              Back to Bickers
+      <section className={shellStyles.mainColumn}>
+        <header className={shellStyles.topbar}>
+          <div className={shellStyles.topbarTitleGroup}>
+            <button type="button" onClick={() => router.push("/dashboard")} className={shellStyles.backButton}>
+              <span aria-hidden="true">&larr;</span>
+              <span>Back</span>
             </button>
+            <div className={shellStyles.topbarTitleCopy}>
+              <div>Platform workspace</div>
+              <strong>{title}</strong>
+            </div>
+          </div>
+
+          <nav className={shellStyles.topbarActions} aria-label="Platform account controls">
+            <span
+              className={shellStyles.statusPill}
+              data-complete={emailVerified}
+              title={emailVerified ? "Email is verified" : "Email verification is required"}
+            >
+              <span className={shellStyles.statusDot} data-complete={emailVerified} />
+              {emailVerified ? "Verified" : "Setup incomplete"}
+            </span>
+            <span className={shellStyles.accountPill} title={me?.email || accountName}>
+              <span className={shellStyles.accountAvatar}>{initials}</span>
+              <span className={shellStyles.accountCopy}>
+                <strong>Platform Admin</strong>
+                <small>{accountName}</small>
+              </span>
+            </span>
+            <Link href="/dashboard" className={shellStyles.topLink}>Bickers</Link>
             {onRefresh ? (
-              <button type="button" onClick={onRefresh} disabled={loading} style={styles.primaryButton}>
+              <button type="button" onClick={onRefresh} disabled={loading} className={shellStyles.topLink}>
                 <RefreshCw size={15} />
                 {loading ? "Refreshing..." : "Refresh"}
               </button>
             ) : null}
-          </div>
+            <div className={shellStyles.themeSelector} role="group" aria-label="Colour mode">
+              {[
+                ["dark", "Dark", Moon],
+                ["normal", "Normal", Monitor],
+                ["light", "Light", Sun],
+              ].map(([value, label, Icon]) => (
+                <button
+                  type="button"
+                  key={value}
+                  className={shellStyles.themeModeButton}
+                  data-selected={appearance.resolvedMode === value}
+                  onClick={() => appearance.setModePreference(value)}
+                  title={`Use ${label.toLowerCase()} mode`}
+                  aria-pressed={appearance.resolvedMode === value}
+                >
+                  <Icon size={14} aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
         </header>
-        {children}
+
+        <div className={shellStyles.contentGutter}>
+          <div className={shellStyles.pageHeading}>
+            <div className={shellStyles.pageKicker}>Platform Admin</div>
+            <h1>{title}</h1>
+            {subtitle ? <p>{subtitle}</p> : null}
+          </div>
+          {children}
+        </div>
+
+        <footer className={shellStyles.footer}>
+          Copyright {new Date().getFullYear()} {deployment.siteTitle || deployment.displayName}
+        </footer>
       </section>
     </main>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    display: "grid",
-    gridTemplateColumns: "260px minmax(0, 1fr)",
-    background: "var(--color-canvas)",
-    color: "var(--color-text)",
-    fontFamily: "Arial, sans-serif",
-  },
-  loadingPage: {
-    minHeight: "100vh",
-    display: "grid",
-    placeItems: "center",
-    gap: 12,
-    background: "var(--color-canvas)",
-    color: "var(--color-text)",
-    fontFamily: "Arial, sans-serif",
-  },
-  sidebar: {
-    minHeight: "100vh",
-    padding: 16,
-    background: "var(--shell-sidebar-bg)",
-    color: "var(--color-white)",
-    position: "sticky",
-    top: 0,
-  },
-  brand: { display: "flex", alignItems: "center", gap: 12, marginBottom: 20 },
-  kicker: { fontSize: 12, color: "var(--color-text-muted)", fontWeight: 800, textTransform: "uppercase" },
-  brandTitle: { fontSize: 18, fontWeight: 900 },
-  nav: { display: "grid", gap: 6 },
-  navItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 9,
-    padding: "10px 11px",
-    borderRadius: 8,
-    color: "var(--color-border-strong)",
-    textDecoration: "none",
-    fontSize: 14,
-    fontWeight: 800,
-  },
-  navActive: { background: "var(--shell-sidebar-bg)", color: "var(--color-surface)" },
-  content: { minWidth: 0, padding: 22 },
-  topbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 16,
-    marginBottom: 18,
-  },
-  title: { margin: "4px 0", fontSize: 28, letterSpacing: 0 },
-  subtitle: { margin: 0, color: "var(--color-text-muted)", fontWeight: 700 },
-  actions: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" },
-  badge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "8px 10px",
-    border: "1px solid var(--color-info-border)",
-    borderRadius: 8,
-    color: "var(--color-info)",
-    background: "var(--color-info-soft)",
-    fontWeight: 900,
-    fontSize: 13,
-  },
-  button: {
-    height: 36,
-    padding: "0 11px",
-    border: "1px solid var(--color-border-strong)",
-    borderRadius: 8,
-    background: "var(--color-surface)",
-    color: "var(--color-text)",
-    fontWeight: 900,
-    cursor: "pointer",
-  },
-  primaryButton: {
-    height: 36,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 7,
-    padding: "0 11px",
-    border: "1px solid var(--color-danger)",
-    borderRadius: 8,
-    background: "var(--color-danger)",
-    color: "var(--color-white)",
-    fontWeight: 900,
-    cursor: "pointer",
-  },
-};

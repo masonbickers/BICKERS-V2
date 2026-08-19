@@ -7,6 +7,7 @@ import { auth } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { BusinessPage, BusinessPageHeader } from "@/app/components/BusinessPage";
 import styles from "./page.module.css";
+import { formatUkDate } from "@/app/utils/dateDisplay";
 
 const money = (value) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(Number(value || 0));
 const monthLabel = (value) => /^\d{4}-\d{2}$/.test(String(value || ""))
@@ -131,7 +132,7 @@ export default function QuoteInsightsPage() {
           <section className={`${styles.panel} ${styles.fullTable}`}>
             <h2>Full extracted quote information</h2>
             <p className={styles.muted}>{quoteRows.length} selected booking quotes match this view.</p>
-            <div className={styles.tableWrap}><table><thead><tr><th>Work date</th><th>Job / quote</th><th>Status</th><th>Client / production</th><th>Service / vehicles</th><th>Cost split</th><th>Total</th></tr></thead><tbody>{quoteRows.map((row) => <tr key={row.id}><td>{row.bookingDate || "—"}{row.dateSource === "quote timeline" ? <><br/><small>Quote timeline</small></> : null}</td><td><strong>{row.jobNumber}</strong><br/><small>{row.quoteNumber}{row.revision ? ` rev ${row.revision}` : ""}</small></td><td><span className={styles.status}>{row.status}</span></td><td>{row.client}<br/><small>{row.production || row.location}</small></td><td>{row.serviceDescription || "—"}<br/><small>{row.vehicles?.join(", ") || "No vehicle line classified"}</small></td><td>{Object.entries(row.categoryTotals || {}).filter(([, value]) => value).map(([key, value]) => <small className={styles.split} key={key}>{key}: {money(value)}</small>)}</td><td><strong>{money(row.total)}</strong></td></tr>)}</tbody></table></div>
+            <div className={styles.tableWrap}><table><thead><tr><th>Work date</th><th>Job / quote</th><th>Status</th><th>Client / production</th><th>Service / vehicles</th><th>Cost split</th><th>Total</th></tr></thead><tbody>{quoteRows.map((row) => <tr key={row.id}><td>{formatUkDate(row.bookingDate, "—")}{row.dateSource === "quote timeline" ? <><br/><small>Quote timeline</small></> : null}</td><td><strong>{row.jobNumber}</strong><br/><small>{row.quoteNumber}{row.revision ? ` rev ${row.revision}` : ""}</small></td><td><span className={styles.status}>{row.status}</span></td><td>{row.client}<br/><small>{row.production || row.location}</small></td><td>{row.serviceDescription || "—"}<br/><small>{row.vehicles?.join(", ") || "No vehicle line classified"}</small></td><td>{Object.entries(row.categoryTotals || {}).filter(([, value]) => value).map(([key, value]) => <small className={styles.split} key={key}>{key}: {money(value)}</small>)}</td><td><strong>{money(row.total)}</strong></td></tr>)}</tbody></table></div>
           </section>
         </> : null}
       </BusinessPage>

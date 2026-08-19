@@ -17,6 +17,7 @@ import {
   TableContainer,
 } from "@/app/components/ui";
 import styles from "./statistics.module.css";
+import { formatUkDate } from "@/app/utils/dateDisplay";
 
 export const STATISTICS_TABS = [
   { id: "overview", label: "Overview" },
@@ -269,7 +270,7 @@ export function DrilldownModal({ drilldown, onClose, onExport, formatVehicle, fo
                 <td><Link href={`/job-numbers/${booking.id}`} onClick={onClose}><strong>{booking.jobNumber || booking.id}</strong></Link></td>
                 <td>{booking.client || "-"}</td>
                 <td><Badge>{booking.status || "Unknown"}</Badge></td>
-                <td>{booking.firstDate || "-"}{booking.lastDate && booking.lastDate !== booking.firstDate ? ` – ${booking.lastDate}` : ""}</td>
+                <td>{formatUkDate(booking.firstDate)}{booking.lastDate && booking.lastDate !== booking.firstDate ? ` – ${formatUkDate(booking.lastDate)}` : ""}</td>
                 <td>{booking.bookingDayCount}</td>
                 <td>{formatCredits(booking.creditTotal)}</td>
                 <td>{booking.vehicles?.map((vehicle) => formatVehicle(displayToken(vehicle))).filter(Boolean).join(", ") || "-"}</td>

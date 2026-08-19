@@ -3569,7 +3569,7 @@ export default function TimesheetDetailPage() {
               </button>
             </div>
             {payAdvicePinError ? (
-              <div style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 700 }}>
+              <div className={layoutStyles.extracted119}>
                 {payAdvicePinError}
               </div>
             ) : null}

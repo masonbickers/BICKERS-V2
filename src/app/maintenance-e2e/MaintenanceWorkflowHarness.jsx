@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./MaintenanceWorkflowHarness.styles.module.css";
 import { useState } from "react";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 
@@ -21,9 +22,9 @@ export default function MaintenanceWorkflowHarness() {
   };
 
   return (
-    <main style={{ minHeight: "100vh", background: "#eef2f7", padding: 24 }}>
+    <main className={layoutStyles.extracted1}>
       <h1>Maintenance workflow browser verification</h1>
-      <nav aria-label="Maintenance workflow selector" style={{ display: "flex", gap: 8 }}>
+      <nav aria-label="Maintenance workflow selector" className={layoutStyles.extracted2}>
         {workflows.map((workflow) => (
           <button key={workflow.type} type="button" onClick={() => selectWorkflow(workflow.type)}>
             {workflow.label}

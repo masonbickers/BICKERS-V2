@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   display: grid;
   grid-template-columns: 82px 1fr;
@@ -521,4 +519,9 @@
   .controlDivider { display: none; }
   .crewAllocationBar { grid-template-columns: 1fr 70px 76px; }
   .crewVisibilityStatus { grid-column: 1 / -1; justify-self: start; }
+}
+
+.extracted69 {
+  font-size: 13px;
+  font-weight: 800;
 }

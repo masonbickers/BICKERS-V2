@@ -464,7 +464,7 @@ export default function EquipmentPage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Inspection dates: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within 21 days,{" "}
-          <span style={{ color: "var(--color-danger)", fontWeight: 900 }}>red</span> = overdue.
+          <span className={layoutStyles.extracted9}>red</span> = overdue.
         </div>
       </div>
     </HeaderSidebarLayout>

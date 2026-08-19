@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./VorPeriodDetailsModal.styles.module.css";
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import { useEffect, useMemo, useState } from "react";
 import { Button, FormField, Input, Modal, Textarea } from "@/app/components/ui";
@@ -165,23 +166,23 @@ export default function VorPeriodDetailsModal({ vehicle, period, onClose }) {
       }
     >
       {error ? (
-        <div role="alert" style={{ padding: 10, borderRadius: 8, background: "var(--color-danger-soft)", color: "var(--color-danger)", fontWeight: 750 }}>
+        <div role="alert" className={layoutStyles.extracted1}>
           {error}
         </div>
       ) : null}
 
       {mode === "details" ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1, background: "var(--color-border)", border: "1px solid var(--color-border)", borderRadius: 10, overflow: "hidden" }}>
+        <div className={layoutStyles.extracted2}>
           {detailRows.map(([label, value]) => (
-            <div key={label} style={{ padding: 11, background: "var(--color-surface)" }}>
-              <div style={{ fontSize: 11, fontWeight: 850, color: "var(--color-text-muted)", textTransform: "uppercase" }}>{label}</div>
-              <div style={{ marginTop: 4, fontWeight: 700 }}>{value}</div>
+            <div key={label} className={layoutStyles.extracted3}>
+              <div className={layoutStyles.extracted4}>{label}</div>
+              <div className={layoutStyles.extracted5}>{value}</div>
             </div>
           ))}
         </div>
       ) : mode === "edit" ? (
-        <div style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+        <div className={layoutStyles.extracted6}>
+          <div className={layoutStyles.extracted7}>
             {editableFields.map(([field, label, type]) => (
               <FormField key={field} label={label}>
                 <Input
@@ -200,8 +201,8 @@ export default function VorPeriodDetailsModal({ vehicle, period, onClose }) {
           </FormField>
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 12 }}>
-          <p style={{ margin: 0 }}>The period will stop affecting the planner, but its original values and complete audit history will remain stored.</p>
+        <div className={layoutStyles.extracted8}>
+          <p className={layoutStyles.extracted9}>The period will stop affecting the planner, but its original values and complete audit history will remain stored.</p>
           <FormField label="Reason for archiving">
             <Textarea value={changeReason} onChange={(event) => setChangeReason(event.target.value)} />
           </FormField>

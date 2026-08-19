@@ -504,7 +504,7 @@ export default function MOTOverviewPage() {
                           {diff === null || diff === undefined ? "-" : diff}
                         </td>
 
-                        <td className={layoutStyles.extracted11}>{v.nextMOTDate}</td>
+                        <td className={layoutStyles.extracted11}>{fmtShort(parseDateAny(v.nextMOTDate))}</td>
 
                         <td className={layoutStyles.extracted12}>
                           {status === "awaiting_dvsa" ? (

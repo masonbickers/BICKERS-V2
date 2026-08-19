@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   position: fixed;
   inset: 0;
@@ -240,4 +238,8 @@
   .filterToolbar {
     grid-template-columns: 1fr !important;
   }
+}
+
+.extracted29 {
+  padding-left: 29px;
 }

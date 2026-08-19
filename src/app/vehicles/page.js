@@ -1089,7 +1089,7 @@ export default function VehicleMaintenancePage() {
                                       style={{
                                         background:
                                           index % 2 === 0
-                                            ? "var(--color-white)"
+                                            ? "var(--color-surface)"
                                             : "var(--color-surface-subtle)",
                                         cursor: "pointer",
                                       }}
@@ -1243,7 +1243,7 @@ export default function VehicleMaintenancePage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
-          <span style={{ color: "var(--color-danger)", fontWeight: 900 }}>red</span> = overdue.{" "}
+          <span className={layoutStyles.extracted19}>red</span> = overdue.{" "}
           <span style={{ color: UI.amber, fontWeight: 900 }}>Missing</span> = no date or exemption recorded;{" "}
           <strong>N/A</strong> = deliberately marked not applicable.
         </div>

@@ -22,6 +22,7 @@ import {
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
 import { mergeQuoteTemplatesWithDefaults } from "@/app/utils/quoteTemplateDefaults";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { formatUkDate } from "@/app/utils/dateDisplay";
 
 const UI = UI_TOKENS;
 
@@ -1906,7 +1907,7 @@ export default function QuotePage() {
                   <div style={dayNotesList}>
                     {getDayNoteRows(booking).map((row) => (
                       <div key={`${row.date}-${row.note}`} className={layoutStyles.extracted89}>
-                        <strong>{row.date}</strong>
+                        <strong>{formatUkDate(row.date)}</strong>
                         <span>{row.note}</span>
                       </div>
                     ))}

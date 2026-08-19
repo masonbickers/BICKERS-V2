@@ -1,0 +1,12 @@
+
+
+.extracted1 {
+  min-height: 100vh;
+  background: #eef2f7;
+  padding: 24px;
+}
+
+.extracted2 {
+  display: flex;
+  gap: 8px;
+}

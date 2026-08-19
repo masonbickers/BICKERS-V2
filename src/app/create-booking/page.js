@@ -9,6 +9,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
+import { datePickerValues } from "@/app/utils/dateDisplay";
 import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import {
   buildExistingJobDetailsLookup,
@@ -81,7 +82,7 @@ const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 // This screen's original `bg` token meant a white card surface, while the
 // shared token set uses `bg` for the page canvas. Preserve the local meaning
 // so form sections remain visually separate from the surrounding page.
-const UI = { ...UI_TOKENS, bg: UI_TOKENS.card };
+const UI = UI_TOKENS;
 const SPACE = Object.freeze({ xs: 4, sm: 8, md: 12, lg: 16, xl: 24 });
 const jobStatusBadgeStyle = (status) => {
   const tone = getFixedJobStatusStyle(status);
@@ -372,7 +373,7 @@ const formatSummaryDate = (date) => {
   if (!date) return "";
   const parsed = new Date(`${date}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 const formatSummaryDates = (dates) => dates.map(formatSummaryDate).filter(Boolean).join(", ");
 const formatSummaryCallTimes = (dates, times, fallback = "") => {
@@ -2332,7 +2333,7 @@ function CreateBookingForm({ initialStatus }) {
                       color: UI.text,
                     }}
                   >
-                    <div style={{ fontSize: 13, fontWeight: 800 }}>
+                    <div className={layoutStyles.extracted69}>
                       Job {jobNumber.trim()} already has {existingJobDetails.bookingCount}{" "}
                       {existingJobDetails.bookingCount === 1 ? "booking" : "bookings"}.
                     </div>
@@ -2717,8 +2718,8 @@ function CreateBookingForm({ initialStatus }) {
                       <div className={layoutStyles.extracted23}>
                         <DatePicker
                           multiple
-                          value={customDates}
-                          format="YYYY-MM-DD"
+                          value={datePickerValues(customDates)}
+                          format="DD/MM/YYYY"
                           onChange={(vals) => {
                             const normalised = (Array.isArray(vals) ? vals : [])
                               .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
@@ -2760,7 +2761,7 @@ function CreateBookingForm({ initialStatus }) {
                         const callTimeForDate = callTimesByDate[date] || "";
                         return (
                           <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 8, background: "var(--color-surface-subtle)" }}>
-                            <div className={layoutStyles.extracted27}>{new Date(date).toDateString()}</div>
+                            <div className={layoutStyles.extracted27}>{formatSummaryDate(date)}</div>
 
                             <div className={`create-booking-two ${layoutStyles.extracted28}`} >
                               <div>
@@ -2999,7 +3000,7 @@ function CreateBookingForm({ initialStatus }) {
                     <div className={layoutStyles.extracted44}>
                       {selectedDates.map((date) => {
                         const assigned = employeesByDate[date] || [];
-                        const pretty = new Date(date).toDateString();
+                        const pretty = formatSummaryDate(date);
 
                         return (
                           <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: SPACE.md, background: UI.bgAlt }}>

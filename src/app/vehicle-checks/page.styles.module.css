@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   display: flex;
   align-items: flex-start;
@@ -116,4 +114,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+}
+
+.extracted18 {
+  padding-left: 34px;
 }

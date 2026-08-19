@@ -465,7 +465,7 @@ export default function SavedContactsPage() {
                     }}
                   >
                     {isEditing ? (
-                      <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, paddingBottom: 8 }}>
+                      <div className={layoutStyles.extracted10}>
                         {[
                           ["billingLegalName", "Billing legal name"],
                           ["billingTradingName", "Trading name"],
@@ -519,7 +519,7 @@ export default function SavedContactsPage() {
                             background: "var(--color-surface-subtle)",
                           }}
                         >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                          <div className={layoutStyles.extracted11}>
                             <div>
                               <strong style={{ color: UI.text, fontSize: 12 }}>Sage 50 customer mapping</strong>
                               <div style={{ color: UI.muted, fontSize: 11, marginTop: 2 }}>
@@ -532,7 +532,7 @@ export default function SavedContactsPage() {
                               {draft.financeProfile?.sageCustomerMappingStatus || "unmapped"}
                             </span>
                           </div>
-                          <div style={{ display: "flex", gap: 8 }}>
+                          <div className={layoutStyles.extracted12}>
                             <input
                               value={sageQuery}
                               onChange={(event) => setSageQuery(event.target.value)}
@@ -556,13 +556,13 @@ export default function SavedContactsPage() {
                             </div>
                           ) : null}
                           {sageLookupError ? (
-                            <div style={{ color: "var(--color-danger)", fontSize: 11 }}>
+                            <div className={layoutStyles.extracted13}>
                               {sageLookupError}
                             </div>
                           ) : null}
                           {sageLookup?.status === "succeeded" ? (
                             sageLookup.results?.length ? (
-                              <div style={{ display: "grid", gap: 6 }}>
+                              <div className={layoutStyles.extracted14}>
                                 {sageLookup.results.map((result) => (
                                   <div
                                     key={result.sageCustomerId}
