@@ -1674,13 +1674,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const isUCraneMode = mode === "u-crane";
   const workDiarySectionRef = useRef(null);
   const authAccess = useAuth() || {};
-  const isPlatformAdminSession = !!authAccess.canUseAdminViewSwitch;
-  const canUseAdminDashboardFallback =
-    !!authAccess.accessReady && !!(authAccess.realUser || authAccess.user);
-  // Platform administrators (including user-view mode) load through the
-  // authorised endpoint immediately. Normal users keep the faster Firestore
-  // listener and use the same endpoint if their listener is denied.
-  const useAdminDashboardData = !!authAccess.isAdmin || isPlatformAdminSession;
+  const canUseAdminDashboardFallback = !!authAccess.isAdmin;
+  // Admin Firestore listeners are intentionally rejected by the tenant rules.
+  // Load through the authorised server endpoint immediately so the diary does
+  // not render as empty while it waits for a permission error and fallback.
+  const useAdminDashboardData = canUseAdminDashboardFallback;
   const dataAccessState = useMemo(
     () => ({
       user: authAccess.user?.uid ? { uid: authAccess.user.uid } : null,
