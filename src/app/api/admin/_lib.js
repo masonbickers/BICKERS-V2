@@ -106,6 +106,7 @@ export async function verifyFirebaseIdToken(idToken) {
     identityLinkVersion: Number(tokenPayload.identityLinkVersion || 0),
     identityEmployeeId: String(tokenPayload.identityEmployeeId || "").trim(),
     identityCompanyId: String(tokenPayload.identityCompanyId || "").trim(),
+    emergencyBootstrapRole: String(tokenPayload.emergencyBootstrapRole || "").trim(),
   };
 }
 

@@ -3,6 +3,7 @@ import {
   applyProtectedInvoiceAction,
 } from "./invoiceLifecycleActions.js";
 import { validateSage50ConnectorResult } from "./sage50ConnectorContract.js";
+import { BICKERS_DEPLOYMENT_DEFAULTS, deploymentSupplier } from "../config/deploymentConfigCore.js";
 
 const text = (value) => String(value ?? "").trim();
 const money = (value) => Math.round(Number(value || 0) * 100);
@@ -12,6 +13,7 @@ export function buildSage50Reconciliation({
   invoice,
   booking,
   actor,
+  supplier = deploymentSupplier(BICKERS_DEPLOYMENT_DEFAULTS),
   now = new Date().toISOString(),
 } = {}) {
   if (!job || job.status !== "succeeded" || job.result?.outcome !== "succeeded") {
@@ -101,9 +103,9 @@ export function buildSage50Reconciliation({
     totals: issued.totals,
     notes: issued.notes || null,
     supplier: {
-      legalName: "Bickers Action",
-      description: "Film and TV Action Vehicles",
-      website: "www.bickers.co.uk",
+      legalName: text(supplier.legalName),
+      description: text(supplier.description),
+      website: text(supplier.website),
     },
     sageInvoiceId: issued.sageSync.sageInvoiceId,
     exportJobId: text(job.jobId),

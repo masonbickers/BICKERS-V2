@@ -1,6 +1,12 @@
 import { adminCreateDocument, adminListDocuments, adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 import { readBearerToken, verifyFirebaseIdToken } from "../../admin/_lib";
 import { isAccountDisabled } from "@/app/utils/accountAccess";
+import {
+  getDeploymentConfig,
+  isDeploymentEmailAllowed,
+  isDeploymentEmergencyAdmin,
+  isDeploymentEmergencyPlatformAdmin,
+} from "@/app/config/deploymentConfig";
 
 const DEFAULT_FEATURE_FLAGS = {
   diary: false,
@@ -268,7 +274,7 @@ export async function POST(req) {
       Number(verifiedUser.identityLinkVersion) !== 2 ||
       !cleanValue(verifiedUser.clerkUserId) ||
       !email ||
-      !email.endsWith("@bickers.co.uk")
+      !isDeploymentEmailAllowed(email)
     ) {
       return denyBootstrap(
         req,
@@ -311,10 +317,21 @@ export async function POST(req) {
       }
     }
 
-    const currentRole = normalizeRole(currentUserDoc?.role);
+    const claimedEmergencyRole = cleanValue(verifiedUser.emergencyBootstrapRole);
+    const allowedEmergencyRole = !currentUserDoc
+      ? isDeploymentEmergencyPlatformAdmin(email)
+        ? "platformAdmin"
+        : isDeploymentEmergencyAdmin(email)
+          ? "admin"
+          : ""
+      : "";
+    const emergencyRole = claimedEmergencyRole && claimedEmergencyRole === allowedEmergencyRole
+      ? allowedEmergencyRole
+      : "";
+    const currentRole = emergencyRole || normalizeRole(currentUserDoc?.role);
     const isPlatformAdmin = currentRole === "platformAdmin";
     const isAdmin = isPlatformAdmin || currentRole === "admin";
-    if (isAdmin && !currentUserDoc) {
+    if (isAdmin && !currentUserDoc && !emergencyRole) {
       return denyBootstrap(
         req,
         verifiedUser,
@@ -384,7 +401,7 @@ export async function POST(req) {
         "Company access requires manual review."
       );
     }
-    const companyId = canonicalCompanyId || employeeCompanyId;
+    const companyId = canonicalCompanyId || employeeCompanyId || (emergencyRole ? getDeploymentConfig().companyId : "");
     if (!companyId && !isPlatformAdmin) {
       return denyBootstrap(req, verifiedUser, "Company access missing", "Company access is not configured.");
     }
@@ -398,7 +415,9 @@ export async function POST(req) {
     }
 
     const workspaceSource = isAdmin ? currentUserDoc : employee;
-    const workspace = explicitAppAccess(workspaceSource || {});
+    const workspace = emergencyRole
+      ? { configured: true, appAccess: { user: true, service: true } }
+      : explicitAppAccess(workspaceSource || {});
     if (!workspace.configured) {
       return denyBootstrap(
         req,

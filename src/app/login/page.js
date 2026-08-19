@@ -5,11 +5,13 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useAppearance } from "@/app/components/GlobalThemeProvider";
 import { useContentLabels } from "@/app/components/ContentLabelsProvider";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
   const appearance = useAppearance();
   const { label } = useContentLabels();
+  const deployment = useDeploymentConfig();
   const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
@@ -23,13 +25,15 @@ export default function LoginPage() {
         <div className={styles.formWrapper}>
           <p className={styles.eyebrow}>Staff portal</p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={appearance.theme.companyLogo || "/bickers-action-logo.png"} alt={`${appearance.theme.appName} logo`} width={220} height={74} className={styles.logo} />
+          <img src={appearance.theme.companyLogo || deployment.companyLogoUrl} alt={`${appearance.theme.appName} logo`} width={220} height={74} className={styles.logo} />
           <h1 className={styles.title}>{label("login.title")}</h1>
           <p className={styles.subtitle}>{label("login.subtitle")}</p>
           {accessDenied && (
             <div className={styles.error} role="alert">
               <strong>Access unavailable</strong>
-              <span>Your account is disabled or is not linked to an active Bickers employee record. Contact your system administrator for help.</span>
+              <span>
+                Your account is disabled or is not linked to an active employee record. Contact {deployment.supportEmail ? <a href={`mailto:${deployment.supportEmail}`}>{deployment.supportEmail}</a> : "your system administrator"} for help.
+              </span>
             </div>
           )}
           <div className={styles.signInControl}>
@@ -89,18 +93,19 @@ export default function LoginPage() {
           </div>
           <div className={styles.securityNote}>
             <span className={styles.lockIcon} aria-hidden="true">&#128274;</span>
-            <span>Authorised Bickers staff only</span>
+            <span>Authorised {deployment.legalName} staff only</span>
           </div>
         </div>
       </section>
-      <section className={styles.imageSide} aria-label="Bickers Action production vehicle">
+      <section className={styles.imageSide} aria-label={`${deployment.legalName} production vehicle`}>
         <Image
-          src="/login-page-photo.jpeg"
-          alt="Bickers Action vehicle"
+          src={deployment.loginImageUrl}
+          alt={`${deployment.legalName} vehicle`}
           fill
           sizes="(max-width: 760px) 0px, (max-width: 1100px) 52vw, 62vw"
           className={styles.image}
           priority
+          unoptimized={deployment.loginImageUrl.startsWith("https://")}
         />
         <div className={styles.imageShade} aria-hidden="true" />
         <div className={styles.imageCaption}>

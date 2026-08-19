@@ -32,6 +32,7 @@ import { useAuth } from "@/app/context/authContext";
 import { useAppearance } from "@/app/components/GlobalThemeProvider";
 import { DEFAULT_GLOBAL_THEME } from "@/app/utils/globalTheme";
 import { useContentLabels } from "@/app/components/ContentLabelsProvider";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 import { Button, Modal, Select } from "@/app/components/ui";
 import {
   BadgePoundSterling,
@@ -255,6 +256,7 @@ function HeaderSidebarLayoutInner({
   backHref,
   backLabel = "Back",
 }) {
+  const deployment = useDeploymentConfig();
   const pathname = usePathname();
   const router = useRouter();
   const appearance = useAppearance();
@@ -532,8 +534,8 @@ function HeaderSidebarLayoutInner({
       setReceiptQueryCount(0);
       return undefined;
     }
-    const accessState = { user, userDoc, isEnabled, accessReady };
-    const companyId = String(userDoc?.companyId || "bickers-action");
+    const accessState = { user, userDoc, isEnabled, accessReady, deploymentCompanyId: deployment.companyId };
+    const companyId = String(userDoc?.companyId || deployment.companyId);
     try {
       return onSnapshot(
         tenantCollectionQuery(db, "receipts", accessState, [
@@ -549,7 +551,7 @@ function HeaderSidebarLayoutInner({
       setReceiptQueryCount(0);
       return undefined;
     }
-  }, [accessReady, isEnabled, user, userDoc]);
+  }, [accessReady, deployment.companyId, isEnabled, user, userDoc]);
 
   useEffect(() => {
     setPermissionIssue(null);
@@ -1287,13 +1289,13 @@ function HeaderSidebarLayoutInner({
         <div className={layoutStyles.sidebarBrandRow}>
           <div className={layoutStyles.sidebarBrand}>
             <img
-              src={appearance.theme.companyLogo || "/bickers-action-logo.png"}
+              src={appearance.theme.companyLogo || deployment.companyLogoUrl}
               alt={`${appearance.theme.appName} logo`}
               className={layoutStyles.sidebarLogo}
             />
             {!sidebarCollapsed ? (
               <span className={layoutStyles.sidebarBrandCopy}>
-                <strong>Bickers System</strong>
+                <strong>{deployment.shortName} System</strong>
                 <small>Operations platform</small>
               </span>
             ) : null}
@@ -1901,7 +1903,7 @@ function HeaderSidebarLayoutInner({
 
         {/* Footer */}
         <footer className={layoutStyles.footer}>
-          <span>Copyright {new Date().getFullYear()} {appearance.theme.appName === DEFAULT_GLOBAL_THEME.appName ? "Bickers Booking System" : appearance.theme.appName} v{APP_VERSION_LABEL}</span>
+          <span>Copyright {new Date().getFullYear()} {appearance.theme.appName === DEFAULT_GLOBAL_THEME.appName ? deployment.siteTitle : appearance.theme.appName} v{APP_VERSION_LABEL}</span>
           <div
             className={layoutStyles.extracted41}
           >

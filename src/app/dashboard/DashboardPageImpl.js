@@ -90,7 +90,6 @@ import MaintenanceCalendarPanel from "../components/MaintenanceCalendarPanel";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import QuotePdfViewer from "../components/QuotePdfViewer";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
-import { isAdminEmail } from "@/app/utils/adminAccess";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -177,7 +176,6 @@ const getVehicleStatusPillStyle = (status) => {
 
 // ---- per-user action blocks ----
 const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
-const DELETED_ON_CALENDAR_EMAILS = new Set(["mason@bickers.co.uk", "paul@bickers.co.uk"]);
 const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "lost"]);
 const DASHBOARD_HIDE_PREFS_KEY = "dashboard:hide-prefs";
 const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
@@ -1676,8 +1674,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const isUCraneMode = mode === "u-crane";
   const workDiarySectionRef = useRef(null);
   const authAccess = useAuth() || {};
-  const authEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase();
-  const canUseAdminDashboardFallback = !!authAccess.isAdmin || isAdminEmail(authEmail);
+  const canUseAdminDashboardFallback = !!authAccess.isAdmin;
   const useAdminDashboardData = false;
   const dataAccessState = useMemo(
     () => ({
@@ -1916,9 +1913,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, [isUCraneMode, router]);
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
-  const canSeeDeletedOnCalendar = userEmail
-    ? DELETED_ON_CALENDAR_EMAILS.has(userEmail)
-    : false;
+  const canSeeDeletedOnCalendar = !!authAccess.isAdmin;
 
   useEffect(() => {
     if (!createBookingOpening) return undefined;

@@ -12,6 +12,7 @@ import { PLATFORM_APPEARANCE_ID } from "@/app/utils/appearanceModel";
 import { contentLabelGroups, DEFAULT_CONTENT_LABELS, normalizeContentLabels, validateContentLabels } from "@/app/utils/contentLabels";
 import { createMonochromeDarkPalette, DEFAULT_GLOBAL_THEME, DENSITY_OPTIONS, FONT_OPTIONS, normalizeGlobalTheme, SHADOW_OPTIONS, themeToCssVariables, validateThemeContrast } from "@/app/utils/globalTheme";
 import { normalizePlatformRole } from "@/app/utils/accessControl";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 import styles from "./AppearanceAdminEditor.module.css";
 
 const THEME_GROUPS = [
@@ -73,9 +74,10 @@ function ThemePreview({ theme }) {
 export default function AppearanceAdminEditor({ section }) {
   const router = useRouter();
   const authAccess = useAuth() || {};
+  const deployment = useDeploymentConfig();
   const runtimeAppearance = useAppearance();
   const isPlatformAdmin = normalizePlatformRole(authAccess.userDoc?.role) === "platformAdmin";
-  const ownCompanyId = String(authAccess.userDoc?.companyId || "bickers-action");
+  const ownCompanyId = String(authAccess.userDoc?.companyId || deployment.companyId);
   const [companyId, setCompanyId] = useState(isPlatformAdmin ? PLATFORM_APPEARANCE_ID : ownCompanyId);
   const [state, setState] = useState(null);
   const [companies, setCompanies] = useState([]);

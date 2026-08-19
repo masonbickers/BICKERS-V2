@@ -38,11 +38,6 @@ import {
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 
-/* ───────────────────────────────────────────
-   Admin gate (ONLY these emails)
-─────────────────────────────────────────── */
-const ADMIN_EMAILS = ["mason@bickers.co.uk"];
-
 /* -------------------------- tiny visual tokens only -------------------------- */
 const UI = UI_TOKENS;
 
@@ -457,16 +452,10 @@ export default function DeletedBookingsPage() {
           return;
         }
 
-        const email = String(u.email || "").trim().toLowerCase();
-        if (ADMIN_EMAILS.includes(email)) {
-          setIsAdmin(true);
-          return;
-        }
-
         try {
           const userSnap = await getDoc(doc(db, "users", u.uid));
           const role = String(userSnap.data()?.role || "").trim().toLowerCase();
-          const ok = role === "admin";
+          const ok = role === "admin" || role === "platformadmin";
           setIsAdmin(ok);
           if (!ok) {
             router.push("/home");

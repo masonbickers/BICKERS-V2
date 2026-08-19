@@ -27,6 +27,7 @@ import {
   userMfaReady,
 } from "./platformAdminData";
 import { auth } from "../../../../firebaseConfig";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 
 const sectionCopy = {
   dashboard: ["Platform Dashboard", "Companies, users, security warnings and recent events."],
@@ -89,6 +90,7 @@ function usePlatformData({ includeAudit = false } = {}) {
 }
 
 export default function PlatformAdminSectionPage({ section }) {
+  const deployment = useDeploymentConfig();
   const needsAudit = ["security", "mfa", "cleanup", "dashboard"].includes(section);
   const { data, audit, loading, notice, load } = usePlatformData({ includeAudit: needsAudit });
   const [query, setQuery] = useState("");
@@ -125,7 +127,7 @@ export default function PlatformAdminSectionPage({ section }) {
           companies={data.companies}
         />
       ) : null}
-      {renderSection(section, { data, audit, filteredUsers, filteredEmployees, loading, load })}
+      {renderSection(section, { data, audit, filteredUsers, filteredEmployees, loading, load, deployment })}
     </PlatformAdminShell>
   );
 }
@@ -1538,7 +1540,7 @@ function LoginLogsView({ data }) {
   );
 }
 
-function CleanupView({ data, load }) {
+function CleanupView({ data, load, deployment }) {
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [confirmText, setConfirmText] = useState("");
   const [cleanupCompanyId, setCleanupCompanyId] = useState("");
@@ -1547,7 +1549,7 @@ function CleanupView({ data, load }) {
   const tasks = data.cleanupPreview || [];
   const companies = data.companies || [];
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) || tasks[0] || null;
-  const selectedCompanyId = cleanupCompanyId || companies[0]?.id || "bickers-action";
+  const selectedCompanyId = cleanupCompanyId || companies[0]?.id || deployment.companyId;
   const totalFindings = tasks.reduce((sum, task) => sum + Number(task.count || 0), 0);
   const runnableFindings = tasks.filter((task) => task.canRun).reduce((sum, task) => sum + Number(task.count || 0), 0);
   const businessRunnableFindings = tasks
@@ -1667,7 +1669,7 @@ function CleanupView({ data, load }) {
                         {companies.map((company) => (
                           <option key={company.id} value={company.id}>{company.name || company.id}</option>
                         ))}
-                        {!companies.length ? <option value="bickers-action">Bickers Action</option> : null}
+                        {!companies.length ? <option value={deployment.companyId}>{deployment.legalName}</option> : null}
                       </select>
                     ) : null}
                     <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={`Type ${selectedTask.id}`} style={{ ...ui.input, minWidth: 220 }} />

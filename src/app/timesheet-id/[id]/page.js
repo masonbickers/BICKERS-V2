@@ -41,9 +41,6 @@ import {
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
 
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
 const PAY_ADVICE_PIN_EMAIL = "adam@bickers.co.uk";
 const PAY_ADVICE_PIN = "4159";
 

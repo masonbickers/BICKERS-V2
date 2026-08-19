@@ -1,5 +1,6 @@
 import { adminReadDocument } from "@/app/api/_firebaseAdminRest";
 import { normalizeServerRole, readBearerToken, verifyFirebaseIdToken } from "@/app/api/admin/_lib";
+import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 const enabled = (userData, key) => {
   const flags = userData?.featureFlags || userData?.features || {};
@@ -7,6 +8,7 @@ const enabled = (userData, key) => {
 };
 
 export async function requireStatisticsUser(req) {
+  const defaultCompanyId = getDeploymentConfig().companyId;
   const idToken = readBearerToken(req);
   const verifiedUser = await verifyFirebaseIdToken(idToken);
   if (!verifiedUser?.uid) return { error: Response.json({ error: "Not signed in." }, { status: 401 }) };
@@ -26,7 +28,7 @@ export async function requireStatisticsUser(req) {
     idToken,
     verifiedUser,
     userData,
-    companyId: String(userData.companyId || "bickers-action").trim() || "bickers-action",
+    companyId: String(userData.companyId || defaultCompanyId).trim() || defaultCompanyId,
     role,
     // Platform admins must retain oversight even when a company module is disabled.
     variant: financeManagement ? "management" : "booking",

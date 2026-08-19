@@ -17,7 +17,6 @@ const AuthContext = createContext(null);
 const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v2";
 const ADMIN_VIEW_MODE_KEY = "bickers-admin-view-mode:v1";
 const ADMIN_VIEW_USER_KEY = "bickers-admin-view-user:v1";
-const ADMIN_VIEW_EMAILS = new Set(["mason@bickers.co.uk"]);
 const SESSION_BRIDGE_RETRY_DELAYS_MS = [0, 400, 1200];
 const SESSION_BRIDGE_BACKGROUND_RETRY_MS = 5000;
 
@@ -109,8 +108,6 @@ const clearAccessCache = () => {
 };
 
 const readAdminViewMode = (email) => {
-  const cleanEmail = String(email || "").trim().toLowerCase();
-  if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return "admin";
   if (typeof window === "undefined") return "admin";
   try {
     return window.localStorage.getItem(ADMIN_VIEW_MODE_KEY) === "user" ? "user" : "admin";
@@ -129,8 +126,6 @@ const writeAdminViewMode = (mode) => {
 };
 
 const readAdminViewUser = (email) => {
-  const cleanEmail = String(email || "").trim().toLowerCase();
-  if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return null;
   if (typeof window === "undefined") return null;
   try {
     return JSON.parse(window.localStorage.getItem(ADMIN_VIEW_USER_KEY) || "null");
@@ -413,19 +408,17 @@ export const AuthProvider = ({ children }) => {
 
   const setAdminViewMode = useCallback(
     (mode) => {
-      const cleanEmail = String(user?.email || "").trim().toLowerCase();
-      if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return;
+      if (normalizePlatformRole(accessState.userDoc?.role) !== "platformAdmin") return;
       const nextMode = mode === "user" ? "user" : "admin";
       writeAdminViewMode(nextMode);
       setAdminViewModeState(nextMode);
     },
-    [user?.email]
+    [accessState.userDoc?.role]
   );
 
   const setAdminViewUser = useCallback(
     (userDoc) => {
-      const cleanEmail = String(user?.email || "").trim().toLowerCase();
-      if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return;
+      if (normalizePlatformRole(accessState.userDoc?.role) !== "platformAdmin") return;
       const nextUserDoc = userDoc ? { ...userDoc } : null;
       writeAdminViewUser(nextUserDoc);
       setAdminViewUserState(nextUserDoc);
@@ -434,10 +427,10 @@ export const AuthProvider = ({ children }) => {
         setAdminViewModeState("user");
       }
     },
-    [user?.email]
+    [accessState.userDoc?.role]
   );
 
-  const canUseAdminViewSwitch = ADMIN_VIEW_EMAILS.has(String(user?.email || "").trim().toLowerCase());
+  const canUseAdminViewSwitch = normalizePlatformRole(accessState.userDoc?.role) === "platformAdmin";
   const effectiveIsAdmin = accessState.isAdmin && (!canUseAdminViewSwitch || adminViewMode !== "user");
   const effectiveUserDoc = useMemo(() => {
     if (!canUseAdminViewSwitch || adminViewMode !== "user") return accessState.userDoc;

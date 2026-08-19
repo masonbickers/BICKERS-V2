@@ -236,7 +236,8 @@ function assemblePdf(pageContents, snapshot) {
     pdf += `${String(offsets[id]).padStart(10, "0")} 00000 n \n`;
   }
   const title = pdfText(`Invoice ${snapshot.invoiceNumber}`);
-  pdf += `trailer\n<< /Size ${objects.length} /Root ${catalogId} 0 R /Info << /Title (${title}) /Author (Bickers Action) /Subject (Issued invoice) >> >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  const author = pdfText(snapshot.supplier?.legalName || "Invoice supplier");
+  pdf += `trailer\n<< /Size ${objects.length} /Root ${catalogId} 0 R /Info << /Title (${title}) /Author (${author}) /Subject (Issued invoice) >> >>\nstartxref\n${xrefOffset}\n%%EOF`;
   return Buffer.from(pdf, "latin1");
 }
 

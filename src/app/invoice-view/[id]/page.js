@@ -12,6 +12,7 @@ import {
   parseInvoiceRecord,
 } from "../../utils/invoiceLifecycle";
 import styles from "./page.module.css";
+import { useDeploymentConfig } from "@/app/components/DeploymentConfigProvider";
 
 const text = (value) => String(value ?? "").trim();
 const money = (value, currency = "GBP") =>
@@ -42,6 +43,7 @@ const invoiceStatus = (value) =>
 export default function InvoiceDocumentPage() {
   const { id } = useParams();
   const router = useRouter();
+  const deployment = useDeploymentConfig();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
   const handledAction = useRef(false);
@@ -133,7 +135,7 @@ export default function InvoiceDocumentPage() {
     ) return;
     handledAction.current = true;
     const previousTitle = document.title;
-    document.title = `${invoice.invoiceNumber || getInvoiceDraftReferenceDisplay(invoice)} - Bickers Action`;
+    document.title = `${invoice.invoiceNumber || getInvoiceDraftReferenceDisplay(invoice)} - ${deployment.legalName}`;
     const timer = window.setTimeout(() => {
       systemDialogs.showSystemNotification("Choose “Save as PDF” in the print dialog to download this A4 invoice.");
       window.print();
@@ -145,7 +147,7 @@ export default function InvoiceDocumentPage() {
       window.clearTimeout(timer);
       document.title = previousTitle;
     };
-  }, [id, invoice, loading, requestedAction]);
+  }, [deployment.legalName, id, invoice, loading, requestedAction]);
 
   const lines = useMemo(
     () =>
@@ -216,6 +218,11 @@ export default function InvoiceDocumentPage() {
     ? invoice.dates.map((date) => dateLabel(date)).filter((date) => date !== "—").join(", ")
     : "";
   const identity = getInvoiceIdentityDisplay(invoice);
+  const supplier = invoice.issuedSnapshot?.supplier || {
+    legalName: deployment.legalName,
+    description: deployment.companyDescription,
+    website: deployment.companyWebsite,
+  };
 
   return (
     <main className={styles.screen}>
@@ -237,7 +244,7 @@ export default function InvoiceDocumentPage() {
         ) : null}
         <header className={styles.documentHeader}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/bickers-action-logo.png" alt="Bickers Action" />
+          <img src={deployment.companyLogoUrl} alt={supplier.legalName} />
           <div className={styles.invoiceIdentity}>
             <p>{identity.documentLabel.toUpperCase()}</p>
             <h1>{identity.isDraft ? identity.draftReference : identity.officialNumber}</h1>
@@ -249,9 +256,9 @@ export default function InvoiceDocumentPage() {
         <section className={styles.parties}>
           <div>
             <span className={styles.eyebrow}>From</span>
-            <strong>Bickers Action</strong>
-            <p>Film and TV Action Vehicles</p>
-            <p>www.bickers.co.uk</p>
+            <strong>{supplier.legalName}</strong>
+            <p>{supplier.description}</p>
+            <p>{supplier.website}</p>
           </div>
           <div>
             <span className={styles.eyebrow}>Invoice to</span>
@@ -355,7 +362,7 @@ export default function InvoiceDocumentPage() {
         </section>
 
         <footer className={styles.documentFooter}>
-          <span>Bickers Action · Film and TV Action Vehicles</span>
+          <span>{supplier.legalName} · {supplier.description}</span>
           <span>{identity.isDraft ? identity.draftReference : `Invoice ${identity.officialNumber}`} · Page 1</span>
         </footer>
       </article>

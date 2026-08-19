@@ -7,10 +7,12 @@ import {
 } from "@/app/api/_firebaseAdminRest";
 import { jsonError, requirePlatformAdminFromRequest } from "@/app/api/admin/_lib";
 import { buildEmployeeUserLinkReport, validateEmployeeUserLink } from "@/app/api/platform/_lib";
+import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 export const runtime = "nodejs";
 
-const DEFAULT_COMPANY_ID = "bickers-action";
+const deploymentConfig = getDeploymentConfig();
+const DEFAULT_COMPANY_ID = deploymentConfig.companyId;
 const COMPANY_STATUSES = new Set(["active", "suspended", "archived"]);
 const BUSINESS_COLLECTIONS = [
   "bookings",
@@ -128,8 +130,8 @@ function cleanInt(value, fallback, min, max) {
 function defaultCompany() {
   return {
     id: DEFAULT_COMPANY_ID,
-    name: "Bickers Action",
-    domain: "bickers.co.uk",
+    name: deploymentConfig.legalName,
+    domain: deploymentConfig.allowedEmailDomains[0],
     status: "active",
     plan: "platform",
     maxUsers: 50,

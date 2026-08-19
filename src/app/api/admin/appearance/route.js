@@ -10,11 +10,12 @@ import {
 import { appearanceDocumentId, appearanceVersionId, createAppearanceState, normalizeCompanyId, PLATFORM_APPEARANCE_ID } from "@/app/utils/appearanceModel";
 import { normalizeContentLabels, validateContentLabels } from "@/app/utils/contentLabels";
 import { normalizeGlobalTheme, validateThemeContrast } from "@/app/utils/globalTheme";
+import { getDeploymentConfig } from "@/app/config/deploymentConfig";
 
 const validSection = (value) => value === "labels" ? "labels" : value === "theme" ? "theme" : "";
 
 function requestedCompanyId(admin, raw) {
-  const fallback = adminCompanyId(admin.userData) || "bickers-action";
+  const fallback = adminCompanyId(admin.userData) || getDeploymentConfig().companyId;
   const companyId = normalizeCompanyId(raw, fallback);
   if (companyId === PLATFORM_APPEARANCE_ID && !isPlatformAdminAccess(admin.userData)) return "";
   return canAccessCompany(admin.userData, companyId) ? companyId : "";

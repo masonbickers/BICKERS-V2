@@ -52,11 +52,6 @@ import EditHolidayForm from "@/app/components/EditHolidayForm";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getHolidayCarryOverWindow, resolveHolidayCarryOver } from "@/app/utils/holidayCarryOver";
 
-/* Admin allow-list */
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
-
 const employeeDisplayName = (employee = {}) =>
   String(
     employee.name ||
@@ -525,8 +520,8 @@ export default function HolidayUsagePage() {
     };
   }, []);
   const isAdmin = useMemo(
-    () => ADMIN_EMAILS.map((e) => norm(e)).includes(norm(userEmail)) || userRole === "admin",
-    [userEmail, userRole]
+    () => ["admin", "platformadmin"].includes(userRole),
+    [userRole]
   );
 
   //  modal overlays

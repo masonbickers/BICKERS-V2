@@ -2,8 +2,9 @@
 
 import layoutStyles from "./platformAdminData.styles.module.css";
 import { auth } from "../../../../firebaseConfig";
+import { BICKERS_DEPLOYMENT_DEFAULTS } from "@/app/config/deploymentConfigCore";
 
-export const DEFAULT_COMPANY_ID = "bickers-action";
+export const DEFAULT_COMPANY_ID = BICKERS_DEPLOYMENT_DEFAULTS.companyId;
 
 export const moduleLabels = [
   ["diary", "Diary"],
