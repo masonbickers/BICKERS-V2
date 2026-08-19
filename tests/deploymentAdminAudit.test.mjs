@@ -27,3 +27,16 @@ test("deployment administrator audit blocks missing, disabled and incorrect cano
   });
   assert.deepEqual(result.mismatches.map((row) => row.status).sort(), ["disabled", "missing", "role_mismatch"]);
 });
+
+test("deployment administrator audit selects the Clerk-linked canonical UID among legacy duplicates", () => {
+  const result = auditDeploymentAdminRoles([
+    { id: "legacy", data: { uid: "legacy", email: "admin@example.com", role: "user", isEnabled: true } },
+    { id: "active", data: { uid: "active", email: "admin@example.com", role: "platformAdmin", isEnabled: true } },
+  ], {
+    emergencyAdminEmails: ["admin@example.com"],
+    emergencyPlatformAdminEmails: ["admin@example.com"],
+  }, {
+    canonicalUidByEmail: new Map([["admin@example.com", "active"]]),
+  });
+  assert.deepEqual(result, { checked: 1, mismatches: [] });
+});

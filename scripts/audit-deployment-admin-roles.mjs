@@ -66,10 +66,41 @@ async function listCanonicalUsers() {
   return users;
 }
 
+async function resolveCanonicalUids(emails) {
+  if (!emails.length) return new Map();
+  const secretKey = String(process.env.CLERK_SECRET_KEY || "").trim();
+  if (!secretKey) throw new Error("CLERK_SECRET_KEY is required for the deployment administrator audit.");
+  const resolved = new Map();
+  for (const email of emails) {
+    const params = new URLSearchParams({ email_address: email, limit: "100" });
+    const response = await fetch(`https://api.clerk.com/v1/users?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${secretKey}` },
+    });
+    if (!response.ok) throw new Error(`Clerk user lookup failed for ${email}: ${response.status}.`);
+    const users = await response.json();
+    const firebaseUids = [...new Set(users.map((user) => String(
+      user?.external_id ||
+      user?.private_metadata?.firebaseUid ||
+      user?.private_metadata?.firebase_uid ||
+      ""
+    ).trim()).filter(Boolean))];
+    if (users.length !== 1 || firebaseUids.length !== 1) {
+      throw new Error(`${email}: Clerk must resolve to exactly one explicit Firebase UID.`);
+    }
+    resolved.set(email, firebaseUids[0]);
+  }
+  return resolved;
+}
+
 try {
   const config = requireValidDeploymentConfig(process.env);
   const users = await listCanonicalUsers();
-  const result = auditDeploymentAdminRoles(users, config);
+  const emergencyEmails = [...new Set([
+    ...(config.emergencyAdminEmails || []),
+    ...(config.emergencyPlatformAdminEmails || []),
+  ])];
+  const canonicalUidByEmail = await resolveCanonicalUids(emergencyEmails);
+  const result = auditDeploymentAdminRoles(users, config, { canonicalUidByEmail });
   if (result.mismatches.length) {
     console.error("Deployment administrator audit failed:");
     result.mismatches.forEach((row) => {
