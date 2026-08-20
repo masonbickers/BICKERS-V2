@@ -36,6 +36,7 @@ async function seedUsers() {
 }
 
 const pdf = new Uint8Array([37, 80, 68, 70]);
+const png = new Uint8Array([137, 80, 78, 71]);
 
 test("signed-out, missing and disabled users cannot upload", async () => {
   await seedUsers();
@@ -72,4 +73,10 @@ test("receipt evidence is writable by its owner and readable by company finance"
   await assertFails(getBytes(ref(env.authenticatedContext("service-a").storage(), path)));
   await assertSucceeds(getBytes(ref(env.authenticatedContext("finance-a").storage(), path)));
   await assertFails(getBytes(ref(env.authenticatedContext("service-b").storage(), path)));
+});
+
+test("platform admins can upload their own receipt images for a company", async () => {
+  await seedUsers();
+  const path = "companies/bickers-action/receipts/platform/receipt-1/receipt.png";
+  await assertSucceeds(uploadBytes(ref(env.authenticatedContext("platform").storage(), path), png, { contentType: "image/png" }));
 });
