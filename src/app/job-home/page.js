@@ -100,7 +100,7 @@ const inputStyle = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "var(--color-surface)",
+  background: "var(--color-surface-raised)",
   color: UI.text,
 };
 
@@ -112,7 +112,7 @@ const rowShell = {
   alignItems: "center",
   minHeight: 34,
   padding: "0 0 0 9px",
-  borderTop: "1px solid var(--color-brand-soft)",
+  borderTop: "1px solid var(--color-border)",
   textDecoration: "none",
   color: UI.text,
 };
@@ -132,8 +132,11 @@ const listShell = { width: "100%", minWidth: 0, border: UI.border, borderRadius:
 const focusCss = `
   input:focus, button:focus, a:focus {
     outline: none;
-    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    box-shadow: var(--focus-ring);
     border-color: var(--color-info-border) !important;
+  }
+  .job-home-row:hover {
+    background: var(--color-surface-hover);
   }
   @media (max-width: 1180px) {
     .job-home-main-grid,
@@ -257,13 +260,13 @@ const groupButtonStyle = (active = false) => ({
   gap: 6,
   padding: "4px 7px",
   borderRadius: UI.radiusSm,
-  border: active ? `2px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "var(--color-surface)",
+  border: active ? "1px solid var(--color-border-strong)" : UI.border,
+  background: active ? "var(--color-selection-surface)" : "var(--color-surface-raised)",
   color: UI.text,
   cursor: "pointer",
   fontWeight: 900,
   fontSize: 14,
-  boxShadow: active ? "0 4px 10px rgba(31,75,122,0.08)" : UI.shadowSm,
+  boxShadow: active ? "none" : UI.shadowSm,
 });
 
 const norm = (s = "") => String(s).toLowerCase().trim();
@@ -1145,7 +1148,7 @@ function WorkflowLink({ href, label, count, tone = "neutral" }) {
         padding: "5px 8px",
         borderRadius: UI.radiusSm,
         border: UI.border,
-        background: "var(--color-surface)",
+        background: "var(--color-surface-raised)",
         color: UI.text,
         textDecoration: "none",
         fontSize: 12.5,

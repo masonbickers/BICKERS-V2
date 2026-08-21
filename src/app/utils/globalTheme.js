@@ -1,5 +1,5 @@
 export const APPEARANCE_SCHEMA_VERSION = 4;
-export const DARK_DERIVATION_VERSION = 2;
+export const DARK_DERIVATION_VERSION = 8;
 export const GLOBAL_THEME_CACHE_KEY = "bickers-global-theme:v2";
 export const COLOR_MODE_STORAGE_KEY = "bickers-color-mode:v2";
 const LEGACY_COLOR_MODE_STORAGE_KEY = "bickers-color-mode:v1";
@@ -58,22 +58,22 @@ export const DEFAULT_GLOBAL_THEME = Object.freeze({
   tableAlternateColor: "#f8fafc",
   tableZebra: false,
   darkModeEnabled: true,
-  darkBrandColor: "#f5f5f5",
-  darkAccentColor: "#a3a3a3",
-  darkTextColor: "#f5f5f5",
-  darkMutedTextColor: "#b3b3b3",
-  darkCanvasColor: "#111111",
-  darkSurfaceColor: "#242424",
-  darkBorderColor: "#666666",
-  darkShellColor: "#000000",
-  darkShellTextColor: "#f5f5f5",
+  darkBrandColor: "#dfe3e7",
+  darkAccentColor: "#3c9eff",
+  darkTextColor: "#f2f4f5",
+  darkMutedTextColor: "#aeb4bb",
+  darkCanvasColor: "#101214",
+  darkSurfaceColor: "#17191c",
+  darkBorderColor: "#30343a",
+  darkShellColor: "#1b1e21",
+  darkShellTextColor: "#f2f4f5",
   darkPrimaryTextColor: "#111111",
-  darkSuccessColor: "#498761",
-  darkWarningColor: "#b66d54",
-  darkDangerColor: "#b35454",
-  darkInfoColor: "#4f75e1",
-  darkTableHeaderColor: "#1a1a1a",
-  darkTableAlternateColor: "#202020",
+  darkSuccessColor: "#62a979",
+  darkWarningColor: "#d0a456",
+  darkDangerColor: "#d85b5b",
+  darkInfoColor: "#5b82e8",
+  darkTableHeaderColor: "#202327",
+  darkTableAlternateColor: "#141719",
   darkDerivationVersion: DARK_DERIVATION_VERSION,
 });
 
@@ -235,23 +235,23 @@ export function readableTextColor(background, preferred = "#ffffff") {
 function generatedDarkPalette(theme) {
   const dark = {
     ...theme,
-    canvasColor: "#111111",
-    surfaceColor: "#242424",
-    textColor: "#f5f5f5",
-    mutedTextColor: "#b3b3b3",
-    borderColor: "#666666",
-    shellColor: "#000000",
-    shellTextColor: "#f5f5f5",
-    brandColor: "#f5f5f5",
-    accentColor: "#a3a3a3",
-    successColor: mixColors(theme.successColor, "#ffffff", 0.22),
-    warningColor: mixColors(theme.warningColor, "#ffffff", 0.28),
-    dangerColor: mixColors(theme.dangerColor, "#ffffff", 0.25),
-    infoColor: mixColors(theme.infoColor, "#ffffff", 0.22),
-    tableHeaderColor: "#1a1a1a",
-    tableAlternateColor: "#202020",
+    canvasColor: DEFAULT_GLOBAL_THEME.darkCanvasColor,
+    surfaceColor: DEFAULT_GLOBAL_THEME.darkSurfaceColor,
+    textColor: DEFAULT_GLOBAL_THEME.darkTextColor,
+    mutedTextColor: DEFAULT_GLOBAL_THEME.darkMutedTextColor,
+    borderColor: DEFAULT_GLOBAL_THEME.darkBorderColor,
+    shellColor: DEFAULT_GLOBAL_THEME.darkShellColor,
+    shellTextColor: DEFAULT_GLOBAL_THEME.darkShellTextColor,
+    brandColor: DEFAULT_GLOBAL_THEME.darkBrandColor,
+    accentColor: DEFAULT_GLOBAL_THEME.darkAccentColor,
+    successColor: DEFAULT_GLOBAL_THEME.darkSuccessColor,
+    warningColor: DEFAULT_GLOBAL_THEME.darkWarningColor,
+    dangerColor: DEFAULT_GLOBAL_THEME.darkDangerColor,
+    infoColor: DEFAULT_GLOBAL_THEME.darkInfoColor,
+    tableHeaderColor: DEFAULT_GLOBAL_THEME.darkTableHeaderColor,
+    tableAlternateColor: DEFAULT_GLOBAL_THEME.darkTableAlternateColor,
   };
-  dark.primaryTextColor = "#111111";
+  dark.primaryTextColor = DEFAULT_GLOBAL_THEME.darkPrimaryTextColor;
   return dark;
 }
 
@@ -347,7 +347,15 @@ export function themeToCssVariables(value = {}, options = {}) {
   const brandSoft = mixColors(theme.brandColor, theme.surfaceColor, 0.88);
   const brandBorder = mixColors(theme.brandColor, theme.surfaceColor, 0.64);
   const surfaceSubtle = mixColors(theme.surfaceColor, theme.canvasColor, 0.52);
-  const surfaceHover = mixColors(theme.surfaceColor, theme.canvasColor, 0.8);
+  const surfaceRaised = useDark
+    ? mixColors(theme.surfaceColor, theme.textColor, 0.04)
+    : theme.surfaceColor;
+  const surfaceHover = useDark
+    ? mixColors(theme.surfaceColor, theme.textColor, 0.055)
+    : mixColors(theme.surfaceColor, theme.canvasColor, 0.8);
+  const textSubtle = useDark
+    ? mixColors(theme.mutedTextColor, theme.canvasColor, 0.28)
+    : theme.mutedTextColor;
   const densityFactor = theme.density === "compact" ? 0.82 : theme.density === "spacious" ? 1.22 : 1;
   const shadows = shadowValues[theme.shadowPreset] || shadowValues.subtle;
   const semantic = (color) => ({ soft: mixColors(color, theme.surfaceColor, 0.88), border: mixColors(color, theme.surfaceColor, 0.66), hover: mixColors(color, useDark ? "#ffffff" : "#000000", useDark ? 0.12 : 0.18) });
@@ -372,25 +380,32 @@ export function themeToCssVariables(value = {}, options = {}) {
     "--color-brand": theme.brandColor, "--color-brand-hover": brandHover,
     "--color-brand-soft": brandSoft, "--color-brand-border": brandBorder,
     "--color-accent": theme.accentColor, "--color-accent-soft": mixColors(theme.accentColor, theme.surfaceColor, 0.86),
-    "--color-text": theme.textColor, "--color-text-muted": theme.mutedTextColor,
-    "--color-text-subtle": theme.mutedTextColor, "--color-text-inverse": theme.primaryTextColor,
+    "--color-text": theme.textColor, "--color-text-secondary": theme.mutedTextColor,
+    "--color-text-muted": theme.mutedTextColor, "--color-text-subtle": textSubtle,
+    "--color-text-inverse": theme.primaryTextColor,
     "--color-canvas": theme.canvasColor, "--color-surface": theme.surfaceColor,
-    "--color-surface-raised": theme.surfaceColor, "--color-surface-subtle": surfaceSubtle,
+    "--color-surface-raised": surfaceRaised, "--color-surface-subtle": surfaceSubtle,
     "--color-surface-hover": surfaceHover, "--color-border": theme.borderColor,
     "--color-border-strong": mixColors(theme.borderColor, theme.textColor, 0.16),
     "--color-success": theme.successColor, "--color-success-hover": success.hover,
     "--color-success-soft": success.soft, "--color-success-border": success.border,
+    "--color-success-surface": success.soft,
     "--color-success-accent": mixColors(theme.successColor, "#ffffff", 0.3),
     "--color-warning": theme.warningColor, "--color-warning-soft": warning.soft, "--color-warning-border": warning.border,
+    "--color-warning-surface": warning.soft,
     "--color-danger": theme.dangerColor, "--color-danger-hover": danger.hover,
     "--color-danger-soft": danger.soft, "--color-danger-border": danger.border,
+    "--color-danger-surface": danger.soft,
     "--color-info": theme.infoColor, "--color-info-soft": info.soft, "--color-info-border": info.border,
+    "--color-info-surface": info.soft,
+    "--color-selection-surface": brandSoft,
+    "--control-disabled-opacity": useDark ? "0.7" : "0.62",
     "--color-overlay": rgba(useDark ? "#020617" : theme.textColor, useDark ? 0.72 : 0.52),
     "--shell-sidebar-bg": theme.shellColor, "--shell-topbar-bg": theme.shellColor,
     "--shell-text": theme.shellTextColor, "--shell-muted": mixColors(theme.shellTextColor, theme.shellColor, 0.34),
     "--shell-border": rgba(theme.shellTextColor, 0.14),
-    "--shell-active-bg": rgba(theme.shellTextColor, 0.08),
-    "--shell-active-border": rgba(theme.accentColor, 0.58),
+    "--shell-active-bg": useDark ? rgba(theme.shellTextColor, 0.1) : rgba(theme.shellTextColor, 0.08),
+    "--shell-active-border": useDark ? rgba(theme.shellTextColor, 0.24) : rgba(theme.accentColor, 0.58),
     "--shell-gradient": `radial-gradient(circle at top left, ${mixColors(theme.canvasColor, theme.surfaceColor, 0.22)} 0%, ${mixColors(theme.canvasColor, theme.surfaceColor, 0.1)} 40%, ${theme.canvasColor} 100%)`,
     "--shell-sidebar-width": `${theme.sidebarWidth}px`,
     "--shell-sidebar-collapsed-width": `${theme.collapsedSidebarWidth}px`,

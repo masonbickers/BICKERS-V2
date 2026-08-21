@@ -1102,40 +1102,40 @@ function HeaderSidebarLayoutInner({
 
   const pageAccessTone = {
     authorised: {
-      background: "rgba(107,179,127,0.14)",
-      border: "1px solid rgba(107,179,127,0.38)",
+      background: "var(--color-success-soft)",
+      border: "1px solid var(--color-success-border)",
       dot: "var(--color-success-accent)",
-      text: "var(--color-border)",
-      sub: "var(--color-success-border)",
+      text: "var(--color-success)",
+      sub: "var(--color-success)",
     },
     denied: {
-      background: "rgba(248,113,113,0.12)",
-      border: "1px solid rgba(248,113,113,0.28)",
-      dot: "var(--color-warning-border)",
-      text: "var(--color-danger-border)",
-      sub: "var(--color-danger-border)",
+      background: "var(--color-danger-soft)",
+      border: "1px solid var(--color-danger-border)",
+      dot: "var(--color-danger)",
+      text: "var(--color-danger)",
+      sub: "var(--color-danger)",
     },
     checking: {
-      background: "rgba(251,191,36,0.12)",
-      border: "1px solid rgba(251,191,36,0.28)",
-      dot: "var(--color-warning-border)",
-      text: "var(--color-accent-soft)",
-      sub: "var(--color-warning-border)",
+      background: "var(--color-warning-soft)",
+      border: "1px solid var(--color-warning-border)",
+      dot: "var(--color-warning)",
+      text: "var(--color-warning)",
+      sub: "var(--color-warning)",
     },
   }[pageAccess.status];
 
   const dataAccessTone = {
     authorised: {
-      background: "rgba(107,179,127,0.1)",
-      border: "1px solid rgba(107,179,127,0.26)",
+      background: "var(--color-success-soft)",
+      border: "1px solid var(--color-success-border)",
       dot: "var(--color-success-accent)",
-      text: "var(--color-border)",
+      text: "var(--color-success)",
     },
     denied: {
-      background: "rgba(248,113,113,0.12)",
-      border: "1px solid rgba(248,113,113,0.28)",
-      dot: "var(--color-warning-border)",
-      text: "var(--color-danger-border)",
+      background: "var(--color-danger-soft)",
+      border: "1px solid var(--color-danger-border)",
+      dot: "var(--color-danger)",
+      text: "var(--color-danger)",
     },
   }[dataAccess.status];
 
