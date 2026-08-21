@@ -46,6 +46,11 @@ test("derived dark mode produces readable surfaces and complete CSS variables", 
   assert.ok(contrastRatio(dark.textColor, dark.surfaceColor) >= 4.5);
   const variables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "dark" });
   assert.equal(variables["--color-canvas"], dark.canvasColor);
+  assert.equal(variables["--color-surface-raised"], "#202225");
+  assert.equal(variables["--color-surface-hover"], "#232528");
+  assert.equal(variables["--color-text-secondary"], "#aeb4bb");
+  assert.equal(variables["--color-text-subtle"], "#82878c");
+  assert.equal(variables["--color-danger-surface"], variables["--color-danger-soft"]);
   assert.equal(variables["--table-row-height"], "42px");
   assert.equal(variables["--input-height"], "38px");
 });
@@ -68,18 +73,18 @@ test("dark mode palette can be edited independently from light colours", () => {
 
 test("legacy themes without dark fields retain generated dark colours", () => {
   const legacy = normalizeGlobalTheme({ brandColor: "#112233", canvasColor: "#eeeeee", surfaceColor: "#ffffff" });
-  assert.equal(legacy.darkBrandColor, "#f5f5f5");
-  assert.equal(legacy.darkCanvasColor, "#111111");
+  assert.equal(legacy.darkBrandColor, "#dfe3e7");
+  assert.equal(legacy.darkCanvasColor, "#101214");
   assert.equal(deriveDarkTheme(legacy).brandColor, legacy.darkBrandColor);
 });
 
 test("monochrome dark preset creates a black grey and white structural palette", () => {
   const preset = normalizeGlobalTheme(createMonochromeDarkPalette({ ...DEFAULT_GLOBAL_THEME, darkCanvasColor: "#123456" }));
-  assert.equal(preset.darkBrandColor, "#f5f5f5");
-  assert.equal(preset.darkCanvasColor, "#111111");
-  assert.equal(preset.darkSurfaceColor, "#242424");
-  assert.equal(preset.darkBorderColor, "#666666");
-  assert.equal(preset.darkShellColor, "#000000");
+  assert.equal(preset.darkBrandColor, "#dfe3e7");
+  assert.equal(preset.darkCanvasColor, "#101214");
+  assert.equal(preset.darkSurfaceColor, "#17191c");
+  assert.equal(preset.darkBorderColor, "#30343a");
+  assert.equal(preset.darkShellColor, "#1b1e21");
   assert.equal(preset.darkPrimaryTextColor, "#111111");
 });
 

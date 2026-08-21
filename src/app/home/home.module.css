@@ -5,6 +5,11 @@
 .windowButton { min-width: 38px; min-height: 30px; padding: 0 var(--space-2); color: var(--color-text-muted); background: transparent; border: 0; border-radius: var(--radius-pill); font-size: var(--font-size-xs); font-weight: 800; }
 .windowButton:hover { color: var(--color-brand); background: var(--color-brand-soft); }
 .windowButtonActive, .windowButtonActive:hover { color: var(--color-white); background: var(--color-brand); }
+:global(:root[data-color-mode="dark"]) .windowButtonActive,
+:global(:root[data-color-mode="dark"]) .windowButtonActive:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-text));
+}
 .updated { color: var(--color-text-muted); font-size: var(--font-size-xs); }
 .statusAlert { margin-bottom: var(--space-4); }
 .retryRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
@@ -25,10 +30,25 @@
 .textLink { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-brand); font-size: var(--font-size-xs); font-weight: 800; }
 .textLink:hover { text-decoration: underline; }
 .calendarWrap { min-width: 0; overflow: hidden; }
-.calendarWrap :global(.fc) { font-size: var(--font-size-xs); }
+.calendarWrap :global(.fc) {
+  --fc-border-color: var(--color-border);
+  --fc-page-bg-color: var(--color-surface);
+  --fc-neutral-bg-color: var(--table-header-bg);
+  --fc-list-event-hover-bg-color: var(--color-surface-hover);
+  --fc-button-text-color: var(--color-text);
+  --fc-button-bg-color: var(--color-surface-hover);
+  --fc-button-border-color: var(--color-border-strong);
+  --fc-button-hover-bg-color: color-mix(in srgb, var(--color-surface-hover) 88%, var(--color-text));
+  --fc-button-hover-border-color: var(--color-border-strong);
+  --fc-button-active-bg-color: color-mix(in srgb, var(--color-surface) 88%, var(--color-text));
+  --fc-button-active-border-color: var(--color-border-strong);
+  font-size: var(--font-size-xs);
+}
 .calendarWrap :global(.fc .fc-toolbar) { gap: var(--space-2); margin-bottom: var(--space-2); }
 .calendarWrap :global(.fc .fc-toolbar-title) { font-size: var(--font-size-lg); font-weight: 900; }
 .calendarWrap :global(.fc .fc-button) { padding: 5px 8px; font-size: var(--font-size-xs); font-weight: 800; }
+.calendarWrap :global(.fc .fc-button-primary) { box-shadow: none; }
+.calendarWrap :global(.fc .fc-col-header-cell) { color: var(--color-text-muted); background: var(--table-header-bg); }
 .calendarWrap :global(.fc .fc-daygrid-day-frame) { min-height: 68px; }
 .calendarWrap :global(.fc .fc-event) { border-radius: var(--radius-sm); padding: 1px 3px; font-size: 11px; }
 .legend { display: flex; gap: var(--space-3); margin-top: var(--space-3); flex-wrap: wrap; }
@@ -44,7 +64,7 @@
 .emptyCompact { min-height: 116px; padding: var(--space-4); }
 .conflictDetail { display: block; margin-top: var(--space-1); color: var(--color-text-muted); font-size: var(--font-size-xs); line-height: 1.4; }
 .attentionSummary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
-.attentionLink { display: grid; gap: var(--space-1); padding: var(--space-3); background: var(--color-danger-soft); border: 1px solid var(--color-danger-border); border-radius: var(--radius-md); }
+.attentionLink { display: grid; gap: var(--space-1); padding: var(--space-3); background: var(--color-danger-surface); border: 1px solid var(--color-danger-border); border-radius: var(--radius-md); }
 .attentionValue { color: var(--color-danger); font-size: 1.25rem; font-weight: 900; line-height: 1; }
 .attentionLabel { color: var(--color-danger); font-size: var(--font-size-xs); font-weight: 800; }
 .tableButton { width: 100%; padding: 0; text-align: left; color: var(--color-brand); background: transparent; border: 0; font-weight: 900; }
@@ -101,8 +121,8 @@
   transform: translateY(-1px);
 }
 .healthCard:disabled { cursor: not-allowed; opacity: .68; }
-.healthCard[data-tone="critical"] { border-color: var(--color-danger-border); background: var(--color-danger-soft); }
-.healthCard[data-tone="urgent"] { border-color: var(--color-warning-border); background: var(--color-warning-soft); }
+.healthCard[data-tone="critical"] { border-color: var(--color-danger-border); background: var(--color-danger-surface); }
+.healthCard[data-tone="urgent"] { border-color: var(--color-warning-border); background: var(--color-warning-surface); }
 .healthCard[data-tone="positive"] .healthIcon { color: var(--color-success); background: var(--color-success-soft); border-color: var(--color-success-border); }
 .healthIcon { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; color: var(--color-brand); background: var(--color-brand-soft); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); }
 .healthValue { position: absolute; top: var(--space-3); right: var(--space-3); font-size: 1.65rem; font-weight: 900; line-height: 1; }

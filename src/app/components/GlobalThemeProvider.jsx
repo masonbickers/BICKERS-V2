@@ -21,6 +21,10 @@ import {
 export const GLOBAL_THEME_UPDATED_EVENT = "bickers:global-theme-updated";
 export const APPEARANCE_UPDATED_EVENT = "bickers:appearance-updated";
 const APPEARANCE_CACHE_PREFIX = "bickers-appearance:v1";
+const BROWSER_CHROME_COLORS = {
+  normal: "#000000",
+  light: "#e7e7e7",
+};
 
 const AppearanceContext = createContext({
   companyId: "__platform__",
@@ -123,6 +127,25 @@ export default function GlobalThemeProvider({ children }) {
 
   useEffect(() => {
     applyGlobalTheme(appearance.theme, { preference: modePreference });
+
+    const browserChromeColor = modePreference === "dark"
+      ? appearance.theme.darkShellColor
+      : BROWSER_CHROME_COLORS[modePreference] || BROWSER_CHROME_COLORS.normal;
+    let themeColor = document.querySelector('meta[name="theme-color"]');
+    if (!themeColor) {
+      themeColor = document.createElement("meta");
+      themeColor.setAttribute("name", "theme-color");
+      document.head.appendChild(themeColor);
+    }
+    themeColor.setAttribute("content", browserChromeColor);
+
+    let statusBarStyle = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (!statusBarStyle) {
+      statusBarStyle = document.createElement("meta");
+      statusBarStyle.setAttribute("name", "apple-mobile-web-app-status-bar-style");
+      document.head.appendChild(statusBarStyle);
+    }
+    statusBarStyle.setAttribute("content", modePreference === "light" ? "default" : "black-translucent");
   }, [appearance.theme, modePreference]);
 
   useEffect(() => {
