@@ -56,6 +56,7 @@ import {
   hgvComplianceStatusForIsoWeek,
   isReturnInspectionScheduledForIsoWeek,
   isVorPeriodStartingInIsoWeek,
+  plannerStartingVorPeriodsForIsoWeek,
   summarizeInspectionRequirements,
   vehicleStatusForIsoWeek,
   vorHistoryPeriodsForIsoWeek,
@@ -306,6 +307,110 @@ test("a completed inspection remains active through its legal due ISO week", () 
   assert.equal(
     hgvComplianceStatusForIsoWeek(currentlyVorVehicle, "ACTIVE", 2026, 23, false, ["2026-03-31"]),
     "VOR"
+  );
+});
+
+test("a scheduled inspection completion clears a stale automatic VOR after Sunday", () => {
+  const vehicle = {
+    id: "mx05",
+    category: "HGV",
+    registration: "MX05VHW",
+    operationalStatus: "VOR",
+    pmiFreq: 8,
+    vorHistory: [{
+      id: "compliance-vor-2026-08-17",
+      status: "open",
+      offRoadDate: "2026-08-17",
+      approvedBy: "HGV compliance system",
+      reason: "Automatic compliance VOR: PMI, BRAKE TEST",
+    }],
+  };
+  const bookings = [{
+    id: "mx05-inspection",
+    vehicleId: vehicle.id,
+    registration: vehicle.registration,
+    type: "INSPECTION",
+    status: "Booked",
+    maintenanceTypeIds: ["pmi", "brake_test"],
+    items: [
+      {
+        maintenanceTypeId: "pmi",
+        status: "completed",
+        completionDateISO: "2026-08-10",
+        legalDueDateISO: "2026-08-10",
+      },
+      {
+        maintenanceTypeId: "brake_test",
+        status: "completed",
+        completionDateISO: "2026-08-10",
+        legalDueDateISO: "2026-08-10",
+      },
+    ],
+  }];
+
+  const completedDates = buildCompletedInspectionDates({
+    vehicles: [vehicle],
+    bookings,
+    registrations: [vehicle.registration],
+    asOfDate: "2026-08-20",
+  }).get(vehicle.registration);
+
+  assert.deepEqual(completedDates, ["2026-08-10"]);
+  assert.equal(
+    vehicleStatusForIsoWeek(vehicle, "VOR", 2026, 34, false, completedDates, "2026-08-20"),
+    ""
+  );
+  assert.deepEqual(
+    plannerStartingVorPeriodsForIsoWeek(
+      vehicle,
+      "VOR",
+      2026,
+      34,
+      false,
+      completedDates,
+      "2026-08-20"
+    ),
+    []
+  );
+});
+
+test("inspection evidence does not clear a manual open VOR", () => {
+  const vehicle = {
+    category: "HGV",
+    operationalStatus: "VOR",
+    pmiFreq: 8,
+    vorHistory: [{
+      id: "manual-vor-1",
+      status: "open",
+      offRoadDate: "2026-08-17",
+      approvedBy: "Transport Manager",
+      reason: "Body repairs",
+    }],
+  };
+
+  assert.equal(
+    vehicleStatusForIsoWeek(
+      vehicle,
+      "VOR",
+      2026,
+      34,
+      false,
+      ["2026-08-10"],
+      "2026-08-20"
+    ),
+    "VOR"
+  );
+  assert.equal(
+    plannerStartingVorPeriodsForIsoWeek(
+      vehicle,
+      "VOR",
+      2026,
+      34,
+      false,
+      ["2026-08-10"],
+      "2026-08-20"
+    ).length,
+    1
   );
 });
 
@@ -1071,6 +1176,101 @@ test("planner shows canonical requested TEST requirements in their legal due wee
   assert.ok(canonicalEvents.every((event) => event.legalDueDateISO === "2026-08-07"));
   assert.ok(canonicalEvents.every((event) => event.appointmentDateISO === ""));
   assert.equal(events.some((event) => event.source === "year_ahead_forecast"), true);
+});
+
+test("planner keeps the current combined inspection and removes the older requested PMI", () => {
+  const vehicle = {
+    id: "duplicate-inspection-hgv",
+    category: "HGV",
+    registration: "DUP1",
+    nextPMI: "2026-10-02",
+    nextBrakeTest: "2026-10-02",
+  };
+  const events = buildLivePlannerEvents({
+    vehicles: [vehicle],
+    bookings: [
+      {
+        id: "old-requested-pmi",
+        vehicleId: vehicle.id,
+        status: "Requested",
+        maintenanceTypeIds: ["pmi"],
+        items: [
+          { maintenanceTypeId: "pmi", status: "requested", legalDueDateISO: "2026-10-02" },
+        ],
+      },
+      {
+        id: "current-combined-inspection",
+        vehicleId: vehicle.id,
+        status: "Booked",
+        maintenanceTypeIds: ["pmi", "brake_test"],
+        bookingDates: ["2026-09-30"],
+        items: [
+          { maintenanceTypeId: "pmi", status: "booked", legalDueDateISO: "2026-10-02" },
+          { maintenanceTypeId: "brake_test", status: "booked", legalDueDateISO: "2026-10-02" },
+        ],
+      },
+    ],
+    year: 2026,
+    registrations: [vehicle.registration],
+    asOfDate: "2026-08-20",
+  });
+
+  assert.deepEqual(
+    events
+      .filter((event) => event.source === "maintenance_booking")
+      .map((event) => [event.type, event.status, event.date, event.bookingId]),
+    [
+      ["inspection", "booked", "2026-09-30", "current-combined-inspection"],
+      ["brake", "booked", "2026-09-30", "current-combined-inspection"],
+    ]
+  );
+});
+
+test("planner prefers a requested combined PMI and brake inspection over a standalone PMI request", () => {
+  const vehicle = {
+    id: "requested-duplicate-hgv",
+    category: "HGV",
+    registration: "DUP2",
+    nextPMI: "2026-10-02",
+    nextBrakeTest: "2026-10-02",
+  };
+  const events = buildLivePlannerEvents({
+    vehicles: [vehicle],
+    bookings: [
+      {
+        id: "standalone-requested-pmi",
+        vehicleId: vehicle.id,
+        status: "Requested",
+        maintenanceTypeIds: ["pmi"],
+        items: [
+          { maintenanceTypeId: "pmi", status: "requested", legalDueDateISO: "2026-10-02" },
+        ],
+      },
+      {
+        id: "requested-combined-inspection",
+        vehicleId: vehicle.id,
+        status: "Requested",
+        maintenanceTypeIds: ["pmi", "brake_test"],
+        items: [
+          { maintenanceTypeId: "pmi", status: "requested", legalDueDateISO: "2026-10-01" },
+          { maintenanceTypeId: "brake_test", status: "requested", legalDueDateISO: "2026-10-01" },
+        ],
+      },
+    ],
+    year: 2026,
+    registrations: [vehicle.registration],
+    asOfDate: "2026-08-20",
+  });
+
+  assert.deepEqual(
+    events
+      .filter((event) => event.source === "maintenance_booking")
+      .map((event) => [event.type, event.status, event.date, event.bookingId]),
+    [
+      ["inspection", "requested", "2026-10-01", "requested-combined-inspection"],
+      ["brake", "requested", "2026-10-01", "requested-combined-inspection"],
+    ]
+  );
 });
 
 test("planner prefers a canonical completed booking over its linked vehicle-history copy", () => {

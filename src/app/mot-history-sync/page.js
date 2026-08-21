@@ -130,7 +130,7 @@ export default function MotHistorySyncPage() {
             <div>
               <div style={{ fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase" }}>Last fetched</div>
               <div style={{ marginTop: 5, fontSize: 16, fontWeight: 900, color: UI.text }}>
-                {formatDateTime(meta?.lastAllFetchedAt)}
+                {formatDateTime(meta?.lastAllFetchFinishedAt || meta?.lastAllFetchedAt)}
               </div>
             </div>
             <div>

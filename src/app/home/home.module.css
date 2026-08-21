@@ -51,6 +51,11 @@
 .calendarWrap :global(.fc .fc-col-header-cell) { color: var(--color-text-muted); background: var(--table-header-bg); }
 .calendarWrap :global(.fc .fc-daygrid-day-frame) { min-height: 68px; }
 .calendarWrap :global(.fc .fc-event) { border-radius: var(--radius-sm); padding: 1px 3px; font-size: 11px; }
+:global(html[data-interface-scale="compact"]) .calendarWrap :global(.fc .fc-col-header),
+:global(html[data-interface-scale="compact"]) .calendarWrap :global(.fc .fc-daygrid-body),
+:global(html[data-interface-scale="compact"]) .calendarWrap :global(.fc .fc-scrollgrid-sync-table) {
+  width: 100% !important;
+}
 .legend { display: flex; gap: var(--space-3); margin-top: var(--space-3); flex-wrap: wrap; }
 .legendItem { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-text-muted); font-size: var(--font-size-xs); font-weight: 700; }
 .legendSwatch { width: 12px; height: 12px; border: 1px solid var(--color-border-strong); border-radius: 3px; }
@@ -164,6 +169,35 @@
 .fleetBucketHeader strong { font-size: 1.2rem; }
 .fleetBucketDetail, .fleetBucketClear { color: var(--color-text-muted); font-size: var(--font-size-xs); line-height: 1.4; }
 .fleetBucketClear { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-success); font-weight: 800; }
+
+:global(:root[data-card-style="reduced"]) .attentionList { gap: 0; }
+:global(:root[data-card-style="reduced"]) .attentionButton {
+  background: transparent;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+:global(:root[data-card-style="reduced"]) .attentionButton:hover,
+:global(:root[data-card-style="reduced"]) .attentionButton:focus-visible {
+  background: var(--color-surface-hover);
+  box-shadow: none;
+}
+:global(:root[data-card-style="reduced"]) .fleetGrid { gap: 0; }
+:global(:root[data-card-style="reduced"]) .fleetBucket {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+:global(:root[data-card-style="reduced"]) .fleetBucket:hover,
+:global(:root[data-card-style="reduced"]) .fleetBucket:focus-visible {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+  box-shadow: none;
+}
 
 @media (max-width: 1100px) {
   .primaryGrid, .secondaryGrid { grid-template-columns: 1fr; }

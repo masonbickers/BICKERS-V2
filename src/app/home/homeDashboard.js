@@ -1,3 +1,6 @@
+import { SERVICE_WARNING_DAYS } from "../utils/servicePresentation.js";
+import { MOT_WARNING_DAYS } from "../utils/motPresentation.js";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function toDashboardDate(value) {
@@ -95,15 +98,20 @@ export function buildSchedulingConflicts(events) {
   return conflicts.sort((a, b) => toDashboardDate(a.second.start) - toDashboardDate(b.second.start));
 }
 
-export function buildFleetBuckets(events, referenceDate, dueDays = 21) {
+export function buildFleetBuckets(events, referenceDate, dueDays) {
   const today = startOfDashboardDay(referenceDate);
-  const dueEnd = today ? new Date(today.getTime() + dueDays * DAY_MS) : null;
   const buckets = { overdueMOT: [], overdueService: [], motDueSoon: [], serviceDueSoon: [] };
-  if (!today || !dueEnd) return buckets;
+  if (!today) return buckets;
   events.forEach((event) => {
     if (event?.booked || !["MOT", "SERVICE"].includes(event?.kind)) return;
     const dueDate = startOfDashboardDay(event.dueDate);
     if (!dueDate) return;
+    const warningDays = Number.isFinite(Number(dueDays))
+      ? Number(dueDays)
+      : event.kind === "SERVICE"
+        ? SERVICE_WARNING_DAYS
+        : MOT_WARNING_DAYS;
+    const dueEnd = new Date(today.getTime() + warningDays * DAY_MS);
     if (dueDate < today) buckets[event.kind === "MOT" ? "overdueMOT" : "overdueService"].push(event);
     else if (dueDate <= dueEnd) buckets[event.kind === "MOT" ? "motDueSoon" : "serviceDueSoon"].push(event);
   });

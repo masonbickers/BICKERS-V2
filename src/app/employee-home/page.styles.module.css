@@ -205,8 +205,11 @@
 }
 
 .extracted29 {
-  height: 320px;
   margin-top: 10px;
+}
+
+.chartCanvas {
+  height: 320px;
 }
 
 .extracted30 {

@@ -7,6 +7,7 @@ import { getDocs } from "firebase/firestore";
 import {
   AlertTriangle,
   ArrowLeft,
+  ChevronRight,
   Clock3,
   FileClock,
   History,
@@ -19,7 +20,19 @@ import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import { isRetentionPlateRecord } from "@/app/utils/vehicleRegisterPresentation";
 import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { buildServiceHistoryItems, resolveLatestCoreServiceCompletionDate } from "@/app/utils/serviceHistory";
+import {
+  getServiceDuePresentation,
+  reconcileServiceSchedule,
+} from "@/app/utils/servicePresentation";
+import { normalizeMaintenanceRecord } from "@/app/utils/maintenanceRecord";
+import {
+  getUnarrangedMaintenanceDueDate,
+  isConfirmedMaintenanceBooking,
+  isOpenMaintenanceBooking,
+} from "@/app/utils/maintenanceCalendar";
 import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
@@ -91,31 +104,31 @@ const pill = (bg, fg, border = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "5px 9px",
+  padding: "3px 8px",
   borderRadius: 999,
   background: bg,
   color: fg,
   border: `1px solid ${border}`,
-  fontSize: 12,
-  fontWeight: 900,
+  fontSize: 11.5,
+  fontWeight: 800,
   whiteSpace: "nowrap",
 });
 
 const tableWrap = { ...card, overflow: "hidden" };
 const th = {
-  padding: "11px 12px",
-  fontSize: 11.5,
+  padding: "5px 8px",
+  fontSize: 10.5,
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid var(--color-brand-soft)",
+  borderBottom: "1px solid var(--color-border)",
   textAlign: "left",
   background: "var(--color-surface-subtle)",
   fontWeight: 900,
 };
 const td = {
-  padding: "11px 12px",
-  fontSize: 13,
+  padding: "5px 8px",
+  fontSize: 12.5,
   borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
 };
@@ -124,21 +137,20 @@ const actionBtn = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
-  padding: "5px 8px",
-  borderRadius: 999,
+  gap: 6,
+  minHeight: 24,
+  padding: "3px 7px",
+  borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brandBorder}`,
   background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
   whiteSpace: "nowrap",
-  boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-  fontSize: 12,
+  boxShadow: "none",
+  fontSize: 11,
   lineHeight: 1.2,
 };
-
-const INACTIVE_BOOKING_STATUSES = new Set(["cancelled", "canceled", "closed", "deleted", "declined"]);
 
 const parseDateAny = (v) => {
   if (!v) return null;
@@ -151,7 +163,6 @@ const parseDateAny = (v) => {
 };
 
 const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const daysDiff = (a, b) => Math.round((dateOnly(a) - dateOnly(b)) / (1000 * 60 * 60 * 24));
 const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB") : "-");
 
 const fmtInputDate = (d) => {
@@ -162,16 +173,11 @@ const fmtInputDate = (d) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-function statusFromDays(diffDays) {
-  if (diffDays < 0) return "overdue";
-  if (diffDays <= 21) return "soon";
-  return "ok";
-}
-
 function statusPillStyle(status) {
   if (status === "overdue") return pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder);
   if (status === "soon") return pill(UI.soonBg, UI.soonFg, UI.soonBorder);
   if (status === "unknown") return pill("var(--color-surface-hover)", UI.text);
+  if (status === "not-applicable") return pill("var(--color-surface-hover)", UI.muted);
   return pill(UI.okBg, UI.okFg, UI.okBorder);
 }
 
@@ -209,12 +215,18 @@ function isBookedNow(v, today = new Date()) {
   return s <= t && t <= e;
 }
 
-function isServiceBooking(booking) {
-  return String(booking?.type || booking?.maintenanceType || "").trim().toUpperCase() === "SERVICE";
-}
+function getBookedServiceRecord(booking) {
+  const canonical = normalizeMaintenanceRecord(booking, { id: booking?.id });
+  const isService = canonical.items.some((item) => item.maintenanceTypeId === "service");
 
-function isInactiveBooking(booking) {
-  return INACTIVE_BOOKING_STATUSES.has(String(booking?.status || "").trim().toLowerCase());
+  if (
+    !isService ||
+    !isConfirmedMaintenanceBooking(booking) ||
+    !isOpenMaintenanceBooking(booking)
+  ) {
+    return null;
+  }
+  return canonical;
 }
 
 function getBookingStart(booking) {
@@ -250,10 +262,9 @@ function bookingDateLabel(booking) {
 
 function buildServiceRow(docSnap, today) {
   const v = normalizeVehicleRecord({ id: docSnap.id, ...docSnap.data() });
-  const next = parseDateAny(v.nextService || v.nextServiceDate);
+  const due = getServiceDuePresentation(v, { referenceDate: today });
+  const next = due.dueDate;
   const last = parseDateAny(v.lastService || v.lastServiceDate);
-  const diffDays = next ? daysDiff(next, today) : null;
-  const status = diffDays === null ? "unknown" : statusFromDays(diffDays);
   const bookedStatus = normaliseBookedStatus(v);
   const bookedWindow = getBookedWindow(v);
   const bookedNow = isBookedNow(v, today);
@@ -269,8 +280,8 @@ function buildServiceRow(docSnap, today) {
     nextServiceDate: fmtShort(next),
     lastServiceRaw: last,
     lastServiceDate: fmtShort(last),
-    daysUntilService: diffDays,
-    status,
+    daysUntilService: due.daysUntilDue,
+    status: due.status,
     bookedStatus,
     bookedNow,
     bookedWindow,
@@ -290,22 +301,8 @@ function statusText(status) {
   if (status === "overdue") return "Overdue";
   if (status === "soon") return "Due Soon";
   if (status === "unknown") return "Missing date";
+  if (status === "not-applicable") return "N/A";
   return "OK";
-}
-
-function serviceRecordDate(record) {
-  return (
-    parseDateAny(record?.completedDate) ||
-    parseDateAny(record?.serviceDateOnly) ||
-    parseDateAny(record?.serviceDate) ||
-    parseDateAny(record?.date) ||
-    parseDateAny(record?.createdAt) ||
-    parseDateAny(record?.recordedAt)
-  );
-}
-
-function serviceRecordTitle(record) {
-  return record?.serviceType || record?.bookingRef || record?.title || "Service record";
 }
 
 export default function ServiceOverviewPage() {
@@ -344,7 +341,7 @@ export default function ServiceOverviewPage() {
       setVehicles(
         vehiclesSnap.docs
           .map((docSnap) => buildServiceRow(docSnap, today))
-          .filter((row) => !isVehicleOutOfUse(row))
+          .filter((row) => !isVehicleOutOfUse(row) && !isRetentionPlateRecord(row))
       );
       setMaintenanceBookings(bookingsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
       setServiceRecords(recordsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
@@ -366,12 +363,17 @@ export default function ServiceOverviewPage() {
 
   const activeServiceBookings = useMemo(() => {
     return maintenanceBookings
-      .filter((booking) => isServiceBooking(booking) && !isInactiveBooking(booking))
-      .map((booking) => ({
-        ...booking,
-        startDateObj: getBookingStart(booking),
-        endDateObj: getBookingEnd(booking),
-      }))
+      .map((booking) => {
+        const canonical = getBookedServiceRecord(booking);
+        if (!canonical) return null;
+        return {
+          ...booking,
+          canonicalStatus: canonical.status,
+          startDateObj: getBookingStart(booking),
+          endDateObj: getBookingEnd(booking),
+        };
+      })
+      .filter(Boolean)
       .sort((a, b) => (a.startDateObj?.getTime?.() || 9999999999999) - (b.startDateObj?.getTime?.() || 9999999999999));
   }, [maintenanceBookings]);
 
@@ -387,18 +389,61 @@ export default function ServiceOverviewPage() {
     return map;
   }, [activeServiceBookings]);
 
+  const serviceDueByVehicle = useMemo(() => {
+    const map = new Map();
+    maintenanceBookings.forEach((booking) => {
+      const dueDate = parseDateAny(getUnarrangedMaintenanceDueDate(booking, "service"));
+      const vehicleId = String(booking?.vehicleId || "").trim();
+      if (!vehicleId || !dueDate) return;
+      const current = map.get(vehicleId);
+      if (!current || dueDate.getTime() < current.getTime()) map.set(vehicleId, dueDate);
+    });
+    return map;
+  }, [maintenanceBookings]);
+
+  const serviceRecordsByVehicle = useMemo(() => {
+    const map = new Map();
+    serviceRecords.forEach((record) => {
+      const vehicleId = String(record.vehicleId || record.assetId || "").trim();
+      if (!vehicleId) return;
+      const rows = map.get(vehicleId) || [];
+      rows.push(record);
+      map.set(vehicleId, rows);
+    });
+    return map;
+  }, [serviceRecords]);
+
   const serviceRows = useMemo(() => {
     return vehicles.map((vehicle) => {
       const activeBookings = bookingsByVehicle.get(vehicle.id) || [];
       const nextBooking = activeBookings[0] || null;
+      const requirementDueDate = serviceDueByVehicle.get(vehicle.id) || null;
+      const vehicleServiceRecords = serviceRecordsByVehicle.get(String(vehicle.id)) || [];
+      const latestServiceCompletion = resolveLatestCoreServiceCompletionDate({
+        vehicle,
+        serviceRecords: vehicleServiceRecords,
+      });
+      const schedule = reconcileServiceSchedule(vehicle, {
+        completedDate: latestServiceCompletion,
+        dueDate: requirementDueDate || vehicle.nextServiceRaw,
+      });
+      const due = getServiceDuePresentation(vehicle, {
+        dueDate: schedule.nextServiceDate,
+      });
       return {
         ...vehicle,
+        lastServiceRaw: parseDateAny(schedule.lastServiceDate),
+        lastServiceDate: fmtShort(parseDateAny(schedule.lastServiceDate)),
+        nextServiceRaw: due.dueDate,
+        nextServiceDate: due.dateDisplay,
+        daysUntilService: due.daysUntilDue,
+        status: due.status,
         activeBookings,
         nextBooking,
-        hasServiceBooking: activeBookings.length > 0 || Boolean(vehicle.bookedStatus),
+        hasServiceBooking: activeBookings.length > 0,
       };
     });
-  }, [bookingsByVehicle, vehicles]);
+  }, [bookingsByVehicle, serviceDueByVehicle, serviceRecordsByVehicle, vehicles]);
 
   const filtered = useMemo(() => {
     let data = serviceRows;
@@ -434,64 +479,50 @@ export default function ServiceOverviewPage() {
     const soon = serviceRows.filter((v) => v.status === "soon").length;
     const ok = serviceRows.filter((v) => v.status === "ok").length;
     const unknown = serviceRows.filter((v) => v.status === "unknown").length;
+    const notApplicable = serviceRows.filter((v) => v.status === "not-applicable").length;
     const bookedVehicles = serviceRows.filter((v) => v.hasServiceBooking).length;
-    const completionRecords = serviceRecords.length + serviceRows.reduce((sum, v) => sum + (Array.isArray(v.serviceHistory) ? v.serviceHistory.length : 0), 0);
-    return { overdue, soon, ok, unknown, bookedVehicles, activeBookings: activeServiceBookings.length, completionRecords, total: serviceRows.length };
-  }, [activeServiceBookings.length, serviceRecords.length, serviceRows]);
+    const completionRecords = serviceRows.reduce(
+      (sum, vehicle) => sum + buildServiceHistoryItems({
+        vehicle,
+        serviceRecords: serviceRecordsByVehicle.get(String(vehicle.id)) || [],
+      }).length,
+      0
+    );
+    return { overdue, soon, ok, unknown, notApplicable, bookedVehicles, activeBookings: activeServiceBookings.length, completionRecords, total: serviceRows.length };
+  }, [activeServiceBookings.length, serviceRecordsByVehicle, serviceRows]);
 
   const priorityRows = useMemo(() => {
     return [...serviceRows]
-      .filter((row) => row.status === "overdue" || row.status === "soon" || row.status === "unknown")
+      .filter((row) =>
+        !row.hasServiceBooking &&
+        (row.status === "overdue" || row.status === "soon" || row.status === "unknown")
+      )
       .sort((a, b) => rowRiskScore(b) - rowRiskScore(a) || String(a.name).localeCompare(String(b.name)))
       .slice(0, 8);
   }, [serviceRows]);
 
   const bookedQueue = useMemo(() => activeServiceBookings.slice(0, 8), [activeServiceBookings]);
 
-  const categoryRows = useMemo(() => {
-    const map = new Map();
-    serviceRows.forEach((row) => {
-      const key = row.category || "Uncategorised";
-      const next = map.get(key) || { category: key, total: 0, overdue: 0, soon: 0, booked: 0, missing: 0 };
-      next.total += 1;
-      if (row.status === "overdue") next.overdue += 1;
-      if (row.status === "soon") next.soon += 1;
-      if (row.status === "unknown") next.missing += 1;
-      if (row.hasServiceBooking) next.booked += 1;
-      map.set(key, next);
-    });
-    return Array.from(map.values()).sort((a, b) => (b.overdue + b.soon + b.missing) - (a.overdue + a.soon + a.missing) || a.category.localeCompare(b.category));
-  }, [serviceRows]);
-
   const recentActivity = useMemo(() => {
-    const fromRecords = serviceRecords.map((record) => {
-      const vehicle = serviceRows.find((row) => row.id === String(record.vehicleId || record.assetId || "").trim());
-      return {
-        id: `record:${record.id}`,
-        vehicleId: vehicle?.id || record.vehicleId || record.assetId || "",
-        vehicleLabel: vehicle ? `${vehicle.name} (${vehicle.reg})` : record.assetLabel || record.vehicleLabel || record.vehicleName || "Vehicle",
-        title: serviceRecordTitle(record),
-        date: serviceRecordDate(record),
-        meta: record.provider || record.location || record.bookingRef || "",
-      };
-    });
-
-    const fromVehicleHistory = serviceRows.flatMap((vehicle) =>
-      (Array.isArray(vehicle.serviceHistory) ? vehicle.serviceHistory : []).map((entry, index) => ({
-        id: `history:${vehicle.id}:${entry.serviceRecordId || index}`,
+    const items = serviceRows.flatMap((vehicle) =>
+      buildServiceHistoryItems({
+        vehicle,
+        serviceRecords: serviceRecordsByVehicle.get(String(vehicle.id)) || [],
+      }).map((entry, index) => ({
+        id: `service:${vehicle.id}:${entry.serviceRecordId || entry.maintenanceBookingId || index}`,
         vehicleId: vehicle.id,
         vehicleLabel: `${vehicle.name} (${vehicle.reg})`,
-        title: serviceRecordTitle(entry),
-        date: serviceRecordDate(entry),
+        title: entry.title || entry.serviceType || entry.bookingRef || entry.sourceLabel || "Service record",
+        date: parseDateAny(entry.completedDate),
         meta: entry.provider || entry.location || entry.bookingRef || "",
       }))
     );
 
-    return [...fromRecords, ...fromVehicleHistory]
+    return items
       .filter((item) => item.date)
       .sort((a, b) => b.date - a.date)
       .slice(0, 8);
-  }, [serviceRecords, serviceRows]);
+  }, [serviceRecordsByVehicle, serviceRows]);
 
   const rowBg = (status, bookedNow) => {
     if (bookedNow) return { background: "var(--color-info-soft)" };
@@ -502,6 +533,9 @@ export default function ServiceOverviewPage() {
   };
 
   const bookedPill = (v) => {
+    if (v.status === "not-applicable") {
+      return <span style={pill("var(--color-surface-hover)", UI.muted)}>N/A</span>;
+    }
     if (v.nextBooking) {
       return (
         <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)} title={bookingDateLabel(v.nextBooking)}>
@@ -553,21 +587,15 @@ export default function ServiceOverviewPage() {
           gap: 12px;
           margin-bottom: 12px;
         }
-        .service-overview-category-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 10px;
-        }
         @media (max-width: 1320px) {
           .service-overview-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
           .service-overview-dashboard-grid { grid-template-columns: 1fr 1fr !important; }
-          .service-overview-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
         }
         @media (max-width: 1180px) {
           .service-overview-filter-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 760px) {
-          .service-overview-kpi-grid, .service-overview-filter-grid, .service-overview-dashboard-grid, .service-overview-category-grid { grid-template-columns: 1fr !important; }
+          .service-overview-kpi-grid, .service-overview-filter-grid, .service-overview-dashboard-grid { grid-template-columns: 1fr !important; }
         }
         .service-overview-table thead th {
           position: sticky;
@@ -602,7 +630,7 @@ export default function ServiceOverviewPage() {
 
         <div className="service-overview-kpi-grid">
           <SummaryCard label="Overdue" value={kpis.overdue} sub="Need booking now" icon={AlertTriangle} tone="danger" />
-          <SummaryCard label="Due Soon" value={kpis.soon} sub="Within 21 days" icon={Clock3} tone="amber" />
+          <SummaryCard label="Due Soon" value={kpis.soon} sub="Within 4 weeks" icon={Clock3} tone="amber" />
           <SummaryCard label="Booked Vehicles" value={kpis.bookedVehicles} sub={`${kpis.activeBookings} active bookings`} icon={Wrench} tone="booked" />
           <SummaryCard label="Missing Date" value={kpis.unknown} sub="Needs core service date" icon={FileClock} tone="brand" />
           <SummaryCard label="Completed Logs" value={kpis.completionRecords} sub="Service history records" icon={History} tone="ok" />
@@ -630,6 +658,7 @@ export default function ServiceOverviewPage() {
               <option value="soon">Filter: Due soon</option>
               <option value="booked">Filter: Booked</option>
               <option value="unknown">Filter: Missing date</option>
+              <option value="not-applicable">Filter: Not required</option>
               <option value="ok">Filter: OK</option>
             </select>
 
@@ -665,7 +694,7 @@ export default function ServiceOverviewPage() {
         </div>
 
         <div className="service-overview-dashboard-grid">
-          <section style={panel}>
+          <section className={layoutStyles.dashboardPanel} style={panel}>
             <SectionHeader title="Priority Service Queue" meta={priorityRows.length ? "Highest risk vehicles first" : "No urgent service work"} />
             <div className={layoutStyles.extracted7}>
               {loading ? (
@@ -689,7 +718,7 @@ export default function ServiceOverviewPage() {
             </div>
           </section>
 
-          <section style={panel}>
+          <section className={layoutStyles.dashboardPanel} style={panel}>
             <SectionHeader title="Booked Pipeline" meta={bookedQueue.length ? "Upcoming active service bookings" : "No active service bookings"} />
             <div className={layoutStyles.extracted8}>
               {loading ? (
@@ -705,7 +734,7 @@ export default function ServiceOverviewPage() {
                       "Unknown vehicle"
                     }
                     meta={`${bookingDateLabel(booking)}${booking.provider ? ` - ${booking.provider}` : ""}`}
-                    status={booking.status || "Booked"}
+                    status={booking.canonicalStatus === "in_progress" ? "In progress" : "Booked"}
                     tone="booked"
                     actionLabel="Open"
                     onAction={() => router.push(`/vehicle-edit/${encodeURIComponent(booking.vehicleId || "")}`)}
@@ -718,7 +747,7 @@ export default function ServiceOverviewPage() {
             </div>
           </section>
 
-          <section style={panel}>
+          <section className={layoutStyles.dashboardPanel} style={panel}>
             <SectionHeader title="Recent Service Activity" meta={recentActivity.length ? "Latest completed service records" : "No recent records found"} />
             <div className={layoutStyles.extracted9}>
               {loading ? (
@@ -742,30 +771,6 @@ export default function ServiceOverviewPage() {
             </div>
           </section>
         </div>
-
-        <section style={{ ...card, padding: 12, marginBottom: 12 }}>
-          <SectionHeader title="Fleet By Category" meta="Where service pressure is concentrated" />
-          <div className={`service-overview-category-grid ${layoutStyles.extracted10}`} >
-            {categoryRows.length ? (
-              categoryRows.slice(0, 8).map((row) => (
-                <div key={row.category} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--color-surface)" }}>
-                  <div style={{ color: UI.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {row.category}
-                  </div>
-                  <div className={layoutStyles.extracted11}>
-                    <span style={pill("var(--color-surface-hover)", UI.text)}>{row.total} total</span>
-                    {row.overdue ? <span style={pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder)}>{row.overdue} overdue</span> : null}
-                    {row.soon ? <span style={pill(UI.soonBg, UI.soonFg, UI.soonBorder)}>{row.soon} soon</span> : null}
-                    {row.booked ? <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>{row.booked} booked</span> : null}
-                    {row.missing ? <span style={pill("var(--color-surface-hover)", UI.text)}>{row.missing} missing</span> : null}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <EmptyLine>No category data available.</EmptyLine>
-            )}
-          </div>
-        </section>
 
         <div style={tableWrap}>
           <div className={layoutStyles.extracted12}>
@@ -807,7 +812,10 @@ export default function ServiceOverviewPage() {
                   filtered.map((v) => {
                     const status = v.status === "unknown" ? "unknown" : v.status;
                     const diff = v.daysUntilService;
-                    const historyCount = Array.isArray(v.serviceHistory) ? v.serviceHistory.length : 0;
+                    const historyCount = buildServiceHistoryItems({
+                      vehicle: v,
+                      serviceRecords: serviceRecordsByVehicle.get(String(v.id)) || [],
+                    }).length;
 
                     return (
                       <tr key={v.id} style={rowBg(status, v.hasServiceBooking)}>
@@ -833,13 +841,13 @@ export default function ServiceOverviewPage() {
                         </td>
 
                         <td className={layoutStyles.extracted16}>{v.category}</td>
-                        <td className={layoutStyles.extracted17}>{fmtShort(parseDateAny(v.nextServiceDate))}</td>
+                        <td className={layoutStyles.extracted17}>{v.nextServiceDate}</td>
                         <td className={layoutStyles.extracted18}>{diff === null || diff === undefined ? "-" : diff}</td>
                         <td className={layoutStyles.extracted19}>
                           <span style={statusPillStyle(status)}>{statusText(status)}</span>
                         </td>
                         <td className={layoutStyles.extracted20}>{bookedPill(v)}</td>
-                        <td className={layoutStyles.extracted21}>{fmtShort(parseDateAny(v.lastServiceDate))}</td>
+                        <td className={layoutStyles.extracted21}>{v.lastServiceDate}</td>
                         <td className={layoutStyles.extracted22}>{v.odometer ? v.odometer.toLocaleString("en-GB") : "-"}</td>
                         <td className={layoutStyles.extracted23}>
                           <span style={pill(historyCount ? UI.tealBg : "var(--color-surface-hover)", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "var(--color-border)")}>
@@ -848,7 +856,9 @@ export default function ServiceOverviewPage() {
                         </td>
 
                         <td className={layoutStyles.extracted24}>
-                          <button
+                          {v.status === "not-applicable" ? (
+                            <span style={pill("var(--color-surface-hover)", UI.muted)}>Not required</span>
+                          ) : <button
                             type="button"
                             className="service-overview-action"
                             style={actionBtn}
@@ -863,7 +873,7 @@ export default function ServiceOverviewPage() {
                           >
                             <Wrench size={13} />
                             Book Service
-                          </button>
+                          </button>}
                         </td>
                       </tr>
                     );
@@ -901,7 +911,7 @@ function SectionHeader({ title: sectionTitle, meta }) {
 }
 
 function EmptyLine({ children }) {
-  return <div style={{ color: UI.muted, fontSize: 13, padding: "8px 0" }}>{children}</div>;
+  return <div className={layoutStyles.queueEmpty}>{children}</div>;
 }
 
 function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction, onOpen }) {
@@ -915,38 +925,17 @@ function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction
   const style = tones[tone] || tones.unknown;
 
   return (
-    <div style={{ border: UI.border, borderRadius: UI.radiusSm, background: "var(--color-surface)", padding: 9 }}>
-      <div className={layoutStyles.extracted25}>
-        <button
-          type="button"
-          onClick={onOpen}
-          style={{
-            border: "none",
-            background: "transparent",
-            padding: 0,
-            margin: 0,
-            minWidth: 0,
-            color: UI.text,
-            fontWeight: 950,
-            fontSize: 13,
-            textAlign: "left",
-            cursor: onOpen ? "pointer" : "default",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {itemTitle}
-        </button>
-        <span style={pill(style.bg, style.fg, style.border)}>{status}</span>
-      </div>
-      <div style={{ marginTop: 5, color: UI.muted, fontSize: 12.5, lineHeight: 1.35 }}>{meta}</div>
+    <div className={layoutStyles.queueItem} style={{ background: style.bg }}>
+      <button type="button" onClick={onOpen} className={layoutStyles.queueItemBody}>
+        <span className={layoutStyles.queueItemTitle}>{itemTitle}</span>
+        <span className={layoutStyles.queueItemMeta}>{meta}</span>
+      </button>
+      <span style={pill(style.bg, style.fg, style.border)}>{status}</span>
       {onAction ? (
-        <div className={layoutStyles.extracted26}>
-          <button type="button" className="service-overview-action" style={actionBtn} onClick={onAction}>
-            <Wrench size={13} />
-            {actionLabel}
-          </button>
-        </div>
+        <button type="button" className="service-overview-action" style={actionBtn} onClick={onAction}>
+          {actionLabel}
+          <ChevronRight size={12} />
+        </button>
       ) : null}
     </div>
   );

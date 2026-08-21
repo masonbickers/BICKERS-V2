@@ -1,5 +1,6 @@
 import { dateOnlyString, toDateLike } from "./serviceRecordCompat";
 import { isMotNotApplicable, isServiceNotApplicable, isVehicleOutOfUse } from "./maintenanceSchema";
+import { normalizeVehicleAssetNumber } from "./vehicleAssetNumber";
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -91,6 +92,9 @@ export function normalizeVehicleRecord(raw = {}) {
   const registration = String(
     firstNonEmpty(raw.registration, raw.reg, raw.registrationNumber, raw.regNumber, raw.regNo) || ""
   ).trim();
+  const assetNumber = normalizeVehicleAssetNumber(
+    firstNonEmpty(raw.assetNumber, raw.sageAssetNumber)
+  );
 
   return {
     ...raw,
@@ -101,6 +105,8 @@ export function normalizeVehicleRecord(raw = {}) {
     registration,
     reg: String(firstNonEmpty(raw.reg, registration) || "").trim(),
     registrationNumber: String(firstNonEmpty(raw.registrationNumber, registration) || "").trim(),
+    assetNumber,
+    sageAssetNumber: assetNumber,
     operationalStatus: String(firstNonEmpty(raw.operationalStatus, raw.fleetStatus, raw.vehicleStatus) || "Active").trim(),
     outOfUse: isVehicleOutOfUse(raw),
     motNotApplicable: motDisabled,

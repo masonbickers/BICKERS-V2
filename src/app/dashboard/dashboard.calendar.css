@@ -6,7 +6,13 @@
 .dashboard-page .rbc-time-view,
 .dashboard-page .rbc-month-view {
   border: 0;
+  border-radius: inherit;
   background: var(--color-surface);
+}
+.dashboard-page .rbc-time-view > .rbc-time-header,
+.dashboard-page .rbc-month-view > .rbc-month-header {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
 }
 .dashboard-page .rbc-header {
   padding: 7px 8px;

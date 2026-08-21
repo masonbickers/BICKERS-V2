@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   buildVehicleEditorUpdatePatch,
   getChangedProtectedVehicleFields,
+  mergeServerManagedVehicleFields,
   restoreProtectedVehicleFields,
   VEHICLE_EDITOR_PROTECTED_MAINTENANCE_FIELDS,
 } from "../src/app/utils/vehicleEditorSave.js";
@@ -68,6 +69,39 @@ test("restoring protected fields keeps the saved client snapshot aligned with Fi
     name: "Mobile Workshop 01",
     lastService: "2025-12-31",
     serviceHistory: [],
+  });
+});
+
+test("server-managed DVSA fields advance the editor baseline without losing unsaved details", () => {
+  const baseline = {
+    id: "vehicle-1",
+    notes: "",
+    lastMOT: "2025-07-01",
+    nextMOT: "2026-06-30",
+  };
+  const current = { ...baseline, notes: "Keep this unsaved note" };
+  const serverVehicle = {
+    id: "vehicle-1",
+    notes: "",
+    lastMOT: "2026-07-03",
+    nextMOT: "2027-07-02",
+    motHistorySyncedAt: "2026-08-19T13:39:00.000Z",
+  };
+
+  const merged = mergeServerManagedVehicleFields(
+    current,
+    baseline,
+    serverVehicle,
+    ["lastMOT", "nextMOT", "motHistorySyncedAt"]
+  );
+
+  assert.equal(merged.current.notes, "Keep this unsaved note");
+  assert.equal(merged.current.lastMOT, "2026-07-03");
+  assert.equal(merged.baseline.notes, "");
+  assert.equal(merged.baseline.lastMOT, "2026-07-03");
+  assert.deepEqual(getChangedProtectedVehicleFields(merged.current, merged.baseline), []);
+  assert.deepEqual(buildVehicleEditorUpdatePatch(merged.current, merged.baseline), {
+    notes: "Keep this unsaved note",
   });
 });
 

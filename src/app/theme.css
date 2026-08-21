@@ -144,6 +144,18 @@
   --foreground: var(--color-text);
 }
 
+/* The optional reduced-card setting only flattens repeated content inside a key panel. */
+html[data-card-style="reduced"] [data-ui-card] [data-ui-card],
+html[data-card-style="reduced"] [data-ui-card] [data-ui-navigation-card],
+html[data-card-style="reduced"] [data-ui-panel] [data-ui-card],
+html[data-card-style="reduced"] [data-ui-panel] [data-ui-navigation-card] {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
 :root[data-color-mode="normal"],
 :root[data-color-mode="light"] { color-scheme: light; }
 :root[data-color-mode="dark"] { color-scheme: dark; }

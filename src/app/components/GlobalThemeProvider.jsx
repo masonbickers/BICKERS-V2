@@ -17,6 +17,11 @@ import {
   readInterfaceScalePreference,
   writeInterfaceScalePreference,
 } from "@/app/utils/interfaceScale";
+import {
+  applyCardStyle,
+  readCardStylePreference,
+  writeCardStylePreference,
+} from "@/app/utils/cardStyle";
 
 export const GLOBAL_THEME_UPDATED_EVENT = "bickers:global-theme-updated";
 export const APPEARANCE_UPDATED_EVENT = "bickers:appearance-updated";
@@ -37,6 +42,8 @@ const AppearanceContext = createContext({
   setModePreference: () => {},
   interfaceScale: "standard",
   setInterfaceScale: () => {},
+  cardStyle: "current",
+  setCardStyle: () => {},
   loading: true,
   refresh: async () => {},
 });
@@ -78,6 +85,7 @@ export default function GlobalThemeProvider({ children }) {
   }));
   const [modePreference, setModePreferenceState] = useState("normal");
   const [interfaceScale, setInterfaceScaleState] = useState("standard");
+  const [cardStyle, setCardStyleState] = useState("current");
   const [loading, setLoading] = useState(true);
 
   const applyAppearance = useCallback((incoming) => {
@@ -123,6 +131,9 @@ export default function GlobalThemeProvider({ children }) {
     const savedInterfaceScale = readInterfaceScalePreference();
     setInterfaceScaleState(savedInterfaceScale);
     applyInterfaceScale(savedInterfaceScale);
+    const savedCardStyle = readCardStylePreference();
+    setCardStyleState(savedCardStyle);
+    applyCardStyle(savedCardStyle);
   }, []);
 
   useEffect(() => {
@@ -175,6 +186,11 @@ export default function GlobalThemeProvider({ children }) {
     setInterfaceScaleState(next);
   }, []);
 
+  const setCardStyle = useCallback((value) => {
+    const next = writeCardStylePreference(value);
+    setCardStyleState(next);
+  }, []);
+
   const resolvedMode = modePreference;
   const contextValue = useMemo(
     () => ({
@@ -184,10 +200,12 @@ export default function GlobalThemeProvider({ children }) {
       setModePreference,
       interfaceScale,
       setInterfaceScale,
+      cardStyle,
+      setCardStyle,
       loading,
       refresh,
     }),
-    [appearance, interfaceScale, loading, modePreference, refresh, resolvedMode, setInterfaceScale, setModePreference]
+    [appearance, cardStyle, interfaceScale, loading, modePreference, refresh, resolvedMode, setCardStyle, setInterfaceScale, setModePreference]
   );
   return <AppearanceContext.Provider value={contextValue}>{children}</AppearanceContext.Provider>;
 }

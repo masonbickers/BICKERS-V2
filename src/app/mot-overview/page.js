@@ -1,14 +1,22 @@
 "use client";
 
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
-import { isMotNotApplicable, isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { isRetentionPlateRecord } from "@/app/utils/vehicleRegisterPresentation";
+import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { normalizeMaintenanceRecord } from "@/app/utils/maintenanceRecord";
+import {
+  getUnarrangedMaintenanceDueDate,
+  isConfirmedMaintenanceBooking,
+  isOpenMaintenanceBooking,
+} from "@/app/utils/maintenanceCalendar";
+import { MOT_WARNING_DAYS, getMotDuePresentation } from "@/app/utils/motPresentation";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -89,31 +97,31 @@ const pill = (bg, fg) => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "5px 9px",
+  padding: "3px 8px",
   borderRadius: 999,
   background: bg,
   color: fg,
   border: UI.border,
-  fontSize: 12,
-  fontWeight: 900,
+  fontSize: 11.5,
+  fontWeight: 800,
   whiteSpace: "nowrap",
 });
 
 const tableWrap = { ...card, overflow: "hidden" };
 const th = {
-  padding: "11px 12px",
-  fontSize: 11.5,
+  padding: "5px 8px",
+  fontSize: 10.5,
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid var(--color-brand-soft)",
+  borderBottom: "1px solid var(--color-border)",
   textAlign: "left",
   background: "var(--color-surface-subtle)",
   fontWeight: 900,
 };
 const td = {
-  padding: "11px 12px",
-  fontSize: 13,
+  padding: "5px 8px",
+  fontSize: 12.5,
   borderBottom: "1px solid var(--color-surface-hover)",
   verticalAlign: "middle",
 };
@@ -122,17 +130,18 @@ const actionBtn = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
-  padding: "5px 8px",
-  borderRadius: 999,
+  gap: 6,
+  minHeight: 24,
+  padding: "3px 7px",
+  borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brandBorder}`,
   background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
   whiteSpace: "nowrap",
-  boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-  fontSize: 12,
+  boxShadow: "none",
+  fontSize: 11,
   lineHeight: 1.2,
 };
 
@@ -145,8 +154,6 @@ const parseDateAny = (v) => {
   const d = v?.toDate ? v.toDate() : new Date(v);
   return isNaN(d) ? null : d;
 };
-const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const daysDiff = (a, b) => Math.round((dateOnly(a) - dateOnly(b)) / (1000 * 60 * 60 * 24));
 const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB") : "-");
 
 const fmtInputDate = (d) => {
@@ -157,16 +164,36 @@ const fmtInputDate = (d) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-function statusFromDays(diffDays) {
-  if (diffDays < 0) return "overdue";
-  if (diffDays <= 21) return "soon";
-  return "ok";
-}
-
 function statusPill(status) {
   if (status === "overdue") return pill(UI.overdueBg, UI.overdueFg);
   if (status === "soon") return pill(UI.soonBg, UI.soonFg);
   return pill(UI.okBg, UI.okFg);
+}
+
+function getBookedMotRecord(booking) {
+  const canonical = normalizeMaintenanceRecord(booking, { id: booking?.id });
+  const isMot = canonical.items.some((item) => item.maintenanceTypeId === "mot");
+  if (!isMot || !isConfirmedMaintenanceBooking(booking) || !isOpenMaintenanceBooking(booking)) {
+    return null;
+  }
+  return canonical;
+}
+
+function getBookingStart(booking) {
+  const candidates = Array.isArray(booking?.bookingDates) ? booking.bookingDates : [];
+  return (
+    candidates.map(parseDateAny).filter(Boolean).sort((a, b) => a - b)[0] ||
+    parseDateAny(booking?.appointmentDateISO) ||
+    parseDateAny(booking?.appointmentDate) ||
+    parseDateAny(booking?.startDateISO) ||
+    parseDateAny(booking?.startDate) ||
+    null
+  );
+}
+
+function bookingLabel(booking) {
+  const date = getBookingStart(booking);
+  return [date ? fmtShort(date) : "Date not set", booking?.provider].filter(Boolean).join(" - ");
 }
 
 export default function MOTOverviewPage() {
@@ -174,6 +201,7 @@ export default function MOTOverviewPage() {
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [vehicles, setVehicles] = useState([]);
+  const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookingVehicle, setBookingVehicle] = useState(null);
 
@@ -182,97 +210,93 @@ export default function MOTOverviewPage() {
   const [filter, setFilter] = useState("all"); // all | overdue | soon | ok | unknown
   const [sort, setSort] = useState("risk"); // risk | daysAsc | daysDesc | name
 
-  useEffect(() => {
-    const fetchVehicles = async () => {
-      const gate = resolveDataAccess(dataAccessState);
-      if (gate.checking) return;
-      if (!gate.allowed) {
-        reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load MOT overview vehicles" });
-        setVehicles([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
-        const today = new Date();
-
-        const data = snapshot.docs.map((d) => {
-          const vehicle = normalizeVehicleRecord({ id: d.id, ...d.data() });
-          if (isVehicleOutOfUse(vehicle) || isMotNotApplicable(vehicle)) return null;
-
-          const next = parseDateAny(vehicle.nextMOT);
-          const diffDays = next ? daysDiff(next, today) : null;
-
-          const status = vehicle.motAwaitingDvsaConfirmation
-            ? "awaiting_dvsa"
-            : diffDays === null ? "unknown" : statusFromDays(diffDays);
-
-          return {
-            ...vehicle,
-            id: d.id,
-            name: vehicle.name || "-",
-            reg: vehicle.reg || vehicle.registration || "-",
-            category: vehicle.category || "-",
-            nextMOTRaw: next,
-            nextMOTDate: vehicle.motAwaitingDvsaConfirmation ? "Awaiting DVSA confirmation" : fmtShort(next),
-            daysUntilMOT: diffDays,
-            status,
-          };
-        }).filter(Boolean);
-
-        setVehicles(data);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchVehicles();
-  }, [accessKey, dataAccessState]);
-
-  const refreshVehicles = async () => {
+  const loadData = useCallback(async () => {
     const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
     if (!gate.allowed) {
-      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "refresh MOT overview vehicles" });
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load MOT overview data" });
+      setVehicles([]);
+      setMaintenanceBookings([]);
+      setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
-      const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
-      const today = new Date();
-      const data = snapshot.docs.map((d) => {
-        const vehicle = normalizeVehicleRecord({ id: d.id, ...d.data() });
-        if (isVehicleOutOfUse(vehicle) || isMotNotApplicable(vehicle)) return null;
-
-        const next = parseDateAny(vehicle.nextMOT);
-        const diffDays = next ? daysDiff(next, today) : null;
-        const status = vehicle.motAwaitingDvsaConfirmation
-          ? "awaiting_dvsa"
-          : diffDays === null ? "unknown" : statusFromDays(diffDays);
-
-        return {
-          ...vehicle,
-          id: d.id,
-          name: vehicle.name || "-",
-          reg: vehicle.reg || vehicle.registration || "-",
-          category: vehicle.category || "-",
-          nextMOTRaw: next,
-          nextMOTDate: vehicle.motAwaitingDvsaConfirmation ? "Awaiting DVSA confirmation" : fmtShort(next),
-          daysUntilMOT: diffDays,
-          status,
-        };
-      }).filter(Boolean);
-
-      setVehicles(data);
+      const [vehicleSnapshot, bookingSnapshot] = await Promise.all([
+        getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "maintenanceBookings", dataAccessState)),
+      ]);
+      setVehicles(
+        vehicleSnapshot.docs
+          .map((item) => normalizeVehicleRecord({ id: item.id, ...item.data() }))
+          .filter((vehicle) => !isVehicleOutOfUse(vehicle) && !isRetentionPlateRecord(vehicle))
+      );
+      setMaintenanceBookings(bookingSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
     } finally {
       setLoading(false);
     }
-  };
+  }, [dataAccessState]);
+
+  useEffect(() => {
+    loadData();
+  }, [accessKey, loadData]);
+
+  const activeMotBookings = useMemo(() => maintenanceBookings
+    .map((booking) => {
+      const canonical = getBookedMotRecord(booking);
+      return canonical ? { ...booking, canonicalStatus: canonical.status } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (getBookingStart(a)?.getTime() || 9999999999999) - (getBookingStart(b)?.getTime() || 9999999999999)),
+  [maintenanceBookings]);
+
+  const bookingsByVehicle = useMemo(() => {
+    const map = new Map();
+    activeMotBookings.forEach((booking) => {
+      const vehicleId = String(booking.vehicleId || "").trim();
+      if (!vehicleId) return;
+      const rows = map.get(vehicleId) || [];
+      rows.push(booking);
+      map.set(vehicleId, rows);
+    });
+    return map;
+  }, [activeMotBookings]);
+
+  const motDueByVehicle = useMemo(() => {
+    const map = new Map();
+    maintenanceBookings.forEach((booking) => {
+      const dueDate = getUnarrangedMaintenanceDueDate(booking, "mot");
+      const vehicleId = String(booking.vehicleId || "").trim();
+      if (!vehicleId || !dueDate) return;
+      const current = map.get(vehicleId);
+      if (!current || dueDate < current) map.set(vehicleId, dueDate);
+    });
+    return map;
+  }, [maintenanceBookings]);
+
+  const motRows = useMemo(() => vehicles.map((vehicle) => {
+    const due = getMotDuePresentation(vehicle, {
+      dueDate: motDueByVehicle.get(String(vehicle.id)) || vehicle.nextMOT,
+    });
+    const activeBookings = bookingsByVehicle.get(String(vehicle.id)) || [];
+    return {
+      ...vehicle,
+      name: vehicle.name || "-",
+      reg: vehicle.reg || vehicle.registration || "-",
+      category: vehicle.category || "-",
+      nextMOTRaw: due.dueDate,
+      nextMOTDate: due.dateDisplay,
+      daysUntilMOT: due.daysUntilDue,
+      status: due.status,
+      activeBookings,
+      nextBooking: activeBookings[0] || null,
+      hasMotBooking: activeBookings.length > 0,
+    };
+  }), [bookingsByVehicle, motDueByVehicle, vehicles]);
 
   const filtered = useMemo(() => {
-    let data = vehicles;
+    let data = motRows;
 
     const s = q.trim().toLowerCase();
     if (s) {
@@ -290,7 +314,7 @@ export default function MOTOverviewPage() {
     }
 
     // sorting
-    const riskWeight = { overdue: 3, soon: 2, ok: 1, unknown: 0 };
+    const riskWeight = { overdue: 5, soon: 4, "awaiting-dvsa": 3, unknown: 2, ok: 1, "not-applicable": 0 };
     data = [...data].sort((a, b) => {
       if (sort === "name") return String(a.name).localeCompare(String(b.name));
       if (sort === "daysAsc") return (a.daysUntilMOT ?? 999999) - (b.daysUntilMOT ?? 999999);
@@ -303,19 +327,22 @@ export default function MOTOverviewPage() {
     });
 
     return data;
-  }, [vehicles, q, filter, sort]);
+  }, [motRows, q, filter, sort]);
 
   const kpis = useMemo(() => {
-    const overdue = vehicles.filter((v) => v.status === "overdue").length;
-    const soon = vehicles.filter((v) => v.status === "soon").length;
-    const ok = vehicles.filter((v) => v.status === "ok").length;
-    const unknown = vehicles.filter((v) => v.status === "unknown").length;
-    return { overdue, soon, ok, unknown, total: vehicles.length };
-  }, [vehicles]);
+    const overdue = motRows.filter((v) => v.status === "overdue").length;
+    const soon = motRows.filter((v) => v.status === "soon").length;
+    const ok = motRows.filter((v) => v.status === "ok").length;
+    const unknown = motRows.filter((v) => v.status === "unknown").length;
+    const awaitingDvsa = motRows.filter((v) => v.status === "awaiting-dvsa").length;
+    const notApplicable = motRows.filter((v) => v.status === "not-applicable").length;
+    const booked = motRows.filter((v) => v.hasMotBooking).length;
+    return { overdue, soon, ok, unknown, awaitingDvsa, notApplicable, booked, total: motRows.length };
+  }, [motRows]);
 
-  const rowBg = (status) => {
-    if (status === "overdue") return { background: "var(--color-warning-soft)" };
-    if (status === "soon") return { background: "var(--color-warning-soft)" };
+  const rowBg = (status, booked) => {
+    if (booked) return { background: "var(--color-info-soft)" };
+    if (status === "overdue" || status === "soon") return { background: "var(--color-warning-soft)" };
     if (status === "ok") return { background: "var(--color-success-soft)" };
     return {};
   };
@@ -328,7 +355,7 @@ export default function MOTOverviewPage() {
         input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--shell-muted) !important; }
         .mot-overview-kpi-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 10px;
           margin-bottom: 12px;
         }
@@ -361,7 +388,7 @@ export default function MOTOverviewPage() {
           <div>
             <h1 style={title}>MOT Overview</h1>
             <div style={subtitle}>
-              Auto-highlights vehicles due within <b>21 days</b> and those <b>overdue</b>.
+              Auto-highlights vehicles due within <b>{MOT_WARNING_DAYS} days</b> and those <b>overdue</b>.
             </div>
           </div>
 
@@ -380,9 +407,11 @@ export default function MOTOverviewPage() {
         {/* KPIs */}
         <div className="mot-overview-kpi-grid">
           <SummaryCard label="Overdue" value={kpis.overdue} sub="Expired MOT dates" icon={AlertTriangle} tone="danger" />
-          <SummaryCard label="Due Soon" value={kpis.soon} sub="Within 21 days" icon={Clock3} tone="amber" />
-          <SummaryCard label="OK" value={kpis.ok} sub="More than 21 days" icon={CheckCircle2} tone="ok" />
-          <SummaryCard label="Missing Date" value={kpis.unknown} sub={`${kpis.total} total vehicles`} icon={CalendarCheck2} tone="brand" />
+          <SummaryCard label="Due Soon" value={kpis.soon} sub={`Within ${MOT_WARNING_DAYS} days`} icon={Clock3} tone="amber" />
+          <SummaryCard label="Booked" value={kpis.booked} sub={`${activeMotBookings.length} active bookings`} icon={CalendarCheck2} tone="brand" />
+          <SummaryCard label="Awaiting DVSA" value={kpis.awaitingDvsa} sub="Completed, result pending" icon={Clock3} tone="amber" />
+          <SummaryCard label="OK" value={kpis.ok} sub={`More than ${MOT_WARNING_DAYS} days`} icon={CheckCircle2} tone="ok" />
+          <SummaryCard label="Missing Date" value={kpis.unknown} sub={`${kpis.notApplicable} not required`} icon={CalendarCheck2} tone="brand" />
         </div>
 
         {/* Controls */}
@@ -408,6 +437,8 @@ export default function MOTOverviewPage() {
               <option value="soon">Filter: Due soon</option>
               <option value="ok">Filter: OK</option>
               <option value="unknown">Filter: Missing date</option>
+              <option value="awaiting-dvsa">Filter: Awaiting DVSA</option>
+              <option value="not-applicable">Filter: Not required</option>
             </select>
 
             <select style={select} value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -436,6 +467,9 @@ export default function MOTOverviewPage() {
             <span style={pill(UI.overdueBg, UI.overdueFg)}>Overdue</span>
             <span style={pill(UI.soonBg, UI.soonFg)}>Due Soon</span>
             <span style={pill(UI.okBg, UI.okFg)}>OK</span>
+            <span style={pill("var(--color-warning-soft)", "var(--color-warning-text)")}>Awaiting DVSA</span>
+            <span style={pill("var(--color-info-soft)", "var(--color-info)")}>Booked</span>
+            <span style={pill("var(--color-surface-hover)", UI.muted)}>N/A</span>
             <span style={pill("var(--color-surface-hover)", UI.text)}>Missing Date</span>
             <span style={pill("var(--color-surface-hover)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
           </div>
@@ -453,6 +487,7 @@ export default function MOTOverviewPage() {
                   <th style={th}>Days</th>
                   <th style={th}>Next MOT</th>
                   <th style={th}>Status</th>
+                  <th style={th}>Booking</th>
                   <th style={th}>Action</th>
                 </tr>
               </thead>
@@ -460,13 +495,13 @@ export default function MOTOverviewPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} style={{ ...td, textAlign: "center", color: UI.muted }}>
+                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.muted }}>
                       Loading vehicles...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ ...td, textAlign: "center", color: UI.muted }}>
+                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.muted }}>
                       No vehicles match your filters.
                     </td>
                   </tr>
@@ -476,7 +511,7 @@ export default function MOTOverviewPage() {
                     const diff = v.daysUntilMOT;
 
                     return (
-                      <tr key={v.id} style={rowBg(status)}>
+                      <tr key={v.id} style={rowBg(status, v.hasMotBooking)}>
                         <td className={layoutStyles.extracted7}>
                           <button
                             type="button"
@@ -504,11 +539,15 @@ export default function MOTOverviewPage() {
                           {diff === null || diff === undefined ? "-" : diff}
                         </td>
 
-                        <td className={layoutStyles.extracted11}>{fmtShort(parseDateAny(v.nextMOTDate))}</td>
+                        <td className={layoutStyles.extracted11}>
+                          {v.nextMOTDate}
+                        </td>
 
                         <td className={layoutStyles.extracted12}>
-                          {status === "awaiting_dvsa" ? (
+                          {status === "awaiting-dvsa" ? (
                             <span style={pill("var(--color-warning-soft)", "var(--color-warning-text)")}>Awaiting DVSA</span>
+                          ) : status === "not-applicable" ? (
+                            <span style={pill("var(--color-surface-hover)", UI.muted)}>N/A</span>
                           ) : status === "unknown" ? (
                             <span style={pill("var(--color-surface-hover)", UI.text)}>Missing date</span>
                           ) : (
@@ -518,7 +557,27 @@ export default function MOTOverviewPage() {
                           )}
                         </td>
                         <td className={layoutStyles.extracted13}>
-                          <button
+                          {v.nextBooking ? (
+                            <span style={pill("var(--color-info-soft)", "var(--color-info)")} title={bookingLabel(v.nextBooking)}>
+                              {v.nextBooking.canonicalStatus === "in_progress" ? "In progress" : "Booked"} - {bookingLabel(v.nextBooking)}
+                            </span>
+                          ) : status === "not-applicable" || status === "awaiting-dvsa" ? (
+                            <span style={pill("var(--color-surface-hover)", UI.muted)}>N/A</span>
+                          ) : (
+                            <span style={pill("var(--color-surface-hover)", UI.text)}>Not booked</span>
+                          )}
+                        </td>
+                        <td className={layoutStyles.extracted13}>
+                          {status === "not-applicable" ? (
+                            <span style={pill("var(--color-surface-hover)", UI.muted)}>Not required</span>
+                          ) : status === "awaiting-dvsa" ? (
+                            <span style={pill("var(--color-warning-soft)", "var(--color-warning-text)")}>Result pending</span>
+                          ) : v.hasMotBooking ? (
+                            <button type="button" className="mot-overview-action" style={actionBtn} onClick={() => router.push(`/vehicle-edit/${v.id}`)}>
+                              <CalendarCheck2 size={13} />
+                              Open booking
+                            </button>
+                          ) : <button
                             type="button"
                             className="mot-overview-action"
                             style={actionBtn}
@@ -533,7 +592,7 @@ export default function MOTOverviewPage() {
                           >
                             <CalendarCheck2 size={13} />
                             Book MOT
-                          </button>
+                          </button>}
                         </td>
                       </tr>
                     );
@@ -552,7 +611,7 @@ export default function MOTOverviewPage() {
             onClose={() => setBookingVehicle(null)}
             onSaved={async () => {
               setBookingVehicle(null);
-              await refreshVehicles();
+              await loadData();
             }}
           />
         ) : null}

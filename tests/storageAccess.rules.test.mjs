@@ -2,7 +2,7 @@ import test, { after, before, beforeEach } from "node:test";
 import { readFile } from "node:fs/promises";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
 import { doc, setDoc } from "firebase/firestore";
-import { getBytes, ref, uploadBytes } from "firebase/storage";
+import { getBytes, listAll, ref, uploadBytes } from "firebase/storage";
 
 const projectId = "demo-bickers-storage-access-rules";
 let env;
@@ -79,4 +79,34 @@ test("platform admins can upload their own receipt images for a company", async 
   await seedUsers();
   const path = "companies/bickers-action/receipts/platform/receipt-1/receipt.png";
   await assertSucceeds(uploadBytes(ref(env.authenticatedContext("platform").storage(), path), png, { contentType: "image/png" }));
+});
+
+test("technical library files are readable by user-workspace accounts only", async () => {
+  await seedUsers();
+  await env.withSecurityRulesDisabled(async (context) => {
+    const storage = context.storage();
+    await Promise.all([
+      uploadBytes(ref(storage, "insurance/employers-liability.pdf"), pdf, { contentType: "application/pdf" }),
+      uploadBytes(ref(storage, "spec sheets/crane-specification.pdf"), pdf, { contentType: "application/pdf" }),
+    ]);
+  });
+
+  const userStorage = env.authenticatedContext("user-a").storage();
+  await assertSucceeds(listAll(ref(userStorage, "insurance")));
+  await assertSucceeds(getBytes(ref(userStorage, "insurance/employers-liability.pdf")));
+  await assertSucceeds(listAll(ref(userStorage, "spec sheets")));
+  await assertSucceeds(getBytes(ref(userStorage, "spec sheets/crane-specification.pdf")));
+
+  for (const context of [
+    env.unauthenticatedContext(),
+    env.authenticatedContext("missing"),
+    env.authenticatedContext("disabled-a"),
+    env.authenticatedContext("service-a"),
+  ]) {
+    await assertFails(listAll(ref(context.storage(), "insurance")));
+    await assertFails(listAll(ref(context.storage(), "spec sheets")));
+  }
+
+  await assertFails(uploadBytes(ref(userStorage, "insurance/replacement.pdf"), pdf, { contentType: "application/pdf" }));
+  await assertFails(uploadBytes(ref(userStorage, "spec sheets/replacement.pdf"), pdf, { contentType: "application/pdf" }));
 });

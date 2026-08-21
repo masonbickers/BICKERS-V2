@@ -46,7 +46,7 @@ import {
   isImportedPlannerEventHidden,
   isComplianceVorStartingInIsoWeek,
   isReturnInspectionScheduledForIsoWeek,
-  isVorPeriodStartingInIsoWeek,
+  plannerStartingVorPeriodsForIsoWeek,
   reconcileImportedPlannerEvents,
   normalizeRegistration,
   orderPlannerRegistrations,
@@ -55,7 +55,6 @@ import {
   resolveVehicleRegistration,
   summarizeInspectionRequirements,
   vehicleStatus,
-  vorHistoryPeriodsForIsoWeek,
   weeksInIsoYear,
 } from "./hgvPlanner";
 import styles from "./page.module.css";
@@ -971,15 +970,18 @@ function PlannerTable({
                 {planner.visibleRegistrations.map((registration) => {
                   const events = planner.eventsByCell.get(`${week}|${registration}`) || [];
                   const statusRecord = statusByRegistration.get(registration);
-                  const vorPeriods = vorHistoryPeriodsForIsoWeek(
-                    statusRecord?.vehicle,
-                    planner.year,
-                    week
-                  );
-                  const startingVorPeriods = vorPeriods.filter((period) =>
-                    isVorPeriodStartingInIsoWeek(period, planner.year, week)
-                  );
                   const operatingStatus = hgvComplianceStatusForIsoWeek(
+                    statusRecord?.vehicle,
+                    statusRecord?.currentStatus,
+                    planner.year,
+                    week,
+                    planner.year < CURRENT_YEAR,
+                    statusRecord?.inspectionCompletionDates || []
+                  );
+                  // Keep the audit record on the vehicle, but do not render its
+                  // VOR marker when completion evidence proves the automatic
+                  // transition never became effective for this planner week.
+                  const startingVorPeriods = plannerStartingVorPeriodsForIsoWeek(
                     statusRecord?.vehicle,
                     statusRecord?.currentStatus,
                     planner.year,

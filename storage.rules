@@ -230,6 +230,15 @@ service firebase.storage {
         && isSafeMimeType('image/.*');
     }
 
+    /* Shared technical-library documents used by the employee mobile app. */
+    match /insurance/{allPaths=**} {
+      allow read: if hasUserAccess();
+    }
+
+    match /{folder}/{allPaths=**} {
+      allow read: if hasUserAccess() && folder == "spec sheets";
+    }
+
     match /booking_pdfs/{allPaths=**} {
       allow read: if hasUserAccess();
       allow write: if hasUserAccess()

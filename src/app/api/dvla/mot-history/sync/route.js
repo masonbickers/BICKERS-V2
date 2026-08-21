@@ -1,12 +1,17 @@
 import axios from "axios";
-import { requireAdminFromRequest } from "@/app/api/admin/_lib";
 import {
   adminCommitDocumentPatches,
   adminListDocuments,
   adminPatchDocument,
+  adminReadDocument,
   adminReadDocumentWithMetadata,
 } from "@/app/api/_firebaseAdminRest";
-import { filterDocsForAdminCompany } from "@/app/api/admin/_lib";
+import {
+  canAccessCompany,
+  filterDocsForAdminCompany,
+  requireActiveUserFromRequest,
+  requireAdminFromRequest,
+} from "@/app/api/admin/_lib";
 import {
   buildMotConfirmationFields,
   isDvsaCronAuthorized,
@@ -27,6 +32,9 @@ const MOT_HISTORY_API_KEY = process.env.DVSA_MOT_HISTORY_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
 const DVSA_TIMEOUT_MS = 12_000;
 const DVSA_MAX_ATTEMPTS = 3;
+const DVSA_SYNC_CONCURRENCY = 5;
+
+export const maxDuration = 300;
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
@@ -365,10 +373,27 @@ async function reconcileMotVehicleUpdate(vehicle, patch) {
   }
 }
 
-async function runMotHistorySync(userData = null) {
-  const documents = await adminListDocuments("vehicles");
-  const scopedDocuments = userData ? filterDocsForAdminCompany(documents, userData) : documents;
-  const vehicles = scopedDocuments.map((vehicleDoc) => ({ id: vehicleDoc.id, ...(vehicleDoc.data || {}) }));
+async function runMotHistorySync(userData = null, vehicleId = "") {
+  const targetVehicleId = String(vehicleId || "").trim();
+  let vehicles;
+  if (targetVehicleId) {
+    const vehicle = await adminReadDocument("vehicles", targetVehicleId);
+    if (!vehicle) {
+      const error = new Error("Vehicle not found.");
+      error.status = 404;
+      throw error;
+    }
+    if (userData && !canAccessCompany(userData, vehicle.companyId)) {
+      const error = new Error("Vehicle access denied.");
+      error.status = 403;
+      throw error;
+    }
+    vehicles = [{ id: targetVehicleId, ...vehicle }];
+  } else {
+    const documents = await adminListDocuments("vehicles");
+    const scopedDocuments = userData ? filterDocsForAdminCompany(documents, userData) : documents;
+    vehicles = scopedDocuments.map((vehicleDoc) => ({ id: vehicleDoc.id, ...(vehicleDoc.data || {}) }));
+  }
   return runMotSyncBatch({
     vehicles,
     getAccessToken,
@@ -377,14 +402,18 @@ async function runMotHistorySync(userData = null) {
     fetchHistory: fetchMotHistory,
     buildPatch: buildVehiclePatch,
     updateVehicle: reconcileMotVehicleUpdate,
+    maxConcurrency: targetVehicleId ? 1 : DVSA_SYNC_CONCURRENCY,
   });
 }
 
-const recordAdminSyncMetadata = async (results, source, error = "") => {
+const recordAdminSyncMetadata = async (results, source, fetchedBy = "", error = "") => {
   const successful = !error && Number(results.failed || 0) === 0;
+  const fetchedAt = results.finishedAt || nowISO();
   await adminPatchDocument("settings", "motHistorySync", {
+    lastAllFetchedAt: fetchedAt,
+    lastAllFetchedBy: fetchedBy || (source === "cron" ? "Scheduled sync" : ""),
     lastAllFetchStartedAt: results.startedAt || nowISO(),
-    lastAllFetchFinishedAt: results.finishedAt || nowISO(),
+    lastAllFetchFinishedAt: fetchedAt,
     lastAllFetchDurationMs: Number(results.durationMs || 0),
     lastAllFetchSource: source,
     lastAllFetchChecked: Number(results.checked || 0),
@@ -396,7 +425,7 @@ const recordAdminSyncMetadata = async (results, source, error = "") => {
     lastAllFetchUpdatedVehicles: (results.updatedVehicles || []).slice(0, 50),
     lastAllFetchError: error,
     lastAllFetchStatus: successful ? "success" : error ? "failed" : "partial_failure",
-    ...(successful ? { lastSuccessfulSyncAt: results.finishedAt || nowISO() } : {}),
+    ...(successful ? { lastSuccessfulSyncAt: fetchedAt } : {}),
   });
 };
 
@@ -417,7 +446,12 @@ export async function GET(request) {
   } catch (err) {
     console.error("Weekly MOT History sync failed:", err.response?.status, err.message);
     const finishedAt = nowISO();
-    await recordAdminSyncMetadata({ startedAt: requestStartedAt, finishedAt, failed: 1, failures: [{ message: err.message }] }, "cron", err.message).catch((metadataError) => {
+    await recordAdminSyncMetadata(
+      { startedAt: requestStartedAt, finishedAt, failed: 1, failures: [{ message: err.message }] },
+      "cron",
+      "Scheduled sync",
+      err.message
+    ).catch((metadataError) => {
       console.error("Could not record failed MOT cron metadata:", metadataError);
     });
     return Response.json(
@@ -431,14 +465,31 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const access = await requireAdminFromRequest(request);
+  const body = await request.json().catch(() => ({}));
+  const vehicleId = String(body?.vehicleId || "").trim();
+  const access = vehicleId
+    ? await requireActiveUserFromRequest(request)
+    : await requireAdminFromRequest(request);
   if (access.error) return access.error;
 
   try {
-    const results = await runMotHistorySync(access.userData);
-    await recordAdminSyncMetadata(results, "manual");
+    const results = await runMotHistorySync(access.userData, vehicleId);
+    if (!vehicleId) {
+      await recordAdminSyncMetadata(
+        results,
+        "manual",
+        access.verifiedUser.email || access.verifiedUser.uid
+      );
+    }
+    const syncedVehicle = vehicleId
+      ? await adminReadDocument("vehicles", vehicleId)
+      : null;
+    const changedFields = vehicleId
+      ? results.updatedVehicles.find((entry) => entry.vehicleId === vehicleId)?.changedFields || []
+      : [];
     return Response.json({
       ...results,
+      ...(vehicleId ? { vehicle: syncedVehicle, changedFields } : {}),
       triggeredBy: access.verifiedUser.email || access.verifiedUser.uid,
     }, { status: results.failed ? 207 : 200 });
   } catch (err) {

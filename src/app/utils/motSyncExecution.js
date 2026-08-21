@@ -66,6 +66,7 @@ export const runMotSyncBatch = async ({
   fetchHistory,
   buildPatch,
   updateVehicle,
+  maxConcurrency = 1,
   now = () => Date.now(),
 }) => {
   const startedAtMs = now();
@@ -83,6 +84,7 @@ export const runMotSyncBatch = async ({
     durationMs: 0,
   };
 
+  const syncableVehicles = [];
   for (const vehicle of vehicles) {
     const vrm = registrationFor(vehicle);
     if (!shouldSync(vehicle)) {
@@ -90,24 +92,58 @@ export const runMotSyncBatch = async ({
       continue;
     }
     results.checked += 1;
-    try {
-      const history = await fetchHistory(vrm, token);
-      const patch = buildPatch(vehicle, history);
-      if (!Object.keys(patch).length) {
-        results.unchanged += 1;
-        continue;
+    syncableVehicles.push({ vehicle, vrm });
+  }
+
+  const outcomes = new Array(syncableVehicles.length);
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < syncableVehicles.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const { vehicle, vrm } = syncableVehicles[index];
+
+      try {
+        const history = await fetchHistory(vrm, token);
+        const patch = buildPatch(vehicle, history);
+        if (!Object.keys(patch).length) {
+          outcomes[index] = { status: "unchanged" };
+          continue;
+        }
+        await updateVehicle(vehicle, patch);
+        outcomes[index] = {
+          status: "updated",
+          updatedVehicle: { vehicleId: vehicle.id, vrm, changedFields: Object.keys(patch) },
+        };
+      } catch (error) {
+        outcomes[index] = {
+          status: "failed",
+          failure: {
+            vehicleId: vehicle.id,
+            vrm,
+            status: error?.response?.status || null,
+            message: error?.response?.data?.message || error?.message || "Unknown DVSA failure",
+          },
+        };
       }
-      await updateVehicle(vehicle, patch);
+    }
+  };
+
+  const concurrency = Math.max(1, Math.min(
+    Number.isFinite(Number(maxConcurrency)) ? Math.floor(Number(maxConcurrency)) : 1,
+    syncableVehicles.length || 1
+  ));
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  for (const outcome of outcomes) {
+    if (outcome?.status === "updated") {
       results.updated += 1;
-      results.updatedVehicles.push({ vehicleId: vehicle.id, vrm, changedFields: Object.keys(patch) });
-    } catch (error) {
+      results.updatedVehicles.push(outcome.updatedVehicle);
+    } else if (outcome?.status === "unchanged") {
+      results.unchanged += 1;
+    } else if (outcome?.status === "failed") {
       results.failed += 1;
-      results.failures.push({
-        vehicleId: vehicle.id,
-        vrm,
-        status: error?.response?.status || null,
-        message: error?.response?.data?.message || error?.message || "Unknown DVSA failure",
-      });
+      results.failures.push(outcome.failure);
     }
   }
   const finishedAtMs = now();

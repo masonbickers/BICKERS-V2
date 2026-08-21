@@ -63,3 +63,26 @@ export function restoreProtectedVehicleFields(current = {}, baseline = {}) {
   }
   return restored;
 }
+
+export function mergeServerManagedVehicleFields(
+  current = {},
+  baseline = {},
+  serverVehicle = {},
+  changedFields = []
+) {
+  const patch = {};
+  for (const field of new Set(Array.isArray(changedFields) ? changedFields : [])) {
+    if (
+      typeof field === "string" &&
+      field !== "id" &&
+      Object.prototype.hasOwnProperty.call(serverVehicle || {}, field)
+    ) {
+      patch[field] = serverVehicle[field];
+    }
+  }
+  return {
+    current: { ...(current || {}), ...patch },
+    baseline: { ...(baseline || {}), ...patch },
+    patch,
+  };
+}

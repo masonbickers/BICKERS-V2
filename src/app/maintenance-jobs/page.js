@@ -69,11 +69,11 @@ import {
   EmptyState,
   FormField,
   Input,
-  MetricCard,
   Modal,
   Select,
   Textarea,
 } from "@/app/components/ui";
+import { getServiceRecordPresentation } from "@/app/utils/servicePresentation";
 import {
   OperationsHeaderActions,
   OperationsPage,
@@ -301,6 +301,8 @@ export default function MaintenanceJobsPage() {
   const [saving, setSaving] = useState(false);
   const [savingJobId, setSavingJobId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [attentionFilter, setAttentionFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("urgency");
   const [search, setSearch] = useState("");
   const [createError, setCreateError] = useState("");
   const [createMessage, setCreateMessage] = useState("");
@@ -508,11 +510,26 @@ export default function MaintenanceJobsPage() {
 
   const visibleJobs = useMemo(() => {
     const q = String(search || "").trim().toLowerCase();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isFinished = (stage) => ["completed", "ready_to_invoice", "closed"].includes(stage);
+    const dueTime = (job) => getTimeValue(job.dueDate);
+    const isOverdue = (job, stage) => {
+      const due = dueTime(job);
+      return Boolean(due && due < today.getTime() && !isFinished(stage));
+    };
+    const isUnscheduled = (job, stage) => !isFinished(stage) && !firstText(job.plannedDate, job.bookedDate, job.appointmentDateISO);
+    const priorityWeight = (job) => ({ critical: 0, high: 1, normal: 2, low: 3 }[String(job.priority || "normal").toLowerCase()] ?? 2);
+
     return allJobs.filter((j) => {
       const stage = normalizeWorkflowStageCompat(j.status);
       if (statusFilter === "active" && stage !== "booked" && stage !== "in_progress") return false;
       if (statusFilter === "commercial" && stage !== "completed" && stage !== "ready_to_invoice") return false;
       if (!["all", "active", "commercial"].includes(statusFilter) && stage !== statusFilter) return false;
+      if (attentionFilter === "overdue" && !isOverdue(j, stage)) return false;
+      if (attentionFilter === "unscheduled" && !isUnscheduled(j, stage)) return false;
+      if (attentionFilter === "high" && !["high", "critical"].includes(String(j.priority || "").toLowerCase())) return false;
+      if (attentionFilter === "unlinked" && firstText(j.assetLabel, j.assetId)) return false;
       if (!q) return true;
       const blob = [
         j.title,
@@ -532,8 +549,26 @@ export default function MaintenanceJobsPage() {
         .join(" ")
         .toLowerCase();
       return blob.includes(q);
+    }).sort((a, b) => {
+      if (sortOrder === "updated") return getTimeValue(b.updatedAt || b.updatedAtServer) - getTimeValue(a.updatedAt || a.updatedAtServer);
+      if (sortOrder === "due") return (dueTime(a) || Number.MAX_SAFE_INTEGER) - (dueTime(b) || Number.MAX_SAFE_INTEGER);
+
+      const aStage = normalizeWorkflowStageCompat(a.status);
+      const bStage = normalizeWorkflowStageCompat(b.status);
+      const urgency = (job, stage) => [
+        isOverdue(job, stage) ? 0 : 1,
+        isUnscheduled(job, stage) ? 0 : 1,
+        priorityWeight(job),
+        dueTime(job) || Number.MAX_SAFE_INTEGER,
+      ];
+      const aUrgency = urgency(a, aStage);
+      const bUrgency = urgency(b, bStage);
+      for (let index = 0; index < aUrgency.length; index += 1) {
+        if (aUrgency[index] !== bUrgency[index]) return aUrgency[index] - bUrgency[index];
+      }
+      return String(a.title || "").localeCompare(String(b.title || ""));
     });
-  }, [allJobs, search, statusFilter]);
+  }, [allJobs, attentionFilter, search, sortOrder, statusFilter]);
 
   useEffect(() => {
     const jobId = String(searchParams.get("jobId") || "").trim();
@@ -581,6 +616,21 @@ export default function MaintenanceJobsPage() {
     return counts;
   }, [allJobs]);
 
+  const attentionStats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return allJobs.reduce((counts, job) => {
+      const stage = normalizeWorkflowStageCompat(job.status);
+      const finished = ["completed", "ready_to_invoice", "closed"].includes(stage);
+      const due = getTimeValue(job.dueDate);
+      if (due && due < today.getTime() && !finished) counts.overdue += 1;
+      if (!finished && !firstText(job.plannedDate, job.bookedDate, job.appointmentDateISO)) counts.unscheduled += 1;
+      if (["high", "critical"].includes(String(job.priority || "").toLowerCase())) counts.high += 1;
+      if (!firstText(job.assetLabel, job.assetId)) counts.unlinked += 1;
+      return counts;
+    }, { overdue: 0, unscheduled: 0, high: 0, unlinked: 0 });
+  }, [allJobs]);
+
   const activity = useMemo(() => {
     const vehicleById = new Map(vehicles.map((v) => [String(v.id), v]));
     const serviceRecordIds = new Set(serviceRecords.map((record) => String(record.id)));
@@ -597,19 +647,20 @@ export default function MaintenanceJobsPage() {
       ...serviceRecords.map((record) => {
         const type = classifyServiceRecord(record);
         const vehicleName = record.vehicleName || labelForVehicle(record.vehicleId);
+        const presentation = getServiceRecordPresentation(record);
         return {
           activityId: `serviceRecords:${record.id}`,
           sourceCollection: "serviceRecords",
           sourceId: record.id,
           type,
-          title: type === "repair" ? record.repairSummary || record.workSummary || "General repair" : record.serviceType || "Service record",
+          title: type === "repair" ? record.repairSummary || record.workSummary || "General repair" : presentation.title,
           summary: toActivitySummary(record.workSummary, record.repairSummary, record.repairReason, record.partsUsed, record.extraNotes),
           vehicleId: record.vehicleId || null,
           vehicleName,
           registration: record.registration || registrationForVehicle(record.vehicleId),
-          person: record.signedBy || record.completedBy || "",
+          person: presentation.provider,
           status: type === "repair" ? "completed" : "logged",
-          activityDate: record.completedAt || record.updatedAt || record.createdAt || record.serviceDateOnly || record.serviceDate || record.completedDate,
+          activityDate: presentation.dateValue,
         };
       }),
       ...defectReports.map((record) => ({
@@ -1003,12 +1054,28 @@ export default function MaintenanceJobsPage() {
           }
         />
 
-        <div className={layoutStyles.metrics} aria-label="Job status summary">
-          <MetricCard label="All jobs" value={jobStats.total} hint="Entire job register" icon={<ClipboardList size={19} />} tone="info" onClick={() => setStatusFilter("all")} />
-          <MetricCard label="Planned" value={jobStats.planned} hint="Needs booking detail" icon={<CalendarCheck2 size={19} />} tone="info" onClick={() => setStatusFilter("planned")} />
-          <MetricCard label="Active" value={jobStats.active} hint="Booked or in progress" icon={<PlayCircle size={19} />} tone="warning" onClick={() => setStatusFilter("active")} />
-          <MetricCard label="Commercial" value={jobStats.commercial} hint="Complete or invoice-ready" icon={<FileCheck2 size={19} />} tone="success" onClick={() => setStatusFilter("commercial")} />
-          <MetricCard label="Closed" value={jobStats.closed} hint="Finished workflow" icon={<CheckCircle2 size={19} />} onClick={() => setStatusFilter("closed")} />
+        <div className={layoutStyles.statusTabs} aria-label="Filter by job stage">
+          {[
+            ["all", "All jobs", jobStats.total, ClipboardList],
+            ["planned", "Planned", jobStats.planned, CalendarCheck2],
+            ["active", "Active", jobStats.active, PlayCircle],
+            ["commercial", "Commercial", jobStats.commercial, FileCheck2],
+            ["closed", "Closed", jobStats.closed, CheckCircle2],
+          ].map(([value, label, count, Icon]) => (
+            <button
+              key={value}
+              type="button"
+              className={`${layoutStyles.statusTab} ${statusFilter === value ? layoutStyles.statusTabActive : ""}`}
+              aria-pressed={statusFilter === value}
+              onClick={() => setStatusFilter(value)}
+            >
+              <span className={layoutStyles.statusTabIcon}><Icon size={18} aria-hidden="true" /></span>
+              <span className={layoutStyles.statusTabCopy}>
+                <span>{label}</span>
+                <strong>{count}</strong>
+              </span>
+            </button>
+          ))}
         </div>
 
         {createMessage ? <Alert variant="success" className={layoutStyles.pageAlert}>{createMessage}</Alert> : null}
@@ -1022,7 +1089,7 @@ export default function MaintenanceJobsPage() {
               <h2 id="job-queue-heading">Job queue</h2>
               <p>Find a job, change its stage, or open it to update workshop and commercial details.</p>
             </div>
-            <Badge variant="info">{visibleJobs.length} of {allJobs.length}</Badge>
+            <Badge variant="info">{visibleJobs.length === allJobs.length ? `${allJobs.length} jobs` : `Showing ${visibleJobs.length} of ${allJobs.length}`}</Badge>
           </div>
 
           <div className={layoutStyles.toolbar}>
@@ -1044,21 +1111,59 @@ export default function MaintenanceJobsPage() {
                 <option key={stage} value={stage}>{MAINTENANCE_STAGE_LABELS[stage] || stage}</option>
               ))}
             </Select>
-            {(search || statusFilter !== "all") ? (
-              <Button variant="ghost" onClick={() => { setSearch(""); setStatusFilter("all"); }}>
+            <Select aria-label="Sort jobs" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+              <option value="urgency">Sort: attention first</option>
+              <option value="due">Sort: due date</option>
+              <option value="updated">Sort: recently updated</option>
+            </Select>
+            {(search || statusFilter !== "all" || attentionFilter !== "all" || sortOrder !== "urgency") ? (
+              <Button variant="ghost" onClick={() => { setSearch(""); setStatusFilter("all"); setAttentionFilter("all"); setSortOrder("urgency"); }}>
                 <RotateCcw size={15} />
                 Reset
               </Button>
             ) : null}
           </div>
 
+          <div className={layoutStyles.quickFilters} aria-label="Filter jobs requiring attention">
+            <span className={layoutStyles.quickFilterLabel}>Needs attention</span>
+            {[
+              ["overdue", "Overdue", attentionStats.overdue, "danger"],
+              ["unscheduled", "Unscheduled", attentionStats.unscheduled, "warning"],
+              ["high", "High priority", attentionStats.high, "warning"],
+              ["unlinked", "No vehicle", attentionStats.unlinked, "neutral"],
+            ].map(([value, label, count, tone]) => (
+              <button
+                key={value}
+                type="button"
+                className={`${layoutStyles.filterChip} ${attentionFilter === value ? layoutStyles.filterChipActive : ""}`}
+                data-tone={tone}
+                aria-pressed={attentionFilter === value}
+                onClick={() => setAttentionFilter(attentionFilter === value ? "all" : value)}
+              >
+                {label}<span>{count}</span>
+              </button>
+            ))}
+          </div>
+
           <div className={layoutStyles.jobList}>
+            {visibleJobs.length ? (
+              <div className={layoutStyles.queueHeader} aria-hidden="true">
+                <span>Job / vehicle</span>
+                <span>Type</span>
+                <span>Priority</span>
+                <span>Due</span>
+                <span>Planned</span>
+                <span>Owner</span>
+                <span>Status</span>
+                <span />
+              </div>
+            ) : null}
             {visibleJobs.length === 0 ? (
               <EmptyState
                 icon={<ClipboardList size={28} />}
                 title={allJobs.length ? "No jobs match these filters" : "No maintenance jobs yet"}
                 description={allJobs.length ? "Try another status or clear the search." : "Create the first job card to start the workshop workflow."}
-                action={allJobs.length ? <Button variant="secondary" onClick={() => { setSearch(""); setStatusFilter("all"); }}>Clear filters</Button> : <Button onClick={() => setCreateOpen(true)}>Create job</Button>}
+                action={allJobs.length ? <Button variant="secondary" onClick={() => { setSearch(""); setStatusFilter("all"); setAttentionFilter("all"); }}>Clear filters</Button> : <Button onClick={() => setCreateOpen(true)}>Create job</Button>}
               />
             ) : visibleJobs.map((job) => {
               const stage = normalizeWorkflowStageCompat(job.status);
@@ -1068,6 +1173,13 @@ export default function MaintenanceJobsPage() {
               const isExpanded = expandedJobId === job.id;
               const isLegacy = job.__collection === "maintenanceJobs";
               const semanticStatus = getSemanticStatusStyle(MAINTENANCE_STAGE_LABELS[stage] || stage);
+              const dueTime = getTimeValue(job.dueDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const isFinished = ["completed", "ready_to_invoice", "closed"].includes(stage);
+              const isOverdue = Boolean(dueTime && dueTime < today.getTime() && !isFinished);
+              const isUnscheduled = !isFinished && !firstText(job.plannedDate, job.bookedDate, job.appointmentDateISO);
+              const owner = firstText(job.assignedToName, job.provider);
               return (
                 /* style-audit-allow runtime semantic status colours */
                 <article
@@ -1076,7 +1188,7 @@ export default function MaintenanceJobsPage() {
                     if (node) rowRefs.current[job.id] = node;
                     else delete rowRefs.current[job.id];
                   }}
-                  className={`${layoutStyles.jobCard} ${isFocused ? layoutStyles.focusedJob : ""}`}
+                  className={`${layoutStyles.jobCard} ${isFocused ? layoutStyles.focusedJob : ""} ${isOverdue ? layoutStyles.jobCardOverdue : ""} ${["high", "critical"].includes(String(job.priority || "").toLowerCase()) ? layoutStyles.jobCardPriority : ""}`}
                   style={{ "--job-status-bg": semanticStatus.bg, "--job-status-fg": semanticStatus.text }}
                 >
                   <div className={layoutStyles.jobSummary}>
@@ -1090,27 +1202,16 @@ export default function MaintenanceJobsPage() {
                         <span className={layoutStyles.jobTitle}>{job.title || "Untitled maintenance job"}</span>
                         <span className={layoutStyles.jobAsset}>{job.assetLabel || job.assetId || "No vehicle linked"}</span>
                       </span>
-                      <span className={layoutStyles.jobMeta}>
-                        <Badge>{prettyStatus(job.type || "Work")}</Badge>
-                        <Badge variant={priorityVariant(job.priority)}>{prettyStatus(job.priority || "Normal")}</Badge>
-                        <span><strong>Due</strong> {fmtDate(job.dueDate)}</span>
-                        <span><strong>Planned</strong> {fmtDate(job.plannedDate)}</span>
+                      <span className={`${layoutStyles.metaCell} ${layoutStyles.typeCell}`}><strong>Type</strong>{prettyStatus(job.type || "Work")}</span>
+                      <span className={`${layoutStyles.metaCell} ${layoutStyles.priorityCell}`}><strong>Priority</strong><Badge variant={priorityVariant(job.priority)}>{prettyStatus(job.priority || "Normal")}</Badge></span>
+                      <span className={`${layoutStyles.metaCell} ${isOverdue ? layoutStyles.overdueValue : ""}`}><strong>Due</strong><span>{fmtDate(job.dueDate)}</span>{isOverdue ? <em>Overdue</em> : null}</span>
+                      <span className={`${layoutStyles.metaCell} ${isUnscheduled ? layoutStyles.missingValue : ""}`}><strong>Planned</strong><span>{fmtDate(job.plannedDate)}</span>{isUnscheduled ? <em>Schedule missing</em> : null}</span>
+                      <span className={layoutStyles.metaCell}><strong>Owner</strong><span>{owner || "Unassigned"}</span></span>
+                      <span className={layoutStyles.stageControl} data-stage={stage}>
+                        <span className={layoutStyles.statusPill}>{MAINTENANCE_STAGE_LABELS[stage] || prettyStatus(stage)}</span>
                       </span>
                       <ChevronDown className={`${layoutStyles.chevron} ${isExpanded ? layoutStyles.chevronOpen : ""}`} size={18} aria-hidden="true" />
                     </button>
-                    <div className={layoutStyles.stageControl}>
-                      <span className={layoutStyles.statusPill}>{MAINTENANCE_STAGE_LABELS[stage] || prettyStatus(stage)}</span>
-                      <Select
-                        aria-label={`Change status for ${job.title || "maintenance job"}`}
-                        value={stage}
-                        onChange={(event) => setJobStatus(job, event.target.value)}
-                        disabled={isSavingRow || isLegacy}
-                      >
-                        {MAINTENANCE_JOB_WORKFLOW_STAGES.map((nextStage) => (
-                          <option key={nextStage} value={nextStage}>{MAINTENANCE_STAGE_LABELS[nextStage] || nextStage}</option>
-                        ))}
-                      </Select>
-                    </div>
                   </div>
 
                   {isExpanded ? (
@@ -1128,6 +1229,18 @@ export default function MaintenanceJobsPage() {
                       ) : (
                         <>
                           <div className={layoutStyles.detailsGrid}>
+                            <FormField label="Workflow stage">
+                              <Select
+                                aria-label={`Change status for ${job.title || "maintenance job"}`}
+                                value={stage}
+                                onChange={(event) => setJobStatus(job, event.target.value)}
+                                disabled={isSavingRow || isLegacy}
+                              >
+                                {MAINTENANCE_JOB_WORKFLOW_STAGES.map((nextStage) => (
+                                  <option key={nextStage} value={nextStage}>{MAINTENANCE_STAGE_LABELS[nextStage] || nextStage}</option>
+                                ))}
+                              </Select>
+                            </FormField>
                             <FormField label="Provider">
                               <Input value={draft.provider} onChange={(event) => updateJobDraft(job.id, "provider", event.target.value)} placeholder="Garage or supplier" />
                             </FormField>

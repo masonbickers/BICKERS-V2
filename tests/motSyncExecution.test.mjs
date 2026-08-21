@@ -112,3 +112,43 @@ test("cron reports partial upstream failure while updating healthy vehicles", as
   assert.equal(results.durationMs, 125);
   assert.equal(updated.length, 1);
 });
+
+test("fleet MOT sync uses bounded concurrency and preserves result order", async () => {
+  let active = 0;
+  let peakActive = 0;
+  const release = [];
+  const vehicles = Array.from({ length: 6 }, (_, index) => ({
+    id: `vehicle-${index}`,
+    registration: `REG${index}`,
+  }));
+
+  const run = runMotSyncBatch({
+    vehicles,
+    getAccessToken: async () => "token",
+    shouldSync: () => true,
+    registrationFor: (vehicle) => vehicle.registration,
+    fetchHistory: async (vrm) => {
+      active += 1;
+      peakActive = Math.max(peakActive, active);
+      await new Promise((resolve) => release.push(resolve));
+      active -= 1;
+      return { nextMOT: `2027-08-${vrm.slice(3).padStart(2, "0")}` };
+    },
+    buildPatch: (_vehicle, history) => ({ nextMOT: history.nextMOT }),
+    updateVehicle: async () => {},
+    maxConcurrency: 3,
+  });
+
+  while (release.length < 3) await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(active, 3);
+  release.splice(0).forEach((resolve) => resolve());
+  while (release.length < 3) await new Promise((resolve) => setImmediate(resolve));
+  release.splice(0).forEach((resolve) => resolve());
+
+  const results = await run;
+  assert.equal(peakActive, 3);
+  assert.deepEqual(
+    results.updatedVehicles.map((entry) => entry.vehicleId),
+    vehicles.map((vehicle) => vehicle.id)
+  );
+});

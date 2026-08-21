@@ -6,6 +6,7 @@ import "./dashboard.calendar.css";
 import layoutStyles from "./DashboardPageImpl.styles.module.css";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { auth, db } from "@/app/utils/firebaseClient";
 import { useRouter } from "next/navigation";
 import { Calendar as BigCalendar } from "react-big-calendar";
@@ -64,6 +65,7 @@ import {
   CalendarDays,
   BedDouble,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -76,7 +78,6 @@ import {
   Search,
   ShieldCheck,
   StickyNote,
-  Wrench,
   X,
 } from "lucide-react";
 import EditHolidayForm from "../components/EditHolidayForm";
@@ -115,6 +116,10 @@ import {
   isInactiveBookingStatus,
 } from "@/app/utils/bookingLifecycle";
 import { buildBookingVehicleWarnings } from "@/app/utils/bookingVehicleWarnings";
+import {
+  isUCraneBooking,
+  isUCraneVehicle,
+} from "@/app/utils/uCraneBookingConfiguration";
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -186,40 +191,6 @@ const normalizeUCraneText = (value) => String(value || "").trim().toLowerCase();
 const containsUCrane = (value) => {
   const text = normalizeUCraneText(value);
   return text.includes("u-crane") || text.includes("u crane") || text.includes("ucrane");
-};
-
-const isUCraneVehicle = (vehicle) =>
-  !!vehicle && [
-    vehicle.name,
-    vehicle.label,
-    vehicle.category,
-    vehicle.group,
-    vehicle.type,
-    vehicle.department,
-  ].some(containsUCrane);
-
-const bookingIsUCrane = (booking, vehicles = []) => {
-  if (!booking) return false;
-  if (booking.uCrane === true || booking.isUCrane === true) return true;
-  if ([booking.bookingType, booking.type, booking.category, booking.department, booking.division].some(containsUCrane)) {
-    return true;
-  }
-
-  const vehicleList = Array.isArray(booking.vehicles) ? booking.vehicles : [];
-  return vehicleList.some((entry) => {
-    if (entry && typeof entry === "object" && isUCraneVehicle(entry)) return true;
-    const key = typeof entry === "object"
-      ? entry.id || entry.vehicleId || entry.value || entry.name || entry.registration
-      : entry;
-    if (containsUCrane(key)) return true;
-    const normalizedKey = normalizeUCraneText(key);
-    const resolved = vehicles.find((vehicle) =>
-      [vehicle.id, vehicle.name, vehicle.registration].some(
-        (candidate) => normalizeUCraneText(candidate) === normalizedKey
-      )
-    );
-    return isUCraneVehicle(resolved);
-  });
 };
 
 const maintenanceIsUCrane = (item, vehicleKeys) => {
@@ -1674,7 +1645,7 @@ function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
 export default function DashboardPage({ bookingSaved, initialDate = "", initialView = "week", mode = "dashboard" }) {
   const router = useRouter();
   const isUCraneMode = mode === "u-crane";
-  const workDiarySectionRef = useRef(null);
+  const workDiaryCalendarRef = useRef(null);
   const authAccess = useAuth() || {};
   const authEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase();
   const canUseAdminDashboardFallback = !!authAccess.isAdmin || isAdminEmail(authEmail);
@@ -1734,6 +1705,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
   const [quoteViewer, setQuoteViewer] = useState(null);
   const [quotePdfViewer, setQuotePdfViewer] = useState(null);
+  const [showMoreBookingsBelow, setShowMoreBookingsBelow] = useState(false);
 
   const [allMaintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
@@ -1764,13 +1736,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   );
   const bookings = useMemo(
     () => isUCraneMode
-      ? allBookings.filter((booking) => bookingIsUCrane(booking, allVehiclesData))
+      ? allBookings.filter((booking) => isUCraneBooking(booking, allVehiclesData))
       : allBookings,
     [allBookings, allVehiclesData, isUCraneMode]
   );
   const deletedBookings = useMemo(
     () => isUCraneMode
-      ? allDeletedBookings.filter((booking) => bookingIsUCrane(booking, allVehiclesData))
+      ? allDeletedBookings.filter((booking) => isUCraneBooking(booking, allVehiclesData))
       : allDeletedBookings,
     [allDeletedBookings, allVehiclesData, isUCraneMode]
   );
@@ -1780,11 +1752,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       : allMaintenanceBookings,
     [allMaintenanceBookings, isUCraneMode, uCraneVehicleKeys]
   );
-  const enquiryCount = useMemo(
-    () => bookings.filter((booking) => String(booking.status || "").trim().toLowerCase() === "enquiry").length,
-    [bookings]
-  );
-
   //  Holiday modal
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
 
@@ -2910,6 +2877,81 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     [bankHolidays, workDiaryEvents]
   );
 
+  useEffect(() => {
+    const calendarFrame = workDiaryCalendarRef.current;
+    const scrollContainer = calendarFrame?.closest?.(".app-shell-content");
+    const shellRoot = calendarFrame?.closest?.(".app-shell-root");
+    const shellFooter = shellRoot?.querySelector?.("footer");
+    const footerLabel = shellFooter?.querySelector?.(":scope > span:first-child");
+
+    if (!calendarFrame || !scrollContainer) {
+      setShowMoreBookingsBelow(false);
+      return undefined;
+    }
+
+    let animationFrame = 0;
+    const updateIndicator = () => {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = requestAnimationFrame(() => {
+        const scrollRect = scrollContainer.getBoundingClientRect();
+        const calendarRect = calendarFrame.getBoundingClientRect();
+        const visibleBottom = Math.min(scrollRect.bottom, window.innerHeight);
+        const visibleTop = Math.max(scrollRect.top, 0);
+        const bookingCards = calendarFrame.querySelectorAll(".rbc-event.work-diary-job-card");
+        const diaryIsVisible = calendarRect.top < visibleBottom && calendarRect.bottom > visibleTop;
+        const hasBookingBelow = Array.from(bookingCards).some(
+          (card) => card.getBoundingClientRect().bottom > visibleBottom + 12
+        );
+
+        const footerLabelRect = footerLabel?.getBoundingClientRect?.();
+        const indicatorCenter = footerLabelRect?.width
+          ? footerLabelRect.left + (footerLabelRect.width / 2)
+          : window.innerWidth / 2;
+        document.documentElement.style.setProperty(
+          "--more-bookings-center-x",
+          `${Math.round(indicatorCenter)}px`
+        );
+        setShowMoreBookingsBelow(diaryIsVisible && hasBookingBelow);
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(updateIndicator);
+    resizeObserver.observe(calendarFrame);
+    resizeObserver.observe(scrollContainer);
+    if (shellFooter) resizeObserver.observe(shellFooter);
+
+    const mutationObserver = new MutationObserver(updateIndicator);
+    mutationObserver.observe(calendarFrame, { childList: true, subtree: true });
+    mutationObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-interface-scale"],
+    });
+
+    scrollContainer.addEventListener("scroll", updateIndicator, { passive: true });
+    window.addEventListener("resize", updateIndicator);
+    updateIndicator();
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      scrollContainer.removeEventListener("scroll", updateIndicator);
+      window.removeEventListener("resize", updateIndicator);
+      document.documentElement.style.removeProperty("--more-bookings-center-x");
+    };
+  }, [calendarView, currentDate, workCalendarEvents]);
+
+  const scrollToMoreBookings = useCallback(() => {
+    const calendarFrame = workDiaryCalendarRef.current;
+    const scrollContainer = calendarFrame?.closest?.(".app-shell-content");
+    if (!scrollContainer) return;
+
+    scrollContainer.scrollBy({
+      top: Math.max(320, Math.round(scrollContainer.clientHeight * 0.72)),
+      behavior: "smooth",
+    });
+  }, []);
+
   const uCraneUpcomingByStatus = useMemo(() => {
     const columns = { Confirmed: [], "First Pencil": [], "Second Pencil": [] };
     if (!isUCraneMode) return columns;
@@ -3261,6 +3303,42 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 </div>
               )}
             </div>
+            <Button
+              onClick={goToCreateBooking}
+              disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+              aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+              title={isRestricted ? "Your account is not allowed to create bookings" : ""}
+              type="button"
+            >
+              <Plus size={14} />
+              {createBookingOpening
+                ? `Opening ${createBookingProgress}%`
+                : isUCraneMode ? "Add U-Crane Booking" : "Add Booking"}
+            </Button>
+            {!isUCraneMode && (
+              <Button variant="secondary"
+                onClick={goToCreateEnquiry}
+                disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+                aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+                title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
+                type="button"
+              >
+                <Plus size={14} />
+                {createEnquiryOpening ? `Opening ${createEnquiryProgress}%` : "Add Enquiry"}
+              </Button>
+            )}
+            {!isUCraneMode && (
+              <Button variant="secondary"
+                onClick={goToCreateMaintenance}
+                disabled={isRestricted}
+                aria-disabled={isRestricted}
+                title={isRestricted ? "Your account is not allowed to create maintenance" : ""}
+                type="button"
+              >
+                <Plus size={14} />
+                Add Maintenance
+              </Button>
+            )}
             {isUCraneMode ? (
               <Button variant="secondary"
                 type="button"
@@ -3269,62 +3347,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 <ClipboardList size={14} />
                 U-Crane Crew
               </Button>
-            ) : (
-              <>
-                <Button variant="secondary"
-                  type="button"
-                  onClick={() => router.push("/booking-drafts")}
-                >
-                  <FileText size={14} />
-                  Drafts
-                </Button>
-                <Button variant="secondary"
-                  type="button"
-                  onClick={() => {
-                    if (isRestricted) return;
-                    router.push("/enquiry");
-                  }}
-                  disabled={isRestricted}
-                  title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
-                >
-                  <Plus size={14} />
-                  Enquiries
-                  <span className={layoutStyles.countBadge}>{enquiryCount}</span>
-                </Button>
-                <Button variant="secondary"
-                  type="button"
-                  onClick={() => router.push("/preplist-dashboard")}
-                >
-                  <ClipboardList size={14} />
-                  Prep Dashboard
-                </Button>
-                <Button variant="secondary"
-                  type="button"
-                  onClick={() => router.push("/stunt-prep")}
-                >
-                  <Wrench size={14} />
-                  Stunt Prep
-                </Button>
-              </>
-            )}
-            {canSeeDeletedOnCalendar && (
-              <Button variant="secondary"
-                className={!showDeletedInView ? layoutStyles.visibilityFilter : ""}
-                onClick={() => setShowDeletedInView((v) => !v)}
-                type="button"
-              >
-                {showDeletedInView ? <EyeOff size={14} /> : <Eye size={14} />}
-                {showDeletedInView ? "Hide Deleted" : "Show Deleted"}
-              </Button>
-            )}
-            <Button variant="secondary"
-              className={!showInactiveInView ? layoutStyles.visibilityFilter : ""}
-              onClick={() => setShowInactiveInView((v) => !v)}
-              type="button"
-            >
-              {showInactiveInView ? <EyeOff size={14} /> : <Eye size={14} />}
-              {showInactiveInView ? "Hide Inactive" : "Show Inactive"}
-            </Button>
+            ) : null}
             {bookingSaved && (
               <div className={layoutStyles.extracted70}>
                 <Check size={14} strokeWidth={3} />
@@ -3335,7 +3358,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         />
 
         {/* Work Diary */}
-        <section ref={workDiarySectionRef} className={layoutStyles.extracted71}>
+        <section className={layoutStyles.extracted71}>
           <div className={layoutStyles.extracted72}>
             <div className={layoutStyles.extracted73}>
               <div className={layoutStyles.iconBox}>
@@ -3384,44 +3407,35 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 <ChevronRight size={14} />
               </Button>
 
-              <Button
-                onClick={goToCreateBooking}
-                disabled={isRestricted || createBookingOpening || createEnquiryOpening}
-                aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
-                title={isRestricted ? "Your account is not allowed to create bookings" : ""}
-                type="button"
-              >
-                <Plus size={14} />
-                {createBookingOpening
-                  ? `Opening ${createBookingProgress}%`
-                  : isUCraneMode ? "Add U-Crane Booking" : "Add Booking"}
-              </Button>
-
-              {!isUCraneMode && (
-                <Button variant="secondary"
-                  onClick={goToCreateEnquiry}
-                  disabled={isRestricted || createBookingOpening || createEnquiryOpening}
-                  aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
-                  title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
-                  type="button"
-                >
-                  <Plus size={14} />
-                  {createEnquiryOpening ? `Opening ${createEnquiryProgress}%` : "Add Enquiry"}
-                </Button>
-              )}
-
-              {!isUCraneMode && (
-                <Button variant="secondary"
-                  onClick={goToCreateMaintenance}
-                  disabled={isRestricted}
-                  aria-disabled={isRestricted}
-                  title={isRestricted ? "Your account is not allowed to create maintenance" : ""}
-                  type="button"
-                >
-                  <Plus size={14} />
-                  Add Maintenance
-                </Button>
-              )}
+              <details className={layoutStyles.visibilityMenu}>
+                <summary className={layoutStyles.visibilityMenuSummary}>
+                  <Eye size={14} />
+                  Visibility
+                  <ChevronDown size={14} />
+                </summary>
+                <div className={layoutStyles.visibilityMenuPanel}>
+                  {canSeeDeletedOnCalendar && (
+                    <Button bare
+                      className={layoutStyles.visibilityMenuItem}
+                      onClick={() => setShowDeletedInView((v) => !v)}
+                      type="button"
+                      aria-pressed={showDeletedInView}
+                    >
+                      {showDeletedInView ? <EyeOff size={15} /> : <Eye size={15} />}
+                      <span>{showDeletedInView ? "Hide deleted" : "Show deleted"}</span>
+                    </Button>
+                  )}
+                  <Button bare
+                    className={layoutStyles.visibilityMenuItem}
+                    onClick={() => setShowInactiveInView((v) => !v)}
+                    type="button"
+                    aria-pressed={showInactiveInView}
+                  >
+                    {showInactiveInView ? <EyeOff size={15} /> : <Eye size={15} />}
+                    <span>{showInactiveInView ? "Hide inactive" : "Show inactive"}</span>
+                  </Button>
+                </div>
+              </details>
 
               <Badge className={layoutStyles.calendarDateBadge}>
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
@@ -3429,7 +3443,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             </div>
           </div>
 
-          <BigCalendar
+          <div ref={workDiaryCalendarRef} className={layoutStyles.workDiaryCalendarWrap}>
+            <BigCalendar
               localizer={localizer}
               //  include bank holidays in Work Diary
               events={workCalendarEvents}
@@ -3605,6 +3620,25 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               };
               }}
             />
+          </div>
+
+          {showMoreBookingsBelow && typeof document !== "undefined"
+            ? createPortal(
+                <div className={layoutStyles.moreBookingsBelowAnchor}>
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    className={layoutStyles.moreBookingsBelow}
+                    onClick={scrollToMoreBookings}
+                    aria-label="More bookings are below. Scroll down to view them."
+                  >
+                    <span>More bookings below</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </Button>
+                </div>,
+                document.body
+              )
+            : null}
         </section>
 
         {isUCraneMode && (
