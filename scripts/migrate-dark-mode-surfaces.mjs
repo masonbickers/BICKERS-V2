@@ -18,6 +18,9 @@ function collect(directory) {
 }
 
 function surfaceValue(value) {
+  // Token-driven colour mixes adapt with the active palette and are not
+  // light-only literal surfaces.
+  if (value.includes("color-mix(")) return value;
   return value
     .replaceAll("var(--color-white)", "var(--color-surface)")
     .replaceAll("var(--shell-text)", "var(--color-surface-subtle)")
