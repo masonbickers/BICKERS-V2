@@ -2,11 +2,87 @@
   --queue-max-width: 1480px;
 }
 
-.metrics {
+.statusTabs {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+.statusTab {
+  appearance: none;
+  min-width: 0;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  color: var(--color-text-muted);
+  font: inherit;
+  text-align: left;
+  background: var(--color-surface);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.statusTabIcon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+  border: 1px solid var(--color-brand-border);
+  border-radius: var(--radius-sm);
+}
+
+.statusTabCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statusTabCopy > span {
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.statusTabCopy strong {
+  color: var(--color-text);
+  font-size: var(--font-size-xl);
+  font-weight: 850;
+  line-height: 1;
+}
+
+.statusTab:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-brand-border);
+  box-shadow: var(--shadow-md);
+}
+
+.statusTab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.statusTabActive {
+  color: var(--color-brand);
+  background: linear-gradient(180deg, var(--color-surface), var(--color-brand-soft));
+  border-color: var(--color-brand);
+  box-shadow: inset 0 3px 0 var(--color-brand), var(--shadow-sm);
+}
+
+.statusTabActive .statusTabIcon {
+  color: var(--color-text-inverse);
+  background: var(--color-brand);
+  border-color: var(--color-brand);
 }
 
 .pageAlert {
@@ -20,6 +96,10 @@
   border: var(--border-default);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+}
+
+.queueSection {
+  --queue-columns: minmax(240px, 1.45fr) minmax(80px, .42fr) minmax(94px, .48fr) minmax(108px, .55fr) minmax(125px, .62fr) minmax(120px, .65fr) minmax(112px, .56fr) 24px;
 }
 
 .activitySection {
@@ -51,7 +131,7 @@
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(240px, 320px) auto;
+  grid-template-columns: minmax(280px, 1fr) minmax(210px, 280px) minmax(210px, 260px) auto;
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
@@ -59,6 +139,74 @@
   background: var(--color-surface-subtle);
   border: var(--border-default);
   border-radius: var(--radius-md);
+}
+
+.quickFilters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: calc(var(--space-1) * -1) 0 var(--space-3);
+  overflow-x: auto;
+}
+
+.quickFilterLabel {
+  margin-right: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.filterChip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px 11px;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 750;
+  background: var(--color-surface);
+  border: var(--border-default);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filterChip span {
+  min-width: 20px;
+  padding: 1px 6px;
+  color: var(--color-text);
+  text-align: center;
+  background: var(--color-surface-subtle);
+  border-radius: 999px;
+}
+
+.filterChip:hover,
+.filterChipActive {
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand-border);
+}
+
+.filterChipActive[data-tone="danger"] {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-border);
+}
+
+.filterChipActive[data-tone="warning"] {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+}
+
+.filterChip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .searchField {
@@ -95,12 +243,33 @@
   gap: var(--space-2);
 }
 
+.queueHeader {
+  display: grid;
+  grid-template-columns: var(--queue-columns);
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
 .jobCard {
   overflow: hidden;
   background: var(--color-surface);
   border: var(--border-default);
   border-radius: var(--radius-md);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.jobCardOverdue {
+  border-left: 3px solid var(--color-danger);
+}
+
+.jobCardPriority:not(.jobCardOverdue) {
+  border-left: 3px solid var(--color-warning);
 }
 
 .jobCard:hover {
@@ -113,16 +282,14 @@
 }
 
 .jobSummary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, 250px);
-  align-items: stretch;
+  display: block;
 }
 
 .jobToggle {
   appearance: none;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(220px, 1.35fr) minmax(340px, 1fr) 22px;
+  grid-template-columns: var(--queue-columns);
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
@@ -145,8 +312,7 @@
   box-shadow: inset var(--focus-ring);
 }
 
-.jobIdentity,
-.jobMeta {
+.jobIdentity {
   min-width: 0;
   display: flex;
 }
@@ -159,7 +325,7 @@
 .jobTitle {
   overflow: hidden;
   font-size: var(--font-size-md);
-  font-weight: 850;
+  font-weight: 800;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -174,17 +340,54 @@
   white-space: nowrap;
 }
 
-.jobMeta {
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+.metaCell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.jobMeta strong {
-  color: var(--color-text);
-  font-weight: 800;
+.metaCell > strong {
+  display: none;
+}
+
+.typeCell {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.metaCell em {
+  width: fit-content;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.4;
+  border-radius: 999px;
+}
+
+.overdueValue {
+  color: var(--color-danger);
+}
+
+.overdueValue em {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.missingValue {
+  color: var(--color-warning);
+}
+
+.missingValue em {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
 }
 
 .chevron {
@@ -198,26 +401,52 @@
 
 .stageControl {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  background: color-mix(in srgb, var(--job-status-bg) 58%, var(--color-surface));
-  border-left: var(--border-default);
-}
-
-.stageControl select {
+  align-items: center;
   min-width: 0;
-  background: var(--color-surface);
 }
 
 .statusPill {
   overflow: hidden;
+  max-width: 100%;
+  padding: 5px 9px;
   color: var(--job-status-fg);
   font-size: var(--font-size-xs);
   font-weight: 850;
+  background: color-mix(in srgb, var(--job-status-bg) 72%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--job-status-fg) 22%, transparent);
+  border-radius: 999px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.stageControl[data-stage="planned"] {
+  --job-status-bg: var(--color-info-soft);
+  --job-status-fg: var(--color-info);
+}
+
+.stageControl[data-stage="booked"] {
+  --job-status-bg: var(--color-brand-soft);
+  --job-status-fg: var(--color-brand);
+}
+
+.stageControl[data-stage="in_progress"] {
+  --job-status-bg: var(--color-warning-soft);
+  --job-status-fg: var(--color-warning);
+}
+
+.stageControl[data-stage="completed"] {
+  --job-status-bg: var(--color-success-soft);
+  --job-status-fg: var(--color-success);
+}
+
+.stageControl[data-stage="ready_to_invoice"] {
+  --job-status-bg: var(--color-info-soft);
+  --job-status-fg: var(--color-info);
+}
+
+.stageControl[data-stage="closed"] {
+  --job-status-bg: var(--color-surface-hover);
+  --job-status-fg: var(--color-text-muted);
 }
 
 .jobDetails {
@@ -393,34 +622,54 @@
 }
 
 @media (max-width: 1320px) {
-  .metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .activityGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .jobToggle {
-    grid-template-columns: minmax(220px, 1fr) minmax(260px, .9fr) 22px;
-  }
 }
 
-@media (max-width: 980px) {
-  .jobSummary {
-    grid-template-columns: 1fr;
+@media (max-width: 1180px) {
+  .statusTabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .queueHeader {
+    display: none;
+  }
+
+  .jobToggle {
+    grid-template-columns: minmax(0, 1fr) minmax(112px, auto) 22px;
+    row-gap: var(--space-3);
+  }
+
+  .jobIdentity {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .stageControl {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    border-top: var(--border-default);
-    border-left: 0;
+    grid-column: 2;
+    grid-row: 1;
   }
 
-  .stageControl select {
-    width: min(100%, 280px);
+  .chevron {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .metaCell {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .metaCell > strong {
+    display: block;
+    color: var(--color-text);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
   }
 
   .detailsGrid {
@@ -429,7 +678,10 @@
 }
 
 @media (max-width: 760px) {
-  .metrics,
+  .statusTabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .activityGrid,
   .createGrid,
   .detailsGrid {
@@ -438,20 +690,6 @@
 
   .toolbar {
     grid-template-columns: 1fr;
-  }
-
-  .jobToggle {
-    grid-template-columns: minmax(0, 1fr) 22px;
-  }
-
-  .jobMeta {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .chevron {
-    grid-column: 2;
-    grid-row: 1;
   }
 
   .notesField,

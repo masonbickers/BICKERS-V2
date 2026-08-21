@@ -198,10 +198,12 @@
 
 .searchIcon {
   position: absolute;
-  left: 9px;
-  top: 7px;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 1;
   color: var(--color-text-muted);
+  pointer-events: none;
 }
 
 .resultSummary {
@@ -240,6 +242,6 @@
   }
 }
 
-.extracted29 {
-  padding-left: 29px;
+.searchWrap .extracted29 {
+  padding-left: 36px;
 }

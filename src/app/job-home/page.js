@@ -100,7 +100,7 @@ const inputStyle = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "var(--color-surface)",
+  background: "var(--color-surface-raised)",
   color: UI.text,
 };
 
@@ -112,7 +112,7 @@ const rowShell = {
   alignItems: "center",
   minHeight: 34,
   padding: "0 0 0 9px",
-  borderTop: "1px solid var(--color-brand-soft)",
+  borderTop: "1px solid var(--color-border)",
   textDecoration: "none",
   color: UI.text,
 };
@@ -132,8 +132,11 @@ const listShell = { width: "100%", minWidth: 0, border: UI.border, borderRadius:
 const focusCss = `
   input:focus, button:focus, a:focus {
     outline: none;
-    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    box-shadow: var(--focus-ring);
     border-color: var(--color-info-border) !important;
+  }
+  .job-home-row:hover {
+    background: var(--color-surface-hover);
   }
   @media (max-width: 1180px) {
     .job-home-main-grid,
@@ -230,7 +233,7 @@ const StatusBadge = ({ value, rowIndex = 0, rowCount = 1 }) => {
         justifyContent: "center",
         padding: "0 8px",
         fontSize: 11.5,
-        borderRadius: `0 ${isFirst ? UI.radius : 0}px ${isLast ? UI.radius : 0}px 0`,
+        borderRadius: `0 ${isFirst ? UI.radius : "0"} ${isLast ? UI.radius : "0"} 0`,
         border: `1px solid ${c.border}`,
         borderTopWidth: isFirst ? 1 : 0,
         marginTop: 0,
@@ -257,13 +260,13 @@ const groupButtonStyle = (active = false) => ({
   gap: 6,
   padding: "4px 7px",
   borderRadius: UI.radiusSm,
-  border: active ? `2px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "var(--color-surface)",
+  border: active ? "1px solid var(--color-border-strong)" : UI.border,
+  background: active ? "var(--color-selection-surface)" : "var(--color-surface-raised)",
   color: UI.text,
   cursor: "pointer",
   fontWeight: 900,
   fontSize: 14,
-  boxShadow: active ? "0 4px 10px rgba(31,75,122,0.08)" : UI.shadowSm,
+  boxShadow: active ? "none" : UI.shadowSm,
 });
 
 const norm = (s = "") => String(s).toLowerCase().trim();
@@ -822,7 +825,7 @@ export default function JobHomePage() {
               width: "100%",
               minHeight: 26,
               justifyContent: "center",
-              borderRadius: `0 ${rowIndex === 0 ? UI.radius : 0}px ${rowIndex === rowCount - 1 ? UI.radius : 0}px 0`,
+              borderRadius: `0 ${rowIndex === 0 ? UI.radius : "0"} ${rowIndex === rowCount - 1 ? UI.radius : "0"} 0`,
             }}
             title={`Saved ${formatQuoteDate(quote.savedAt)}`}
           >
@@ -856,7 +859,7 @@ export default function JobHomePage() {
         />
 
         <div className={`job-home-top-grid ${layoutStyles.overviewGrid}`}>
-          <section className={layoutStyles.overviewMain} style={card}>
+          <div className={layoutStyles.overviewMain}>
             <div className={layoutStyles.overviewHeader}>
               <div>
                 <h2 style={{ ...titleMd, fontSize: 18 }}>Home</h2>
@@ -900,21 +903,23 @@ export default function JobHomePage() {
               />
             </div>
 
-            <div className={layoutStyles.workspaceHeading}>
-              <div>
-                <h3 style={{ ...titleMd, fontSize: 15 }}>Job workspaces</h3>
-                <div style={cardHint}>Open the queue or finance stage you need to work in.</div>
+            <section className={layoutStyles.workspacePanel} style={card}>
+              <div className={layoutStyles.workspaceHeading}>
+                <div>
+                  <h3 style={{ ...titleMd, fontSize: 15 }}>Job workspaces</h3>
+                  <div style={cardHint}>Open the queue or finance stage you need to work in.</div>
+                </div>
               </div>
-            </div>
-            <div className={layoutStyles.workspaceGrid}>
-              <NavigationCard icon={<Clock3 size={20} strokeWidth={2.2} />} title="Open Enquiries" description="View enquiry jobs." badges={[{ label: String(grouped.Enquiries ?? 0), tone: "warning" }]} onClick={() => router.push("/enquiry")} />
-              <NavigationCard icon={<ClipboardList size={20} strokeWidth={2.2} />} title="Review Queue" description="Complete checks and handoff." badges={[{ label: String(reviewQueueCount), tone: "info" }]} onClick={() => router.push("/review-queue")} />
-              <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Ready to Invoice" description="Price and prepare invoices." badges={[{ label: String(financeReadyCount), tone: "success" }]} onClick={() => router.push("/finance-queue")} />
-              <NavigationCard icon={<FileText size={20} strokeWidth={2.2} />} title="Completed Quotes" description="Review saved booking quotes." badges={[{ label: String(completedQuoteRows.length), tone: "success" }]} onClick={() => router.push("/completed-quotes")} />
-              <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Invoiced" description="View issued invoices." badges={[{ label: String(invoicedCount), tone: "neutral" }]} onClick={() => router.push("/invoiced")} />
-              <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Paid" description="View settled work." badges={[{ label: String(paidCount), tone: "success" }]} onClick={() => router.push("/paid")} />
-            </div>
-          </section>
+              <div className={layoutStyles.workspaceGrid}>
+                <NavigationCard icon={<Clock3 size={20} strokeWidth={2.2} />} title="Open Enquiries" description="View enquiry jobs." badges={[{ label: String(grouped.Enquiries ?? 0), tone: "warning" }]} onClick={() => router.push("/enquiry")} />
+                <NavigationCard icon={<ClipboardList size={20} strokeWidth={2.2} />} title="Review Queue" description="Complete checks and handoff." badges={[{ label: String(reviewQueueCount), tone: "info" }]} onClick={() => router.push("/review-queue")} />
+                <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Ready to Invoice" description="Price and prepare invoices." badges={[{ label: String(financeReadyCount), tone: "success" }]} onClick={() => router.push("/finance-queue")} />
+                <NavigationCard icon={<FileText size={20} strokeWidth={2.2} />} title="Completed Quotes" description="Review saved booking quotes." badges={[{ label: String(completedQuoteRows.length), tone: "success" }]} onClick={() => router.push("/completed-quotes")} />
+                <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Invoiced" description="View issued invoices." badges={[{ label: String(invoicedCount), tone: "neutral" }]} onClick={() => router.push("/invoiced")} />
+                <NavigationCard icon={<Receipt size={20} strokeWidth={2.2} />} title="Paid" description="View settled work." badges={[{ label: String(paidCount), tone: "success" }]} onClick={() => router.push("/paid")} />
+              </div>
+            </section>
+          </div>
 
           <aside className={layoutStyles.overviewRail}>
             <section style={{ ...card, padding: 10 }}>
@@ -949,38 +954,41 @@ export default function JobHomePage() {
           </aside>
         </div>
 
-        <section className={layoutStyles.searchPanel} style={card}>
-          <div className={layoutStyles.searchHeading}>
-            <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 30, height: 30 }}>
-              <Search size={15} />
-            </span>
-            <div>
-              <h2 style={{ ...titleMd, fontSize: 15 }}>Find a job</h2>
-              <div style={cardHint}>Search job number, production, customer or location.</div>
+        <div style={{ ...card, padding: 0, overflow: "hidden", marginBottom: UI.gap }}>
+          <section className={layoutStyles.searchPanel} style={{ marginBottom: 0, borderBottom: UI.border }}>
+            <div className={layoutStyles.searchHeading}>
+              <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 30, height: 30 }}>
+                <Search size={15} />
+              </span>
+              <div>
+                <h2 style={{ ...titleMd, fontSize: 15 }}>Find a job</h2>
+                <div style={cardHint}>Search job number, production, customer or location.</div>
+              </div>
             </div>
-          </div>
-          <div className={layoutStyles.searchControl}>
-            <Search size={15} className={layoutStyles.searchIcon} aria-hidden />
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Search jobs…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ ...inputStyle, minHeight: 36 }}
-              aria-label="Search jobs"
-            />
-          </div>
-        </section>
+            <div className={layoutStyles.searchControl}>
+              <Search size={15} className={layoutStyles.searchIcon} aria-hidden />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Search jobs…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ ...inputStyle, minHeight: 36 }}
+                aria-label="Search jobs"
+              />
+            </div>
+          </section>
 
-        <div className="job-home-groups-grid" style={{ display: "grid", gridTemplateColumns: "minmax(210px, 250px) minmax(0, 1fr)", gap: UI.gap, marginBottom: UI.gap }}>
-          <section style={{ ...card, padding: 9 }}>
-            <div className={layoutStyles.extracted24}>
-              <div className={layoutStyles.extracted25}>
-                <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 28, height: 28 }}>
-                  <FolderKanban size={15} />
-                </span>
-                <div>
+          <div
+            className={`job-home-groups-grid ${layoutStyles.extracted33}`}
+          >
+            <section className={layoutStyles.jobGroupsSidebar}>
+              <div className={layoutStyles.extracted24}>
+                <div className={layoutStyles.extracted25}>
+                  <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 28, height: 28 }}>
+                    <FolderKanban size={15} />
+                  </span>
+                  <div>
                   <h2 style={{ ...titleMd, fontSize: 16 }}>Job Number Groups</h2>
                 </div>
               </div>
@@ -1045,20 +1053,22 @@ export default function JobHomePage() {
                 );
               })}
             </div>
-          </section>
+            </section>
 
-          <PipelinePanel
-            title={searchTerm ? "Job Number Search" : selectedJobGroup === "All" ? "Latest Job Numbers" : `Job Numbers ${selectedJobGroup}`}
-            hintText=""
-            href="/job-sheet"
-            linkText="Job sheet"
-            loading={loading}
-            emptyText={searchTerm ? "No jobs match your search." : "No jobs in this group."}
-            rows={selectedJobNumberRows}
-            renderRow={jobNumberRow}
-            icon={FolderKanban}
-            compact
-          />
+            <PipelinePanel
+              title={searchTerm ? "Job Number Search" : selectedJobGroup === "All" ? "Latest Job Numbers" : `Job Numbers ${selectedJobGroup}`}
+              hintText=""
+              href="/job-sheet"
+              linkText="Job sheet"
+              loading={loading}
+              emptyText={searchTerm ? "No jobs match your search." : "No jobs in this group."}
+              rows={selectedJobNumberRows}
+              renderRow={jobNumberRow}
+              icon={FolderKanban}
+              compact
+              embedded
+            />
+          </div>
         </div>
 
         <div className="job-home-pipeline-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: UI.gap }}>
@@ -1145,7 +1155,7 @@ function WorkflowLink({ href, label, count, tone = "neutral" }) {
         padding: "5px 8px",
         borderRadius: UI.radiusSm,
         border: UI.border,
-        background: "var(--color-surface)",
+        background: "var(--color-surface-raised)",
         color: UI.text,
         textDecoration: "none",
         fontSize: 12.5,
@@ -1173,9 +1183,17 @@ function PipelinePanel({
   bg = UI.brandSoft,
   border = UI.brandBorder,
   compact = false,
+  embedded = false,
 }) {
   return (
-    <section style={{ ...card, minWidth: 0, minHeight: compact ? 0 : 200, padding: compact ? 9 : card.padding }}>
+    <section
+      style={{
+        ...(embedded ? {} : card),
+        minWidth: 0,
+        minHeight: compact ? 0 : 200,
+        padding: compact ? 9 : card.padding,
+      }}
+    >
       <div style={{ ...sectionHeader, marginBottom: compact ? 6 : sectionHeader.marginBottom }}>
         <div style={{ display: "flex", gap: compact ? 8 : 10, minWidth: 0, alignItems: "center" }}>
           <span style={{ ...iconBox(color, bg, border), width: compact ? 28 : 34, height: compact ? 28 : 34 }}>

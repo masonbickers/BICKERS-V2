@@ -561,6 +561,8 @@ export default function EditBookingPage() {
       const existing = snap.exists() ? snap.data() : {};
 
       const updatePayload = {
+        isUCrane: true,
+        bookingType: "U-Crane",
         jobNumber,
         client,
         contactNumber,

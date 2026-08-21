@@ -12,6 +12,7 @@ import {
   getMaintenanceRecordDisplayDates,
   selectCanonicalMaintenanceBookings,
 } from "../utils/maintenanceCalendar.js";
+import { isAutomaticComplianceVorPeriod } from "../utils/vorPeriods.js";
 
 export const normalizeRegistration = (value) =>
   String(value || "")
@@ -397,13 +398,6 @@ export function vehicleStatusForIsoWeek(
   // vehicle remains canonically VOR until completion, but the weekly planner
   // must not paint that same ISO week as unavailable.
   if (isReturnInspectionScheduledForIsoWeek(vehicle, year, week)) return "";
-  const historicStatus = vorHistoryStatusForIsoWeek(vehicle, year, week);
-  if (historicStatus) return historicStatus;
-
-  // Reconstruct only elapsed compliance gaps. Once an eight-week inspection
-  // window has expired, past weeks remain VOR until the next completed PMI.
-  // Current and future weeks still rely on live/recorded VOR state so the
-  // planner never predicts a future VOR prematurely.
   const targetWeekStart = isoWeekRange(year, week).start.getTime();
   const currentWeek = getIsoWeekParts(asOfDate);
   const currentWeekStart = currentWeek
@@ -418,6 +412,27 @@ export function vehicleStatusForIsoWeek(
       parts && isoWeekRange(parts.year, parts.week).start.getTime() < targetWeekStart
     );
   });
+  const historicPeriods = vorHistoryPeriodsForIsoWeek(vehicle, year, week);
+  const isStaleAutomaticVor =
+    historicPeriods.length > 0 &&
+    historicPeriods.every(
+      (period) =>
+        String(period?.status || "").trim().toLowerCase() === "open" &&
+        isAutomaticComplianceVorPeriod(period)
+    ) &&
+    priorCompletionDates.length > 0 &&
+    hasActiveInspectionWindow(
+      priorCompletionDates,
+      year,
+      week,
+      vehicle?.pmiFreq || 8
+    );
+  if (historicPeriods.length > 0 && !isStaleAutomaticVor) return "VOR";
+
+  // Reconstruct only elapsed compliance gaps. Once an eight-week inspection
+  // window has expired, past weeks remain VOR until the next completed PMI.
+  // Current and future weeks still rely on live/recorded VOR state so the
+  // planner never predicts a future VOR prematurely.
   const isElapsedWeek = currentWeekStart !== null && targetWeekStart < currentWeekStart;
   if (
     isElapsedWeek &&
@@ -457,6 +472,30 @@ export function hgvComplianceStatusForIsoWeek(
     completedInspectionDates
   );
   return baseStatus;
+}
+
+export function plannerStartingVorPeriodsForIsoWeek(
+  vehicle,
+  status,
+  year,
+  week,
+  useWholeYearStatus = false,
+  completedInspectionDates = [],
+  asOfDate = new Date()
+) {
+  const effectiveStatus = vehicleStatusForIsoWeek(
+    vehicle,
+    status,
+    year,
+    week,
+    useWholeYearStatus,
+    completedInspectionDates,
+    asOfDate
+  );
+  if (effectiveStatus !== "VOR") return [];
+  return vorHistoryPeriodsForIsoWeek(vehicle, year, week).filter((period) =>
+    isVorPeriodStartingInIsoWeek(period, year, week)
+  );
 }
 
 export function buildPlannerInspectionEvidenceDates(
@@ -743,12 +782,25 @@ export function buildCompletedInspectionDates({
 
   bookings.forEach((booking) => {
     if (!bookingTypes(booking).includes("inspection")) return;
-    const normalizedStatus = String(booking.status || "").trim().toLowerCase();
+    const dateInfo = getMaintenanceRecordDisplayDates(booking);
+    const inspectionItem = dateInfo.canonicalItems.find((item) =>
+      ["pmi", "eight_week_inspection"].includes(
+        String(item?.maintenanceTypeId || "").trim().toLowerCase()
+      )
+    );
+    const normalizedStatus = String(
+      inspectionItem?.status || dateInfo.status || booking.status || ""
+    ).trim().toLowerCase();
     if (!normalizedStatus.includes("complete")) return;
     const registration =
       vehicleById.get(String(booking.vehicleId || "")) ||
       normalizeRegistration(booking.registration || booking.vehicleRegistration);
-    add(registration, bookingDate(booking));
+    add(
+      registration,
+      inspectionItem?.completionDateISO ||
+        dateInfo.completionDateISO ||
+        bookingDate(booking)
+    );
   });
 
   return datesByRegistration;
@@ -1039,13 +1091,49 @@ export function buildLivePlannerEvents({
     }).forEach(add);
   });
 
+  const currentEvents = events.filter((event) => {
+    if (
+      event.source !== "maintenance_booking" ||
+      event.status !== "requested" ||
+      !["inspection", "brake"].includes(event.type)
+    ) {
+      return true;
+    }
+
+    const requestedDueDate = event.legalDueDateISO || event.date;
+    const isCombinedInspectionBooking = (target) =>
+      Boolean(target.bookingId) && events.some((sibling) =>
+        sibling !== target &&
+        sibling.bookingId === target.bookingId &&
+        sibling.registration === target.registration &&
+        ["inspection", "brake"].includes(sibling.type) &&
+        sibling.type !== target.type
+      );
+    const requestedEventIsCombined = isCombinedInspectionBooking(event);
+    return !events.some((candidate) =>
+      candidate !== event &&
+      candidate.source === "maintenance_booking" &&
+      (
+        ["booked", "deferred"].includes(candidate.status) ||
+        (
+          candidate.status === "requested" &&
+          !requestedEventIsCombined &&
+          isCombinedInspectionBooking(candidate)
+        )
+      ) &&
+      candidate.registration === event.registration &&
+      candidate.type === event.type &&
+      sameIsoWeek(candidate.legalDueDateISO || candidate.date, requestedDueDate)
+    );
+  });
+
   const canonicalBookingEvents = new Set(
-    events
+    currentEvents
       .filter((event) => event.source === "maintenance_booking" && event.bookingId)
       .map((event) => `${event.registration}|${event.bookingId}|${event.type}`)
   );
 
-  return events
+  return currentEvents
     .filter(
       (event) =>
         event.source === "maintenance_booking" ||

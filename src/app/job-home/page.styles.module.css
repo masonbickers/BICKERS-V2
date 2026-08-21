@@ -1,5 +1,3 @@
-
-
 .extracted1 {
   display: flex;
   gap: 8px;
@@ -237,8 +235,8 @@
 }
 
 .overviewMain {
-  padding: 12px !important;
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -253,12 +251,19 @@
 }
 
 .workspaceHeading {
-  padding-top: 2px;
+  padding-top: 0;
+}
+
+.workspacePanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
 }
 
 .workspaceGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -304,6 +309,11 @@
   pointer-events: none;
 }
 
+.jobGroupsSidebar {
+  padding: 9px;
+  border-right: 1px solid var(--color-border);
+}
+
 @media (max-width: 1180px) {
   .overviewGrid,
   .searchPanel {
@@ -312,6 +322,12 @@
 
   .workspaceGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+
+  .jobGroupsSidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
   }
 }
 
@@ -319,4 +335,12 @@
   .workspaceGrid {
     grid-template-columns: 1fr;
   }
+}
+
+.extracted33 {
+  display: grid;
+  grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
 }

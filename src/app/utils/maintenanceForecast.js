@@ -264,6 +264,32 @@ export const reconcileAnnualMaintenanceForecast = ({
       canonical.items.length > 0 &&
       canonical.items.every((item) => includedTypes.has(item.maintenanceTypeId))
     );
+  const combinedInspectionForecasts = list(forecast).filter(
+    (record) => itemTypeKey(record.items) === "brake_test+pmi"
+  );
+  const isStandaloneInspectionRequestSuperseded = (source, canonical) => {
+    if (canonical.status !== "requested" || source.scheduleManuallyAdjusted === true) return false;
+    const existingType = itemTypeKey(canonical.items);
+    if (!INSPECTION_MAINTENANCE_TYPE_IDS.includes(existingType)) return false;
+    const existingItem = canonical.items[0];
+    const existingWeek = maintenanceIsoWeekLabel(existingItem?.legalDueDateISO);
+    if (!existingWeek) return false;
+
+    return combinedInspectionForecasts.some((record) => {
+      if (text(record.vehicleId) !== canonical.vehicleId) return false;
+      if (
+        text(record.companyId) &&
+        text(canonical.companyId) &&
+        text(record.companyId) !== text(canonical.companyId)
+      ) {
+        return false;
+      }
+      const replacementItem = list(record.items).find(
+        (item) => text(item?.maintenanceTypeId).toLowerCase() === existingType
+      );
+      return maintenanceIsoWeekLabel(replacementItem?.legalDueDateISO) === existingWeek;
+    });
+  };
   const byRequirementKey = new Map();
   relevant.forEach((entry) => {
     if (entry.canonical.requirementKey) {
@@ -415,6 +441,7 @@ export const reconcileAnnualMaintenanceForecast = ({
 
   relevant.forEach(({ source, canonical }) => {
     if (desiredKeys.has(canonical.requirementKey)) return;
+    if (isStandaloneInspectionRequestSuperseded(source, canonical)) return;
     const originSource = text(source.origin?.source || canonical.origin?.source);
     const shouldPreserve =
       ["booked", "in_progress", "deferred"].includes(canonical.status) ||
@@ -428,12 +455,16 @@ export const reconcileAnnualMaintenanceForecast = ({
   const supersede = relevant
     .filter(({ source, canonical }) => {
       if (desiredKeys.has(canonical.requirementKey)) return false;
-      if (!automaticSources.has(text(source.origin?.source || canonical.origin?.source))) return false;
+      const replacesStandaloneInspection = isStandaloneInspectionRequestSuperseded(source, canonical);
+      if (
+        !replacesStandaloneInspection &&
+        !automaticSources.has(text(source.origin?.source || canonical.origin?.source))
+      ) return false;
       if (source.scheduleManuallyAdjusted === true) return false;
       if (canonical.status !== "requested") return false;
       const dueDate = canonical.items.map((item) => item.legalDueDateISO).filter(Boolean).sort()[0] || "";
       const forecastRecordYear = Number(source.forecastYear || yearOf(dueDate));
-      return forecastRecordYear === targetYear && (!todayISO || dueDate >= todayISO);
+      return forecastRecordYear === targetYear;
     })
     .map(({ source }) => source);
 

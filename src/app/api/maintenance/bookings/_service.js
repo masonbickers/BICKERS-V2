@@ -538,11 +538,9 @@ const completeMutation = async ({ payload, actor, companyId, selectedOnly }) => 
         const individualCanonical = individualSnapshot
           ? normalizeMaintenanceRecord(individualSnapshot.data, { id: individualId })
           : null;
-        const source = text(individualSnapshot?.data?.origin?.source);
         if (
           individualSnapshot &&
           individualCanonical?.status === "requested" &&
-          ["completion_recurrence", "automatic_schedule", "safe_reconciliation"].includes(source) &&
           individualSnapshot.data.scheduleManuallyAdjusted !== true
         ) {
           writes.push({

@@ -95,49 +95,49 @@ export default function ServiceHomePage() {
 
   const SECTIONS = [
     {
-      title: "Minor Service",
-      description: "Record, review and submit minor vehicle service reports.",
-      link: "/service/minor-service",
+      title: "Service Overview",
+      description: "Review due dates, bookings and completed service history.",
+      link: "/service-overview",
     },
     {
-      title: "MOT Pre-Check",
-      description: "Perform pre-MOT inspections and upload supporting files.",
-      link: "/service/mot-precheck",
+      title: "Maintenance Jobs",
+      description: "Plan, complete and review workshop maintenance jobs.",
+      link: "/maintenance-jobs",
     },
     {
-      title: "Service Forms",
-      description: "General service forms, inspections and maintenance documents.",
-      link: "/service/service-form",
+      title: "MOT Overview",
+      description: "Review MOT due dates, bookings and DVSA status.",
+      link: "/mot-overview",
     },
     {
-      title: "Service History",
-      description: "View full historical service logs for each vehicle.",
-      link: "/service/service-history",
+      title: "Vehicle Activity",
+      description: "View service, repair, defect, check and prep history.",
+      link: "/vehicle-activity",
     },
     {
-      title: "Service Records",
-      description: "Access individual service entries and maintenance logs.",
-      link: "/service/service-record",
+      title: "Fleet Register",
+      description: "Open vehicle records and their service information.",
+      link: "/vehicles",
     },
     {
       title: "Vehicle Prep",
-      description: "Pre-shoot prep lists and pre-deployment checks.",
-      link: "/service/vehicle-prep",
+      description: "Review pre-shoot prep lists and readiness checks.",
+      link: "/preplist-dashboard",
     },
     {
-      title: "Daily Checks",
-      description: "Daily driver and vehicle check submissions.",
-      link: "/service/daily-check",
+      title: "Vehicle Checks",
+      description: "Review daily driver and vehicle check submissions.",
+      link: "/vehicle-checks",
     },
     {
       title: "Defects",
       description: "Review, track and resolve reported vehicle defects.",
-      link: "/service/defects",
+      link: "/defects/general",
     },
     {
-      title: "Work / Repairs",
-      description: "Book work, repairs and maintenance jobs.",
-      link: "/service/work",
+      title: "Workshop Calendar",
+      description: "View service and maintenance work on the workshop diary.",
+      link: "/workshop",
     },
   ];
 

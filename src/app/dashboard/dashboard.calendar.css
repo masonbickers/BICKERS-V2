@@ -6,7 +6,13 @@
 .dashboard-page .rbc-time-view,
 .dashboard-page .rbc-month-view {
   border: 0;
+  border-radius: inherit;
   background: var(--color-surface);
+}
+.dashboard-page .rbc-time-view > .rbc-time-header,
+.dashboard-page .rbc-month-view > .rbc-month-header {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
 }
 .dashboard-page .rbc-header {
   padding: 7px 8px;
@@ -127,9 +133,21 @@
   min-height: 176px;
 }
 :root[data-color-mode="dark"] .dashboard-page .rbc-event.work-diary-job-card {
-  outline: 1px solid rgba(255, 255, 255, 0.42);
+  outline: 1px solid color-mix(in srgb, var(--color-text) 42%, transparent);
   outline-offset: 1px;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 7px 16px rgba(0, 0, 0, 0.42) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+:root[data-color-mode="dark"] .dashboard-page .rbc-month-header,
+:root[data-color-mode="dark"] .dashboard-page .rbc-header {
+  background: var(--table-header-bg) !important;
+  color: var(--color-text-muted) !important;
+  border-color: var(--color-border) !important;
+}
+:root[data-color-mode="dark"] .dashboard-page .rbc-month-row,
+:root[data-color-mode="dark"] .dashboard-page .rbc-day-bg,
+:root[data-color-mode="dark"] .dashboard-page .rbc-time-content,
+:root[data-color-mode="dark"] .dashboard-page .rbc-timeslot-group {
+  border-color: var(--color-border);
 }
 .dashboard-page .dashboard-compact-calendar .rbc-event.work-diary-job-card .rbc-event-content {
   display: flex;

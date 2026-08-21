@@ -186,7 +186,7 @@ function buildTimeline(vehicle, bookings, serviceRecords) {
       timelineKind: "maintenance_completion",
       type: "service",
       date: item.completedDate,
-      title: item.serviceType || "Vehicle service",
+      title: item.title || item.serviceType || item.bookingRef || "Service record",
       description: item.notes || item.partsUsed || "Service completed.",
       details: [
         item.provider ? `Provider: ${item.provider}` : "",

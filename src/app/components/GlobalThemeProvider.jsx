@@ -17,10 +17,19 @@ import {
   readInterfaceScalePreference,
   writeInterfaceScalePreference,
 } from "@/app/utils/interfaceScale";
+import {
+  applyCardStyle,
+  readCardStylePreference,
+  writeCardStylePreference,
+} from "@/app/utils/cardStyle";
 
 export const GLOBAL_THEME_UPDATED_EVENT = "bickers:global-theme-updated";
 export const APPEARANCE_UPDATED_EVENT = "bickers:appearance-updated";
 const APPEARANCE_CACHE_PREFIX = "bickers-appearance:v1";
+const BROWSER_CHROME_COLORS = {
+  normal: "#000000",
+  light: "#e7e7e7",
+};
 
 const AppearanceContext = createContext({
   companyId: "__platform__",
@@ -33,6 +42,8 @@ const AppearanceContext = createContext({
   setModePreference: () => {},
   interfaceScale: "standard",
   setInterfaceScale: () => {},
+  cardStyle: "current",
+  setCardStyle: () => {},
   loading: true,
   refresh: async () => {},
 });
@@ -74,6 +85,7 @@ export default function GlobalThemeProvider({ children }) {
   }));
   const [modePreference, setModePreferenceState] = useState("normal");
   const [interfaceScale, setInterfaceScaleState] = useState("standard");
+  const [cardStyle, setCardStyleState] = useState("current");
   const [loading, setLoading] = useState(true);
 
   const applyAppearance = useCallback((incoming) => {
@@ -119,10 +131,32 @@ export default function GlobalThemeProvider({ children }) {
     const savedInterfaceScale = readInterfaceScalePreference();
     setInterfaceScaleState(savedInterfaceScale);
     applyInterfaceScale(savedInterfaceScale);
+    const savedCardStyle = readCardStylePreference();
+    setCardStyleState(savedCardStyle);
+    applyCardStyle(savedCardStyle);
   }, []);
 
   useEffect(() => {
     applyGlobalTheme(appearance.theme, { preference: modePreference });
+
+    const browserChromeColor = modePreference === "dark"
+      ? appearance.theme.darkShellColor
+      : BROWSER_CHROME_COLORS[modePreference] || BROWSER_CHROME_COLORS.normal;
+    let themeColor = document.querySelector('meta[name="theme-color"]');
+    if (!themeColor) {
+      themeColor = document.createElement("meta");
+      themeColor.setAttribute("name", "theme-color");
+      document.head.appendChild(themeColor);
+    }
+    themeColor.setAttribute("content", browserChromeColor);
+
+    let statusBarStyle = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (!statusBarStyle) {
+      statusBarStyle = document.createElement("meta");
+      statusBarStyle.setAttribute("name", "apple-mobile-web-app-status-bar-style");
+      document.head.appendChild(statusBarStyle);
+    }
+    statusBarStyle.setAttribute("content", modePreference === "light" ? "default" : "black-translucent");
   }, [appearance.theme, modePreference]);
 
   useEffect(() => {
@@ -152,6 +186,11 @@ export default function GlobalThemeProvider({ children }) {
     setInterfaceScaleState(next);
   }, []);
 
+  const setCardStyle = useCallback((value) => {
+    const next = writeCardStylePreference(value);
+    setCardStyleState(next);
+  }, []);
+
   const resolvedMode = modePreference;
   const contextValue = useMemo(
     () => ({
@@ -161,10 +200,12 @@ export default function GlobalThemeProvider({ children }) {
       setModePreference,
       interfaceScale,
       setInterfaceScale,
+      cardStyle,
+      setCardStyle,
       loading,
       refresh,
     }),
-    [appearance, interfaceScale, loading, modePreference, refresh, resolvedMode, setInterfaceScale, setModePreference]
+    [appearance, cardStyle, interfaceScale, loading, modePreference, refresh, resolvedMode, setCardStyle, setInterfaceScale, setModePreference]
   );
   return <AppearanceContext.Provider value={contextValue}>{children}</AppearanceContext.Provider>;
 }

@@ -67,7 +67,7 @@ test("fleet buckets exclude booked items and classify date boundaries", () => {
     { id: "mot-overdue", kind: "MOT", dueDate: "2026-07-14" },
     { id: "service-soon", kind: "SERVICE", dueDate: "2026-08-05" },
     { id: "booked", kind: "MOT", dueDate: "2026-07-16", booked: true },
-    { id: "outside", kind: "SERVICE", dueDate: "2026-08-06" },
+    { id: "outside", kind: "SERVICE", dueDate: "2026-08-13" },
     { id: "missing", kind: "MOT" },
   ], now);
   assert.deepEqual(buckets.overdueMOT.map((item) => item.id), ["mot-overdue"]);

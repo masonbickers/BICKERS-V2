@@ -173,8 +173,16 @@ export function MaintenanceCalendarEvent({ event }) {
   const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
   const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
   const completed = [bookingStatus, workflowStatus].some((status) => ["completed", "complete"].includes(status));
+  const requested =
+    String(event?.recordStatus || "").trim().toLowerCase() === "requested" ||
+    bookingStatus.startsWith("due");
   const outsideWeek = !completed && isMaintenanceMoveOutsideDueWeek(event, event?.start);
-  const label = kind === "MOT_BOOKING" ? "MOT appointment"
+  const label = requested
+    ? kind === "MOT_BOOKING" ? "MOT due"
+    : kind === "SERVICE_BOOKING" ? "Service due"
+    : kind === "INSPECTION_BOOKING" ? `${event?.maintenanceTypeLabel || displayType} due`
+    : `${displayType} due`
+    : kind === "MOT_BOOKING" ? "MOT appointment"
     : kind === "SERVICE_BOOKING" ? "Service appointment"
     : kind === "INSPECTION_BOOKING" ? `${event?.maintenanceTypeLabel || displayType} appointment`
     : kind === "MAINTENANCE" ? event?.maintenanceTypeLabel || "Workshop job card"

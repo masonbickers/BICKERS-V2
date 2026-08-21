@@ -750,7 +750,7 @@ export default function ReviewQueuePage() {
 
         <div className="review-toolbar" style={toolbar}>
           <div className={`review-search ${layoutStyles.extracted26}`} >
-            <Search size={14} style={{ position: "absolute", left: 9, top: 7, color: UI.muted }} aria-hidden />
+            <Search size={14} className={layoutStyles.searchIcon} aria-hidden />
             <Input
               ref={searchRef}
               type="text"

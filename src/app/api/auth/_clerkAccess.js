@@ -1,6 +1,10 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { adminListDocuments } from "@/app/api/_firebaseAdminRest";
-import { hasCanonicalAccessRecord, hasCompanyAccess, isAccountDisabled } from "@/app/utils/accountAccess";
+import {
+  hasCompanyAccess,
+  isAccountDisabled,
+  resolveCanonicalClerkAccessRecord,
+} from "@/app/utils/accountAccess";
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
@@ -22,13 +26,15 @@ export async function requireActiveClerkUser() {
   if (!email) return { error: Response.json({ error: "Verified email required." }, { status: 403 }) };
 
   const users = await adminListDocuments("users");
-  const matches = users.filter(({ data }) =>
-    [data?.email, data?.workEmail, data?.emailAddress].map(normalizeEmail).includes(email)
-  );
-  if (matches.length !== 1 || !hasCanonicalAccessRecord(matches[0]?.data)) {
+  const canonical = resolveCanonicalClerkAccessRecord(users, {
+    clerkUserId: session.userId,
+    clerkUser,
+    email,
+  });
+  if (canonical.error) {
     return { error: Response.json({ error: "Canonical account link required." }, { status: 403 }) };
   }
-  const userData = matches[0].data;
+  const userData = canonical.userData;
   if (isAccountDisabled(userData)) {
     return { error: Response.json({ error: "Account disabled." }, { status: 403 }) };
   }

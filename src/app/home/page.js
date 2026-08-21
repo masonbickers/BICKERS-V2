@@ -877,7 +877,7 @@ export default function HomePage() {
                 <EmptyState className={styles.emptyCompact} title="Fleet compliance unavailable" description="Some maintenance data could not be loaded." />
               ) : <div className={styles.fleetGrid}>
                 <FleetBucket title="MOT due within 3 weeks" items={motDueSoon} href="/mot-overview" />
-                <FleetBucket title="Service due within 3 weeks" items={serviceDueSoon} href="/service-overview" />
+                <FleetBucket title="Service due within 4 weeks" items={serviceDueSoon} href="/service-overview" />
               </div>}
             </section>
 

@@ -1,4 +1,5 @@
 import { mergeMaintenanceHistory } from "./inspectionHistory.js";
+import { getServiceRecordPresentation } from "./servicePresentation.js";
 
 const dateOnly = (value) => {
   if (!value) return "";
@@ -14,6 +15,30 @@ const dateOnly = (value) => {
 
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+};
+
+const isCoreServiceRecord = (record = {}) => {
+  if (String(record?.maintenanceTypeId || "").trim().toLowerCase() === "service") return true;
+  return /\bservice\b/i.test(
+    [record?.serviceType, record?.title, record?.bookingRef].filter(Boolean).join(" ")
+  );
+};
+
+export const resolveLatestCoreServiceCompletionDate = ({
+  vehicle = {},
+  serviceRecords = [],
+} = {}) => {
+  const candidates = [
+    dateOnly(vehicle?.lastService || vehicle?.lastServiceDate),
+    ...(Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : []).map((item) =>
+      dateOnly(item?.completedDate || item?.sortDate)
+    ),
+    ...(Array.isArray(serviceRecords) ? serviceRecords : [])
+      .filter(isCoreServiceRecord)
+      .map((record) => dateOnly(record?.serviceDateOnly || record?.serviceDate || record?.completedDate || record?.completedAt)),
+  ].filter(Boolean);
+
+  return candidates.sort((a, b) => b.localeCompare(a))[0] || "";
 };
 
 export const ensureServiceHistoryForLastService = (
@@ -45,17 +70,18 @@ export const buildServiceHistoryItems = ({
     vehicle?.lastService || vehicle?.lastServiceDate
   );
   const structured = (Array.isArray(serviceRecords) ? serviceRecords : []).map((record) => {
-    const completedDate = dateOnly(
-      record?.serviceDateOnly || record?.serviceDate || record?.serviceDateDisplay
-    );
+    const presentation = getServiceRecordPresentation(record);
+    const completedDate = presentation.dateOnly;
     return {
       completedDate,
       sortDate: completedDate,
       serviceRecordId: String(record?.id || "").trim(),
-      provider: record?.signedBy || "",
-      bookingRef: record?.serviceType || "",
+      serviceType: presentation.serviceType,
+      title: presentation.title,
+      provider: presentation.provider,
+      bookingRef: presentation.bookingRef,
       notes: record?.workSummary || record?.extraNotes || "",
-      location: record?.registration || "",
+      location: presentation.location,
       odometer: record?.odometer || "",
       partsUsed: record?.partsUsed || "",
       cost: "",
@@ -73,12 +99,21 @@ export const buildServiceHistoryItems = ({
     };
   });
 
-  const seenDates = new Set();
-  return [...structured, ...legacy]
-    .filter((item) => {
-      if (!item.completedDate || seenDates.has(item.completedDate)) return false;
-      seenDates.add(item.completedDate);
-      return true;
-    })
+  const structuredDates = new Set(structured.map((item) => item.completedDate).filter(Boolean));
+  const seenLegacyKeys = new Set();
+  const uniqueLegacy = legacy.filter((item) => {
+    if (!item.completedDate || structuredDates.has(item.completedDate)) return false;
+    const key = item.maintenanceBookingId || item.serviceRecordId || [
+      item.completedDate,
+      item.bookingRef,
+      item.provider,
+      item.notes,
+    ].join("|");
+    if (seenLegacyKeys.has(key)) return false;
+    seenLegacyKeys.add(key);
+    return true;
+  });
+
+  return [...structured.filter((item) => item.completedDate), ...uniqueLegacy]
     .sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
 };

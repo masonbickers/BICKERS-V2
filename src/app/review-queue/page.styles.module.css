@@ -52,7 +52,7 @@
 }
 
 .extracted12 {
-  width: 368px;
+  width: 400px;
 }
 
 .extracted13 {
@@ -145,9 +145,11 @@
 .extracted23 {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  max-width: 100%;
+  flex-wrap: wrap;
+  white-space: normal;
 }
 
 .extracted24 {
@@ -170,6 +172,16 @@
   position: relative;
 }
 
-.extracted27 {
-  padding-left: 29px;
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  z-index: 1;
+  color: var(--color-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.extracted26 .extracted27 {
+  padding-left: 36px;
 }
