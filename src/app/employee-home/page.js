@@ -202,8 +202,12 @@ function formatYyyyMmDd(date) {
 }
 
 function eachDateYMD(startRaw, endRaw) {
-  const start = parseYyyyMmDd(startRaw) ?? new Date(startRaw);
-  const end = parseYyyyMmDd(endRaw) ?? parseYyyyMmDd(startRaw) ?? new Date(startRaw);
+  const asDate = (value) => {
+    const raw = typeof value?.toDate === "function" ? value.toDate() : value;
+    return parseYyyyMmDd(raw) ?? new Date(raw);
+  };
+  const start = asDate(startRaw);
+  const end = endRaw ? asDate(endRaw) : asDate(startRaw);
   if (Number.isNaN(+start) || Number.isNaN(+end)) return [];
 
   const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
@@ -216,6 +220,44 @@ function eachDateYMD(startRaw, endRaw) {
   }
 
   return out;
+}
+
+const flagIsTrue = (value) =>
+  value === true || value === 1 || ["true", "1", "yes", "y"].includes(String(value || "").trim().toLowerCase());
+
+function holidayApprovalState(holiday = {}) {
+  const raw = [holiday.status, holiday.approvalStatus, holiday.state, holiday.leaveStatus, holiday.holidayStatus]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .find(Boolean);
+  if (raw?.includes("declined")) return "declined";
+  if (raw?.includes("approved")) return "approved";
+  if (raw?.includes("requested")) return "requested";
+  if (flagIsTrue(holiday.approved)) return "approved";
+  return "requested";
+}
+
+function approvedHolidayDayValues(holiday, bankHolidayKeys) {
+  if (holidayApprovalState(holiday) !== "approved") return [];
+  const isAccrued = holiday.isAccrued === true ||
+    ["type", "leaveType", "category", "status", "kind", "notes", "holidayReason"]
+      .some((key) => /accrued|toil/i.test(String(holiday[key] || "")));
+  if (isAccrued) return [];
+
+  const days = eachDateYMD(holiday.startDate, holiday.endDate);
+  const singleDay = days.length === 1;
+  return days.flatMap((dayKey, index) => {
+    const dayOfWeek = dayOfWeekUTC(dayKey);
+    if (dayOfWeek === 0 || dayOfWeek === 6 || bankHolidayKeys.has(dayKey)) return [];
+
+    let value = 1;
+    if (singleDay && (flagIsTrue(holiday.startHalfDay) || flagIsTrue(holiday.endHalfDay) || flagIsTrue(holiday.halfDay))) {
+      value = 0.5;
+    } else if (!singleDay) {
+      if (index === 0 && flagIsTrue(holiday.startHalfDay)) value = 0.5;
+      if (index === days.length - 1 && flagIsTrue(holiday.endHalfDay)) value = 0.5;
+    }
+    return [{ dayKey, value }];
+  });
 }
 
 /* Normalisers */
@@ -478,6 +520,7 @@ export default function EmployeesHomePage() {
         const bookedDaysByEmployee = new Map();
         const holidayDaysByEmployee = new Map();
         const employeeMeta = new Map();
+        const employeeKeyByAlias = new Map();
         const since = effectiveRange.since;
         const until = effectiveRange.until;
 
@@ -489,7 +532,25 @@ export default function EmployeesHomePage() {
 
         const registerEmployee = (employee = {}) => {
           const rawName = employee.name || employee.fullName || [employee.firstName, employee.lastName].filter(Boolean).join(" ");
-          const key = String(employee.id || normaliseName(rawName) || "").trim();
+          const aliases = [
+            employee.id,
+            employee.employeeId,
+            employee.employeeCode,
+            employee.userCode,
+            employee.code,
+            employee.authUid,
+            employee.uid,
+            employee.userId,
+            employee.email,
+            rawName,
+            employee.displayName,
+            ...(Array.isArray(employee.aliases) ? employee.aliases : []),
+            ...(Array.isArray(employee.nameAliases) ? employee.nameAliases : []),
+            ...(Array.isArray(employee.previousNames) ? employee.previousNames : []),
+          ].map(normaliseName).filter(Boolean);
+          const existingKey = aliases.map((alias) => employeeKeyByAlias.get(alias)).find(Boolean);
+          if (existingKey) return existingKey;
+          const key = String(employee.id || employee.employeeId || normaliseName(rawName) || "").trim();
           if (!key || !rawName || !isFullTimeEmployeeRecord(employee)) return "";
           if (!employeeMeta.has(key)) {
             employeeMeta.set(key, {
@@ -498,6 +559,9 @@ export default function EmployeesHomePage() {
               isFullTime: true,
             });
           }
+          aliases.forEach((alias) => {
+            if (!employeeKeyByAlias.has(alias)) employeeKeyByAlias.set(alias, key);
+          });
           return key;
         };
 
@@ -596,25 +660,27 @@ export default function EmployeesHomePage() {
           const status = String(holiday.status || "").trim().toLowerCase();
           if (holiday.deleted === true || holiday.isDeleted === true || status === "deleted") return;
 
-          const holidayEmployeeName = String(holiday.employee || "").trim();
+          const holidayEmployeeName = String(
+            holiday.employee ||
+            holiday.employeeName ||
+            holiday.displayName ||
+            holiday.employeeCode ||
+            holiday.employeeId ||
+            ""
+          ).trim();
           if (!holidayEmployeeName) return;
 
-          let empKey = "";
-          for (const [candidateKey, meta] of employeeMeta.entries()) {
-            if (normaliseName(meta.displayName) === normaliseName(holidayEmployeeName)) {
-              empKey = candidateKey;
-              break;
-            }
-          }
-
-          if (!empKey) {
-            empKey = registerEmployee({ name: holidayEmployeeName });
-          }
+          const empKey = registerEmployee({
+            id: holiday.employeeId || "",
+            name: holidayEmployeeName,
+          });
           if (!empKey) return;
 
-          eachDateYMD(holiday.startDate, holiday.endDate).forEach((dayKey) => {
+          approvedHolidayDayValues(holiday, bankHolidayKeys).forEach(({ dayKey, value }) => {
             if (!isDateInRange(dayKey, since, until)) return;
-            rememberDay(holidayDaysByEmployee, empKey, dayKey);
+            if (!holidayDaysByEmployee.has(empKey)) holidayDaysByEmployee.set(empKey, new Map());
+            const byDate = holidayDaysByEmployee.get(empKey);
+            byDate.set(dayKey, Math.max(byDate.get(dayKey) || 0, value));
           });
         });
 
@@ -647,7 +713,7 @@ export default function EmployeesHomePage() {
           }
 
           const bookedDays = bookedDaysByEmployee.get(empKey) || new Set();
-          const holidayDays = holidayDaysByEmployee.get(empKey) || new Set();
+          const holidayDays = holidayDaysByEmployee.get(empKey) || new Map();
           let yardBaseDays = 0;
           let weekendWorkedDays = 0;
           const cursor = new Date(since);
@@ -673,7 +739,7 @@ export default function EmployeesHomePage() {
             name: meta.displayName,
             totalDays: Number(total.toFixed(2)),
             isFullTime: meta.isFullTime === true,
-            holidayDays: holidayDays.size,
+            holidayDays: Number(Array.from(holidayDays.values()).reduce((sum, value) => sum + value, 0).toFixed(2)),
             ...dayTypeCounts,
           });
         }
@@ -847,7 +913,7 @@ export default function EmployeesHomePage() {
           </PeopleFleetHeaderActions>}
         />
 
-        <section style={{ ...cardBase, marginBottom: UI.gap }}>
+        <section style={{ marginBottom: UI.gap }}>
           <div className={layoutStyles.extracted7}>
             <div>
               <h2 style={titleMd}>Workforce Snapshot</h2>
@@ -995,43 +1061,45 @@ export default function EmployeesHomePage() {
             <EmptyState />
           ) : (
             <div className={layoutStyles.extracted29}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={usageData} margin={{ top: 14, right: 20, left: 0, bottom: 14 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "var(--color-border)" }}
-                    tickLine={{ stroke: "var(--color-border)" }}
-                  />
-                  <YAxis
-                    allowDecimals
-                    tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "var(--color-border)" }}
-                    tickLine={{ stroke: "var(--color-border)" }}
-                    domain={[0, "dataMax+1"]}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "rgba(148,163,184,0.12)" }}
-                    contentStyle={{
-                      borderRadius: 10,
-                      border: "1px solid var(--color-border)",
-                      boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
-                      fontSize: 12,
-                      color: UI.text,
-                    }}
-                    formatter={(value, _name, p) => {
-                      const full = (p && p.payload && (p.payload.fullName || p.payload.name)) || "";
-                      const num = Number(value);
-                      const v = Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
-                      return [`${v} credits`, full];
-                    }}
-                  />
-                  <Bar dataKey="days" fill={UI.brand} radius={[8, 8, 0, 0]}>
-                    <LabelList dataKey="days" position="top" content={renderValueLabel} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <div className={layoutStyles.chartCanvas}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={usageData} margin={{ top: 14, right: 20, left: 0, bottom: 14 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: UI.muted, fontSize: 12 }}
+                      axisLine={{ stroke: "var(--color-border)" }}
+                      tickLine={{ stroke: "var(--color-border)" }}
+                    />
+                    <YAxis
+                      allowDecimals
+                      tick={{ fill: UI.muted, fontSize: 12 }}
+                      axisLine={{ stroke: "var(--color-border)" }}
+                      tickLine={{ stroke: "var(--color-border)" }}
+                      domain={[0, "dataMax+1"]}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(148,163,184,0.12)" }}
+                      contentStyle={{
+                        borderRadius: 10,
+                        border: "1px solid var(--color-border)",
+                        boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
+                        fontSize: 12,
+                        color: UI.text,
+                      }}
+                      formatter={(value, _name, p) => {
+                        const full = (p && p.payload && (p.payload.fullName || p.payload.name)) || "";
+                        const num = Number(value);
+                        const v = Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
+                        return [`${v} credits`, full];
+                      }}
+                    />
+                    <Bar dataKey="days" fill={UI.brand} radius={[8, 8, 0, 0]}>
+                      <LabelList dataKey="days" position="top" content={renderValueLabel} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
 
               <div className={layoutStyles.extracted30}>
                 <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid var(--color-border)" }} />

@@ -9,8 +9,10 @@ import {
   dedupeMaintenanceCalendarEvents,
   getMaintenanceRecordDisplayDates,
   getMaintenanceDisplayType,
+  getUnarrangedMaintenanceDueDate,
   buildMaintenanceBookingDraftFromDueEvent,
   buildVehicleDueEvents,
+  isConfirmedMaintenanceBooking,
   isMaintenanceCalendarEventDraggable,
   isMaintenanceMoveOutsideDueWeek,
   isOpenMaintenanceBooking,
@@ -315,6 +317,71 @@ test("a saved inspection booking replaces its generated PMI and brake reminder",
   assert.deepEqual(events.map((event) => event.id), ["booking-1__2026-08-03"]);
 });
 
+test("a completed service suppresses an older requested due marker for the same vehicle", () => {
+  const events = dedupeMaintenanceCalendarEvents([
+    {
+      id: "service-due__2026-08-18",
+      __collection: "maintenanceBookings",
+      recordStatus: "requested",
+      vehicleId: "bmw-1",
+      canonicalItems: [{
+        maintenanceTypeId: "service",
+        status: "requested",
+        legalDueDateISO: "2026-08-18",
+      }],
+      start: new Date(2026, 7, 18),
+    },
+    {
+      id: "service-completed__2026-08-19",
+      __collection: "maintenanceBookings",
+      recordStatus: "completed",
+      vehicleId: "bmw-1",
+      canonicalItems: [{
+        maintenanceTypeId: "service",
+        status: "completed",
+        completionDateISO: "2026-08-19",
+      }],
+      start: new Date(2026, 7, 19),
+    },
+  ]);
+
+  assert.deepEqual(events.map((event) => event.id), ["service-completed__2026-08-19"]);
+});
+
+test("a completed service does not suppress a later service cycle", () => {
+  const events = dedupeMaintenanceCalendarEvents([
+    {
+      id: "service-completed__2026-08-19",
+      __collection: "maintenanceBookings",
+      recordStatus: "completed",
+      vehicleId: "bmw-1",
+      canonicalItems: [{
+        maintenanceTypeId: "service",
+        status: "completed",
+        completionDateISO: "2026-08-19",
+      }],
+      start: new Date(2026, 7, 19),
+    },
+    {
+      id: "next-service-due__2027-08-18",
+      __collection: "maintenanceBookings",
+      recordStatus: "requested",
+      vehicleId: "bmw-1",
+      canonicalItems: [{
+        maintenanceTypeId: "service",
+        status: "requested",
+        legalDueDateISO: "2027-08-18",
+      }],
+      start: new Date(2027, 7, 18),
+    },
+  ]);
+
+  assert.deepEqual(events.map((event) => event.id), [
+    "service-completed__2026-08-19",
+    "next-service-due__2027-08-18",
+  ]);
+});
+
 test("both calendar pages use the shared inspection appointment renderer", async () => {
   const { readFile } = await import("node:fs/promises");
   const [panelSource, dashboardSource, vehicleHomeSource] = await Promise.all([
@@ -582,6 +649,46 @@ test("open maintenance bookings exclude stale dates and retain today or future w
       },
       now
     ),
+    true
+  );
+});
+
+test("confirmed bookings exclude untouched automatic due-date schedules", () => {
+  const automaticDue = {
+    type: "SERVICE",
+    status: "Booked",
+    bookingDates: ["2026-08-22"],
+    sourceDueDateISO: "2026-08-22",
+    origin: { source: "automatic_schedule" },
+    scheduleManuallyAdjusted: false,
+  };
+
+  assert.equal(isConfirmedMaintenanceBooking(automaticDue), false);
+  assert.equal(getUnarrangedMaintenanceDueDate(automaticDue, "service"), "2026-08-22");
+  const [automaticDueEvent] = buildMaintenanceBookingEvents([automaticDue]);
+  assert.equal(automaticDueEvent.recordStatus, "requested");
+  assert.equal(automaticDueEvent.bookingStatus, "Due — not yet arranged");
+  assert.equal(automaticDueEvent.start.getFullYear(), 2026);
+  assert.equal(automaticDueEvent.start.getMonth(), 7);
+  assert.equal(automaticDueEvent.start.getDate(), 22);
+  assert.equal(
+    isConfirmedMaintenanceBooking({ ...automaticDue, arrangedAt: "2026-08-20T09:00:00Z" }),
+    true
+  );
+  assert.equal(
+    getUnarrangedMaintenanceDueDate(
+      { ...automaticDue, arrangedAt: "2026-08-20T09:00:00Z" },
+      "service"
+    ),
+    ""
+  );
+  assert.equal(
+    isConfirmedMaintenanceBooking({
+      type: "SERVICE",
+      status: "Booked",
+      bookingDates: ["2026-08-22"],
+      origin: { source: "manual" },
+    }),
     true
   );
 });

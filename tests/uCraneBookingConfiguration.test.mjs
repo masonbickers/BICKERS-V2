@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildUCraneArmFittedForSave,
+  isUCraneBooking,
   isUCraneArmFitted,
   isUCraneVehicle,
   normalizeUCraneArmFitted,
@@ -12,6 +13,21 @@ test("identifies U-Crane vehicles from category or name", () => {
   assert.equal(isUCraneVehicle({ category: "U-Crane" }), true);
   assert.equal(isUCraneVehicle({ name: "GLC 63s - U-CRANE DYNAMIC" }), true);
   assert.equal(isUCraneVehicle({ category: "Pod Cars", name: "Tracking car" }), false);
+});
+
+test("identifies U-Crane bookings from their persistent marker", () => {
+  assert.equal(isUCraneBooking({ isUCrane: true }), true);
+  assert.equal(isUCraneBooking({ bookingType: "U-Crane" }), true);
+});
+
+test("identifies legacy U-Crane bookings through a referenced vehicle", () => {
+  const vehicles = [
+    { id: "crane-1", category: "U-Crane", name: "Dynamic arm" },
+    { id: "pod-1", category: "Pod Cars", name: "Tracking car" },
+  ];
+
+  assert.equal(isUCraneBooking({ vehicles: ["crane-1"] }, vehicles), true);
+  assert.equal(isUCraneBooking({ vehicles: ["pod-1"] }, vehicles), false);
 });
 
 test("existing bookings default to having the arm fitted", () => {

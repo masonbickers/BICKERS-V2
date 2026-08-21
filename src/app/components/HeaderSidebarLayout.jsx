@@ -70,6 +70,7 @@ import {
   getUnsavedChangesState,
   shouldBypassUnsavedChanges,
 } from "@/app/utils/unsavedChanges";
+import { getHolidayApprovalQueueCounts } from "@/app/utils/holidayApprovalQueue";
 
 const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
@@ -106,6 +107,33 @@ const globalSearchText = (...values) =>
   values.flat(Infinity).filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
 const globalSearchDomId = (id) => `search-${String(id || "result").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
+const dedupeViewAsUsers = (rows = []) => {
+  const byIdentity = new Map();
+
+  rows.forEach((row) => {
+    if (row?.isEnabled === false) return;
+
+    const email = String(row?.email || "").trim().toLowerCase();
+    const id = String(row?.uid || row?.id || "").trim();
+    const key = email ? `email:${email}` : `id:${id}`;
+    if (!id || key === "id:") return;
+
+    const current = byIdentity.get(key);
+    const name = String(row?.name || "").trim();
+    const hasUsefulName = Boolean(name && name.toLowerCase() !== email);
+    const currentName = String(current?.name || "").trim();
+    const currentHasUsefulName = Boolean(currentName && currentName.toLowerCase() !== email);
+
+    if (!current || (hasUsefulName && !currentHasUsefulName)) {
+      byIdentity.set(key, row);
+    }
+  });
+
+  return Array.from(byIdentity.values()).sort((a, b) =>
+    String(a?.name || a?.email || "").localeCompare(String(b?.name || b?.email || ""))
+  );
+};
+
 function SearchHighlight({ children, query }) {
   const value = String(children || "");
   const terms = String(query || "").trim().split(/\s+/).filter(Boolean);
@@ -131,47 +159,6 @@ function UCraneIcon({ size = 24, className = "", "aria-hidden": ariaHidden }) {
       style={{ width: size, height: size }}
     />
   );
-}
-
-/* -------------------------------------------
-   Date helpers (match HR page logic)
-------------------------------------------- */
-function parseYMD(s) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
-  if (!m) return null;
-  const [, Y, M, D] = m.map(Number);
-  return new Date(Y, M - 1, D, 0, 0, 0, 0);
-}
-
-function toSafeDate(v) {
-  if (!v) return null;
-
-  // Firestore Timestamp
-  if (typeof v?.toDate === "function") return v.toDate();
-
-  // strict YYYY-MM-DD
-  if (typeof v === "string") {
-    const strict = parseYMD(v);
-    if (strict) return strict;
-    const d = new Date(v);
-    return Number.isNaN(+d) ? null : d;
-  }
-
-  // number epoch
-  if (typeof v === "number") {
-    const d = new Date(v);
-    return Number.isNaN(+d) ? null : d;
-  }
-
-  return null;
-}
-
-function holidayYearBucket(h) {
-  const s = toSafeDate(h?.startDate);
-  const e = toSafeDate(h?.endDate) || s;
-  if (!s || !e) return null;
-  if (s.getFullYear() !== e.getFullYear()) return null;
-  return s.getFullYear();
 }
 
 function displayNameFromAccount(user, userDoc = {}) {
@@ -407,13 +394,7 @@ function HeaderSidebarLayoutInner({
         if (!res.ok) throw new Error(data?.error || "Could not load users.");
         if (cancelled) return;
         const rows = Array.isArray(data.users) ? data.users : [];
-        setViewAsUsers(
-          rows
-            .filter((row) => row?.isEnabled !== false)
-            .sort((a, b) =>
-              String(a?.name || a?.email || "").localeCompare(String(b?.name || b?.email || ""))
-            )
-        );
+        setViewAsUsers(dedupeViewAsUsers(rows));
       } catch (error) {
         console.warn("[view-as] user list unavailable:", error);
         if (!cancelled) {
@@ -469,29 +450,13 @@ function HeaderSidebarLayoutInner({
       return undefined;
     }
 
-    const hrRequestQuery = tenantCollectionQuery(db, "holidays", accessState, [limit(100)], CALENDAR_ACCESS_OPTIONS);
-    unsubHrRef.current = onSnapshot(hrRequestQuery, (qs) => {
-      clearPagePermissionDenied();
-      let requested = 0;
-      let deleteReq = 0;
-
-        const CURRENT_YEAR = new Date().getFullYear();
-
-        qs.forEach((d) => {
-          const h = d.data() || {};
-          const st = String(h.status || "").trim().toLowerCase();
-          if (!["requested", "delete_requested", "delete-requested"].includes(st)) return;
-
-          //  match HR logic: only count if start/end are valid and same year
-          const y = holidayYearBucket(h);
-          if (y !== CURRENT_YEAR) return;
-
-          if (st === "requested") requested += 1;
-          if (st === "delete_requested" || st === "delete-requested")
-            deleteReq += 1;
-        });
-
-        setHrNotif({ requests: requested, deletes: deleteReq });
+    const hrRequestQuery = tenantCollectionQuery(db, "holidays", accessState, [], CALENDAR_ACCESS_OPTIONS);
+    unsubHrRef.current = onSnapshot(
+      hrRequestQuery,
+      (qs) => {
+        clearPagePermissionDenied();
+        const holidays = qs.docs.map((document) => document.data() || {});
+        setHrNotif(getHolidayApprovalQueueCounts(holidays, new Date().getFullYear()));
       },
       (error) => {
         handleFirestoreAccessError(error, {
@@ -1897,7 +1862,30 @@ function HeaderSidebarLayoutInner({
           {children}
         </div>
 
-        <Modal open={Boolean(pendingNavigation)} onClose={handleStayOnPage} title="Unsaved changes" description={pendingNavigation?.message} size="sm" footer={<><Button variant="secondary" onClick={handleStayOnPage}>Stay on page</Button><Button variant="danger" onClick={handleLeaveWithoutSaving}>Leave without saving</Button>{pendingNavigation?.canSave ? <Button onClick={handleSaveAndLeave}>{pendingNavigation.saveLabel}</Button> : null}</>} />
+        <Modal
+          open={Boolean(pendingNavigation)}
+          onClose={handleStayOnPage}
+          title="Unsaved changes"
+          description={pendingNavigation?.message}
+          size="md"
+          density="compact"
+          footerClassName={layoutStyles.unsavedChangesFooter}
+          footer={
+            <>
+              <Button variant="secondary" onClick={handleStayOnPage}>
+                Stay on page
+              </Button>
+              <div className={layoutStyles.unsavedChangesActions}>
+                <Button variant="danger" onClick={handleLeaveWithoutSaving}>
+                  Leave without saving
+                </Button>
+                {pendingNavigation?.canSave ? (
+                  <Button onClick={handleSaveAndLeave}>{pendingNavigation.saveLabel}</Button>
+                ) : null}
+              </div>
+            </>
+          }
+        />
 
         {/* Footer */}
         <footer className={layoutStyles.footer}>

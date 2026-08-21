@@ -76,6 +76,7 @@ import {
 import { db, auth } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { rescheduleMaintenanceBooking } from "@/app/utils/maintenanceMutationClient";
+import { getServiceRecordPresentation } from "@/app/utils/servicePresentation";
 
 const DraggableBigCalendar = withDragAndDrop(BigCalendar);
 
@@ -261,7 +262,13 @@ const vehicleHomeCalendarCss = `
 .vehicle-home-page .rbc-time-view,
 .vehicle-home-page .rbc-month-view {
   border: 0;
+  border-radius: inherit;
   background: var(--color-surface);
+}
+.vehicle-home-page .rbc-time-view > .rbc-time-header,
+.vehicle-home-page .rbc-month-view > .rbc-month-header {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
 }
 .vehicle-home-page .rbc-header {
   padding: 7px 8px;
@@ -1631,14 +1638,8 @@ export default function VehiclesHomePage() {
     const collectionActivities = [
       ...serviceRecords.map((record) => {
         const type = classifyServiceRecord(record);
-        const activityDate = resolveActivityDate(
-          record.completedAt,
-          record.updatedAt,
-          record.createdAt,
-          record.serviceDateOnly,
-          record.serviceDate,
-          record.completedDate
-        );
+        const presentation = getServiceRecordPresentation(record);
+        const activityDate = resolveActivityDate(presentation.dateValue);
 
         const activity = {
           activityId: `serviceRecords:${record.id}`,
@@ -1648,7 +1649,7 @@ export default function VehiclesHomePage() {
           title:
             type === "repair"
               ? record.repairSummary || record.workSummary || "General repair"
-              : record.serviceType || "Service record",
+              : presentation.title,
           summary: toActivitySummary(
             record.workSummary,
             record.repairSummary,
@@ -1659,7 +1660,7 @@ export default function VehiclesHomePage() {
           vehicleId: record.vehicleId || null,
           vehicleName: record.vehicleName || "Unknown vehicle",
           registration: record.registration || "",
-          person: record.signedBy || record.completedBy || "",
+          person: presentation.provider,
           status: type === "repair" ? "completed" : "logged",
           activityDate,
           createdAt: record.createdAt || null,
@@ -2222,59 +2223,70 @@ export default function VehiclesHomePage() {
         />
 
         <section className="vehicle-home-command-grid" style={commandGrid}>
-          <div style={{ ...surface, padding: 12 }}>
-            <div className={layoutStyles.extracted11}>
-              <div>
-                <h2 style={titleMd}>Home</h2>
-                <div style={hint}>Operational shortcuts, live compliance counters and defect review status.</div>
+          <div style={{ display: "grid", gap: UI.gap, alignContent: "start", minWidth: 0 }}>
+            <section>
+              <div className={layoutStyles.extracted11}>
+                <div>
+                  <h2 style={titleMd}>Home</h2>
+                  <div style={hint}>Operational shortcuts, live compliance counters and defect review status.</div>
+                </div>
+                <span style={sectionTag}>All locations</span>
               </div>
-              <span style={sectionTag}>All locations</span>
-            </div>
 
-            <div className={`vehicle-home-summary-grid ${layoutStyles.extracted12}`} >
-              <SharedMetricCard label="Pending Defects" value={kpiPending} icon={<AlertTriangle size={19} />} tone={kpiPending ? "danger" : "success"} hint={`${pendingDefects.length} waiting review`} onClick={() => router.push(VEHICLE_CHECK_PATH)} />
-              <SharedMetricCard label="MOT Overdue" value={motCounts.overdue} icon={<CalendarCheck size={19} />} tone={motCounts.overdue ? "danger" : "success"} hint={`${motCounts.soon} due soon`} onClick={() => router.push("/mot-overview")} />
-              <SharedMetricCard label="Service Overdue" value={serviceCounts.overdue} icon={<Wrench size={19} />} tone={serviceCounts.overdue ? "danger" : "success"} hint={`${serviceCounts.soon} due soon`} onClick={() => router.push("/service-overview")} />
-              <SharedMetricCard label="Usage Days" value={totalUsageDays} icon={<Activity size={19} />} tone="info" hint={`${totalUsageBookings} bookings`} onClick={() => router.push("/usage-overview")} />
-            </div>
-
-            <div className={layoutStyles.extracted13}>
-              <div>
-                <h2 style={{ ...titleMd, fontSize: 15 }}>Fleet workspaces</h2>
-                <div style={hint}>Common vehicle actions grouped by how the workshop uses them.</div>
+              <div className={`vehicle-home-summary-grid ${layoutStyles.extracted12}`} >
+                <SharedMetricCard label="Pending Defects" value={kpiPending} icon={<AlertTriangle size={19} />} tone={kpiPending ? "danger" : "success"} hint={`${pendingDefects.length} waiting review`} onClick={() => router.push(VEHICLE_CHECK_PATH)} />
+                <SharedMetricCard label="MOT Overdue" value={motCounts.overdue} icon={<CalendarCheck size={19} />} tone={motCounts.overdue ? "danger" : "success"} hint={`${motCounts.soon} due soon`} onClick={() => router.push("/mot-overview")} />
+                <SharedMetricCard label="Service Overdue" value={serviceCounts.overdue} icon={<Wrench size={19} />} tone={serviceCounts.overdue ? "danger" : "success"} hint={`${serviceCounts.soon} due soon`} onClick={() => router.push("/service-overview")} />
+                <SharedMetricCard label="Usage Days" value={totalUsageDays} icon={<Activity size={19} />} tone="info" hint={`${totalUsageBookings} bookings`} onClick={() => router.push("/usage-overview")} />
               </div>
-              <div className={layoutStyles.extracted61}>
-                <Button type="button" onClick={() => router.push("/hgv-compliance")}>
-                  <CalendarCheck size={15} />
-                  HGV inspection planner
-                </Button>
-                <Button variant="secondary" type="button" onClick={() => router.push(VEHICLE_CHECK_PATH)}>
-                  Open vehicle check
-                </Button>
-              </div>
-            </div>
+            </section>
 
-            <div className={`vehicle-home-ops-grid ${layoutStyles.extracted14}`} >
-              {vehicleSections.map((section, idx) => (
+            <section style={{ ...surface, padding: 12 }}>
+              <div className={layoutStyles.extracted13}>
+                <div>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>Fleet workspaces</h2>
+                  <div style={hint}>Common vehicle actions grouped by how the workshop uses them.</div>
+                </div>
+                <div className={layoutStyles.extracted61}>
+                  <Button type="button" onClick={() => router.push("/hgv-compliance")}>
+                    <CalendarCheck size={15} />
+                    HGV inspection planner
+                  </Button>
+                  <Button variant="secondary" type="button" onClick={() => router.push(VEHICLE_CHECK_PATH)}>
+                    Open vehicle check
+                  </Button>
+                </div>
+              </div>
+
+              <div className={`vehicle-home-ops-grid ${layoutStyles.extracted14}`} >
+                {vehicleSections.map((section, idx) => (
+                  <NavigationCard
+                    key={idx}
+                    icon={React.createElement(section.icon, { size: 20, strokeWidth: 2.2 })}
+                    title={section.title}
+                    description={section.description}
+                    badges={section.rightBadges}
+                    onClick={() => router.push(section.link)}
+                  />
+                ))}
                 <NavigationCard
-                  key={idx}
-                  icon={React.createElement(section.icon, { size: 20, strokeWidth: 2.2 })}
-                  title={section.title}
-                  description={section.description}
-                  badges={section.rightBadges}
-                  onClick={() => router.push(section.link)}
+                  icon={<ClipboardCheck size={20} strokeWidth={2.2} />}
+                  title="Vehicle Check"
+                  description="Submit daily checks and defects"
+                  onClick={() => router.push(VEHICLE_CHECK_PATH)}
                 />
-              ))}
-              <NavigationCard
-                icon={<ClipboardCheck size={20} strokeWidth={2.2} />}
-                title="Vehicle Check"
-                description="Submit daily checks and defects"
-                onClick={() => router.push(VEHICLE_CHECK_PATH)}
-              />
-            </div>
+              </div>
+            </section>
           </div>
 
-          <aside style={{ display: "grid", gap: UI.gap, minWidth: 0 }}>
+          <aside
+            style={{
+              display: "grid",
+              gap: UI.gap,
+              minWidth: 0,
+              gridTemplateRows: "max-content max-content minmax(0, 1fr)",
+            }}
+          >
             <RiskRing
               title="MOT Compliance"
               total={motCounts.total}
@@ -2702,8 +2714,8 @@ function RiskRing({ title, total, ok, soon, overdue }) {
       <div className={layoutStyles.extracted52}>
         <div
           style={{
-            width: 126,
-            height: 126,
+            width: 112,
+            height: 112,
             borderRadius: "50%",
             background,
             display: "grid",
@@ -2713,15 +2725,15 @@ function RiskRing({ title, total, ok, soon, overdue }) {
         >
           <div
             style={{
-              width: 82,
-              height: 82,
+              width: 72,
+              height: 72,
               borderRadius: "50%",
               background: "var(--color-surface)",
               border: "1px solid var(--color-brand-soft)",
               display: "grid",
               placeItems: "center",
               color: UI.text,
-              fontSize: 24,
+              fontSize: 22,
               fontWeight: 850,
             }}
           >

@@ -16,6 +16,7 @@ import {
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { ArrowLeft, Plus, RotateCcw, Search } from "lucide-react";
 
 const UI = UI_TOKENS;
 
@@ -31,10 +32,10 @@ const headerBar = {
 const h1 = {
   margin: 0,
   fontSize: 24,
-  lineHeight: 1.1,
-  fontWeight: 950,
+  lineHeight: 1.08,
+  fontWeight: 850,
   color: UI.text,
-  letterSpacing: "-0.01em",
+  letterSpacing: 0,
 };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
@@ -45,14 +46,17 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 5,
-      padding: "7px 10px",
+      padding: "5px 8px",
       borderRadius: UI.radiusSm,
-      border: "1px solid var(--color-border)",
-      background: "var(--color-surface)",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12,
+      lineHeight: 1.2,
     };
   }
   return {
@@ -60,22 +64,26 @@ const btn = (kind = "primary") => {
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
-    padding: "7px 10px",
+    padding: "5px 8px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
     color: "var(--color-white)",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12,
+    lineHeight: 1.2,
   };
 };
 
 const input = {
   width: "100%",
-  padding: "6px 9px",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
+  minHeight: 30,
+  padding: "5px 8px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   outline: "none",
   fontSize: 13,
   background: "var(--color-surface)",
@@ -87,14 +95,14 @@ const smallLabel = {
   color: UI.muted,
   fontWeight: 900,
   textTransform: "uppercase",
-  letterSpacing: ".04em",
+  letterSpacing: 0,
   marginBottom: 1,
 };
 
 const chip = (bg, fg) => ({
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
+  gap: 5,
   padding: "3px 8px",
   borderRadius: 999,
   fontSize: 12,
@@ -264,8 +272,11 @@ export default function EquipmentPage() {
           box-shadow: 0 0 0 4px rgba(29,78,216,0.14);
           border-color: var(--color-info-border) !important;
         }
+        .equipment-action { transition: transform 120ms ease, box-shadow 120ms ease; }
+        .equipment-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         .equipment-sticky thead th { position: sticky; top: 0; z-index: 5; }
         .equipment-sticky .catRow { position: sticky; top: 29px; z-index: 4; }
+        .equipmentDataRow:hover td { background: rgba(31,75,122,0.04); }
       `}</style>
 
       <div style={pageWrap}>
@@ -275,25 +286,28 @@ export default function EquipmentPage() {
           </div>
 
           <div className={layoutStyles.extracted2}>
-            <button onClick={() => router.push("/vehicle-home")} style={btn("ghost")}>
-              ← Back
+            <button className="equipment-action" onClick={() => router.push("/vehicle-home")} style={btn("ghost")}>
+              <ArrowLeft size={15} />
+              Back
             </button>
-            <button onClick={() => router.push("/add-equipment")} style={btn()}>
-              + Add Equipment
+            <button className="equipment-action" onClick={() => router.push("/add-equipment")} style={btn()}>
+              <Plus size={15} />
+              Add Equipment
             </button>
           </div>
         </div>
 
-        <div style={{ marginBottom: UI.gap }}>
+        <div style={{ ...card, padding: 6, marginBottom: UI.gap }}>
           <div className={layoutStyles.extracted3}>
-            <div>
+            <div className={layoutStyles.searchField}>
               <div style={smallLabel}>Search</div>
+              <Search size={14} className={layoutStyles.searchIcon} />
               <input
                 type="text"
                 placeholder="Search by name, serial, asset, status..."
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                style={input}
+                style={{ ...input, paddingLeft: 28 }}
               />
             </div>
 
@@ -328,6 +342,7 @@ export default function EquipmentPage() {
 
               <button
                 type="button"
+                className="equipment-action"
                 style={btn("ghost")}
                 onClick={() => {
                   setQ("");
@@ -335,23 +350,14 @@ export default function EquipmentPage() {
                   setStatusFilter("All");
                 }}
               >
+                <RotateCcw size={14} />
                 Reset
               </button>
             </div>
           </div>
         </div>
 
-        <div
-          style={{
-            ...card,
-            overflow: "hidden",
-            marginLeft: -18,
-            marginRight: -18,
-            borderRadius: 0,
-            borderLeft: "none",
-            borderRight: "none",
-          }}
-        >
+        <div style={{ ...card, overflow: "hidden" }}>
           <div className={layoutStyles.extracted5}>
             <div className="equipment-sticky">
               <table className={layoutStyles.extracted6}>
@@ -388,7 +394,7 @@ export default function EquipmentPage() {
                             verticalAlign: "middle",
                           }}
                         >
-                          {expandedCategories[category] ? "▼" : "▶"} {category}{" "}
+                          {expandedCategories[category] ? "v" : ">"} {category}{" "}
                           <span style={{ color: UI.muted, fontWeight: 800 }}>({list.length})</span>
                         </td>
                       </tr>
@@ -407,6 +413,7 @@ export default function EquipmentPage() {
                           return (
                             <tr
                               key={e.id}
+                              className="equipmentDataRow"
                               onClick={() => router.push(`/edit-equipment/${e.id}`)}
                               style={{ background: zebra, cursor: "pointer" }}
                             >

@@ -46,9 +46,12 @@ import Papa from "papaparse";
 import { ArrowLeft, Download, FilePlus2, Plus, RotateCcw, Search, Settings } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { useSessionState } from "@/app/utils/useSessionState";
+import { SERVICE_WARNING_DAYS } from "@/app/utils/servicePresentation";
+import { MOT_WARNING_DAYS } from "@/app/utils/motPresentation";
 
 /* UI tokens */
 const UI = UI_TOKENS;
+const MOT_SYNC_REQUEST_TIMEOUT_MS = 180_000;
 
 const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
 const headerBar = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", marginBottom: 4 };
@@ -289,8 +292,9 @@ export default function VehicleMaintenancePage() {
   const [motSyncMeta, setMotSyncMeta] = useState(null);
   const [insuranceDatePrompt, setInsuranceDatePrompt] = useState(null);
   const [taxDatePrompt, setTaxDatePrompt] = useState(null);
-  const lastAllMotFetchLabel = motSyncMeta?.lastAllFetchedAt
-    ? `Last all MOT fetch: ${formatSyncDateTime(motSyncMeta.lastAllFetchedAt)}${
+  const lastAllMotFetchedAt = motSyncMeta?.lastAllFetchFinishedAt || motSyncMeta?.lastAllFetchedAt;
+  const lastAllMotFetchLabel = lastAllMotFetchedAt
+    ? `Last all MOT fetch: ${formatSyncDateTime(lastAllMotFetchedAt)}${
         motSyncMeta.lastAllFetchUpdated != null ? ` - ${motSyncMeta.lastAllFetchUpdated} updated` : ""
       }`
     : "Last all MOT fetch: Not run yet";
@@ -509,6 +513,8 @@ export default function VehicleMaintenancePage() {
     }
 
     setSyncingMotHistory(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), MOT_SYNC_REQUEST_TIMEOUT_MS);
     try {
       const idToken = await currentUser.getIdToken();
       const res = await fetch("/api/dvla/mot-history/sync", {
@@ -516,6 +522,7 @@ export default function VehicleMaintenancePage() {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
+        signal: controller.signal,
       });
       const data = await res.json().catch(() => ({}));
 
@@ -532,8 +539,13 @@ export default function VehicleMaintenancePage() {
       );
     } catch (err) {
       console.error("Failed to sync MOT history:", err);
-      systemDialogs.showSystemNotification(err.message || "Could not fetch MOT data.");
+      systemDialogs.showSystemNotification(
+        err?.name === "AbortError"
+          ? "The MOT fetch took longer than 3 minutes and was stopped. Please try again."
+          : err.message || "Could not fetch MOT data."
+      );
     } finally {
+      window.clearTimeout(timeoutId);
       setSyncingMotHistory(false);
     }
   };
@@ -712,14 +724,14 @@ export default function VehicleMaintenancePage() {
             value: getInsuredUntil(v),
             warningDays: complianceSettings.insuranceWarningDays,
           },
-          { value: serviceState.value, warningDays: 21 },
+          { value: serviceState.value, warningDays: SERVICE_WARNING_DAYS },
           ...fields.map(({ field, maintenanceType, warningDays }) => ({
             value: maintenanceType
               ? getRegisterAdditionalMaintenanceDate(v, maintenanceType)
               : v[field],
             warningDays,
           })),
-          { value: motState.value, warningDays: 21 },
+          { value: motState.value, warningDays: MOT_WARNING_DAYS },
         ],
       });
     }
@@ -1143,13 +1155,17 @@ export default function VehicleMaintenancePage() {
                         const insuranceCell = { ...rowTd, width: 118, maxWidth: 118 };
                         const insuranceStatus = outOfUse ? v.insuranceStatus || "N/A" : getInsuranceStatus(v);
                         const dateOptions = outOfUse ? { suppressStatus: true } : undefined;
+                        const motDateOptions = {
+                          soonDays: MOT_WARNING_DAYS,
+                          suppressStatus: outOfUse,
+                        };
                         const taxDateOptions = outOfUse ? { suppressStatus: true } : { soonDays: complianceSettings.taxRflWarningDays };
                         const insuranceDateOptions = {
                           soonDays: complianceSettings.insuranceWarningDays,
                           suppressStatus: outOfUse,
                         };
                         const serviceDateOptions = {
-                          soonDays: 21,
+                          soonDays: SERVICE_WARNING_DAYS,
                           suppressStatus: outOfUse,
                         };
                         const rowBackground = outOfUse ? "var(--color-surface-hover)" : zebra;
@@ -1217,7 +1233,7 @@ export default function VehicleMaintenancePage() {
 
                             {/* Dates with colour-coded status */}
                             {retentionPlate ? <td style={rowTd}>N/A</td> : renderDateCell(getInsuredUntil(v), rowTd, insuranceDateOptions)}
-                            {renderComplianceDateCell(v, "mot", rowTd, dateOptions)}
+                            {renderComplianceDateCell(v, "mot", rowTd, motDateOptions)}
                             {renderComplianceDateCell(v, "service", rowTd, serviceDateOptions)}
                             {renderDateCell(getRegisterAdditionalMaintenanceDate(v, "pmi"), rowTd, dateOptions)}
                             {renderDateCell(getRegisterAdditionalMaintenanceDate(v, "brake_test"), rowTd, dateOptions)}
@@ -1244,7 +1260,7 @@ export default function VehicleMaintenancePage() {
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
           <span className={layoutStyles.extracted19}>red</span> = overdue.{" "}
-          <span style={{ color: UI.amber, fontWeight: 900 }}>Missing</span> = no date or exemption recorded;{" "}
+          <span style={{ color: UI.muted, fontWeight: 900 }}>-</span> = no date or exemption recorded;{" "}
           <strong>N/A</strong> = deliberately marked not applicable.
         </div>
 
@@ -1466,10 +1482,10 @@ function renderComplianceDateCell(vehicle, type, baseStyle, options) {
   if (state.status === "missing") {
     return (
       <td
-        style={{ ...baseStyle, color: UI.amber, fontWeight: 950 }}
+        style={{ ...baseStyle, color: UI.muted }}
         title={`No ${String(type).toUpperCase()} date or exemption recorded`}
       >
-        Missing
+        -
       </td>
     );
   }

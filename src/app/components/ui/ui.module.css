@@ -14,6 +14,25 @@
 .metricCardInteractive{cursor:pointer;transition:transform var(--transition-fast),box-shadow var(--transition-fast),border-color var(--transition-fast)}.metricCardInteractive:hover:not(:disabled){transform:translateY(-2px);border-color:var(--color-brand-border);box-shadow:var(--shadow-md)}.metricCardInteractive:focus-visible{outline:none;box-shadow:var(--focus-ring),var(--shadow-md)}.metricCardInteractive:disabled{opacity:.58;cursor:not-allowed}
 .metricCardLabel{align-self:start;color:var(--color-text-muted);font-size:var(--font-size-xs);font-weight:800;letter-spacing:.02em;text-transform:uppercase}.metricCardValue{align-self:center;font-size:1.75rem;font-weight:900;line-height:1.05}.metricCardValue small{margin-left:var(--space-1);color:var(--color-text-muted);font-size:var(--font-size-xs);font-weight:800}.metricCardIcon{grid-column:2;grid-row:1 / span 2;width:40px;height:40px;display:grid;place-items:center;color:var(--metric-tone,var(--color-brand));background:var(--metric-soft,var(--color-brand-soft));border:1px solid var(--metric-border,var(--color-brand-border));border-radius:var(--radius-md);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--color-white) 70%,transparent)}.metricCardHint{align-self:end;overflow:hidden;color:var(--metric-tone,var(--color-text-muted));font-size:var(--font-size-xs);font-weight:750;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}.metricCardArrow{position:absolute;right:var(--space-3);bottom:var(--space-3);color:var(--color-text-muted);font-size:22px;line-height:1}.metricCardInteractive .metricCardHint{padding-right:var(--space-4)}
 .metricCardNeutral{--metric-tone:var(--color-text);--metric-soft:var(--color-surface-subtle);--metric-border:var(--color-border-strong)}.metricCardInfo{--metric-tone:var(--color-info);--metric-soft:var(--color-info-surface);--metric-border:var(--color-info-border)}.metricCardSuccess{--metric-tone:var(--color-success);--metric-soft:var(--color-success-surface);--metric-border:var(--color-success-border)}.metricCardWarning{--metric-tone:var(--color-warning);--metric-soft:var(--color-warning-surface);--metric-border:var(--color-warning-border)}.metricCardDanger{--metric-tone:var(--color-danger);--metric-soft:var(--color-danger-surface);--metric-border:var(--color-danger-border)}.metricCardWarning,.metricCardDanger{border-color:var(--metric-border);background:linear-gradient(180deg,color-mix(in srgb,var(--metric-soft) 64%,var(--color-surface)),var(--metric-soft))}
+/* Optional reduced-card presentation. Key panels, metrics and alerts retain their hierarchy. */
+:global(:root[data-card-style="reduced"]) .navigationCard {
+  min-height: 78px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+:global(:root[data-card-style="reduced"]) .navigationCard:hover:not(:disabled) {
+  transform: none;
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+  box-shadow: none;
+}
+:global(:root[data-card-style="reduced"]) .navigationCard:focus-visible {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
+}
 .statCard{display:grid;gap:var(--space-1)}.statLabel{color:var(--color-text-muted);font-size:var(--font-size-xs);font-weight:800;text-transform:uppercase}.statValue{font-size:var(--font-size-xl);font-weight:800}.statHint{color:var(--color-text-muted);font-size:var(--font-size-xs)}
 .button{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:var(--control-height-md);padding:0 var(--space-3);border:var(--border-width,1px) solid transparent;border-radius:var(--radius-md);font-weight:var(--font-weight-button,800);line-height:1;box-shadow:inset 0 1px 0 color-mix(in srgb,var(--color-white) 42%,transparent),var(--shadow-sm);transition:transform var(--transition-fast),box-shadow var(--transition-fast),border-color var(--transition-fast),filter var(--transition-fast)}
 .button:hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--color-white) 55%,transparent),var(--shadow-md);filter:saturate(1.04)}

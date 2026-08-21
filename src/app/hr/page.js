@@ -32,6 +32,10 @@ import {
   resolveDataAccess,
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
+import {
+  isHolidayAwaitingApproval,
+  isHolidayDeleteAwaitingApproval,
+} from "@/app/utils/holidayApprovalQueue";
 
 import {
   BarChart,
@@ -396,19 +400,11 @@ export default function HRPage() {
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       //  Requested for selected year (includes Paid + Unpaid + Accrued)
-      const pending = all.filter((h) => {
-        const st = String(h.status || "").toLowerCase();
-        const y = holidayYear(h);
-        return (st === "requested" || !h.status) && y === yearView;
-      });
+      const pending = all.filter((holiday) => isHolidayAwaitingApproval(holiday, yearView));
       setRequestedHolidays(pending);
 
       //  Delete requests for selected year
-      const delPending = all.filter((h) => {
-        const st = String(h.status || "").toLowerCase();
-        const y = holidayYear(h);
-        return (st === "delete_requested" || st === "delete-requested") && y === yearView;
-      });
+      const delPending = all.filter((holiday) => isHolidayDeleteAwaitingApproval(holiday, yearView));
       setDeleteRequestedHolidays(delPending);
 
       // Approved usage for selected year (paid only) - excludes weekends and bank holidays

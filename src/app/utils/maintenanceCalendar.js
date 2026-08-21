@@ -31,6 +31,14 @@ const CLOSED_MAINTENANCE_BOOKING_STATUSES = new Set([
   "completed",
 ]);
 
+const AUTOMATIC_DUE_SOURCES = new Set([
+  "automatic_schedule",
+  "vehicle_maintenance_schedule",
+  "maintenance_schedule",
+  "completion_recurrence",
+  "safe_reconciliation",
+]);
+
 const INACTIVE_MAINTENANCE_JOB_STATUSES = new Set([
   "closed",
   "complete",
@@ -107,6 +115,43 @@ export const isOpenMaintenanceBooking = (booking = {}, now = new Date()) => {
   const bookingEnd = startOfLocalDay(end);
 
   return !today || !bookingEnd || bookingEnd.getTime() >= today.getTime();
+};
+
+export const isConfirmedMaintenanceBooking = (booking = {}) => {
+  const canonical = normalizeMaintenanceRecord(booking, { id: booking?.id });
+  if (!["booked", "in_progress"].includes(canonical.status)) return false;
+  if (!canonical.schedule.bookingDates.length) return false;
+
+  const originSource = String(booking?.origin?.source || canonical.origin?.source || "")
+    .trim()
+    .toLowerCase();
+  if (!AUTOMATIC_DUE_SOURCES.has(originSource)) return true;
+
+  return Boolean(
+    booking?.scheduleManuallyAdjusted === true ||
+    booking?.arrangedAt ||
+    booking?.arrangedBy ||
+    booking?.restoredAfterVor ||
+    booking?.reactivatedAfterVorAtISO ||
+    String(booking?.provider || "").trim() ||
+    String(booking?.bookingRef || "").trim() ||
+    String(booking?.location || "").trim()
+  );
+};
+
+export const getUnarrangedMaintenanceDueDate = (booking = {}, maintenanceTypeId = "") => {
+  const canonical = normalizeMaintenanceRecord(booking, { id: booking?.id });
+  const requestedWithoutAppointment = canonical.status === "requested";
+  const legacyAutomaticSchedule =
+    canonical.status === "booked" && !isConfirmedMaintenanceBooking(booking);
+  if (!requestedWithoutAppointment && !legacyAutomaticSchedule) return "";
+
+  const expectedType = String(maintenanceTypeId || "").trim().toLowerCase();
+  return canonical.items
+    .filter((item) => !expectedType || item.maintenanceTypeId === expectedType)
+    .map((item) => toYmdDate(item.legalDueDateISO))
+    .filter(Boolean)
+    .sort()[0] || "";
 };
 
 const maintenanceBookingDateKeys = (booking = {}) => {
@@ -403,9 +448,10 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
     if (isInactiveMaintenanceBooking(booking.status)) return [];
 
     const canonical = normalizeMaintenanceRecord(booking, { id: booking.id });
-    const canonicalStatus = canonical.status;
+    const unarrangedDueDate = getUnarrangedMaintenanceDueDate(booking);
+    const canonicalStatus = unarrangedDueDate ? "requested" : canonical.status;
 
-    const dates = canonical.schedule.bookingDates;
+    const dates = canonicalStatus === "requested" ? [] : canonical.schedule.bookingDates;
     const kind = getMaintenanceBookingKind(booking);
     const displayTypeIds = getMaintenanceDisplayTypeIds(booking, canonical);
     const typeLabel = getMaintenanceDisplayType({
@@ -573,6 +619,49 @@ const eventRequirementKey = (event = {}) => {
 };
 
 export const dedupeMaintenanceCalendarEvents = (events = []) => {
+  const completedMaintenanceItems = (Array.isArray(events) ? events : []).flatMap((event) => {
+    if (
+      event?.__collection !== "maintenanceBookings" ||
+      String(event?.recordStatus || "").trim().toLowerCase() !== "completed"
+    ) {
+      return [];
+    }
+
+    const fallbackCompletionDate = toYmdDate(event?.start);
+    return (Array.isArray(event?.canonicalItems) ? event.canonicalItems : []).flatMap((item) => {
+      if (String(item?.status || "").trim().toLowerCase() !== "completed") return [];
+      const completionDateISO = toYmdDate(item?.completionDateISO) || fallbackCompletionDate;
+      if (!completionDateISO) return [];
+      return [{
+        vehicleId: String(event?.vehicleId || "").trim(),
+        maintenanceTypeId: String(item?.maintenanceTypeId || "").trim().toLowerCase(),
+        completionDateISO,
+      }];
+    });
+  });
+  const isSatisfiedRequestedEvent = (event) => {
+    if (
+      event?.__collection !== "maintenanceBookings" ||
+      String(event?.recordStatus || "").trim().toLowerCase() !== "requested"
+    ) {
+      return false;
+    }
+
+    const vehicleId = String(event?.vehicleId || "").trim();
+    const requestedItems = Array.isArray(event?.canonicalItems) ? event.canonicalItems : [];
+    if (!vehicleId || !requestedItems.length) return false;
+
+    return requestedItems.every((item) => {
+      const maintenanceTypeId = String(item?.maintenanceTypeId || "").trim().toLowerCase();
+      const legalDueDateISO = toYmdDate(item?.legalDueDateISO);
+      if (!maintenanceTypeId || !legalDueDateISO) return false;
+      return completedMaintenanceItems.some((completed) =>
+        completed.vehicleId === vehicleId &&
+        completed.maintenanceTypeId === maintenanceTypeId &&
+        completed.completionDateISO >= legalDueDateISO
+      );
+    });
+  };
   const actualBookingKeys = new Set(
     (Array.isArray(events) ? events : [])
       .filter(
@@ -591,6 +680,8 @@ export const dedupeMaintenanceCalendarEvents = (events = []) => {
       .filter(Boolean)
   );
   return (Array.isArray(events) ? events : []).filter((event) => {
+    if (isSatisfiedRequestedEvent(event)) return false;
+
     const id = String(event?.id || "").trim();
     if (id && seenIds.has(id)) return false;
     if (id) seenIds.add(id);

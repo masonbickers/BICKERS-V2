@@ -60,6 +60,7 @@ import {
 } from "@/app/utils/maintenanceMutationClient";
 import {
   getMaintenanceRecordDisplayDates,
+  isConfirmedMaintenanceBooking,
   isOpenMaintenanceBooking,
 } from "@/app/utils/maintenanceCalendar";
 import {
@@ -80,9 +81,11 @@ import {
 import {
   buildVehicleEditorUpdatePatch,
   getChangedProtectedVehicleFields,
+  mergeServerManagedVehicleFields,
   restoreProtectedVehicleFields,
 } from "@/app/utils/vehicleEditorSave";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import { normalizeVehicleAssetNumber } from "@/app/utils/vehicleAssetNumber";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import {
@@ -446,26 +449,7 @@ const formatDefectText = (defect) =>
 const getMotDefects = (test, predicate = () => true) =>
   safeArr(test?.defects).filter((defect) => formatDefectText(defect) && predicate(defect));
 
-const normaliseMotTestForStorage = (test) => ({
-  completedDate: test?.completedDate || "",
-  expiryDate: test?.expiryDate || "",
-  testResult: test?.testResult || "",
-  motTestNumber: test?.motTestNumber || "",
-  odometerValue: test?.odometerValue || "",
-  odometerUnit: test?.odometerUnit || "",
-  odometerResultType: test?.odometerResultType || "",
-  dataSource: test?.dataSource || "",
-  defects: getMotDefects(test).map((defect) => ({
-    text: formatDefectText(defect),
-    type: defect?.type || "",
-    dangerous: Boolean(defect?.dangerous),
-  })),
-});
-
 const getLatestMotTest = (tests) => safeArr(tests)[0] || null;
-
-const getLatestPassedMotTest = (tests) =>
-  safeArr(tests).find((test) => String(test?.testResult || "").toUpperCase() === "PASSED") || null;
 
 const getMileageAnomaly = (tests) => {
   const sorted = safeArr(tests);
@@ -1198,6 +1182,10 @@ export default function EditVehiclePage() {
         next.manufacturer = value;
         next.make = value;
       }
+      if (name === "assetNumber" || name === "sageAssetNumber") {
+        next.assetNumber = value;
+        next.sageAssetNumber = value;
+      }
       if (name === "lastMOT" || name === "lastMot") {
         next.lastMOT = value;
         next.lastMot = value;
@@ -1597,73 +1585,46 @@ export default function EditVehiclePage() {
 
     setFetchingMotHistory(true);
     try {
-      const res = await fetch(`/api/dvla/mot-history?vrm=${encodeURIComponent(vrm)}`);
+      const currentUser = authAccess.user;
+      if (!currentUser?.getIdToken) {
+        throw new Error("You need to be signed in to fetch MOT history.");
+      }
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch("/api/dvla/mot-history/sync", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ vehicleId: vehicle.id }),
+      });
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        throw new Error(data?.details || data?.error || "Could not fetch MOT history.");
+      if (!res.ok || Number(data?.failed || 0) > 0) {
+        throw new Error(
+          data?.failures?.[0]?.message ||
+          data?.details ||
+          data?.error ||
+          "Could not fetch MOT history."
+        );
       }
-
-      const motTests = safeArr(data?.motTests).map(normaliseMotTestForStorage);
-      const latestAny = getLatestMotTest(motTests);
-      const latestPassed = data?.latestMot || getLatestPassedMotTest(motTests) || null;
-      const lastMot = dateOnly(latestPassed?.completedDate || "");
-      const nextMot = dateOnly(data?.nextMOT || latestPassed?.expiryDate || "");
-      const odometerValue = latestPassed?.odometerValue ? String(latestPassed.odometerValue) : "";
-      const odometerNumeric = Number(odometerValue.replace(/[^\d.]/g, ""));
-      const latestDefects = getMotDefects(latestAny);
-      const mileageWarning = getMileageAnomaly(motTests);
-
-      setVehicle((prev) => {
-        if (!prev) return prev;
-        const next = {
-          ...prev,
-          lastMOT: lastMot || prev.lastMOT || "",
-          lastMot: lastMot || prev.lastMot || "",
-          nextMOT: nextMot || prev.nextMOT || "",
-          nextMot: nextMot || prev.nextMot || "",
-          nextMotDate: nextMot || prev.nextMotDate || "",
-          motDueDate: nextMot || prev.motDueDate || "",
-          motHistorySyncedAt: new Date().toISOString(),
-          motHistoryLatestTestNumber: latestPassed?.motTestNumber || "",
-          dvsaMotHistoryFetchedAt: new Date().toISOString(),
-          dvsaMotTests: motTests,
-          dvsaLatestMot: latestAny || latestPassed || null,
-          dvsaLatestMotResult: latestAny?.testResult || latestPassed?.testResult || "",
-          dvsaLatestMotTestNumber: latestAny?.motTestNumber || latestPassed?.motTestNumber || "",
-          dvsaLatestMotOdometer: formatOdometer(latestAny || latestPassed),
-          dvsaLatestMotDefectCount: latestDefects.length,
-          dvsaLatestMotAdvisoryCount: latestDefects.filter((defect) =>
-            String(defect?.type || "").toUpperCase().includes("ADVISORY")
-          ).length,
-          dvsaLatestMotDangerousCount: latestDefects.filter((defect) => defect?.dangerous).length,
-          dvsaLatestMotMajorCount: latestDefects.filter((defect) =>
-            String(defect?.type || "").toUpperCase().includes("MAJOR")
-          ).length,
-          dvsaMotMileageWarning: mileageWarning,
-          dvsaMotVehicleDetails: {
-            registration: data?.registration || vrm,
-            make: data?.make || "",
-            model: data?.model || "",
-            fuelType: data?.fuelType || "",
-            primaryColour: data?.primaryColour || "",
-            registrationDate: data?.registrationDate || "",
-            manufactureDate: data?.manufactureDate || "",
-            engineSize: data?.engineSize || "",
-            hasOutstandingRecall: data?.hasOutstandingRecall || "",
-          },
-        };
-
-        if (Number.isFinite(odometerNumeric) && odometerNumeric > 0) {
-          next.odometer = odometerNumeric;
-          next.mileage = odometerNumeric;
-          next.serviceOdometer = odometerNumeric;
+      const baseline = (() => {
+        try {
+          return JSON.parse(initialSnapshot || "{}");
+        } catch {
+          return {};
         }
-
-        return next;
-      });
-
-      systemDialogs.showSystemNotification("MOT history loaded. Review the updated MOT dates and odometer, then press Save.");
+      })();
+      const merged = mergeServerManagedVehicleFields(
+        vehicle,
+        baseline,
+        data?.vehicle || {},
+        data?.changedFields || []
+      );
+      setVehicle(syncStatusDateFields(merged.current));
+      setInitialSnapshot(JSON.stringify(merged.baseline));
+      setSaveNotice({ tone: "success", message: "DVSA MOT data fetched and saved." });
+      systemDialogs.showSystemNotification("MOT history fetched and saved from DVSA.");
     } catch (err) {
       console.error("Failed to fetch MOT history:", err);
       systemDialogs.showSystemNotification(err.message || "Could not fetch MOT history.");
@@ -1752,6 +1713,9 @@ export default function EditVehiclePage() {
       }
       const registration = String(payload.registration || payload.reg || payload.registrationNumber || "").trim();
       const manufacturer = String(payload.manufacturer || payload.make || "").trim();
+      const assetNumber = normalizeVehicleAssetNumber(
+        payload.assetNumber || payload.sageAssetNumber
+      );
       const motDisabled = isMotNotApplicable(payload);
       const serviceDisabled = isServiceNotApplicable(payload);
       const nextMot = motDisabled ? "" : dateOnly(payload.nextMOT ?? payload.nextMot ?? payload.nextMotDate ?? "");
@@ -1770,6 +1734,8 @@ export default function EditVehiclePage() {
         payload.manufacturer = manufacturer;
         payload.make = manufacturer;
       }
+      payload.assetNumber = assetNumber;
+      payload.sageAssetNumber = assetNumber;
       payload.lastMOT = lastMot;
       payload.lastMot = lastMot;
       payload.nextMOT = nextMot;
@@ -2143,7 +2109,9 @@ export default function EditVehiclePage() {
   const activeVehicleBookings = useMemo(
     () =>
       vehicleBookings
-        .filter((booking) => isOpenMaintenanceBooking(booking))
+        .filter((booking) =>
+          isOpenMaintenanceBooking(booking) && isConfirmedMaintenanceBooking(booking)
+        )
         .sort((a, b) => {
           const ad = getMaintenanceBookingStartDate(a);
           const bd = getMaintenanceBookingStartDate(b);
@@ -2683,31 +2651,31 @@ export default function EditVehiclePage() {
         }
       `}</style>
 
-      {saveNotice ? (
-        <div
-          className={`${layoutStyles.saveNotice} ${layoutStyles[`saveNotice_${saveNotice.tone}`]}`}
-          role={saveNotice.tone === "error" ? "alert" : "status"}
-          aria-live="polite"
-        >
-          <span className={layoutStyles.saveNoticeIcon} aria-hidden="true">
-            {saveNotice.tone === "success" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
-          </span>
-          <div className={layoutStyles.saveNoticeCopy}>
-            <strong>{saveNotice.tone === "success" ? "Vehicle saved" : saveNotice.tone === "warning" ? "Saved with a warning" : "Save failed"}</strong>
-            <span>{saveNotice.message}</span>
-          </div>
-          <button
-            type="button"
-            className={layoutStyles.saveNoticeClose}
-            onClick={() => setSaveNotice(null)}
-            aria-label="Dismiss notification"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      ) : null}
-
       <div style={pageWrap}>
+        {saveNotice ? (
+          <div
+            className={`${layoutStyles.saveNotice} ${layoutStyles[`saveNotice_${saveNotice.tone}`]}`}
+            role={saveNotice.tone === "error" ? "alert" : "status"}
+            aria-live="polite"
+          >
+            <span className={layoutStyles.saveNoticeIcon} aria-hidden="true">
+              {saveNotice.tone === "success" ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+            </span>
+            <div className={layoutStyles.saveNoticeCopy}>
+              <strong>{saveNotice.tone === "success" ? "Vehicle saved" : saveNotice.tone === "warning" ? "Saved with a warning" : "Save failed"}</strong>
+              <span>{saveNotice.message}</span>
+            </div>
+            <button
+              type="button"
+              className={layoutStyles.saveNoticeClose}
+              onClick={() => setSaveNotice(null)}
+              aria-label="Dismiss notification"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ) : null}
+
         {realtimeVehicleError ? (
           <div
             role="alert"
@@ -3218,6 +3186,24 @@ export default function EditVehiclePage() {
             </div>
 
             <div className="vehicle-edit-left vehicle-edit-left-rest" style={sectionStack}>
+            <div className="vehicle-edit-asset-information">
+              <h2 style={sectionTitle}>Asset Information</h2>
+              <div style={panel}>
+                <div className="vehicle-edit-field-grid" style={grid(2)}>
+                  <Field
+                    label="Sage asset number"
+                    name="assetNumber"
+                    value={vehicle.assetNumber || vehicle.sageAssetNumber}
+                    onChange={handleChange}
+                    placeholder="e.g. 0103"
+                    inputMode="numeric"
+                    meta="The four-digit asset number used in the Sage vehicle register."
+                    source={vehicle.assetNumberSource ? "Sage" : "Manual"}
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Due Dates & Intervals */}
             <div className="vehicle-edit-core">
               <div className={layoutStyles.coreDueHeader}>
@@ -3834,7 +3820,7 @@ export default function EditVehiclePage() {
                             {formatDisplayDate(item.completedDate)}
                           </div>
                           <div style={{ marginTop: 3, fontSize: 12.5, color: UI.muted }}>
-                            {item.bookingRef || item.sourceLabel || "Service record"}
+                            {item.title || item.serviceType || item.bookingRef || item.sourceLabel || "Service record"}
                           </div>
                         </div>
                         <span style={{ color: UI.brand, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>

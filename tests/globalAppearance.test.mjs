@@ -32,6 +32,17 @@ import {
   INTERFACE_SCALE_OPTIONS,
   normalizeInterfaceScale,
 } from "../src/app/utils/interfaceScale.js";
+import {
+  CARD_STYLE_OPTIONS,
+  normalizeCardStyle,
+} from "../src/app/utils/cardStyle.js";
+
+test("card presentation preserves the current layout by default and offers a reduced option", () => {
+  assert.equal(normalizeCardStyle(undefined), "current");
+  assert.equal(normalizeCardStyle("unsupported"), "current");
+  assert.equal(normalizeCardStyle("reduced"), "reduced");
+  assert.deepEqual(CARD_STYLE_OPTIONS.map((option) => option.value), ["current", "reduced"]);
+});
 
 test("theme normalization validates colours and clamps component values", () => {
   const theme = normalizeGlobalTheme({ brandColor: "#ABCDEF", inputHeight: 999, pageWidth: 10, density: "invalid" });

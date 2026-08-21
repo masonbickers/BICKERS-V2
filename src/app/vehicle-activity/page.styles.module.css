@@ -1,64 +1,731 @@
+.pageWrap {
+  min-height: 100vh;
+  padding: 16px 16px 32px;
+  background: var(--color-bg);
+}
 
+.appShell {
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
 
-.extracted1 {
+.logSection {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.heroSection {
+  min-width: 0;
+}
+
+.heroHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  gap: 24px;
 }
 
-.extracted2 {
+.heroCopy {
+  max-width: 760px;
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 22px;
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.pageDescription,
+.logHint {
+  margin: 9px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.pageDescription {
+  max-width: 760px;
+  margin-top: 6px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.heroActions {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-}
-
-.extracted3 {
-  margin-top: 12px;
-}
-
-.extracted4 {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.extracted5 {
-  position: relative;
-  display: block;
-}
-
-.extracted6 {
-  height: 1px;
-  background: var(--color-border);
-  margin: 12px 0 0;
-}
-
-.extracted7 {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.extracted8 {
-  margin-top: 10px;
-  display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  align-items: center;
 }
 
-.extracted9 {
+.liveChip,
+.recordChip,
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.liveChip {
+  gap: 7px;
+  color: var(--color-success);
+}
+
+.liveChip > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 13%, transparent);
+}
+
+.secondaryButton,
+.resetButton {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.secondaryButton:hover,
+.resetButton:hover:not(:disabled) {
+  border-color: var(--color-brand-border);
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+
+.secondaryButton:focus-visible,
+.resetButton:focus-visible,
+.statCard:focus-visible,
+.activityCard:focus-visible,
+.searchField:focus-within,
+.selectField:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand) 15%, transparent);
+  border-color: var(--color-brand-border);
+}
+
+.resetButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.statCard {
+  position: relative;
+  min-width: 0;
+  min-height: 116px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--stat-border);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+.statCardActive {
+  border-color: var(--stat-border);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--stat-soft) 64%, var(--color-surface)), var(--stat-soft));
+}
+
+.statTopline {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.statLabel {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.statValue {
+  margin-top: 7px;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.statIcon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--stat-border);
+  border-radius: 10px;
+  background: var(--stat-soft);
+  color: var(--stat-tone);
+}
+
+.statNote {
+  margin-top: 9px;
+  color: var(--stat-tone);
+  font-size: 11.5px;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logSection {
+  padding: 12px;
+}
+
+.logHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.logTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 850;
+  letter-spacing: -0.025em;
+}
+
+.logHint {
+  font-size: 12.5px;
+}
+
+.filterBar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 190px 190px auto;
   gap: 10px;
+  align-items: stretch;
+  margin-top: 12px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.searchField,
+.selectField {
+  min-width: 0;
+  height: 42px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  color: var(--color-text-muted);
+}
+
+.searchField input,
+.selectField select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.searchField input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.selectField {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  padding: 5px 10px 5px 12px;
+}
+
+.selectField > span {
+  color: var(--color-text-muted);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.selectField select {
+  height: 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resultsCount {
+  min-width: 88px;
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: 1.05;
+}
+
+.resultsCount strong {
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.resultsCount span {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 9.5px;
+  font-weight: 750;
+}
+
+.activityList {
+  display: grid;
+  gap: 0;
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.dayHeading {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.activityCard {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 72px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+  cursor: default;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.activityCard:last-child {
+  border-bottom: 0;
+}
+
+button.activityCard {
+  cursor: pointer;
+}
+
+button.activityCard:hover {
+  transform: none;
+  border-color: var(--color-brand-border);
+  background: color-mix(in srgb, var(--activity-soft) 22%, var(--color-surface));
+  box-shadow: inset 3px 0 0 var(--activity-tone);
+}
+
+.timelineMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timelineMark > span {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--activity-tone) 30%, var(--color-border));
+  border-radius: 9px;
+  background: var(--activity-soft);
+  color: var(--activity-tone);
+}
+
+.activityContent {
+  min-width: 0;
+}
+
+.activityPrimary,
+.activitySecondary {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.activityPrimary {
+  flex-wrap: nowrap;
+}
+
+.activitySecondary {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+}
+
+.activityEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--activity-soft);
+  color: var(--activity-tone);
+  font-size: 10.5px;
+  font-weight: 850;
+}
+
+.activityContent h3 {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicleLine {
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.vehicleLine strong {
+  padding: 2px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.055em;
+}
+
+.activitySummary {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activitySecondary strong {
+  padding: 1px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 9.5px;
+  line-height: 1.2;
+  letter-spacing: 0.055em;
+  white-space: nowrap;
+}
+
+.secondaryDivider {
+  color: var(--color-border-strong);
+}
+
+.activityChips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.statusChip {
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 10px;
+}
+
+.statusChip {
+  border-color: var(--status-border);
+  background: var(--status-soft);
+  color: var(--status-tone);
+}
+
+.personMeta {
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityMeta {
+  align-self: center;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0;
+}
+
+.activityMeta time,
+.mobileDate {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mobileDate {
+  display: none;
+}
+
+.rowChevron {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  transition: transform 150ms ease, color 150ms ease;
+}
+
+button.activityCard:hover .rowChevron {
+  color: var(--color-brand);
+  transform: translateX(2px);
+}
+
+.emptyState {
+  min-height: 190px;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed var(--color-border);
+  border-radius: 13px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.emptyState strong {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 1180px) {
+  .statGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filterBar {
+    grid-template-columns: minmax(240px, 1fr) 170px 170px auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .heroHeader {
+    flex-direction: column;
+  }
+
+  .heroActions {
+    justify-content: flex-start;
+  }
+
+  .filterBar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .searchField {
+    grid-column: 1 / -1;
+  }
+
+  .resultsCount {
+    min-height: 48px;
+  }
+
+  .activityCard {
+    grid-template-columns: 38px minmax(0, 1fr) 64px;
+  }
+}
+
+@media (max-width: 680px) {
+  .pageWrap {
+    padding: 12px 10px 28px;
+  }
+
+  .heroSection,
+  .logSection {
+    border-radius: 13px;
+  }
+
+  .statGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .statCard {
+    min-height: 110px;
+  }
+
+  .logHeader {
+    align-items: center;
+  }
+
+  .resetButton {
+    padding: 0 10px;
+  }
+
+  .filterBar {
+    grid-template-columns: 1fr;
+  }
+
+  .searchField {
+    grid-column: auto;
+  }
+
+  .activityList::before {
+    display: none;
+  }
+
+  .activityCard {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px 12px;
+  }
+
+  .timelineMark > span {
+    width: 28px;
+    height: 28px;
+  }
+
+  .activityMeta {
+    display: none;
+  }
+
+  .mobileDate {
+    display: inline;
+  }
+
+  .activityEyebrow {
+    flex-wrap: wrap;
+  }
+
+  .activityPrimary {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 430px) {
+  .statGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .recordChip {
+    display: none;
+  }
+
+  .pageTitle {
+    font-size: 27px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statCard,
+  .activityCard,
+  .secondaryButton,
+  .resetButton {
+    transition: none;
+  }
 }

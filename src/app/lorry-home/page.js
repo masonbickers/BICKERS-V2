@@ -12,6 +12,12 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import { formatDateForDisplay } from "@/app/utils/serviceRecordCompat";
+import { getMotDuePresentation } from "@/app/utils/motPresentation";
+
+const isLorry = (vehicle = {}) =>
+  /lorry|truck|hgv/i.test(`${vehicle.category || ""} ${vehicle.type || ""}`);
 
 const getOdometerValue = (vehicle) => {
   const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
@@ -33,17 +39,16 @@ export default function LorryDashboardPage() {
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
     if (!gate.allowed) {
-      reportDataAccessBlocked(gate, { collectionName: "lorries", operation: "load lorries" });
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load lorries" });
       setLorries([]);
       return;
     }
 
     const fetchLorries = async () => {
-      const snapshot = await getDocs(tenantCollectionQuery(db, "lorries", dataAccessState));
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
+      const data = snapshot.docs
+        .map(doc => normalizeVehicleRecord({ id: doc.id, ...doc.data() }))
+        .filter(isLorry);
       setLorries(data);
     };
 
@@ -53,7 +58,7 @@ export default function LorryDashboardPage() {
   const applyFilter = (list) => {
     switch (filter) {
       case "mot":
-        return [...list].sort((a, b) => new Date(a.motDue) - new Date(b.motDue));
+        return [...list].sort((a, b) => new Date(a.nextMOT) - new Date(b.nextMOT));
       case "service":
         return [...list].sort((a, b) => new Date(a.nextService) - new Date(b.nextService));
       case "mileage":
@@ -117,14 +122,14 @@ export default function LorryDashboardPage() {
                 <td className={layoutStyles.extracted23}>{lorry.type}</td>
                 <td className={layoutStyles.extracted24}>{lorry.registration}</td>
                 <td className={layoutStyles.extracted25}>{getOdometerValue(lorry).toLocaleString()} mi</td>
-                <td className={layoutStyles.extracted26}>{lorry.lastService}</td>
-                <td className={layoutStyles.extracted27}>{lorry.nextService}</td>
-                <td className={layoutStyles.extracted28}>{lorry.motDue}</td>
-                <td className={layoutStyles.extracted29}>{lorry.tachoCalDue}</td>
+                <td className={layoutStyles.extracted26}>{formatDateForDisplay(lorry.lastService) || "-"}</td>
+                <td className={layoutStyles.extracted27}>{lorry.serviceNotApplicable ? "N/A" : formatDateForDisplay(lorry.nextService) || "-"}</td>
+                <td className={layoutStyles.extracted28}>{getMotDuePresentation(lorry).dateDisplay}</td>
+                <td className={layoutStyles.extracted29}>{formatDateForDisplay(lorry.nextTachoCalibration || lorry.tachoCalDue) || "-"}</td>
                 <td className={layoutStyles.extracted30}>{lorry.assignedDriver}</td>
                 <td className={layoutStyles.extracted31}>{lorry.notes}</td>
                 <td className={layoutStyles.extracted32}>
-                  <button className={layoutStyles.extracted33} onClick={() => router.push(`/lorry-info/${lorry.id}`)}>View</button>
+                  <button className={layoutStyles.extracted33} onClick={() => router.push(`/vehicle-edit/${lorry.id}`)}>View</button>
                 </td>
               </tr>
             ))}
@@ -132,7 +137,7 @@ export default function LorryDashboardPage() {
         </table>
 
         <div className={layoutStyles.extracted34}>
-          <button className={layoutStyles.extracted35} onClick={() => router.push("/add-lorry")}>+ Add Lorry</button>
+          <button className={layoutStyles.extracted35} onClick={() => router.push("/add-vehicle")}>+ Add Vehicle</button>
         </div>
       </main>
     </div>

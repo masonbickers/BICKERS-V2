@@ -158,8 +158,14 @@ export default function VehicleServiceHistoryPage() {
                       <div style={{ fontWeight: 900, color: UI.text }}>
                         {formatDateForDisplay(item.completedDate) || "-"}
                       </div>
+                      <div style={{ marginTop: 4, fontSize: 13, fontWeight: 900, color: UI.text }}>
+                        {item.title || item.serviceType || item.sourceLabel || "Service record"}
+                      </div>
                       <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
                         {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                        {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
                       </div>
                       <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
                         {item.location ? `Location: ${item.location}` : "Location: -"}

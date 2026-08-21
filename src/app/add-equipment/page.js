@@ -19,6 +19,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { normalizeVehicleAssetNumber } from "@/app/utils/vehicleAssetNumber";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -208,12 +209,15 @@ export default function AddEquipmentPage() {
 
     setSaving(true);
     try {
+      const assetNumber = normalizeVehicleAssetNumber(equipment.asset);
       const payload = {
         name: equipment.name.trim(),
         serialNumber: (equipment.serialNumber || "").trim(),
         category: equipment.category.trim(),
         status: equipment.status || "Available",
-        asset: (equipment.asset || "").trim(),
+        asset: assetNumber,
+        assetNumber,
+        sageAssetNumber: assetNumber,
         location: (equipment.location || "").trim(),
         lastInspection: equipment.lastInspection || "",
         inspectionFrequency: equipment.inspectionFrequency || "",

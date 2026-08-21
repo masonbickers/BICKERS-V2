@@ -2,178 +2,20 @@
 
 import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useState } from "react";
-import { signOut, onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "../../../firebaseConfig";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { BrainCircuit, KeyRound, LogOut, Monitor, Moon, PencilLine, Sun } from "lucide-react";
+import { auth, db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAppearance } from "@/app/components/GlobalThemeProvider";
-import {
-  ArrowRight,
-  BriefcaseBusiness,
-  BrainCircuit,
-  KeyRound,
-  LayoutDashboard,
-  LogOut,
-  Mail,
-  Monitor,
-  Moon,
-  PencilLine,
-  Sun,
-  UserCog,
-} from "lucide-react";
-import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { INTERFACE_SCALE_OPTIONS } from "@/app/utils/interfaceScale";
-
-const UI = UI_TOKENS;
-
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = {
-  color: UI.text,
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 750,
-  letterSpacing: 0,
-  margin: 0,
-};
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
-
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const chip = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const grid = (cols = 12) => ({
-  display: "grid",
-  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: UI.gap,
-});
-
-const card = {
-  ...surface,
-  padding: 12,
-  transform: "translateY(0)",
-  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
-};
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder };
-
-const sectionTitle = { fontWeight: 800, fontSize: 17, color: UI.text, marginBottom: 5 };
-const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginBottom: 10 };
-
-const fieldLabel = {
-  fontSize: 11.5,
-  fontWeight: 900,
-  color: UI.muted,
-  textTransform: "uppercase",
-  letterSpacing: 0,
-};
-const fieldValue = { fontSize: 13.5, fontWeight: 850, color: UI.text, minWidth: 0, overflowWrap: "anywhere" };
-
-const btnBase = {
-  width: "100%",
-  padding: "6px 9px",
-  borderRadius: UI.radiusSm,
-  fontSize: 12.5,
-  fontWeight: 800,
-  cursor: "pointer",
-  border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-  color: UI.text,
-  textDecoration: "none",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 7,
-  boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-};
-const btnPrimary = {
-  ...btnBase,
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-  borderColor: UI.brand,
-  color: "var(--color-white)",
-};
-const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
-const btnDanger = { ...btnBase, background: UI.dangerSoft, borderColor: "var(--color-danger-border)", color: "var(--color-danger)" };
-
-const avatarWrap = {
-  width: 50,
-  height: 50,
-  borderRadius: UI.radius,
-  overflow: "hidden",
-  border: UI.border,
-  background: UI.brandSoft,
-  display: "grid",
-  placeItems: "center",
-  fontWeight: 900,
-  color: UI.text,
-};
-
-const detailCard = {
-  padding: 10,
-  border: UI.border,
-  borderRadius: UI.radius,
-  background: "var(--color-surface)",
-  minWidth: 0,
-};
-
-const iconBox = {
-  width: 32,
-  height: 32,
-  borderRadius: UI.radius,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.brand,
-  flex: "0 0 auto",
-};
-
-const settingsCss = `
-  @media (max-width: 1180px) {
-    .settings-layout { grid-template-columns: 1fr !important; }
-    .settings-main, .settings-side { grid-column: span 12 !important; }
-    .settings-triple, .settings-four, .settings-two, .settings-actions { grid-template-columns: 1fr !important; }
-  }
-`;
+import { CARD_STYLE_OPTIONS } from "@/app/utils/cardStyle";
 
 function initials(name = "") {
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  const a = parts[0]?.[0] || "";
-  const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (a + b).toUpperCase();
-}
-
-function statusPill(label, ok) {
-  return {
-    label,
-    style: {
-      ...chip,
-      background: ok ? UI.successSoft : UI.warnSoft,
-      borderColor: ok ? "var(--color-success-border)" : "var(--color-warning-border)",
-      color: ok ? UI.successText : UI.warnText,
-    },
-  };
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  return parts.length ? `${parts[0][0] || ""}${parts.length > 1 ? parts.at(-1)[0] : ""}`.toUpperCase() : "?";
 }
 
 export default function SettingsPage() {
@@ -189,416 +31,150 @@ export default function SettingsPage() {
         router.push("/login");
         return;
       }
-
       try {
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-        const data = docSnap.exists() ? docSnap.data() || {} : {};
-
-        setUserDocData(docSnap.exists() ? data : null);
+        const snapshot = await getDoc(doc(db, "users", user.uid));
+        const data = snapshot.exists() ? snapshot.data() || {} : {};
+        setUserDocData(snapshot.exists() ? data : null);
         setUserData({
           name: data.name || user.displayName || "No name",
           email: user.email || "No email",
-          role: data.role || "No role",
+          role: data.role || "User",
           photoURL: data.photoURL || user.photoURL || null,
           uid: user.uid,
-          emailVerified: !!user.emailVerified,
-          displayName: user.displayName || data.name || "",
-          authPhoneNumber: user.phoneNumber || "",
-          providerId:
-            Array.isArray(user.providerData) && user.providerData.length
-              ? user.providerData.map((p) => p.providerId).filter(Boolean).join(", ")
-              : "password",
+          emailVerified: Boolean(user.emailVerified),
+          phone: data.phone || user.phoneNumber || "Not provided",
         });
       } catch {
         setUserDocData(null);
         setUserData({
           name: user.displayName || "No name",
           email: user.email || "No email",
-          role: "No role",
+          role: "User",
           photoURL: user.photoURL || null,
           uid: user.uid,
-          emailVerified: !!user.emailVerified,
-          displayName: user.displayName || "",
-          authPhoneNumber: user.phoneNumber || "",
-          providerId:
-            Array.isArray(user.providerData) && user.providerData.length
-              ? user.providerData.map((p) => p.providerId).filter(Boolean).join(", ")
-              : "password",
+          emailVerified: Boolean(user.emailVerified),
+          phone: user.phoneNumber || "Not provided",
         });
       } finally {
         setLoading(false);
       }
     });
-
     return () => unsubscribe();
   }, [router]);
+
+  const workspaceSummary = useMemo(() => {
+    const access = userDocData?.appAccess && typeof userDocData.appAccess === "object" ? userDocData.appAccess : {};
+    const workspaces = [];
+    if (access.user) workspaces.push("User workspace");
+    if (access.service) workspaces.push("Service workspace");
+    if (!workspaces.length && userDocData?.defaultWorkspace) workspaces.push(`${userDocData.defaultWorkspace} workspace`);
+    return workspaces.length ? workspaces.join(" / ") : "Standard access";
+  }, [userDocData]);
+
+  const canManageAiRules = useMemo(() => {
+    const role = String(userData?.role || "").trim().toLowerCase().replaceAll(" ", "");
+    return ["admin", "platformadmin", "superadmin"].includes(role);
+  }, [userData?.role]);
 
   const handleSignOut = async () => {
     await signOut(auth);
     router.push("/login");
   };
 
-  const avatarNode = useMemo(() => {
-    if (!userData) return null;
-    if (userData.photoURL) {
-      return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={userData.photoURL}
-          alt="Profile"
-          className={layoutStyles.extracted1}
-        />
-      );
-    }
-    return <span>{initials(userData.name)}</span>;
-  }, [userData]);
-
-  const workspaceSummary = useMemo(() => {
-    const appAccess =
-      userDocData?.appAccess && typeof userDocData.appAccess === "object"
-        ? userDocData.appAccess
-        : {};
-    const items = [];
-    if (appAccess.user) items.push("User workspace");
-    if (appAccess.service) items.push("Service workspace");
-    if (!items.length && userDocData?.defaultWorkspace) {
-      items.push(`${String(userDocData.defaultWorkspace)} workspace`);
-    }
-    return items.length ? items.join(" / ") : "Standard access";
-  }, [userDocData]);
-
-  const canManageAiRules = useMemo(() => {
-    const role = String(userData?.role || "").trim().toLowerCase().replaceAll(" ", "");
-    return role === "admin" || role === "platformadmin" || role === "superadmin";
-  }, [userData?.role]);
-
-  const securitySummary = useMemo(
-    () => ({
-      accountStatus: userDocData?.isEnabled === false ? "Disabled" : "Active",
-      emailVerified: userData?.emailVerified === true,
-    }),
-    [userData?.emailVerified, userDocData]
-  );
-
-  const summaryStats = useMemo(
-    () => [
-      { label: "Role", value: userData?.role || "User", Icon: UserCog },
-      { label: "Workspace", value: userDocData?.defaultWorkspace || "User", Icon: BriefcaseBusiness },
-      { label: "Email", value: securitySummary.emailVerified ? "Verified" : "Pending", Icon: Mail },
-    ],
-    [securitySummary.emailVerified, userData?.role, userDocData?.defaultWorkspace]
-  );
-
-  const actionCard = (href, title, subtitle, pill = "Open", Icon = ArrowRight) => (
-    <Link
-      href={href}
-      style={{ ...card, textDecoration: "none", color: UI.text }}
-      onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
-      onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
-    >
-      <div className={layoutStyles.extracted2}>
-        <div className={layoutStyles.extracted3}>
-          <span style={iconBox}>
-            <Icon size={16} />
-          </span>
-          <div className={layoutStyles.extracted4}>{title}</div>
-        </div>
-        <span style={chip}>{pill}</span>
-      </div>
-      <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{subtitle}</div>
-      <div
-        style={{
-          marginTop: 10,
-          fontWeight: 850,
-          color: UI.brand,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          fontSize: 12.5,
-        }}
-      >
-        Open <ArrowRight size={14} />
-      </div>
-    </Link>
-  );
-
   return (
     <HeaderSidebarLayout>
-      <style>{settingsCss}</style>
-      <div data-sidebar-page style={pageWrap}>
-        <div data-sidebar-page-header className={layoutStyles.extracted5}>
-          <div>
-            <h1 style={h1}>Settings</h1>
-            <div style={sub}>A clean view of your account, access, and security settings.</div>
-          </div>
-
-          <div className={layoutStyles.extracted6}>
-            <div style={chip}>{loading ? "Loading..." : "Account"}</div>
-            {userData?.role ? (
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--color-brand-soft)", color: UI.brand }}>
-                <UserCog size={14} />
-                Role: <b className={layoutStyles.extracted7}>{userData.role}</b>
-              </div>
-            ) : null}
-          </div>
-        </div>
+      <div data-sidebar-page className={layoutStyles.page}>
+        <header data-sidebar-page-header className={layoutStyles.pageHeader}>
+          <h1>Settings</h1>
+          <p>Manage your profile, appearance, and account security.</p>
+        </header>
 
         {loading ? (
-          <div style={{ ...surface, padding: 12, textAlign: "center", color: UI.muted }}>
-            Loading settings...
-          </div>
+          <div className={layoutStyles.stateCard}>Loading settings...</div>
         ) : !userData ? (
-          <div style={{ ...surface, padding: 12, textAlign: "center", color: UI.muted }}>
-            User data not found.
-          </div>
+          <div className={layoutStyles.stateCard}>User data not found.</div>
         ) : (
-          <div className="settings-layout" style={grid(12)}>
-            <div className={`settings-main ${layoutStyles.extracted8}`} >
-              <div style={card}>
-                <div className={layoutStyles.extracted9}>
-                  <div className={layoutStyles.extracted10}>
-                    <div style={avatarWrap}>{avatarNode}</div>
-                    <div>
-                      <div className={layoutStyles.extracted11}>{userData.name}</div>
-                      <div style={{ color: UI.muted, fontSize: 13 }}>{userData.email}</div>
-                    </div>
-                  </div>
-
-                  <div className={layoutStyles.extracted12}>
-                    <span style={chip}>{userData.role}</span>
-                    <span
-                      style={{
-                        ...chip,
-                        fontFamily:
-                          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-                      }}
-                    >
-                      {String(userData.uid || "").slice(0, 8)}...
-                    </span>
-                  </div>
+          <div className={layoutStyles.settingsGrid}>
+            <section className={`${layoutStyles.card} ${layoutStyles.profileCard}`}>
+              <div className={layoutStyles.profileIdentity}>
+                <div className={layoutStyles.avatar}>
+                  {userData.photoURL ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={userData.photoURL} alt="" />
+                  ) : <span>{initials(userData.name)}</span>}
                 </div>
-
-                <div className={layoutStyles.extracted13} />
-
-                <div className={`settings-triple ${layoutStyles.extracted14}`} >
-                  <div>
-                    <div style={fieldLabel}>Name</div>
-                    <div style={fieldValue}>{userData.name || "-"}</div>
-                  </div>
-                  <div>
-                    <div style={fieldLabel}>Email</div>
-                    <div style={fieldValue}>{userData.email || "-"}</div>
-                  </div>
-                  <div>
-                    <div style={fieldLabel}>Role</div>
-                    <div style={fieldValue}>{userData.role || "-"}</div>
-                  </div>
+                <div className={layoutStyles.profileCopy}>
+                  <h2>{userData.name}</h2>
+                  <p>{userData.email}</p>
+                  <p>{userData.phone}</p>
                 </div>
+              </div>
+              <button className={layoutStyles.secondaryButton} type="button" onClick={() => router.push("/edit-profile")}>
+                <PencilLine size={16} /> Edit profile
+              </button>
+            </section>
 
-                <div className={`settings-actions ${layoutStyles.extracted15}`} >
-                  <button type="button" style={btnSoft} onClick={() => router.push("/edit-profile")}>
-                    <PencilLine size={14} />
-                    Edit profile
+            <section className={layoutStyles.card}>
+              <div className={layoutStyles.sectionHeading}>
+                <h2>Appearance</h2>
+                <p>Choose how the app looks and how much fits on screen.</p>
+              </div>
+              <div className={layoutStyles.controlLabel}>Theme</div>
+              <div className={layoutStyles.themeOptions} role="group" aria-label="Theme">
+                {[["dark", "Dark", Moon], ["normal", "Normal", Monitor], ["light", "Light", Sun]].map(([value, label, Icon]) => (
+                  <button key={value} type="button" onClick={() => appearance.setModePreference(value)} disabled={value === "dark" && appearance.theme?.darkModeEnabled === false} className={layoutStyles.optionButton} data-selected={appearance.modePreference === value} aria-pressed={appearance.modePreference === value}>
+                    <Icon size={15} /> {label}
                   </button>
-                  <button type="button" style={btnPrimary} onClick={() => router.push("/change-password")}>
-                    <KeyRound size={14} />
-                    Change password
+                ))}
+              </div>
+              <div className={layoutStyles.controlLabel}>Interface size</div>
+              <div className={layoutStyles.interfaceScaleOptions} role="group" aria-label="Interface size">
+                {INTERFACE_SCALE_OPTIONS.map((option) => (
+                  <button key={option.value} type="button" onClick={() => appearance.setInterfaceScale(option.value)} aria-pressed={appearance.interfaceScale === option.value} className={layoutStyles.interfaceScaleButton} data-selected={appearance.interfaceScale === option.value}>
+                    <span className={layoutStyles.interfaceScaleLabel}>{option.label} <strong>{option.percent}%</strong></span>
+                    <span className={layoutStyles.interfaceScaleDescription}>{option.description}</span>
                   </button>
-                  <button type="button" style={btnDanger} onClick={handleSignOut}>
-                    <LogOut size={14} />
-                    Sign out
+                ))}
+              </div>
+              <div className={layoutStyles.controlLabel}>Card layout</div>
+              <div className={layoutStyles.cardStyleOptions} role="group" aria-label="Card layout">
+                {CARD_STYLE_OPTIONS.map((option) => (
+                  <button key={option.value} type="button" onClick={() => appearance.setCardStyle(option.value)} aria-pressed={appearance.cardStyle === option.value} className={layoutStyles.interfaceScaleButton} data-selected={appearance.cardStyle === option.value}>
+                    <span className={layoutStyles.interfaceScaleLabel}>{option.label}</span>
+                    <span className={layoutStyles.interfaceScaleDescription}>{option.description}</span>
                   </button>
-                </div>
+                ))}
               </div>
+            </section>
 
-              <div style={{ ...card, marginTop: UI.gap }}>
-                <div style={sectionTitle}>Account Summary</div>
-                <div style={sectionSub}>A professional overview of your account, access, and protection.</div>
-
-                <div className={`settings-four ${layoutStyles.extracted16}`} >
-                  {summaryStats.map((item) => {
-                    const Icon = item.Icon;
-                    return (
-                      <div
-                        key={item.label}
-                        style={{ ...detailCard, display: "flex", alignItems: "center", gap: 10 }}
-                      >
-                        <span style={iconBox}>
-                          <Icon size={16} />
-                        </span>
-                        <div className={layoutStyles.extracted17}>
-                          <div style={fieldLabel}>{item.label}</div>
-                          <div style={{ ...fieldValue, marginTop: 6 }}>{item.value}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            <section className={layoutStyles.card}>
+              <div className={layoutStyles.sectionHeading}>
+                <h2>Security</h2>
+                <p>Manage your password and signed-in session.</p>
               </div>
-
-              <div style={{ ...card, marginTop: UI.gap }}>
-                <div style={sectionTitle}>Profile Details</div>
-                <div style={sectionSub}>The information used to identify and contact you across the platform.</div>
-
-                <div className={`settings-two ${layoutStyles.extracted18}`} >
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Full name</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.displayName || userData.name || "-"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Email address</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.email || "-"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Phone number</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{userDocData?.phone || userData.authPhoneNumber || "-"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Sign-in method</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.providerId || "-"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Role</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.role || "-"}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Account reference</div>
-                    <div
-                      style={{
-                        ...fieldValue,
-                        marginTop: 6,
-                        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                      }}
-                    >
-                      {userData.uid || "-"}
-                    </div>
-                  </div>
-                </div>
+              <div className={layoutStyles.verificationRow}>
+                <span className={layoutStyles.verificationDot} data-verified={userData.emailVerified} />
+                <div><strong>Email {userData.emailVerified ? "verified" : "not verified"}</strong><span>{userData.email}</span></div>
               </div>
-
-              <div style={{ ...card, marginTop: UI.gap }}>
-                <div style={sectionTitle}>Access Overview</div>
-                <div style={sectionSub}>A concise view of how this account is configured inside the system.</div>
-
-                <div className={`settings-two ${layoutStyles.extracted19}`} >
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Workspace access</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{workspaceSummary}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Account status</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.accountStatus}</div>
-                  </div>
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Directory status</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>{userDocData ? "Profile configured" : "Basic auth profile"}</div>
-                  </div>
-                </div>
+              <div className={layoutStyles.securityActions}>
+                <button className={layoutStyles.primaryButton} type="button" onClick={() => router.push("/change-password")}><KeyRound size={16} /> Change password</button>
+                <button className={layoutStyles.dangerButton} type="button" onClick={handleSignOut}><LogOut size={16} /> Sign out</button>
               </div>
-            </div>
+            </section>
 
-            <div className={`settings-side ${layoutStyles.extracted20}`} >
-              <div style={{ ...surface, padding: 12 }}>
-                <div className={layoutStyles.extracted21}>
-                  <div style={sectionTitle}>Quick actions</div>
-                  <span style={chip}>Account</span>
+            {canManageAiRules ? (
+              <details className={`${layoutStyles.card} ${layoutStyles.adminDetails}`}>
+                <summary>Admin &amp; account details</summary>
+                <p className={layoutStyles.adminIntro}>Technical access information is kept here so it does not distract from everyday settings.</p>
+                <div className={layoutStyles.adminGrid}>
+                  <div><span>Role</span><strong>{userData.role}</strong></div>
+                  <div><span>Workspace access</span><strong>{workspaceSummary}</strong></div>
+                  <div><span>Account status</span><strong>{userDocData?.isEnabled === false ? "Disabled" : "Active"}</strong></div>
+                  <div><span>Account reference</span><strong className={layoutStyles.mono}>{userData.uid}</strong></div>
                 </div>
-                <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
-                  Common account tasks and shortcuts to the parts of the platform you use most.
-                </div>
-
-                <div className={layoutStyles.extracted22}>
-                  {actionCard("/edit-profile", "Edit profile", "Update your name, profile photo, and contact details", "Open", PencilLine)}
-                  {actionCard("/change-password", "Change password", "Refresh your sign-in credentials and keep your account secure", "Open", KeyRound)}
-                  {actionCard("/job-home", "Jobs Home", "Return to the main operational dashboard", "Open", LayoutDashboard)}
-                  {canManageAiRules ? actionCard("/settings/ai-business-rules", "AI Business Rules", "Review and publish how daily statistics interpret Bickers operations", "Admin", BrainCircuit) : null}
-                </div>
-              </div>
-
-              <div style={{ ...card, marginTop: UI.gap }}>
-                <div style={sectionTitle}>Appearance</div>
-                <div style={sectionSub}>Choose how the published company theme appears on this device.</div>
-                <div className={`settings-triple ${layoutStyles.extracted23}`} >
-                  {[
-                    ["dark", "Dark", Moon],
-                    ["normal", "Normal", Monitor],
-                    ["light", "Light", Sun],
-                  ].map(([value, label, Icon]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => appearance.setModePreference(value)}
-                      disabled={value === "dark" && appearance.theme?.darkModeEnabled === false}
-                      style={{
-                        ...btnSoft,
-                        justifyContent: "center",
-                        background: appearance.modePreference === value ? "var(--color-brand-soft)" : "var(--color-surface)",
-                        borderColor: appearance.modePreference === value ? "var(--color-brand)" : "var(--color-border)",
-                        color: appearance.modePreference === value ? "var(--color-brand)" : "var(--color-text)",
-                      }}
-                    >
-                      <Icon size={14} /> {label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className={layoutStyles.appearanceDivider} />
-                <div style={fieldLabel}>Interface size</div>
-                <div style={{ ...sectionSub, marginTop: 5 }}>
-                  Change how much of the app fits on screen. This preference is saved on this device.
-                </div>
-                <div className={layoutStyles.interfaceScaleOptions} role="group" aria-label="Interface size">
-                  {INTERFACE_SCALE_OPTIONS.map((option) => {
-                    const selected = appearance.interfaceScale === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => appearance.setInterfaceScale(option.value)}
-                        aria-pressed={selected}
-                        className={layoutStyles.interfaceScaleButton}
-                        data-selected={selected}
-                      >
-                        <span className={layoutStyles.interfaceScaleLabel}>
-                          {option.label} <strong>{option.percent}%</strong>
-                        </span>
-                        <span className={layoutStyles.interfaceScaleDescription}>{option.description}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div style={{ ...card, marginTop: UI.gap }}>
-                <div style={sectionTitle}>Security</div>
-                <div style={sectionSub}>Your current account protection and available security actions.</div>
-
-                <div className={layoutStyles.extracted24}>
-                  <div className={layoutStyles.extracted25}>
-                    <span style={statusPill("Email verified", securitySummary.emailVerified).style}>
-                      Email {securitySummary.emailVerified ? "verified" : "pending"}
-                    </span>
-                  </div>
-
-                  <div style={detailCard}>
-                    <div style={fieldLabel}>Current security posture</div>
-                    <div style={{ ...fieldValue, marginTop: 6 }}>
-                      Clerk sign-in protection is active for this account.
-                    </div>
-                  </div>
-
-                  <button type="button" style={btnPrimary} onClick={() => router.push("/change-password")}>
-                    <KeyRound size={14} />
-                    Change password
-                  </button>
-                  <button type="button" style={btnDanger} onClick={handleSignOut}>
-                    <LogOut size={14} />
-                    Sign out of this device
-                  </button>
-                </div>
-              </div>
-            </div>
+                <Link className={layoutStyles.adminLink} href="/settings/ai-business-rules"><BrainCircuit size={16} /> AI Business Rules</Link>
+              </details>
+            ) : null}
           </div>
         )}
       </div>

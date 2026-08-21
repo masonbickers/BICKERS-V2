@@ -18,6 +18,8 @@
     "audit:styles": "node scripts/style-audit.mjs",
     "audit:styles:check": "node scripts/style-audit.mjs --check",
     "audit:maintenance": "node scripts/audit-maintenance-data.mjs",
+    "config:validate": "node scripts/validate-deployment-config.mjs",
+    "audit:deployment-admins": "node scripts/audit-deployment-admin-roles.mjs",
     "backup:maintenance": "node scripts/export-maintenance-backup.mjs",
     "test:access": "node --test tests/accessControl.test.mjs",
     "test:appearance": "node --test tests/globalAppearance.test.mjs",

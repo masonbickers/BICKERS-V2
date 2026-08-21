@@ -4,12 +4,20 @@ import crypto from "node:crypto";
 import { listFirestoreDocuments } from "./lib/firebase-admin-readonly.mjs";
 
 const apply = process.argv.includes("--apply");
+const exactAddOnly = process.argv.includes("--exact-add-only");
 const companyId = process.env.COMPANY_ID || "bickers-action";
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || "bickers-booking";
 const clientEmail = process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL || "";
 const privateKey = (process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
 const text = (value) => String(value ?? "").trim();
 const dateKey = (date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+const importedMatchEquals = (current = {}, expected = {}) =>
+  text(current.method) === text(expected.method) &&
+  text(current.bookingId) === text(expected.bookingId) &&
+  text(current.jobNumber) === text(expected.jobNumber) &&
+  text(current.quoteNumber) === text(expected.quoteNumber) &&
+  JSON.stringify((Array.isArray(current.matchedDates) ? current.matchedDates : []).map(text).sort()) ===
+    JSON.stringify((Array.isArray(expected.matchedDates) ? expected.matchedDates : []).map(text).sort());
 
 const bookingDates = (booking) => {
   const raw = booking.bookingDates || booking.dates || booking.date || booking.firstBookingDate || booking.startDate;
@@ -124,33 +132,45 @@ for (const booking of futureBookings) {
     reason = "no-exact-date-match";
   }
   const current = text(booking.importedQuoteNumber);
-  const fields = { quoteNumbers: [] };
+  const fields = exactAddOnly ? {} : { quoteNumbers: [] };
   if (selected) {
     const matchedQuoteDates = [...datedMatches[0].dates].filter((value) => dates.has(value)).sort();
-    fields.importedQuoteNumber = selected;
-    fields.importedQuoteMatch = {
-      method: "exact-job-and-date",
-      bookingId: booking.id,
-      jobNumber: job,
-      quoteNumber: selected,
-      matchedDates: matchedQuoteDates,
-    };
-  } else {
+    if (!exactAddOnly || !current || current === selected) {
+      fields.importedQuoteNumber = selected;
+      fields.importedQuoteMatch = {
+        method: "exact-job-and-date",
+        bookingId: booking.id,
+        jobNumber: job,
+        quoteNumber: selected,
+        matchedDates: matchedQuoteDates,
+      };
+    } else {
+      reason = "existing-quote-conflict";
+      selected = "";
+    }
+  } else if (!exactAddOnly) {
     fields.importedQuoteNumber = null;
     fields.importedQuoteMatch = null;
   }
-  const expectedProof = fields.importedQuoteMatch ? JSON.stringify(fields.importedQuoteMatch) : "";
   const currentProof = booking.importedQuoteMatch ? JSON.stringify(booking.importedQuoteMatch) : "";
+  const expectedProof = fields.importedQuoteMatch ? JSON.stringify(fields.importedQuoteMatch) : currentProof;
+  const proofMatches = fields.importedQuoteMatch
+    ? importedMatchEquals(booking.importedQuoteMatch, fields.importedQuoteMatch)
+    : currentProof === expectedProof;
   const hasGuard = Object.prototype.hasOwnProperty.call(booking, "importedQuoteNumber");
-  const changed = !hasGuard || current !== selected || currentProof !== expectedProof || (Array.isArray(booking.quoteNumbers) && booking.quoteNumbers.length > 0);
+  const changed = exactAddOnly
+    ? Boolean(selected) && (!hasGuard || current !== selected || !proofMatches)
+    : !hasGuard || current !== selected || currentProof !== expectedProof || (Array.isArray(booking.quoteNumbers) && booking.quoteNumbers.length > 0);
   if (apply && changed) await patchBooking(booking.id, fields);
-  report.push({ id: booking.id, job, dates: [...dates], location: booking.location || "", selected, reason, candidates: [...families.values()].map((family) => ({ quote: family.number, dates: [...family.dates], files: family.names })) });
+  report.push({ id: booking.id, job, dates: [...dates], location: booking.location || "", selected, reason, changed, existingImportedQuote: current, candidates: [...families.values()].map((family) => ({ quote: family.number, dates: [...family.dates], files: family.names })) });
 }
 
 console.log(JSON.stringify({
   mode: apply ? "apply" : "dry-run",
+  updatePolicy: exactAddOnly ? "exact-add-only" : "reconcile",
   futureRows: report.length,
   selectedRows: report.filter((row) => row.selected).length,
+  changedRows: report.filter((row) => row.changed).length,
   reviewRows: report.filter((row) => !row.selected).length,
   reasonCounts: Object.fromEntries([...new Set(report.map((row) => row.reason))].map((reason) => [reason, report.filter((row) => row.reason === reason).length])),
   selected: report.filter((row) => row.selected).map(({ id, job, dates, location, selected, reason }) => ({ id, job, dates, location, selected, reason })),

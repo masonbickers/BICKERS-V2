@@ -363,6 +363,88 @@ test("only obsolete untouched automatic requested items are superseded", () => {
   assert.deepEqual(result.supersede.map((record) => record.id), ["stale-requested"]);
 });
 
+test("an overdue automatic service reminder is superseded when the canonical due date moves", () => {
+  const serviceVehicle = {
+    id: "service-date-moved",
+    companyId: "company-1",
+    nextService: "2026-09-25",
+    serviceFreq: 58,
+  };
+  const stale = {
+    id: "service-due-2026-08-14",
+    companyId: "company-1",
+    vehicleId: serviceVehicle.id,
+    type: "SERVICE",
+    maintenanceTypeIds: ["service"],
+    status: "Requested",
+    sourceDueDateISO: "2026-08-14",
+    requirementKey: "old-service-cycle",
+    origin: { source: "automatic_schedule", sourceId: serviceVehicle.id },
+    forecastYear: 2026,
+    scheduleManuallyAdjusted: false,
+  };
+  const result = reconcileAnnualMaintenanceForecast({
+    forecast: buildAnnualMaintenanceForecast({
+      vehicle: serviceVehicle,
+      year: 2026,
+      includedTypeIds: ["service"],
+    }),
+    existingBookings: [stale],
+    vehicleId: serviceVehicle.id,
+    year: 2026,
+    todayISO: "2026-08-20",
+    includedTypeIds: ["service"],
+  });
+
+  assert.equal(result.create.length, 1);
+  assert.equal(result.create[0].sourceDueDateISO, "2026-09-25");
+  assert.deepEqual(result.supersede.map((record) => record.id), [stale.id]);
+});
+
+test("combined PMI and brake forecast supersedes a legacy standalone same-week request", () => {
+  const hgv = {
+    id: "legacy-duplicate-hgv",
+    companyId: "company-1",
+    category: "HGV",
+    nextPMI: "2026-10-01",
+    pmiFreq: 8,
+    nextBrakeTest: "2026-10-01",
+    brakeTestFreq: 8,
+    motNotApplicable: true,
+    serviceNotApplicable: true,
+  };
+  const forecast = buildAnnualMaintenanceForecast({
+    vehicle: hgv,
+    year: 2026,
+    includedTypeIds: ["pmi", "brake_test"],
+  });
+  const legacyStandalonePmi = {
+    id: "legacy-standalone-pmi",
+    companyId: hgv.companyId,
+    vehicleId: hgv.id,
+    type: "INSPECTION",
+    maintenanceTypeIds: ["pmi"],
+    status: "Requested",
+    items: [
+      { maintenanceTypeId: "pmi", status: "requested", legalDueDateISO: "2026-10-02" },
+    ],
+    requirementKey: "legacy-standalone-pmi-key",
+  };
+
+  const result = reconcileAnnualMaintenanceForecast({
+    forecast,
+    existingBookings: [legacyStandalonePmi],
+    vehicleId: hgv.id,
+    year: 2026,
+    todayISO: "2026-08-20",
+    includedTypeIds: ["pmi", "brake_test"],
+  });
+
+  assert.equal(result.create.length, 1);
+  assert.deepEqual(result.supersede.map((record) => record.id), [legacyStandalonePmi.id]);
+  assert.equal(result.preserve.some((record) => record.id === legacyStandalonePmi.id), false);
+});
+
 test("HGV completion produces only the next combined PMI/brake appointment", () => {
   const workflows = ADDITIONAL_MAINTENANCE_WORKFLOWS.filter((workflow) =>
     ["pmi", "brake_test"].includes(workflow.maintenanceTypeId)

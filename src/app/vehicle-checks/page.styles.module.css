@@ -47,66 +47,207 @@
 
 .extracted8 {
   width: 100%;
-  min-width: 980px;
-  border-collapse: collapse;
+  min-width: 1180px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tableShell {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: min(68vh, 920px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  scrollbar-gutter: stable;
+}
+
+.extracted8 thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 13px 14px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-subtle);
+  border-bottom: 1px solid var(--color-border-strong);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  line-height: 1.2;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.extracted8 tbody tr {
+  background: var(--color-surface);
+  transition: background-color 140ms ease;
+}
+
+.extracted8 tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.extracted8 tbody td {
+  padding: 14px;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.extracted8 tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.extracted8 tbody tr[data-state="missing"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-warning);
+}
+
+.extracted8 tbody tr[data-state="defect"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-danger);
+}
+
+.extracted8 tbody tr[data-state="ok"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-success);
+}
+
+.extracted8 tbody tr[data-state="draft"] td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-brand);
+}
+
+.dateGroupStart:not(:first-child) td {
+  border-top: 2px solid var(--color-border-strong);
+}
+
+.dateColumn { width: 102px; }
+.jobColumn { width: 104px; }
+.clientColumn { width: 20%; }
+.vehicleColumn { width: 26%; }
+.employeeColumn { width: 16%; }
+.statusColumn { width: 126px; }
+.checksColumn { width: 174px; }
+.actionColumn { width: 138px; }
+
+.actionHeading {
+  text-align: right !important;
 }
 
 .extracted9 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .extracted10 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
+  white-space: nowrap;
 }
 
-.extracted11 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
+.dateValue,
+.dateContext {
+  display: block;
 }
 
-.extracted12 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
+.dateValue {
+  font-weight: 750;
 }
 
-.extracted13 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
-  max-width: 320px;
+.dateContext {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 650;
 }
 
-.extracted14 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
+.jobValue {
+  color: var(--color-text);
+  font-weight: 850;
 }
 
-.extracted15 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
+.clampedText {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .extracted16 {
-  padding: 11px 12px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--color-brand-soft);
-  vertical-align: middle;
   text-align: right;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.statusBadge[data-state="ok"] {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border-color: var(--color-success-border);
+}
+
+.statusBadge[data-state="defect"] {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-border);
+}
+
+.statusBadge[data-state="draft"] {
+  color: var(--color-brand);
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand-border);
+}
+
+.statusBadge[data-state="missing"] {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-border);
+}
+
+.checkCounts {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.checkCounts strong {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.notStarted {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .extracted17 {
@@ -118,4 +259,21 @@
 
 .extracted18 {
   padding-left: 34px;
+}
+
+@media (max-width: 760px) {
+  .tableShell {
+    max-height: none;
+    border-radius: 10px;
+  }
+
+  .extracted8 {
+    min-width: 1080px;
+  }
+
+  .extracted8 thead th,
+  .extracted8 tbody td {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
 }

@@ -33,11 +33,6 @@ const card = {
 };
 
 const filterToolbar = {
-  background: UI.card,
-  border: UI.border,
-  borderRadius: UI.radius,
-  boxShadow: UI.shadowSm,
-  padding: 12,
   display: "grid",
   gridTemplateColumns: "minmax(250px, 1.2fr) minmax(170px, 1fr) 140px 140px 132px 132px auto",
   gap: 8,

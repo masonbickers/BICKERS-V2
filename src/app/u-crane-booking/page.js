@@ -499,6 +499,8 @@ export default function CreateBookingPage() {
     const user = auth.currentUser;
 
     const booking = {
+      isUCrane: true,
+      bookingType: "U-Crane",
       jobNumber,
       client,
       contactNumber,

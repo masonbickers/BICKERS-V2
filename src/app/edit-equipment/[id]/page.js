@@ -27,6 +27,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { normalizeVehicleAssetNumber } from "@/app/utils/vehicleAssetNumber";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -212,7 +213,16 @@ export default function EditEquipmentPage() {
         const refDoc = doc(db, "equipment", id);
         const snap = await getDoc(refDoc);
         if (snap.exists()) {
-          const nextEquipment = { id: snap.id, ...snap.data() };
+          const rawEquipment = { id: snap.id, ...snap.data() };
+          const assetNumber = normalizeVehicleAssetNumber(
+            rawEquipment.asset || rawEquipment.assetNumber || rawEquipment.sageAssetNumber
+          );
+          const nextEquipment = {
+            ...rawEquipment,
+            asset: assetNumber,
+            assetNumber,
+            sageAssetNumber: assetNumber,
+          };
           setEquipment(nextEquipment);
           setInitialSnapshot(JSON.stringify(nextEquipment));
         } else {
@@ -286,13 +296,18 @@ export default function EditEquipmentPage() {
     try {
       const refDoc = doc(db, "equipment", id);
       const { id: _ignore, ...rest } = equipment;
+      const assetNumber = normalizeVehicleAssetNumber(
+        rest.asset || rest.assetNumber || rest.sageAssetNumber
+      );
 
       const payload = {
         ...rest,
         name: (rest.name || "").trim(),
         category: (rest.category || "").trim(),
         serialNumber: (rest.serialNumber || "").trim(),
-        asset: (rest.asset || "").trim(),
+        asset: assetNumber,
+        assetNumber,
+        sageAssetNumber: assetNumber,
         location: (rest.location || "").trim(),
         status: rest.status || "Available",
         updatedAt: serverTimestamp(),

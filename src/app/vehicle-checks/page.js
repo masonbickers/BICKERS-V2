@@ -7,9 +7,11 @@ import Link from "next/link";
 import { collection, getDocs, query } from "firebase/firestore";
 import {
   AlertTriangle,
+  ArrowUpRight,
   CheckCircle2,
   ClipboardCheck,
   FileClock,
+  Plus,
   RotateCcw,
   Search,
 } from "lucide-react";
@@ -19,7 +21,6 @@ import { Badge, Button, Input, MetricCard as SharedMetricCard, Select } from "@/
 import { db } from "../../../firebaseConfig";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { formatVehicleList } from "@/app/utils/vehicleDisplay";
-import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
 
 /* UI tokens */
 const UI = UI_TOKENS;
@@ -39,42 +40,10 @@ const kpiGrid = {
   marginBottom: UI.gap,
 };
 
-const chip = {
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: "var(--color-surface-hover)",
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const divider = { height: 1, background: "var(--color-border)", margin: "12px 0 0" };
-
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 10,
-  flexWrap: "wrap",
-};
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0 };
 const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
 
-/* table */
-const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden" };
 const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--color-brand-soft)", verticalAlign: "middle" };
-const theadTh = {
-  ...thtd,
-  fontWeight: 900,
-  color: UI.muted,
-  background: "var(--color-surface-subtle)",
-  fontSize: 11.5,
-  textTransform: "uppercase",
-  letterSpacing: 0,
-};
 
 /* pills */
 const pill = (bg, fg, borderColor = "var(--color-border)") => ({
@@ -89,11 +58,6 @@ const pill = (bg, fg, borderColor = "var(--color-border)") => ({
   color: fg,
   border: `1px solid ${borderColor}`,
 });
-
-const statusBadge = (state) => {
-  const tone = getSemanticStatusStyle(state);
-  return pill(tone.bg, tone.text, tone.border);
-};
 
 /* Helpers */
 const toDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
@@ -187,17 +151,18 @@ const extractEmployeesForDate = (b, dk) => {
   return extractEmployeesWholeBooking(b);
 };
 
-const clampText = (s, n = 80) => {
-  const t = String(s || "").trim();
-  if (!t) return "";
-  return t.length <= n ? t : `${t.slice(0, Math.max(0, n - 3))}...`;
-};
-
 const formatDisplayDate = (value) => {
   const raw = String(value || "").trim();
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   return raw || "-";
+};
+
+const formatDateContext = (value) => {
+  const date = parseLocalDateOnly(value);
+  if (!date) return "";
+  if (dateKey(date) === dateKey(new Date())) return "Today";
+  return new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(date);
 };
 
 /* Page */
@@ -493,18 +458,31 @@ export default function VehicleChecksDashboardPage() {
         </section>
 
         {/* Table */}
-        <div style={tableWrap}>
+        <div className={layoutStyles.tableShell}>
           <table className={layoutStyles.extracted8}>
+            <caption className={layoutStyles.srOnly}>
+              Vehicle checks by work date, job, client, vehicle, employee and status
+            </caption>
+            <colgroup>
+              <col className={layoutStyles.dateColumn} />
+              <col className={layoutStyles.jobColumn} />
+              <col className={layoutStyles.clientColumn} />
+              <col className={layoutStyles.vehicleColumn} />
+              <col className={layoutStyles.employeeColumn} />
+              <col className={layoutStyles.statusColumn} />
+              <col className={layoutStyles.checksColumn} />
+              <col className={layoutStyles.actionColumn} />
+            </colgroup>
             <thead>
               <tr>
-                <th style={{ ...theadTh, textAlign: "left" }}>Date</th>
-                <th style={{ ...theadTh, textAlign: "left" }}>Job</th>
-                <th style={{ ...theadTh, textAlign: "left" }}>Client</th>
-                <th style={{ ...theadTh, textAlign: "left" }}>Vehicles</th>
-                <th style={{ ...theadTh, textAlign: "left" }}>Employees</th>
-                <th style={{ ...theadTh, textAlign: "left" }}>Status</th>
-                <th style={{ ...theadTh, textAlign: "left" }}>Submitted/Draft</th>
-                <th style={{ ...theadTh, textAlign: "right" }}>Open</th>
+                <th scope="col">Work date</th>
+                <th scope="col">Job</th>
+                <th scope="col">Client</th>
+                <th scope="col">Vehicles</th>
+                <th scope="col">Employees</th>
+                <th scope="col">Status</th>
+                <th scope="col">Checks</th>
+                <th scope="col" className={layoutStyles.actionHeading}>Action</th>
               </tr>
             </thead>
 
@@ -534,30 +512,54 @@ export default function VehicleChecksDashboardPage() {
                     : `/vehicle-check?jobId=${encodeURIComponent(r.jobId)}&dateISO=${encodeURIComponent(r.dateISO)}`;
 
                   const openLabel = r.checks?.length ? "View" : "Create check";
+                  const startsDateGroup = i === 0 || rows[i - 1]?.dateISO !== r.dateISO;
 
                   return (
-                    <tr key={`${r.jobId}-${r.dateISO}-${i}`} style={{ background: i % 2 ? "var(--color-surface)" : "var(--color-surface)" }}>
-                      <td className={layoutStyles.extracted9}>{formatDisplayDate(r.dateISO)}</td>
-                      <td className={layoutStyles.extracted10}>
-                        <span style={{ fontWeight: 900, color: UI.text }}>{r.jobLabel}</span>
+                    <tr
+                      key={`${r.jobId}-${r.dateISO}-${i}`}
+                      data-state={r.state.toLowerCase()}
+                      className={startsDateGroup ? layoutStyles.dateGroupStart : undefined}
+                    >
+                      <td className={layoutStyles.extracted9}>
+                        <span className={layoutStyles.dateValue}>{formatDisplayDate(r.dateISO)}</span>
+                        <span className={layoutStyles.dateContext}>{formatDateContext(r.dateISO)}</span>
                       </td>
-                      <td className={layoutStyles.extracted11}>{r.client || "-"}</td>
+                      <td className={layoutStyles.extracted10}>
+                        <span className={layoutStyles.jobValue}>{r.jobLabel}</span>
+                      </td>
+                      <td className={layoutStyles.extracted11} title={r.client || ""}>
+                        <span className={layoutStyles.clampedText}>{r.client || "-"}</span>
+                      </td>
                       <td className={layoutStyles.extracted12} title={r.vehicles || ""}>
-                        {r.vehicles ? clampText(r.vehicles, 52) : "-"}
+                        <span className={layoutStyles.clampedText}>{r.vehicles || "-"}</span>
                       </td>
                       <td className={layoutStyles.extracted13} title={(r.employees || []).join(", ")}>
-                        {employeesDisplay}
+                        <span className={layoutStyles.clampedText}>{employeesDisplay}</span>
                       </td>
                       <td className={layoutStyles.extracted14}>
-                        <span style={statusBadge(r.state)}>{r.state}</span>
+                        <StatusBadge state={r.state} />
                       </td>
                       <td className={layoutStyles.extracted15}>
-                        <span style={chip}>
-                          {r.submittedCount}/{r.draftCount}
-                        </span>
+                        {r.submittedCount || r.draftCount ? (
+                          <div className={layoutStyles.checkCounts}>
+                            <span><strong>{r.submittedCount}</strong> submitted</span>
+                            <span aria-hidden="true">·</span>
+                            <span><strong>{r.draftCount}</strong> draft{r.draftCount === 1 ? "" : "s"}</span>
+                          </div>
+                        ) : (
+                          <span className={layoutStyles.notStarted}>Not started</span>
+                        )}
                       </td>
                       <td className={layoutStyles.extracted16}>
-                        <Button as={Link} href={openHref} className="vehicle-checks-action" variant="secondary" size="sm">
+                        <Button
+                          as={Link}
+                          href={openHref}
+                          className="vehicle-checks-action"
+                          variant={r.checks?.length ? "secondary" : "primary"}
+                          size="sm"
+                          aria-label={`${openLabel} for ${r.jobLabel} on ${formatDisplayDate(r.dateISO)}`}
+                        >
+                          {r.checks?.length ? <ArrowUpRight size={14} /> : <Plus size={14} />}
                           {openLabel}
                         </Button>
                       </td>
@@ -571,61 +573,28 @@ export default function VehicleChecksDashboardPage() {
       </PeopleFleetPage>
 
       <style jsx global>{`
-        .vehicle-checks-action:hover { background: var(--color-surface-subtle) !important; border-color: var(--shell-muted) !important; }
-        table thead th { border-bottom: 1px solid var(--color-border) !important; }
+        .vehicle-checks-action[data-ui-button="secondary"]:hover {
+          background: var(--color-surface-subtle) !important;
+          border-color: var(--shell-muted) !important;
+        }
       `}</style>
     </HeaderSidebarLayout>
   );
 }
 
-/* small components */
-function KPI({ label, value, sub, tone = "default", icon: Icon = ClipboardCheck }) {
-  const toneStyles =
-    tone === "danger"
-      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
-      : tone === "amber"
-      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
-      : tone === "brand" || tone === "soft"
-      ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "var(--color-surface-subtle)", border: "var(--color-border)" };
+function StatusBadge({ state }) {
+  const config = {
+    OK: { label: "Complete", Icon: CheckCircle2 },
+    DEFECT: { label: "Defect", Icon: AlertTriangle },
+    DRAFT: { label: "Draft", Icon: ClipboardCheck },
+    MISSING: { label: "Missing", Icon: FileClock },
+  }[state] || { label: state, Icon: FileClock };
+  const Icon = config.Icon;
 
   return (
-    <div
-      style={{
-        ...cardBase,
-        minHeight: 96,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
-      }}
-    >
-      <div className={layoutStyles.extracted17}>
-        <div>
-          <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
-            {label}
-          </div>
-          <div style={{ fontSize: 26, lineHeight: 1.05, fontWeight: 900, color: toneStyles.fg, marginTop: 6 }}>{value}</div>
-        </div>
-        <span
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: UI.radiusSm,
-            border: `1px solid ${toneStyles.border}`,
-            background: toneStyles.bg,
-            color: toneStyles.fg,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: "0 0 auto",
-          }}
-        >
-          <Icon size={17} />
-        </span>
-      </div>
-
-      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
-    </div>
+    <span className={layoutStyles.statusBadge} data-state={state.toLowerCase()}>
+      <Icon size={14} aria-hidden="true" />
+      {config.label}
+    </span>
   );
 }

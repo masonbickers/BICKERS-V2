@@ -29,14 +29,9 @@ import {
 } from "lucide-react";
 import { auth } from "../../../../firebaseConfig";
 import { useAppearance } from "@/app/components/GlobalThemeProvider";
+import { useDeploymentConfig } from "@/app/config/deploymentConfig";
 
 const SIDEBAR_PREFERENCE_KEY = "bickers-sidebar:v1";
-const PLATFORM_BRAND = {
-  companyLogoUrl: "/bas-software-logo.png",
-  displayName: "BAS Software",
-  shortName: "BAS",
-  siteTitle: "BAS Software",
-};
 
 const navItems = [
   ["/platform-admin", "Dashboard", Home],
@@ -57,7 +52,7 @@ const navItems = [
 export default function PlatformAdminShell({ children, title, subtitle, onRefresh, loading }) {
   const router = useRouter();
   const pathname = usePathname();
-  const deployment = PLATFORM_BRAND;
+  const deployment = useDeploymentConfig();
   const appearance = useAppearance();
   const [checking, setChecking] = useState(true);
   const [me, setMe] = useState(null);

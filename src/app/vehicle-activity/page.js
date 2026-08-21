@@ -8,6 +8,7 @@ import {
   Activity,
   AlertTriangle,
   Car,
+  ChevronRight,
   ClipboardCheck,
   History,
   RotateCcw,
@@ -26,6 +27,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { getServiceRecordPresentation } from "@/app/utils/servicePresentation";
 
 const GENERAL_DEFECTS_PATH = "/defects/general";
 const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
@@ -35,99 +37,6 @@ const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
   `/vehicle-edit/${encodeURIComponent(vehicleId)}/service-history/${encodeURIComponent(serviceId)}`;
 
 const UI = UI_TOKENS;
-
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const appShell = { display: "grid", gap: UI.gap };
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 10,
-  flexWrap: "wrap",
-};
-const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
-const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
-const sectionTag = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "5px 10px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.brand,
-  fontSize: 11,
-  fontWeight: 800,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-};
-const chip = {
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-const chipSoft = { ...chip, color: UI.brand };
-const divider = { height: 1, background: "var(--color-border)", margin: "12px 0 0" };
-const inputBase = {
-  width: "100%",
-  minHeight: 38,
-  padding: "8px 10px",
-  borderRadius: UI.radiusSm,
-  border: "1px solid var(--color-border)",
-  background: "var(--color-surface)",
-  color: UI.text,
-  fontSize: 13,
-  outline: "none",
-};
-
-const badge = (bg, fg) => ({
-  padding: "4px 9px",
-  borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: bg,
-  color: fg,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-  lineHeight: "18px",
-});
-
-const btn = (kind = "ghost") => {
-  const base = {
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
-    color: UI.text,
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-  };
-
-  if (kind === "primary") {
-    return {
-      ...base,
-      borderColor: UI.brand,
-      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-      color: "var(--color-white)",
-      boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    };
-  }
-
-  return base;
-};
 
 const buildVehicleLabelFromObject = (v) => {
   if (!v) return "";
@@ -200,6 +109,32 @@ const formatActivityDate = (value) => {
   });
 };
 
+const formatActivityDay = (value) => {
+  const dated = parseActivityDateCandidate(value);
+  if (!dated) return "Undated activity";
+  return dated.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+const formatActivityTime = (value) => {
+  const dated = parseActivityDateCandidate(value);
+  if (!dated) return "-";
+  return dated.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getActivityDayKey = (value) => {
+  const dated = parseActivityDateCandidate(value);
+  if (!dated) return "undated";
+  return `${dated.getFullYear()}-${dated.getMonth()}-${dated.getDate()}`;
+};
+
 const formatActivityStatus = (value) => {
   const clean = String(value || "").trim();
   if (!clean) return "Logged";
@@ -233,11 +168,30 @@ const activityTypeConfig = {
   legacy_defect: { label: "Legacy defect", bg: "var(--color-surface-subtle)", fg: UI.text },
 };
 
+const getActivityIcon = (type) => {
+  if (isDefectLike({ type })) return AlertTriangle;
+  if (isServiceLike({ type }) || isRepairLike({ type })) return Wrench;
+  if (isCheckLike({ type })) return ClipboardCheck;
+  return Car;
+};
+
+const getStatusTone = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (["open", "failed", "declined", "overdue"].includes(normalized)) {
+    return { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", fg: "var(--color-danger)" };
+  }
+  if (["pending", "in progress", "in_progress", "scheduled"].includes(normalized)) {
+    return { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", fg: "var(--color-warning)" };
+  }
+  return { bg: "var(--color-success-soft)", border: "var(--color-success-border)", fg: "var(--color-success)" };
+};
+
 const filterTypeOptions = [
   ["all", "All activity"],
   ["service", "Services"],
   ["repair", "Repairs"],
   ["defect", "Defects"],
+  ["checks", "Checks & prep"],
   ["mot_precheck", "MOT"],
   ["vehicle_prep", "Prep"],
   ["vehicle_check", "Checks"],
@@ -250,13 +204,6 @@ const isDefectLike = (item) => item.type === "defect" || item.type === "vehicle_
 const isServiceLike = (item) => ["service", "minor_service", "legacy_service"].includes(item.type);
 const isRepairLike = (item) => ["repair", "legacy_repair"].includes(item.type);
 const isCheckLike = (item) => ["vehicle_check", "vehicle_prep", "mot_precheck", "legacy_prep"].includes(item.type);
-
-const statCard = {
-  ...surface,
-  padding: 12,
-  minHeight: 92,
-  boxShadow: UI.shadowSm,
-};
 
 const getActivityRoute = (activity) => {
   if (activity?.type === "service" || activity?.type === "minor_service" || activity?.type === "repair") {
@@ -427,19 +374,20 @@ export default function VehicleActivityPage() {
     const collectionActivities = [
       ...serviceRecords.map((record) => {
         const type = classifyServiceRecord(record);
+        const presentation = getServiceRecordPresentation(record);
         const item = {
           activityId: `serviceRecords:${record.id}`,
           sourceCollection: "serviceRecords",
           sourceId: record.id,
           type,
-          title: type === "repair" ? record.repairSummary || record.workSummary || "General repair" : record.serviceType || "Service record",
+          title: type === "repair" ? record.repairSummary || record.workSummary || "General repair" : presentation.title,
           summary: toActivitySummary(record.workSummary, record.repairSummary, record.repairReason, record.partsUsed, record.extraNotes),
           vehicleId: record.vehicleId || null,
           vehicleName: record.vehicleName || "Unknown vehicle",
           registration: record.registration || "",
-          person: record.signedBy || record.completedBy || "",
+          person: presentation.provider,
           status: type === "repair" ? "completed" : "logged",
-          activityDate: resolveActivityDate(record.completedAt, record.updatedAt, record.createdAt, record.serviceDateOnly, record.serviceDate, record.completedDate),
+          activityDate: resolveActivityDate(presentation.dateValue),
         };
         return { ...item, route: getActivityRoute(item) };
       }),
@@ -565,7 +513,8 @@ export default function VehicleActivityPage() {
         if (typeFilter === "service" && !isServiceLike(item)) return false;
         if (typeFilter === "repair" && !isRepairLike(item)) return false;
         if (typeFilter === "defect" && !isDefectLike(item)) return false;
-        if (!["service", "repair", "defect"].includes(typeFilter) && item.type !== typeFilter) return false;
+        if (typeFilter === "checks" && !isCheckLike(item)) return false;
+        if (!["service", "repair", "defect", "checks"].includes(typeFilter) && item.type !== typeFilter) return false;
       }
 
       if (statusFilter !== "all" && formatActivityStatus(item.status) !== statusFilter) return false;
@@ -590,6 +539,7 @@ export default function VehicleActivityPage() {
       note: "Everything logged across the fleet",
       icon: History,
       tone: "brand",
+      filter: "all",
     },
     {
       label: "Services",
@@ -597,6 +547,7 @@ export default function VehicleActivityPage() {
       note: "Full, minor and legacy services",
       icon: Wrench,
       tone: "ok",
+      filter: "service",
     },
     {
       label: "Repairs",
@@ -604,6 +555,7 @@ export default function VehicleActivityPage() {
       note: "Workshop repair records",
       icon: Activity,
       tone: "amber",
+      filter: "repair",
     },
     {
       label: "Defects",
@@ -611,6 +563,7 @@ export default function VehicleActivityPage() {
       note: `${stats.openDefects} currently open`,
       icon: AlertTriangle,
       tone: stats.openDefects ? "danger" : "ok",
+      filter: "defect",
     },
     {
       label: "Checks & prep",
@@ -618,197 +571,180 @@ export default function VehicleActivityPage() {
       note: "Driver checks, prep and MOT",
       icon: ClipboardCheck,
       tone: "brand",
+      filter: "checks",
     },
   ];
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <style>{`
-          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
-          .vehicle-activity-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-          .vehicle-activity-filters { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 190px auto; gap: 10px; align-items: center; }
-          .vehicle-activity-list { display: grid; gap: 8px; }
-          .vehicle-activity-card:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover}; border-color: ${UI.brandBorder}; }
-          @media (max-width: 1180px) {
-            .vehicle-activity-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            .vehicle-activity-filters { grid-template-columns: 1fr 1fr; }
-          }
-          @media (max-width: 760px) {
-            .vehicle-activity-grid,
-            .vehicle-activity-filters { grid-template-columns: 1fr; }
-            .vehicle-activity-row { grid-template-columns: 1fr !important; }
-            .vehicle-activity-type { justify-items: start !important; }
-            .vehicle-activity-meta { justify-items: start !important; padding: 0 14px 14px !important; }
-          }
-        `}</style>
-        <div style={appShell}>
-        <section style={{ ...surface, padding: 12, overflow: "hidden" }}>
-          <div className={layoutStyles.extracted1}>
-            <div>
-              <div style={sectionTag}>Fleet timeline</div>
-              <h1 style={{ margin: "9px 0 0", fontSize: 22, lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 }}>Vehicle activity history</h1>
-              <div style={{ ...hint, marginTop: 8 }}>
+      <main className={layoutStyles.pageWrap}>
+        <div className={layoutStyles.appShell}>
+        <section className={layoutStyles.heroSection}>
+          <div className={layoutStyles.heroHeader}>
+            <div className={layoutStyles.heroCopy}>
+              <h1 className={layoutStyles.pageTitle}>Vehicle activity history</h1>
+              <p className={layoutStyles.pageDescription}>
                 Service work, repairs, defect reports, MOT pre-checks, prep, driver checks and reported issues in one searchable log.
-              </div>
+              </p>
             </div>
 
-            <div className={layoutStyles.extracted2}>
-              <span style={chipSoft}>Live data</span>
-              <span style={chip}>{filteredActivity.length} / {activity.length} records</span>
-              <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-home")}>
+            <div className={layoutStyles.heroActions}>
+              <span className={layoutStyles.liveChip}><span aria-hidden="true" />Live data</span>
+              <span className={layoutStyles.recordChip}>{activity.length} total records</span>
+              <button type="button" className={layoutStyles.secondaryButton} onClick={() => router.push("/vehicle-home")}>
                 <Car size={15} />
                 Vehicle home
               </button>
             </div>
           </div>
 
-          <div className={`vehicle-activity-grid ${layoutStyles.extracted3}`} >
+          <div className={layoutStyles.statGrid}>
             {statItems.map((item) => (
-              <ActivityStatCard key={item.label} {...item} />
+              <ActivityStatCard
+                key={item.label}
+                {...item}
+                active={typeFilter === item.filter}
+                onSelect={() => setTypeFilter(item.filter)}
+              />
             ))}
           </div>
         </section>
 
-        <section style={{ ...surface, padding: 12 }}>
-          <div className={layoutStyles.extracted4}>
+        <section className={layoutStyles.logSection}>
+          <div className={layoutStyles.logHeader}>
             <div>
-              <h2 style={titleMd}>Activity log</h2>
-              <div style={hint}>Filter by vehicle, registration, status, person, type or notes.</div>
+              <h2 className={layoutStyles.logTitle}>Activity log</h2>
+              <p className={layoutStyles.logHint}>Search and filter every recorded fleet event.</p>
             </div>
-            <button type="button" style={btn("ghost")} onClick={resetFilters}>
+            <button
+              type="button"
+              className={layoutStyles.resetButton}
+              onClick={resetFilters}
+              disabled={!queryText && typeFilter === "all" && statusFilter === "all"}
+            >
               <RotateCcw size={14} />
               Reset filters
             </button>
           </div>
 
-          <div className="vehicle-activity-filters">
-            <label className={layoutStyles.extracted5}>
-              <Search
-                size={15}
-                style={{
-                  position: "absolute",
-                  left: 11,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: UI.muted,
-                  pointerEvents: "none",
-                }}
-              />
+          <div className={layoutStyles.filterBar}>
+            <label className={layoutStyles.searchField}>
+              <span className={layoutStyles.srOnly}>Search vehicle activity</span>
+              <Search size={17} aria-hidden="true" />
               <input
                 type="search"
                 value={queryText}
                 onChange={(event) => setQueryText(event.target.value)}
-                placeholder="Search vehicle, reg, note, person..."
-                style={{ ...inputBase, paddingLeft: 34 }}
+                placeholder="Search vehicle, registration, note or person"
               />
             </label>
-            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} style={inputBase}>
-              {filterTypeOptions.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            <select
-              value={statusFilter === "all" ? "All statuses" : statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value === "All statuses" ? "all" : event.target.value)}
-              style={inputBase}
-            >
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-            <span style={{ ...chipSoft, justifyContent: "center", minHeight: 38, display: "inline-flex", alignItems: "center" }}>
-              Showing {filteredActivity.length}
-            </span>
+            <label className={layoutStyles.selectField}>
+              <span>Activity type</span>
+              <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                {filterTypeOptions.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className={layoutStyles.selectField}>
+              <span>Status</span>
+              <select
+                value={statusFilter === "all" ? "All statuses" : statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value === "All statuses" ? "all" : event.target.value)}
+              >
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </label>
+            <div className={layoutStyles.resultsCount} aria-live="polite">
+              <strong>{filteredActivity.length}</strong>
+              <span>of {activity.length}</span>
+            </div>
           </div>
 
-          <div className={layoutStyles.extracted6} />
-
           {activity.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13, padding: 18, textAlign: "center" }}>No vehicle activity found yet.</div>
+            <div className={layoutStyles.emptyState}>No vehicle activity found yet.</div>
           ) : filteredActivity.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13, padding: 18, textAlign: "center" }}>No activity matches those filters.</div>
+            <div className={layoutStyles.emptyState}>
+              <Search size={22} />
+              <strong>No matching activity</strong>
+              <span>Try a different search or reset the filters.</span>
+            </div>
           ) : (
-            <div className="vehicle-activity-list">
-              {filteredActivity.map((item) => {
+            <div className={layoutStyles.activityList}>
+              {filteredActivity.map((item, index) => {
                 const typeStyle = activityTypeConfig[item.type] || activityTypeConfig.service;
-                const cardStyle = {
-                  textAlign: "left",
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: UI.radius,
-                  border: UI.border,
-                  background: "var(--color-surface)",
-                  boxShadow: UI.shadowSm,
-                  cursor: item.route ? "pointer" : "default",
-                  overflow: "hidden",
-                  transition: "transform .15s ease, box-shadow .15s ease, border-color .15s ease",
+                const ActivityIcon = getActivityIcon(item.type);
+                const statusTone = getStatusTone(item.status);
+                const toneVars = { "--activity-tone": typeStyle.fg, "--activity-soft": typeStyle.bg };
+                const statusVars = {
+                  "--status-tone": statusTone.fg,
+                  "--status-soft": statusTone.bg,
+                  "--status-border": statusTone.border,
                 };
+                const showDayHeading = index === 0
+                  || getActivityDayKey(filteredActivity[index - 1]?.activityDate) !== getActivityDayKey(item.activityDate);
                 const inner = (
                   <>
-                    <div className={layoutStyles.extracted7}>
-                      <span style={{ ...badge(typeStyle.bg, typeStyle.fg), borderColor: "transparent" }}>{typeStyle.label}</span>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
-                        {formatActivityDate(item.activityDate)}
+                    <div className={layoutStyles.timelineMark} aria-hidden="true">
+                      <span><ActivityIcon size={15} strokeWidth={2.2} /></span>
+                    </div>
+
+                    <div className={layoutStyles.activityContent}>
+                      <div className={layoutStyles.activityPrimary}>
+                        <span className={layoutStyles.typeBadge}>{typeStyle.label}</span>
+                        <h3>{item.title}</h3>
+                        <span className={layoutStyles.statusChip} style={statusVars}>{formatActivityStatus(item.status)}</span>
+                        {item.person ? <span className={layoutStyles.personMeta}>By {item.person}</span> : null}
+                        <span className={layoutStyles.mobileDate}>{formatActivityTime(item.activityDate)}</span>
+                      </div>
+
+                      <div className={layoutStyles.activitySecondary}>
+                        <span>{item.vehicleName}</span>
+                        {item.registration ? <strong>{String(item.registration).toUpperCase()}</strong> : null}
+                        <span className={layoutStyles.secondaryDivider} aria-hidden="true">·</span>
+                        <span className={layoutStyles.activitySummary}>{item.summary}</span>
                       </div>
                     </div>
 
-                    <div style={{ marginTop: 9, fontSize: 14.5, fontWeight: 800, color: UI.text, lineHeight: 1.35 }}>
-                      {item.title}
-                    </div>
-
-                    <div style={{ marginTop: 6, color: UI.muted, fontSize: 12.5, lineHeight: 1.45 }}>
-                      {item.vehicleName}
-                      {item.registration ? ` - ${String(item.registration).toUpperCase()}` : ""}
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 10,
-                        color: UI.text,
-                        fontSize: 13,
-                        lineHeight: 1.5,
-                        display: "-webkit-box",
-                        WebkitBoxOrient: "vertical",
-                        WebkitLineClamp: 4,
-                        overflow: "hidden",
-                      }}
-                    >
-                      {item.summary}
-                    </div>
-
-                    <div className={layoutStyles.extracted8}>
-                      <span style={chipSoft}>{formatActivityStatus(item.status)}</span>
-                      {item.person ? <span style={chip}>By {item.person}</span> : null}
-                      {item.route ? <span style={{ color: UI.brand, fontSize: 12, fontWeight: 800 }}>Open</span> : null}
+                    <div className={layoutStyles.activityMeta}>
+                      <time dateTime={parseActivityDateCandidate(item.activityDate)?.toISOString()}>{formatActivityTime(item.activityDate)}</time>
+                      {item.route ? <ChevronRight className={layoutStyles.rowChevron} size={17} aria-hidden="true" /> : null}
                     </div>
                   </>
                 );
 
                 if (item.route) {
                   return (
-                    <button key={item.activityId} className="vehicle-activity-card" type="button" onClick={() => router.push(item.route)} style={cardStyle}>
-                      {inner}
-                    </button>
+                    <React.Fragment key={item.activityId}>
+                      {showDayHeading ? <div className={layoutStyles.dayHeading}>{formatActivityDay(item.activityDate)}</div> : null}
+                      <button className={layoutStyles.activityCard} type="button" onClick={() => router.push(item.route)} style={toneVars} aria-label={`Open ${item.title} for ${item.vehicleName}`}>
+                        {inner}
+                      </button>
+                    </React.Fragment>
                   );
                 }
 
                 return (
-                  <div key={item.activityId} className="vehicle-activity-card" style={cardStyle}>
-                    {inner}
-                  </div>
+                  <React.Fragment key={item.activityId}>
+                    {showDayHeading ? <div className={layoutStyles.dayHeading}>{formatActivityDay(item.activityDate)}</div> : null}
+                    <div className={layoutStyles.activityCard} style={toneVars}>
+                      {inner}
+                    </div>
+                  </React.Fragment>
                 );
               })}
             </div>
           )}
         </section>
         </div>
-      </div>
+      </main>
     </HeaderSidebarLayout>
   );
 }
 
-function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand" }) {
+function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand", active, onSelect }) {
   const colors =
     tone === "danger"
       ? { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", fg: "var(--color-danger)" }
@@ -819,30 +755,23 @@ function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand" }) {
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
 
   return (
-    <div style={statCard}>
-      <div className={layoutStyles.extracted9}>
+    <button
+      type="button"
+      className={`${layoutStyles.statCard} ${active ? layoutStyles.statCardActive : ""}`}
+      onClick={onSelect}
+      aria-pressed={active}
+      style={{ "--stat-soft": colors.bg, "--stat-border": colors.border, "--stat-tone": colors.fg }}
+    >
+      <div className={layoutStyles.statTopline}>
         <div>
-          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{label}</div>
-          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
+          <div className={layoutStyles.statLabel}>{label}</div>
+          <div className={layoutStyles.statValue}>{value}</div>
         </div>
-        <span
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 8,
-            border: `1px solid ${colors.border}`,
-            background: colors.bg,
-            color: colors.fg,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
+        <span className={layoutStyles.statIcon}>
           <Icon size={18} strokeWidth={2.2} />
         </span>
       </div>
-      <div style={{ color: colors.fg, fontSize: 12, fontWeight: 750, marginTop: 8 }}>{note}</div>
-    </div>
+      <div className={layoutStyles.statNote}>{note}</div>
+    </button>
   );
 }
