@@ -36,6 +36,11 @@ import {
   isHolidayAwaitingApproval,
   isHolidayDeleteAwaitingApproval,
 } from "@/app/utils/holidayApprovalQueue";
+import {
+  createCurrentEmployeeDirectory,
+  employeeDisplayName,
+  shouldShowInHolidayUsageOverview,
+} from "@/app/utils/employeeRecordVisibility";
 
 import {
   BarChart,
@@ -61,9 +66,6 @@ import {
   XCircle,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-
-/*  Hide specific employees from the holiday usage chart */
-const HIDE_FROM_HOLIDAY_USAGE_GRAPH = new Set(["paul bickers"]);
 
 /* Page-specific visual tokens */
 const UI = UI_TOKENS;
@@ -399,16 +401,24 @@ export default function HRPage() {
       const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
+      // Operational HR views are driven by the current employee register. Historic
+      // holiday documents stay intact, but must not recreate a removed employee.
+      const empSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
+      const employeeDirectory = createCurrentEmployeeDirectory(
+        empSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      );
+      const currentEmployeeHolidays = all.filter((holiday) => employeeDirectory.matches(holiday));
+
       //  Requested for selected year (includes Paid + Unpaid + Accrued)
-      const pending = all.filter((holiday) => isHolidayAwaitingApproval(holiday, yearView));
+      const pending = currentEmployeeHolidays.filter((holiday) => isHolidayAwaitingApproval(holiday, yearView));
       setRequestedHolidays(pending);
 
       //  Delete requests for selected year
-      const delPending = all.filter((holiday) => isHolidayDeleteAwaitingApproval(holiday, yearView));
+      const delPending = currentEmployeeHolidays.filter((holiday) => isHolidayDeleteAwaitingApproval(holiday, yearView));
       setDeleteRequestedHolidays(delPending);
 
       // Approved usage for selected year (paid only) - excludes weekends and bank holidays
-      const approved = all.filter((h) => {
+      const approved = currentEmployeeHolidays.filter((h) => {
         const st = String(h.status || "").toLowerCase();
         const y = holidayYear(h);
         return st === "approved" && y === yearView && isPaidHoliday(h);
@@ -416,11 +426,9 @@ export default function HRPage() {
 
       const usageByEmp = new Map(); // name -> days
       approved.forEach((h) => {
-        const name =
-          (h.employee && String(h.employee)) ||
-          (h.employeeCode && String(h.employeeCode)) ||
-          "Unknown";
-        const key = name.trim() || "Unknown";
+        const employee = employeeDirectory.resolve(h);
+        const key = employeeDisplayName(employee);
+        if (!key) return;
         const days = daysForHoliday(h, isBankHoliday);
         usageByEmp.set(key, (usageByEmp.get(key) || 0) + days);
       });
@@ -430,13 +438,9 @@ export default function HRPage() {
         .map(([name, days]) => ({ name, used: Number(days.toFixed(2)) }))
         .sort((a, b) => b.used - a.used);
 
-      // Load allowances from employees and merge (by name)
-      const empSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
-      const employees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
       const allowByName = new Map();
-      employees.forEach((e) => {
-        const name = String(e.name || e.fullName || e.employeeName || "").trim();
+      employeeDirectory.employees.forEach((e) => {
+        const name = employeeDisplayName(e);
         if (!name) return;
 
         const yrKey = String(yearView);
@@ -475,10 +479,7 @@ export default function HRPage() {
       merged.sort((a, b) => b.used - a.used);
 
       /*  HIDE EMPLOYEE(S) FROM GRAPH */
-      const filtered = merged.filter((row) => {
-        const n = String(row?.name || "").trim().toLowerCase();
-        return !HIDE_FROM_HOLIDAY_USAGE_GRAPH.has(n);
-      });
+      const filtered = merged.filter((row) => shouldShowInHolidayUsageOverview(row?.name));
 
       setUsageData(filtered);
     } catch (err) {

@@ -50,6 +50,7 @@ import {
   summarizeSickLeaveRows,
 } from "@/app/utils/sickLeavePresentation";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 import UserActivityPanel from "@/app/admin/_components/UserActivityPanel";
 import SystemActivityPanel from "@/app/admin/_components/SystemActivityPanel";
 
@@ -183,6 +184,12 @@ const dedupeUsersByEmail = (raw = []) => {
       duplicates: Math.max(0, rawCount - deduped.length),
     },
   };
+};
+
+const accessRoleValue = (user = {}) => {
+  const role = String(user.role || "user").trim();
+  if (["admin", "platformAdmin"].includes(role)) return role;
+  return user.financeAccess === true ? "finance" : "user";
 };
 
 const firstActivityText = (...values) => {
@@ -449,6 +456,7 @@ export default function AdminPage() {
   const [resettingMfaUserId, setResettingMfaUserId] = useState("");
   const [deletingUserId, setDeletingUserId] = useState("");
   const [migratingMfaSecrets, setMigratingMfaSecrets] = useState(false);
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState("");
 
   // Data
   const [users, setUsers] = useState([]); // de-duped list
@@ -517,6 +525,23 @@ export default function AdminPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Delete failed.");
+    return data;
+  };
+
+  const callFinanceAccessAction = async (user, financeAccess) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("You need to sign in again.");
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}/finance-access`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ financeAccess, employeeId: user.employeeId || "" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Finance access update failed.");
     return data;
   };
 
@@ -718,13 +743,24 @@ export default function AdminPage() {
   /* -------------------------------------------
      Access management
   -------------------------------------------- */
-  const updateUserRole = async (userId, role) => {
+  const updateUserRole = async (user, selectedRole) => {
+    if (!user?.id || updatingRoleUserId) return;
+    const financeAccess = selectedRole === "finance";
+    const canonicalRole = financeAccess ? "user" : selectedRole;
+    setUpdatingRoleUserId(user.id);
     try {
-      await callAdminUserAction(userId, { action: "setRole", role });
-      showToast("ok", "Role updated");
+      if (financeAccess || user.financeAccess === true) {
+        await callFinanceAccessAction(user, financeAccess);
+      }
+      if (String(user.role || "user") !== canonicalRole) {
+        await callAdminUserAction(user.id, { action: "setRole", role: canonicalRole });
+      }
+      showToast("ok", selectedRole === "finance" ? "Finance access granted" : "Role updated");
       await fetchUsers();
     } catch (e) {
       showToast("error", e?.message || "Failed to update role");
+    } finally {
+      setUpdatingRoleUserId("");
     }
   };
 
@@ -1234,12 +1270,14 @@ export default function AdminPage() {
 
                             <Td>
                               <select
-                                value={u.role || "user"}
-                                onChange={(e) => updateUserRole(u.id, e.target.value)}
+                                value={accessRoleValue(u)}
+                                onChange={(e) => updateUserRole(u, e.target.value)}
+                                disabled={updatingRoleUserId === u.id}
                                 style={selectStyle}
                               >
                                 <option value="platformAdmin">platformAdmin</option>
                                 <option value="user">user</option>
+                                <option value="finance">finance</option>
                                 <option value="admin">admin</option>
                               </select>
                             </Td>
@@ -2151,7 +2189,7 @@ function EmployeesHolidayAllowancesTab() {
       setLoading(true);
       try {
         const overview = await fetchAdminOverviewDataFromServer("holiday");
-        const list = (overview.employees || []).map((employee) => {
+        const list = (overview.employees || []).filter(isCurrentEmployeeRecord).map((employee) => {
           const x = employee || {};
           const pattern = x.workPattern || HA_DEFAULT_PATTERN;
           return {

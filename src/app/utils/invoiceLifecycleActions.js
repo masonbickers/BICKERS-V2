@@ -4,13 +4,12 @@ import {
   createDraftReference,
   createSageSyncState,
   getSageReadiness,
+  getInvoiceApprovalReadiness,
   parseInvoiceRecord,
   serialiseInvoiceForPersistence,
   transitionInvoice,
   validateInvoice,
 } from "./invoiceLifecycle.js";
-import { getAccountingMappingReadiness } from "./accountingMappings.js";
-
 export const INVOICE_LIFECYCLE_ACTIONS = Object.freeze({
   SAVE_DRAFT: "save_draft",
   APPROVE: "approve",
@@ -31,6 +30,7 @@ const EDITABLE_DRAFT_FIELDS = Object.freeze([
   "lines",
   "totals",
   "notes",
+  "internalFinanceNotes",
   "dates",
   "client",
   "location",
@@ -149,11 +149,9 @@ export function applyProtectedInvoiceAction({
   const cleanActor = text(actor) || "Unknown";
 
   if (action === INVOICE_LIFECYCLE_ACTIONS.APPROVE) {
-    const errors = validateInvoice(current);
-    if (errors.length) throw new Error(errors.join("\n"));
-    const mapping = getAccountingMappingReadiness(current);
-    if (!mapping.ready) {
-      throw new Error(mapping.blockers.map((blocker) => blocker.message).join("\n"));
+    const readiness = getInvoiceApprovalReadiness(current);
+    if (!readiness.ready) {
+      throw new Error(readiness.blockers.map((blocker) => blocker.message).join("\n"));
     }
     return transitionInvoice(current, INVOICE_STATUSES.APPROVED, {
       actor: cleanActor,

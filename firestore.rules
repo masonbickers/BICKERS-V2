@@ -133,12 +133,19 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
           "platformAdmin", "platformadmin", "platform admin", "Platform Admin",
           "superAdmin", "superadmin", "super admin", "Super Admin",
-          "admin", "Admin", "companyAdmin", "companyadmin", "company admin", "Company Admin",
-          "finance", "Finance", "financeManager", "finance manager", "Finance Manager"
+          "admin", "Admin", "companyAdmin", "companyadmin", "company admin", "Company Admin"
         ]
         || (
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["financeAccess"])
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.financeAccess == true
+        );
+    }
+
+    function financeCompanyAllowed(data) {
+      return isPlatformAdmin()
+        || (
+          data.keys().hasAny(["companyId"])
+          && data.companyId == currentUserCompanyId()
         );
     }
 
@@ -274,6 +281,15 @@ service cloud.firestore {
         && contactFinanceValue(request.resource.data, "sageCustomerMappingStatus") in [null, "", "unmapped"]
         && contactFinanceValue(request.resource.data, "sageCustomerMappedAt") == null
         && contactFinanceValue(request.resource.data, "sageCustomerMappedBy") in [null, ""];
+    }
+
+    function incomingContactHasNoFinanceProfile() {
+      return !request.resource.data.keys().hasAny(["financeProfile"]);
+    }
+
+    function contactFinanceProfileUnchanged() {
+      return request.resource.data.get("financeProfile", null)
+        == resource.data.get("financeProfile", null);
     }
 
     function contactSageMappingUnchanged() {
@@ -457,10 +473,20 @@ service cloud.firestore {
       ]);
     }
 
+    function incomingFinanceAccessIsDisabled() {
+      return !request.resource.data.keys().hasAny(["financeAccess"])
+        || request.resource.data.financeAccess == false;
+    }
+
+    function financeAccessUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["financeAccess"]);
+    }
+
     match /users/{uid} {
       allow read: if isOwnUserDoc(uid) || isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (isOwnUserDoc(uid) && userOnlyFieldsChanged());
+      allow create: if isAdmin() && incomingFinanceAccessIsDisabled();
+      allow update: if financeAccessUnchanged()
+        && (isAdmin() || (isOwnUserDoc(uid) && userOnlyFieldsChanged()));
       allow delete: if isAdmin();
     }
 
@@ -559,8 +585,13 @@ service cloud.firestore {
 
     match /employees/{employeeId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if isAdmin() && incomingDocBelongsToCurrentCompany();
-      allow update: if isAdmin() && existingDocBelongsToCurrentCompany() && incomingDocBelongsToCurrentCompany();
+      allow create: if isAdmin()
+        && incomingDocBelongsToCurrentCompany()
+        && incomingFinanceAccessIsDisabled();
+      allow update: if isAdmin()
+        && existingDocBelongsToCurrentCompany()
+        && incomingDocBelongsToCurrentCompany()
+        && financeAccessUnchanged();
       allow delete: if isAdmin() && existingDocBelongsToCurrentCompany();
     }
 
@@ -580,9 +611,26 @@ service cloud.firestore {
 
     match /contacts/{contactId} {
       allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc() && incomingContactHasNoSageMapping();
-      allow update: if canUpdateUserTenantDoc() && contactSageMappingUnchanged();
-      allow delete: if canDeleteUserTenantDoc();
+      allow create: if canCreateUserTenantDoc()
+        && incomingContactHasNoFinanceProfile()
+        && incomingContactHasNoSageMapping();
+      allow update: if canUpdateUserTenantDoc()
+        && contactFinanceProfileUnchanged()
+        && contactSageMappingUnchanged();
+      allow delete: if canDeleteUserTenantDoc()
+        && (
+          isFinanceReviewer()
+          || (
+            !resource.data.keys().hasAny(["financeProfile"])
+            && !exists(/databases/$(database)/documents/contactFinanceProfiles/$(contactId))
+          )
+        );
+    }
+
+    // Customer billing and Sage mapping data is available only through
+    // finance-authorised server routes.
+    match /contactFinanceProfiles/{contactId} {
+      allow read, write: if false;
     }
 
     match /deletedBookings/{docId} {
@@ -715,7 +763,9 @@ service cloud.firestore {
     }
 
     match /invoiceQueue/{docId} {
-      allow read: if canReadUserTenantDoc();
+      allow read: if hasUserAccess()
+        && isFinanceReviewer()
+        && financeCompanyAllowed(resource.data);
       // Authoritative invoice creation and lifecycle writes are server-only.
       // The protected service-account route bypasses client Firestore rules.
       allow create, update, delete: if false;
@@ -866,7 +916,8 @@ service cloud.firestore {
           "userActivityBuckets",
           "userActivitySessions",
           "activityReviews",
-          "activityTrackingSettings"
+          "activityTrackingSettings",
+          "contactFinanceProfiles"
         ]);
       allow write: if false;
     }

@@ -11,7 +11,9 @@ import {
   getRoleDefinition,
   getStoredActiveWorkspace,
   getWorkspaceForPath,
+  hasFinanceAccess,
   isAdminPath,
+  isFinancePath,
   isModuleEnabledForPath,
   normalizePlatformRole,
   selectLandingRoute,
@@ -550,13 +552,10 @@ function HeaderSidebarLayoutInner({
   const featureVisible = (path) => {
     // Settings contains personal, device-local preferences and is available to every signed-in user.
     if (path === "/settings") return true;
+    if (isFinancePath(path) && !hasFinanceAccess(userDoc)) return false;
     if (canSeeAdmin) return true;
     return isModuleEnabledForPath(path, featureFlags);
   };
-
-  const userHeaderLinks = [
-    ...(canSeeAdmin ? [{ label: contentLabel("navigation.admin"), path: "/admin" }] : []),
-  ];
 
   const userSidebarGroups = [
     {
@@ -627,7 +626,6 @@ function HeaderSidebarLayoutInner({
     ...visibleSidebarGroups.flatMap((group) => group.items),
     { label: "Settings", path: "/settings", Icon: Settings },
   ];
-  const headerLinks = userHeaderLinks.filter((item) => featureVisible(item.path));
   const shouldLoadGlobalSearch = globalSearchLoadReady;
 
   useEffect(() => {
@@ -1510,33 +1508,19 @@ function HeaderSidebarLayoutInner({
           <nav
             className={layoutStyles.extracted21}
           >
-            <div className={layoutStyles.statusPill} data-complete={accountSetup.complete}
-              title={accountSetup.complete ? accountSetup.detail : `Missing: ${accountSetup.detail}`}
-            >
-              <span className={layoutStyles.statusDot} data-complete={accountSetup.complete} />
-              <div className={layoutStyles.extracted22}>
-                <span className={layoutStyles.extracted23}>
-                  {accountSetup.label}
-                </span>
-                {!accountSetup.complete && (
-                  <span className={layoutStyles.extracted24}>
-                    Missing: {accountSetup.detail}
-                  </span>
-                )}
-              </div>
-            </div>
-
             <div
               className={layoutStyles.extracted25}
-              title={[accountBadge.name, accountBadge.email, accountBadge.accessLabel]
+              data-complete={accountSetup.complete}
+              title={[accountBadge.name, accountBadge.email, accountBadge.accessLabel, accountSetup.detail]
                 .filter(Boolean)
                 .join(" - ")}
-              aria-label={`Signed in as ${accountBadge.name}, ${accountBadge.accessLabel}`}
+              aria-label={`Signed in as ${accountBadge.name}, ${accountBadge.accessLabel}. ${accountSetup.detail}`}
             >
               <span
                 className={layoutStyles.extracted26}
               >
                 {accountBadge.initials}
+                <span className={layoutStyles.accountStatusDot} aria-hidden="true" />
               </span>
               <span className={layoutStyles.extracted27}>
                 <span
@@ -1562,16 +1546,9 @@ function HeaderSidebarLayoutInner({
                 aria-label={`Testing view: ${adminViewMode === "user" ? "User" : "Admin"}`}
                 aria-pressed={adminViewMode === "user"}
               >
-                <span className={`${layoutStyles.viewLabel} ${adminViewMode === "user" ? layoutStyles.viewLabelActive : ""}`}>
-                  User
-                </span>
-                <span
-                  className={layoutStyles.extracted30}
-                >
-                  <span className={layoutStyles.switchKnob} data-mode={adminViewMode} />
-                </span>
-                <span className={`${layoutStyles.viewLabel} ${adminViewMode === "admin" ? layoutStyles.viewLabelActive : ""}`}>
-                  Admin
+                <span className={layoutStyles.viewLabel}>View</span>
+                <span className={layoutStyles.viewLabelActive}>
+                  {adminViewMode === "user" ? "User" : "Admin"}
                 </span>
               </Button>
             )}
@@ -1603,40 +1580,19 @@ function HeaderSidebarLayoutInner({
                     ? "Loading users..."
                     : viewAsError
                       ? "Could not load users - retry"
-                      : "View as current user"}
+                      : "Current user"}
                 </option>
                 {viewAsUsers.map((row) => {
                   const id = String(row?.uid || row?.id || "");
                   const label = row?.name || row?.email || id;
-                  const suffix = row?.email && row?.name ? ` - ${row.email}` : "";
                   return (
                     <option key={id} value={id} className={layoutStyles.extracted33}>
                       {label}
-                      {suffix}
                     </option>
                   );
                 })}
               </Select>
             )}
-
-            {headerLinks.map(({ label, path, icon }) => (
-              <Link
-                key={label}
-                href={path}
-                onClick={(event) => {
-                  event.preventDefault();
-                  attemptNavigation(() => router.push(path));
-                }}
-                className={`${layoutStyles.topLink} ${pathname === path ? layoutStyles.topLinkActive : ""}`}
-              >
-                {icon ? (
-                  <span className={`${layoutStyles.topLinkIcon} ${pathname === path ? layoutStyles.topLinkIconActive : ""}`}>
-                    {icon}
-                  </span>
-                ) : null}
-                {label}
-              </Link>
-            ))}
 
             <div className={layoutStyles.themeSelector} role="group" aria-label="Colour mode">
               {[

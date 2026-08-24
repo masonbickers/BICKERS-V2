@@ -205,6 +205,7 @@
 }
 
 .extracted26 {
+  position: relative;
   width: 28px;
   height: 28px;
   border-radius: 999px;
@@ -216,6 +217,22 @@
   font-size: 11px;
   font-weight: 900;
   flex-shrink: 0;
+}
+
+.accountStatusDot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--shell-sidebar-bg);
+  border-radius: 999px;
+  background: var(--color-success-accent);
+  box-sizing: content-box;
+}
+
+.extracted25[data-complete="false"] .accountStatusDot {
+  background: var(--status-orange);
 }
 
 .extracted27 {
@@ -640,6 +657,10 @@
   font-weight: 700;
 }
 
+:global(:root[data-color-mode="dark"]) .workspaceSelect {
+  background: transparent;
+}
+
 input.sidebarSearch {
   height: auto !important;
   padding: 0 !important;
@@ -840,6 +861,7 @@ input.sidebarSearch::-webkit-search-cancel-button {
 }
 
 .searchResult {
+  appearance: none;
   width: 100%;
   min-height: 54px;
   display: grid;
@@ -849,6 +871,7 @@ input.sidebarSearch::-webkit-search-cancel-button {
   padding: 7px 10px 7px 8px;
   border: 1px solid transparent;
   border-radius: 12px;
+  background: transparent;
   color: var(--color-text);
   text-align: left;
 }
@@ -1496,7 +1519,7 @@ input.sidebarSearch::-webkit-search-cancel-button {
 
 .viewSwitch {
   gap: 6px;
-  padding: 4px 7px;
+  padding: 4px 9px;
 }
 
 .viewSwitch[data-mode=user],
@@ -1507,7 +1530,6 @@ input.sidebarSearch::-webkit-search-cancel-button {
 }
 
 .viewLabel {
-  min-width: 32px;
   color: var(--shell-muted);
   font-size: 10px;
   font-weight: 850;
@@ -1515,10 +1537,13 @@ input.sidebarSearch::-webkit-search-cancel-button {
 
 .viewLabelActive {
   color: var(--shell-text);
+  font-size: 10.5px;
+  font-weight: 850;
 }
 
 .extracted31 {
   padding-inline: 11px;
+  max-width: 175px;
 }
 
 .topLinkActive {
@@ -1553,9 +1578,10 @@ input.sidebarSearch::-webkit-search-cancel-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 0;
+  width: 30px;
   min-height: 29px;
-  padding: 0 8px;
+  padding: 0;
   border: 1px solid transparent;
   background: transparent;
   border-radius: 8px;
@@ -1564,6 +1590,16 @@ input.sidebarSearch::-webkit-search-cancel-button {
   font-weight: 800;
   box-shadow: none;
   cursor: pointer;
+}
+
+.themeModeButton span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .themeModeButton:hover {

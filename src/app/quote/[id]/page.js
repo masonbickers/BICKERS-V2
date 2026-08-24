@@ -5,7 +5,7 @@ import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { ArrowDown, ArrowLeft, ArrowUp, Pencil, Percent, Plus, Printer, Save, Search, Trash2, Wand2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, MoreHorizontal, Pencil, Percent, Plus, Printer, Save, Search, Trash2, Wand2 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import { db } from "@/app/utils/firebaseClient";
@@ -23,6 +23,15 @@ import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
 import { mergeQuoteTemplatesWithDefaults } from "@/app/utils/quoteTemplateDefaults";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { formatUkDate } from "@/app/utils/dateDisplay";
+import { buildQuoteHref, buildSavedQuoteUrl, safeInternalPath } from "@/app/utils/quoteNavigation";
+import { getQuoteBuilderValidation } from "@/app/utils/quoteBuilderValidation";
+import {
+  LEGACY_QUOTE_DOCUMENT_DEFAULTS,
+  createQuoteDocumentSnapshot,
+  normalizeQuoteDocumentDefaults,
+  resolveNewQuoteBickersContact,
+  resolveQuoteDocumentSnapshot,
+} from "@/app/utils/quoteDocumentDefaults";
 
 const UI = UI_TOKENS;
 
@@ -550,7 +559,7 @@ export default function QuotePage() {
   const requestedQuoteNumber = searchParams.get("quote") || "";
   const requestedAction = searchParams.get("action") || "";
   const returnTo = searchParams.get("returnTo") || "";
-  const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "";
+  const safeReturnTo = safeInternalPath(returnTo);
   const isViewMode = pathname?.startsWith("/quote-view") || searchParams.get("view") === "1";
   const isEmbedded = searchParams.get("embed") === "1";
   const authAccess = useAuth() || {};
@@ -571,10 +580,41 @@ export default function QuotePage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
-  const [quoteTemplates, setQuoteTemplates] = useState(FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
+  const [quoteTemplates, setQuoteTemplates] = useState(() =>
+    mergeQuoteTemplatesWithDefaults([], FULL_SIZE_TRACKING_QUOTE_TEMPLATES)
+  );
+  const [quoteDefaults, setQuoteDefaults] = useState(LEGACY_QUOTE_DOCUMENT_DEFAULTS);
   const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
   const pageRef = useRef(null);
   const handledActionRef = useRef("");
+  const focusManualLineRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusManualLineRef.current || typeof document === "undefined") return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      focusManualLineRef.current = false;
+      const descriptionInputs = Array.from(
+        document.querySelectorAll('[data-quote-line-description="true"]')
+      );
+      const visibleInput = descriptionInputs.find((input) => input.getClientRects().length > 0);
+      (visibleInput || descriptionInputs[0])?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [quote.lineItems.length]);
+
+  useEffect(() => {
+    if (!isEmbedded || typeof document === "undefined") return undefined;
+
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [isEmbedded]);
 
   useEffect(() => {
     if (!isEmbedded || loading || typeof window === "undefined" || window.parent === window) return;
@@ -644,17 +684,19 @@ export default function QuotePage() {
       if (gate.checking || !gate.allowed) return;
       try {
         const snap = await getDoc(doc(db, "settings", "quoteTemplates"));
-        const customTemplates = snap.exists() && Array.isArray(snap.data()?.templates) ? snap.data().templates : null;
+        const settings = snap.exists() ? snap.data() : {};
+        const customTemplates = Array.isArray(settings?.templates) ? settings.templates : null;
         if (alive) {
+          setQuoteDefaults(normalizeQuoteDocumentDefaults(settings?.quoteDefaults || {}));
           setQuoteTemplates(
             customTemplates?.length
               ? mergeQuoteTemplatesWithDefaults(customTemplates, FULL_SIZE_TRACKING_QUOTE_TEMPLATES)
-              : FULL_SIZE_TRACKING_QUOTE_TEMPLATES
+              : mergeQuoteTemplatesWithDefaults([], FULL_SIZE_TRACKING_QUOTE_TEMPLATES)
           );
         }
       } catch (err) {
         console.warn("Failed loading quote templates; using generated defaults:", err);
-        if (alive) setQuoteTemplates(FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
+        if (alive) setQuoteTemplates(mergeQuoteTemplatesWithDefaults([], FULL_SIZE_TRACKING_QUOTE_TEMPLATES));
       }
     };
     loadTemplates();
@@ -716,6 +758,8 @@ export default function QuotePage() {
     return findSuggestedQuoteTemplateForVehicles(assignedVehicleLabels, quoteTemplates);
   }, [booking?.vehicles, quoteTemplates, vehicleLookup]);
   const subtotal = useMemo(() => calculateSubtotal(quote.lineItems), [quote.lineItems]);
+  const quoteValidation = useMemo(() => getQuoteBuilderValidation(quote), [quote]);
+  const documentDefaults = useMemo(() => resolveQuoteDocumentSnapshot(quote), [quote]);
   const hasDiscountLine = useMemo(() => quote.lineItems.some((item) => isDiscountLine(item)), [quote.lineItems]);
   const savedQuotes = useMemo(() => normalizeQuoteVersions(booking || {}), [booking]);
   const quoteNumberOptions = useMemo(() => getBookingQuoteNumbers(booking || {}), [booking]);
@@ -759,15 +803,49 @@ export default function QuotePage() {
       })
     );
   }, [booking, currentQuoteKey, quoteSelectOptions, savedQuotes]);
-  const filteredQuoteTemplateOptions = useMemo(() => {
-    const needle = compact(templateSearch);
-    const filtered = needle
-      ? quoteTemplateOptionList.filter((option) => compact(option.label).includes(needle))
-      : quoteTemplateOptionList;
-    if (!quote.templateId || filtered.some((option) => option.id === quote.templateId)) return filtered;
+  const viewQuoteSelectOptions = useMemo(() => {
+    const savedKeys = new Set(
+      savedQuotes.map((entry) => quoteNumberKey(entry.quoteNumber, booking || {}, entry))
+    );
+    return quoteSelectOptions.filter((quoteNumberOption) => {
+      const optionKey = quoteNumberKey(quoteNumberOption, booking || {}, {
+        quoteNumber: quoteNumberOption,
+      });
+      return optionKey === currentQuoteKey || savedKeys.has(optionKey);
+    });
+  }, [booking, currentQuoteKey, quoteSelectOptions, savedQuotes]);
+  const viewQuoteOptionLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        viewQuoteSelectOptions.map((quoteNumberOption) => {
+          const optionKey = quoteNumberKey(quoteNumberOption, booking || {}, {
+            quoteNumber: quoteNumberOption,
+          });
+          const savedQuote = savedQuotes.find(
+            (entry) => quoteNumberKey(entry.quoteNumber, booking || {}, entry) === optionKey
+          );
+          const optionQuote = savedQuote || (optionKey === currentQuoteKey ? quote : {});
+          const status = String(optionQuote?.status || "Draft").trim();
+          const name = quoteDisplayName(optionQuote);
+          return [
+            quoteNumberOption,
+            [
+              String(quoteNumberOption || "").trim(),
+              quoteRevisionLabel(quoteNumberOption),
+              status,
+              name,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          ];
+        })
+      ),
+    [booking, currentQuoteKey, quote, savedQuotes, viewQuoteSelectOptions]
+  );
+  useEffect(() => {
     const selected = quoteTemplateOptionList.find((option) => option.id === quote.templateId);
-    return selected ? [selected, ...filtered] : filtered;
-  }, [quote.templateId, quoteTemplateOptionList, templateSearch]);
+    setTemplateSearch(selected?.label || "");
+  }, [quote.templateId, quoteTemplateOptionList]);
 
   const updateQuote = (patch) => {
     const nextLineItems = patch.lineItems || quote.lineItems;
@@ -791,10 +869,22 @@ export default function QuotePage() {
       templateFile: template.file,
       templateName: template.serviceDescription,
       quoteName: quote.quoteName || template.serviceDescription,
-      lineItems: template.lineItems.map(cloneTemplateItem),
+      bickersContact: quote.bickersContact || resolveNewQuoteBickersContact(template, quoteDefaults),
+      documentDefaults: quote.documentDefaults || createQuoteDocumentSnapshot(quoteDefaults),
+      // Discounts are quote-specific choices. Never inherit one from template data;
+      // the user must explicitly add it with the section's Discount action.
+      lineItems: template.lineItems.filter((item) => !isDiscountLine(item)).map(cloneTemplateItem),
       createdAt: quote.createdAt || new Date().toISOString(),
       quoteNumber: buildInitialQuoteNumber(booking || {}, quote),
     });
+  };
+
+  const updateTemplateCombobox = (value) => {
+    setTemplateSearch(value);
+    const exactMatch = quoteTemplateOptionList.find(
+      (option) => compact(option.label) === compact(value)
+    );
+    if (exactMatch && exactMatch.id !== quote.templateId) loadTemplate(exactMatch.id);
   };
 
   const loadQuoteNumber = (quoteNumber) => {
@@ -925,6 +1015,11 @@ export default function QuotePage() {
     updateQuote({ lineItems: nextLineItems });
   };
 
+  const startFromScratch = () => {
+    focusManualLineRef.current = true;
+    addLine();
+  };
+
   const addDiscountLine = (section = "") => {
     const targetSection =
       section ||
@@ -972,6 +1067,10 @@ export default function QuotePage() {
 
   const saveQuote = async () => {
     if (!booking?.id) return;
+    if (!quoteValidation.canSave) {
+      systemDialogs.showSystemNotification(quoteValidation.message);
+      return;
+    }
     const suggestedQuoteNumber = publicQuoteNumber(String(quote.quoteNumber || "").trim() || getNextQuoteNumber(booking, quote));
     const quoteNumberInput = await systemDialogs.promptSystem("Save quote number:", displayQuoteNumber(suggestedQuoteNumber, booking));
     if (quoteNumberInput === null) return;
@@ -1046,7 +1145,14 @@ export default function QuotePage() {
         ...acceptedQuotePatch,
       }));
       systemDialogs.showSystemNotification(`${nextQuoteNumber} saved.`);
-      if (safeReturnTo) router.push(safeReturnTo);
+      router.replace(
+        buildSavedQuoteUrl({
+          pathname,
+          search: searchParams.toString(),
+          quoteNumber: nextQuoteNumber,
+        }),
+        { scroll: false }
+      );
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "save quote" })) {
         console.error("Failed saving quote:", err);
@@ -1171,29 +1277,74 @@ export default function QuotePage() {
     group.rows.push({ item, index, key: item.id || `line-${index}` });
   });
   const visibleQuoteNumber = displayQuoteNumber(quote.quoteNumber || booking.quoteNumber, booking);
+  const fullQuoteNumber = String(quote.quoteNumber || requestedQuoteNumber || booking.quoteNumber || "").trim();
   const versionBadgeText = visibleQuoteNumber ? `Version ${visibleQuoteNumber}` : "Version";
   const currentQuoteName = quoteDisplayName(quote);
-  const quoteEditParams = new URLSearchParams();
   const editQuoteNumber = quote.quoteNumber || requestedQuoteNumber;
-  if (editQuoteNumber) quoteEditParams.set("quote", editQuoteNumber);
-  if (safeReturnTo) quoteEditParams.set("returnTo", safeReturnTo);
-  const quoteEditQuery = quoteEditParams.toString();
-  const quoteEditHref = `/quote/${booking.id || bookingId}${quoteEditQuery ? `?${quoteEditQuery}` : ""}`;
-  const quotePrintParams = new URLSearchParams({ action: "print" });
-  if (editQuoteNumber) quotePrintParams.set("quote", editQuoteNumber);
-  const quotePrintHref = `/quote-view/${booking.id || bookingId}?${quotePrintParams.toString()}`;
-  const openQuoteEditor = () => {
+  const resolvedBookingId = booking.id || bookingId;
+  const quoteEditHref = buildQuoteHref({
+    mode: "edit",
+    bookingId: resolvedBookingId,
+    quoteNumber: editQuoteNumber,
+    returnTo: safeReturnTo,
+  });
+  const nextQuoteNumber = getNextQuoteNumber(booking, quote);
+  const newQuoteHref = buildQuoteHref({
+    mode: "edit",
+    bookingId: resolvedBookingId,
+    quoteNumber: nextQuoteNumber,
+    returnTo: safeReturnTo,
+  });
+  const quotePrintHref = buildQuoteHref({
+    mode: "view",
+    bookingId: resolvedBookingId,
+    quoteNumber: editQuoteNumber,
+    action: "print",
+  });
+  const openQuoteEditorHref = (href) => {
     if (isEmbedded && typeof window !== "undefined" && window.parent && window.parent !== window) {
       window.parent.postMessage(
         {
           type: "bickers:quote-edit",
-          href: quoteEditHref,
+          href,
         },
         window.location.origin
       );
       return;
     }
-    router.push(quoteEditHref);
+    router.push(href);
+  };
+  const openQuoteEditor = () => {
+    openQuoteEditorHref(quoteEditHref);
+  };
+  const openNewQuote = () => {
+    openQuoteEditorHref(newQuoteHref);
+  };
+  const backToBooking = () => {
+    if (isEmbedded && typeof window !== "undefined" && window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        {
+          type: "bickers:quote-back",
+          bookingId: resolvedBookingId,
+        },
+        window.location.origin
+      );
+      return;
+    }
+    router.push(safeReturnTo || `/edit-booking/${encodeURIComponent(resolvedBookingId)}`);
+  };
+  const selectViewedQuote = (quoteNumber) => {
+    const nextQuoteNumber = String(quoteNumber || "").trim();
+    if (!nextQuoteNumber || nextQuoteNumber === currentQuoteNumber) return;
+    router.replace(
+      buildQuoteHref({
+        mode: "view",
+        bookingId: resolvedBookingId,
+        quoteNumber: nextQuoteNumber,
+        returnTo: safeReturnTo,
+        embed: isEmbedded,
+      })
+    );
   };
   const openPrintPreview = () => {
     if (isEmbedded) {
@@ -1221,43 +1372,73 @@ export default function QuotePage() {
         style={isEmbedded ? embeddedPageWrap : pageWrap}
       >
         {isViewMode ? (
-          <div className="quote-print-toolbar" style={isEmbedded ? embeddedViewToolbar : viewToolbar}>
-            <div className={layoutStyles.extracted11}>
-              <button type="button" onClick={() => router.push(`/edit-booking/${booking.id}`)} style={backButton}>
+          <div className={`quote-print-toolbar ${layoutStyles.viewQuoteToolbar}`} style={isEmbedded ? embeddedViewToolbar : viewToolbar}>
+            <div className={layoutStyles.viewQuoteHeader}>
+              <button type="button" onClick={backToBooking} style={backButton} className={layoutStyles.viewQuoteBack}>
                 <ArrowLeft size={16} />
-                Booking
+                Back to booking
               </button>
-              <div className={layoutStyles.extracted12}>
+              <div className={layoutStyles.viewQuoteIdentity}>
                 <div style={toolbarEyebrow}>Quote View</div>
-                <div style={toolbarTitle}>
-                  {booking.jobNumber || "New quote"} - {currentQuoteName || booking.client || "No quote name"}
+                <div className={layoutStyles.viewQuoteReferenceRow}>
+                  <strong>{fullQuoteNumber || `Job ${booking.jobNumber || "-"}`}</strong>
+                  <span className={layoutStyles.viewQuoteStatus} data-status={String(quote.status || "Draft").toLowerCase()}>
+                    {quote.status || "Draft"}
+                  </span>
                 </div>
+                <div className={layoutStyles.viewQuoteName}>{currentQuoteName || booking.client || "No quote name"}</div>
               </div>
-              <div className={layoutStyles.extracted13}>
-                <button type="button" onClick={openPrintPreview} style={ghostButton}>
-                  <Printer size={16} />
-                  Print
-                </button>
-                <button
-                  type="button"
-                  onClick={deleteCurrentQuote}
-                  disabled={deleting}
-                  style={{ ...dangerGhostButton, cursor: deleting ? "wait" : "pointer", opacity: deleting ? 0.7 : 1 }}
-                >
-                  <Trash2 size={16} />
-                  {deleting ? "Deleting..." : "Delete Quote"}
+              <div className={layoutStyles.viewQuoteControls}>
+                <label className={layoutStyles.viewQuoteSelector}>
+                  <span>Quote/version</span>
+                  <select
+                    aria-label="Quote and version"
+                    value={currentQuoteNumber}
+                    onChange={(event) => selectViewedQuote(event.target.value)}
+                    style={toolbarSelect}
+                  >
+                    {viewQuoteSelectOptions.map((quoteNumberOption) => (
+                      <option key={quoteNumberOption} value={quoteNumberOption}>
+                        {viewQuoteOptionLabels[quoteNumberOption] || quoteNumberOption}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button type="button" onClick={openNewQuote} style={ghostButton}>
+                  <Plus size={16} />
+                  New quote
                 </button>
                 <button type="button" onClick={openQuoteEditor} style={primaryButton}>
                   <Pencil size={16} />
                   Edit quote
                 </button>
+                <button type="button" onClick={openPrintPreview} style={ghostButton}>
+                  <Printer size={16} />
+                  Print
+                </button>
+                <details className={layoutStyles.viewQuoteMore}>
+                  <summary aria-label="More quote actions">
+                    <MoreHorizontal size={17} />
+                    More
+                  </summary>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={deleteCurrentQuote}
+                      disabled={deleting || !currentSavedQuote}
+                    >
+                      <Trash2 size={16} />
+                      {deleting ? "Deleting…" : "Delete quote"}
+                    </button>
+                  </div>
+                </details>
               </div>
             </div>
           </div>
         ) : (
         <div className={`quote-print-toolbar ${layoutStyles.extracted14}`} >
           <div className={layoutStyles.extracted15}>
-            <button type="button" onClick={() => router.push(`/edit-booking/${booking.id}`)} style={backButton}>
+            <button type="button" onClick={backToBooking} style={backButton}>
               <ArrowLeft size={16} />
               Booking
             </button>
@@ -1312,28 +1493,37 @@ export default function QuotePage() {
               <label className={layoutStyles.extracted20}>
                 <Search size={16} style={templateSearchIcon} />
                 <input
+                  type="search"
+                  list="quote-template-options"
+                  role="combobox"
+                  aria-label="Search and select quote template"
+                  aria-autocomplete="list"
                   value={templateSearch}
-                  onChange={(event) => setTemplateSearch(event.target.value)}
+                  onChange={(event) => updateTemplateCombobox(event.target.value)}
                   style={templateSearchInput}
-                  placeholder="Search templates..."
+                  placeholder="Search and select a quote template..."
                 />
+                <datalist id="quote-template-options">
+                  {quoteTemplateOptionList.map((option) => (
+                    <option key={option.id} value={option.label} />
+                  ))}
+                </datalist>
               </label>
-              <select
-                value={quote.templateId || ""}
-                onChange={(event) => loadTemplate(event.target.value)}
-                style={toolbarSelect}
-              >
-                <option value="">Select quote template</option>
-                {filteredQuoteTemplateOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
               {suggestedTemplate && suggestedTemplate.id !== quote.templateId ? (
-                <button type="button" onClick={() => loadTemplate(suggestedTemplate.id)} style={ghostButton}>
+                <button
+                  type="button"
+                  onClick={() => loadTemplate(suggestedTemplate.id)}
+                  className={layoutStyles.suggestedTemplateAction}
+                  style={primaryButton}
+                >
                   <Wand2 size={16} />
                   Use suggested
+                </button>
+              ) : null}
+              {!quoteValidation.hasLines ? (
+                <button type="button" onClick={startFromScratch} style={ghostButton}>
+                  <Plus size={16} />
+                  Start from scratch
                 </button>
               ) : null}
             </div>
@@ -1351,7 +1541,18 @@ export default function QuotePage() {
               </select>
             </div>
             <div className={layoutStyles.extracted22}>
-              <button type="button" onClick={openPrintPreview} style={ghostButton}>
+              {quoteValidation.message ? (
+                <span className={layoutStyles.quoteValidationHint} role="status">
+                  {quoteValidation.message}
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={openPrintPreview}
+                disabled={!quoteValidation.canPrint || deleting}
+                title={!quoteValidation.canPrint ? "Add at least one quote line before printing." : "Print quote"}
+                style={ghostButton}
+              >
                 <Printer size={16} />
                 Print
               </button>
@@ -1359,22 +1560,36 @@ export default function QuotePage() {
                 <Plus size={16} />
                 Add line
               </button>
-              {hasDiscountLine ? (
-                <button type="button" onClick={() => removeDiscountLines()} disabled={deleting} style={dangerGhostButton}>
-                  <Trash2 size={16} />
-                  Remove all discounts
-                </button>
-              ) : null}
+              <details className={`${layoutStyles.viewQuoteMore} ${layoutStyles.builderMore}`}>
+                <summary aria-label="More quote builder actions">
+                  <MoreHorizontal size={17} />
+                  More
+                </summary>
+                <div>
+                  {hasDiscountLine ? (
+                    <button type="button" onClick={() => removeDiscountLines()} disabled={deleting || saving}>
+                      <Trash2 size={16} />
+                      Remove all discounts
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={currentSavedQuote ? deleteCurrentQuote : cancelDraftQuote}
+                    disabled={deleting || saving}
+                  >
+                    <Trash2 size={16} />
+                    {deleting ? "Deleting..." : currentSavedQuote ? "Delete quote" : "Cancel draft"}
+                  </button>
+                </div>
+              </details>
               <button
                 type="button"
-                onClick={currentSavedQuote ? deleteCurrentQuote : cancelDraftQuote}
-                disabled={deleting || saving}
-                style={{ ...dangerGhostButton, cursor: deleting || saving ? "not-allowed" : "pointer", opacity: deleting || saving ? 0.7 : 1 }}
+                className={layoutStyles.primaryAction}
+                onClick={saveQuote}
+                disabled={!quoteValidation.canSave || saving || deleting}
+                title={!quoteValidation.canSave ? quoteValidation.message : "Save quote"}
+                style={primaryButton}
               >
-                <Trash2 size={16} />
-                {deleting ? "Deleting..." : currentSavedQuote ? "Delete Quote" : "Cancel draft"}
-              </button>
-              <button type="button" onClick={saveQuote} disabled={saving || deleting} style={primaryButton}>
                 <Save size={16} />
                 {saving ? "Saving..." : "Save Quote"}
               </button>
@@ -1486,6 +1701,7 @@ export default function QuotePage() {
                       return (
                         <div key={row.key} style={isDiscount ? screenDiscountLineCard : screenLineCard}>
                           <input
+                            data-quote-line-description="true"
                             value={item.description || ""}
                             onChange={(event) => updateLineItem(row.index, { description: event.target.value })}
                             style={isDiscount ? screenDiscountLineDescription : screenLineDescription}
@@ -1564,7 +1780,10 @@ export default function QuotePage() {
             </div>
           ) : (
             <section className={layoutStyles.extracted35}>
-              <div style={screenEmpty}>Select a quote template to load line items.</div>
+              <div className={layoutStyles.emptyQuoteState}>
+                <strong>Start your quote</strong>
+                <span>Use the suggested template, search for another template, or start from scratch above.</span>
+              </div>
             </section>
           )}
         </div>
@@ -1611,8 +1830,8 @@ export default function QuotePage() {
         ) : null}
 
         <div
-          className="quote-print-paper"
-          style={paper}
+          className={`quote-print-paper ${layoutStyles.quotePaper}`}
+          style={isEmbedded ? embeddedPaper : paper}
         >
           <div className="quote-print-frame" style={isEmbedded ? embeddedPrintFrame : printFrame}>
           <div className={layoutStyles.extracted38}>
@@ -1723,6 +1942,7 @@ export default function QuotePage() {
                           ) : (
                             <>
                               <input
+                                data-quote-line-description="true"
                                 className={`quote-spreadsheet-input${isDiscount ? " quote-discount-input" : ""}`}
                                 value={item.description || ""}
                                 onChange={(event) => updateLineItem(row.index, { description: event.target.value })}
@@ -1811,14 +2031,15 @@ export default function QuotePage() {
               ) : (
                 <tr>
                   <td colSpan={4} style={emptyCell}>
-                    Select a quote template to load the line items.
+                    <div className={layoutStyles.emptyQuoteDocument}>
+                      <strong>Choose how to start this quote</strong>
+                      <span>Use the suggested template, search for a template, or start from scratch above.</span>
+                    </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-
-          <div className={layoutStyles.extracted70}></div>
 
           <div className={layoutStyles.extracted71}>
             <div className={layoutStyles.extracted72}></div>
@@ -1827,7 +2048,7 @@ export default function QuotePage() {
                 <span>Total Price £</span>
                 <strong>{money(subtotal)}</strong>
               </div>
-              <div className={layoutStyles.extracted75}>Excludes VAT</div>
+              <div className={layoutStyles.extracted75}>{documentDefaults.vatText}</div>
             </div>
           </div>
 
@@ -1844,12 +2065,10 @@ export default function QuotePage() {
             )
           ) : null}
 
-          <div className={layoutStyles.extracted78}>
-            ALL TRACKING ACTIVITY ON A PUBLIC HIGHWAY MUST HAVE THE APPROVAL OF THE POLICE & LOCAL AUTHORITY
-          </div>
+          <div className={layoutStyles.extracted78}>{documentDefaults.footerApprovalText}</div>
 
           <div className={layoutStyles.extracted79}>
-            <div className={layoutStyles.extracted80}>For more information,<br />please contact us</div>
+            <div className={layoutStyles.extracted80} style={{ whiteSpace: "pre-line" }}>{documentDefaults.footerInfoText}</div>
             <div className={layoutStyles.extracted81}>
               <span className={layoutStyles.extracted82}>Tel</span>
               <span className={layoutStyles.extracted83}>+44 (0) 1449 761300</span>
@@ -1964,6 +2183,14 @@ export default function QuotePage() {
               background: var(--color-surface) !important;
             }
 
+            .quote-print-page-embedded {
+              height: 100dvh;
+              min-height: 0;
+              overflow-x: hidden !important;
+              overflow-y: auto !important;
+              overscroll-behavior: contain;
+            }
+
             footer {
               display: none !important;
             }
@@ -1973,9 +2200,13 @@ export default function QuotePage() {
               background: var(--color-surface) !important;
             }
 
-            .quote-scale-shell .quote-print-paper {
-              zoom: 1.12;
+            .quote-print-page:not(.quote-print-page-embedded) .quote-scale-shell .quote-print-paper {
+              zoom: 1.16;
               box-shadow: none !important;
+            }
+
+            .quote-print-page:not(.quote-print-page-embedded) .quote-scale-shell .quote-print-frame {
+              margin-top: 8mm !important;
             }
 
             .quote-print-page-embedded .quote-scale-shell .quote-print-paper {
@@ -2090,7 +2321,7 @@ export default function QuotePage() {
               min-height: 281mm !important;
               margin: 0 !important;
               padding: 0 !important;
-              background: var(--color-surface) !important;
+              background: #fff !important;
               overflow: visible !important;
               zoom: 1 !important;
             }
@@ -2104,7 +2335,8 @@ export default function QuotePage() {
               display: block !important;
               box-shadow: none !important;
               border: none !important;
-              color: var(--color-text) !important;
+              background: #fff !important;
+              color: #111827 !important;
               box-sizing: border-box !important;
               transform: none !important;
               zoom: 1 !important;
@@ -2114,10 +2346,10 @@ export default function QuotePage() {
 
             .quote-print-frame {
               width: 194mm !important;
-              height: 281mm !important;
+              height: auto !important;
               margin: 0 !important;
-              border: 1px solid var(--color-border-strong) !important;
-              background: var(--color-surface) !important;
+              border: 1px solid #9ca3af !important;
+              background: #fff !important;
               box-sizing: border-box !important;
               display: flex !important;
               flex-direction: column !important;
@@ -2130,6 +2362,7 @@ export default function QuotePage() {
               height: auto !important;
               margin: 0 !important;
               display: block !important;
+              background: #fff !important;
               zoom: 1 !important;
             }
 
@@ -2160,6 +2393,7 @@ export default function QuotePage() {
               appearance: none !important;
               -webkit-appearance: none !important;
               background: transparent !important;
+              color: #111827 !important;
               border-radius: 0 !important;
               box-shadow: none !important;
             }
@@ -2227,6 +2461,7 @@ const pageWrap = {
 
 const embeddedPageWrap = {
   ...pageWrap,
+  height: "100dvh",
   minHeight: "auto",
   padding: "2px 0 0",
 };
@@ -2480,12 +2715,6 @@ const screenIconButton = {
   cursor: "pointer",
 };
 
-const screenEmpty = {
-  color: UI.muted,
-  fontSize: 13,
-  fontWeight: 700,
-};
-
 const scaleShell = {
   display: "flex",
   justifyContent: "center",
@@ -2681,7 +2910,7 @@ const toolbar = {
 
 const viewToolbar = {
   ...toolbar,
-  maxWidth: 980,
+  maxWidth: 1480,
   margin: "0 auto 12px",
 };
 
@@ -2857,13 +3086,6 @@ const screenMoveButton = {
   color: UI.text,
 };
 
-const dangerGhostButton = {
-  ...ghostButton,
-  border: "1px solid var(--color-danger-border)",
-  background: "var(--color-danger-soft)",
-  color: "var(--color-danger)",
-};
-
 const backButton = {
   ...ghostButton,
   minWidth: 98,
@@ -2898,7 +3120,8 @@ const paper = {
   height: "297mm",
   maxWidth: "none",
   margin: "0 auto",
-  background: UI.paper,
+  // The quotation is always white paper, irrespective of the workspace theme.
+  background: "#fff",
   padding: 0,
   border: "none",
   boxShadow: "none",
@@ -2907,12 +3130,18 @@ const paper = {
   transformOrigin: "top center",
 };
 
+const embeddedPaper = {
+  ...paper,
+  height: "auto",
+  minHeight: 0,
+};
+
 const printFrame = {
   width: "182mm",
-  height: "259mm",
+  height: "auto",
   margin: "19mm auto 0",
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-border-strong)",
+  background: "#fff",
+  border: "1px solid #9ca3af",
   boxSizing: "border-box",
   display: "flex",
   flexDirection: "column",

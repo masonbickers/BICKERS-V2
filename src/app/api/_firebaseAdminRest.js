@@ -1,8 +1,8 @@
 import "server-only";
 
 import crypto from "node:crypto";
-import { buildFirestoreCommitWrites } from "@/app/utils/firestoreCommitPlanning";
-import { flattenFirestoreArrayValues } from "@/app/utils/firestoreValueEncoding";
+import { buildFirestoreCommitWrites } from "../utils/firestoreCommitPlanning.js";
+import { flattenFirestoreArrayValues } from "../utils/firestoreValueEncoding.js";
 
 const FIREBASE_PROJECT_ID =
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||

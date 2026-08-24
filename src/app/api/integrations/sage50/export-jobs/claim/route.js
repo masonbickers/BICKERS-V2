@@ -6,7 +6,7 @@ import {
   createLease,
   jobCanBeClaimed,
 } from "../../../../../utils/sage50ExportQueue.js";
-import { publicConnectorStatus } from "../../../../../utils/sage50ConnectorIdentity.js";
+import { connectorReadyForInvoiceWrite } from "../../../../../utils/sage50ConnectorIdentity.js";
 import {
   authenticateConnector,
   connectorError,
@@ -24,14 +24,11 @@ export async function POST(req) {
     const auth = await authenticateConnector(req);
     if (auth.error) return auth.error;
     const connector = auth.connector;
-    const connectorStatus = publicConnectorStatus(connector);
-    if (
-      connectorStatus.status !== "online" ||
-      !connectorStatus.connectorVersion ||
-      !connectorStatus.sageVersion ||
-      !connectorStatus.sdoVersion
-    ) {
-      return connectorError("Connector heartbeat and version readiness are required.", 409);
+    if (!connectorReadyForInvoiceWrite(connector)) {
+      return connectorError(
+        "Connector company binding, invoice-write capability and posting enablement are required.",
+        409
+      );
     }
     const nowDate = new Date();
     const now = nowDate.toISOString();
@@ -58,6 +55,9 @@ export async function POST(req) {
         leaseTokenHash: lease.tokenHash,
         leaseExpiresAt: lease.expiresAt,
         processingStartedAt: null,
+        nextAttemptAt: null,
+        completedAt: null,
+        result: null,
         updatedAt: now,
       };
       try {
@@ -68,6 +68,8 @@ export async function POST(req) {
       await writeExportJobAudit({
         action: previousStatus === "queued"
           ? "sage50_export_job_claimed"
+          : previousStatus === "retry_wait"
+          ? "sage50_export_job_retry_claimed"
           : "sage50_export_job_reclaimed_after_lease_expiry",
         connector,
         job: next,

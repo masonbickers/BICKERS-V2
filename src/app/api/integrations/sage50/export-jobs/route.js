@@ -6,7 +6,7 @@ import {
 import {
   canAccessCompany,
   jsonError,
-  requireActiveUserFromRequest,
+  requireFinanceFromRequest,
 } from "../../../admin/_lib.js";
 import {
   createSage50ExportJob,
@@ -16,7 +16,7 @@ import {
   exportJobDocumentId,
   publicExportJobStatus,
 } from "../../../../utils/sage50ExportQueue.js";
-import { publicConnectorStatus } from "../../../../utils/sage50ConnectorIdentity.js";
+import { connectorReadyForInvoiceWrite } from "../../../../utils/sage50ConnectorIdentity.js";
 import {
   findTenantConnector,
   resolveManagedTenant,
@@ -32,7 +32,7 @@ const text = (value) => String(value || "").trim();
 
 export async function GET(req) {
   try {
-    const auth = await requireActiveUserFromRequest(req, { module: "finance" });
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
     const requestUrl = new URL(req.url);
     const companyId = await resolveManagedTenant(auth, requestUrl.searchParams.get("tenantId"));
@@ -54,7 +54,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const auth = await requireActiveUserFromRequest(req, { module: "finance" });
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
     const body = await req.json().catch(() => ({}));
     const invoiceId = text(body.invoiceId);
@@ -68,15 +68,11 @@ export async function POST(req) {
       return jsonError("Invoice company access denied.", 403);
     }
     const connectorRow = await findTenantConnector(tenantId);
-    const connectorStatus = connectorRow ? publicConnectorStatus(connectorRow.data) : null;
-    if (
-      !connectorRow ||
-      connectorStatus.status !== "online" ||
-      !connectorStatus.connectorVersion ||
-      !connectorStatus.sageVersion ||
-      !connectorStatus.sdoVersion
-    ) {
-      return jsonError("An online, version-reported Sage 50 connector is required.", 409);
+    if (!connectorRow || !connectorReadyForInvoiceWrite(connectorRow.data)) {
+      return jsonError(
+        "An online, company-bound Sage 50 connector with invoice posting enabled is required.",
+        409
+      );
     }
     const actor = auth.verifiedUser.email || auth.verifiedUser.uid || "Authenticated finance user";
     const now = new Date().toISOString();

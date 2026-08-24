@@ -19,6 +19,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 const UI = UI_TOKENS;
 
@@ -109,7 +110,7 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    background: "var(--button-primary-background)",
     color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
@@ -322,6 +323,7 @@ function PpeIssueRegisterPage() {
         const employeeSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const employeeList = employeeSnap.docs
           .map((employeeDoc) => ({ id: employeeDoc.id, ...employeeDoc.data() }))
+          .filter(isCurrentEmployeeRecord)
           .sort((a, b) => employeeDisplayName(a).localeCompare(employeeDisplayName(b)));
 
         setEmployees(employeeList);
@@ -775,6 +777,7 @@ function LegacyHsRegisterDetailPage() {
         const data = snap.exists() ? snap.data() : {};
         const employeeList = employeeSnap.docs
           .map((employeeDoc) => ({ id: employeeDoc.id, ...employeeDoc.data() }))
+          .filter(isCurrentEmployeeRecord)
           .sort((a, b) => employeeDisplayName(a).localeCompare(employeeDisplayName(b)));
 
         setEmployees(employeeList);
@@ -1262,7 +1265,7 @@ function LegacyHsRegisterDetailPage() {
                     <tbody>
                       {employees.map((employee, index) => {
                         const issueRow = form.ppeIssueRows?.[employee.id] || {};
-                        const bg = index % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
+                        const bg = index % 2 === 0 ? "var(--color-surface)" : "var(--table-alternate-bg)";
 
                         return (
                           <tr key={employee.id} style={{ background: bg }}>

@@ -9,12 +9,14 @@ export default function DashboardClientWrapper() {
     searchParams.get("success") === "true" || searchParams.get("saved") === "true";
   const initialDate = searchParams.get("date") || "";
   const initialView = searchParams.get("view") || "week";
+  const initialBookingId = searchParams.get("booking") || "";
 
   return (
     <DashboardPage
       bookingSaved={bookingSaved}
       initialDate={initialDate}
       initialView={initialView}
+      initialBookingId={initialBookingId}
     />
   );
 }

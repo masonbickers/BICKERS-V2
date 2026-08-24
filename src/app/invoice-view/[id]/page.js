@@ -34,11 +34,6 @@ const dateLabel = (value, fallback = "—") => {
     : fallback;
 };
 
-const invoiceStatus = (value) =>
-  text(value)
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Draft";
-
 export default function InvoiceDocumentPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -135,7 +130,7 @@ export default function InvoiceDocumentPage() {
     const previousTitle = document.title;
     document.title = `${invoice.invoiceNumber || getInvoiceDraftReferenceDisplay(invoice)} - Bickers Action`;
     const timer = window.setTimeout(() => {
-      systemDialogs.showSystemNotification("Choose “Save as PDF” in the print dialog to download this A4 invoice.");
+      systemDialogs.showSystemNotification("Choose “Save as PDF” in the print dialog to download this A4 draft invoice.");
       window.print();
       window.setTimeout(() => {
         document.title = previousTitle;
@@ -206,16 +201,31 @@ export default function InvoiceDocumentPage() {
 
   const currency = invoice.currency || "GBP";
   const customer = invoice.customer || {};
-  const issueDate = invoice.issueDate || invoice.issuedAt || invoice.createdAt;
+  const identity = getInvoiceIdentityDisplay(invoice);
+  const issueDate = identity.isDraft ? null : invoice.issueDate || invoice.issuedAt;
   const dueDate =
-    invoice.dueDate ||
+    (identity.isDraft ? null : invoice.dueDate) ||
     (toDate(issueDate)
       ? new Date(toDate(issueDate).getTime() + Number(invoice.paymentTermsDays || 30) * 86400000)
       : null);
+  const paymentTermsDays = Number(invoice.paymentTermsDays || 30);
+  const customerAddress = customer.address;
+  const customerAddressLines = typeof customerAddress === "string"
+    ? customerAddress.split(/\r?\n/).map(text).filter(Boolean)
+    : [
+        customerAddress?.line1,
+        customerAddress?.line2,
+        customerAddress?.city,
+        customerAddress?.county,
+        customerAddress?.postcode,
+        customer.billingCountry,
+      ].map(text).filter(Boolean);
+  const hasCompleteBillingAddress = typeof customerAddress === "string"
+    ? text(customerAddress).length >= 8
+    : Boolean(text(customerAddress?.line1) && (text(customerAddress?.city) || text(customerAddress?.postcode)));
   const jobDates = Array.isArray(invoice.dates)
     ? invoice.dates.map((date) => dateLabel(date)).filter((date) => date !== "—").join(", ")
     : "";
-  const identity = getInvoiceIdentityDisplay(invoice);
 
   return (
     <main className={styles.screen}>
@@ -226,10 +236,18 @@ export default function InvoiceDocumentPage() {
           <span>{identity.isDraft ? identity.draftReference : identity.officialNumber}</span>
         </div>
         <div className={styles.toolbarActions}>
-          <button onClick={() => window.print()}><Printer size={16} /> Print</button>
-          <button className={styles.primaryButton} onClick={() => window.print()}><Download size={16} /> Save PDF</button>
+          <button onClick={() => window.print()}><Printer size={16} /> Print draft</button>
+          <button className={styles.primaryButton} onClick={() => window.print()}><Download size={16} /> Save draft PDF</button>
         </div>
       </div>
+
+      <section className={`${styles.previewNotice} ${!hasCompleteBillingAddress ? styles.previewWarning : ""}`} aria-label="Draft invoice checks">
+        <div>
+          <strong>Sage assigns the invoice date and due date when this draft is issued.</strong>
+          <span>The A4 document remains a customer-facing draft until an official invoice number is returned.</span>
+        </div>
+        {!hasCompleteBillingAddress ? <span>Billing address incomplete</span> : null}
+      </section>
 
       <article className={styles.paper}>
         {identity.isDraft ? (
@@ -239,10 +257,9 @@ export default function InvoiceDocumentPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/bickers-action-logo.png" alt="Bickers Action" />
           <div className={styles.invoiceIdentity}>
-            <p>{identity.documentLabel.toUpperCase()}</p>
+            <p>{identity.isDraft ? "DRAFT REFERENCE" : identity.documentLabel.toUpperCase()}</p>
             <h1>{identity.isDraft ? identity.draftReference : identity.officialNumber}</h1>
-            <small>Official invoice number: {identity.officialNumber}</small>
-            <span className={styles.status}>{invoiceStatus(invoice.status)}</span>
+            <small>{identity.isDraft ? "Official invoice number assigned by Sage" : `Official invoice number: ${identity.officialNumber}`}</small>
           </div>
         </header>
 
@@ -257,20 +274,12 @@ export default function InvoiceDocumentPage() {
             <span className={styles.eyebrow}>Invoice to</span>
             <strong>{customer.name || invoice.client || booking?.client || "—"}</strong>
             {customer.contactName ? <p>{customer.contactName}</p> : null}
-            {customer.address ? (
+            {customerAddressLines.length ? (
               <p className={styles.preserveLines}>
-                {typeof customer.address === "string"
-                  ? customer.address
-                  : [
-                      customer.address.line1,
-                      customer.address.line2,
-                      customer.address.city,
-                      customer.address.county,
-                      customer.address.postcode,
-                      customer.billingCountry,
-                    ].filter(Boolean).join("\n")}
+                {customerAddressLines.join("\n")}
               </p>
             ) : null}
+            {!hasCompleteBillingAddress ? <p className={styles.missingDetail}>Billing address incomplete</p> : null}
             {customer.email ? <p>{customer.email}</p> : null}
             {customer.phone ? <p>{customer.phone}</p> : null}
           </div>
@@ -278,13 +287,13 @@ export default function InvoiceDocumentPage() {
 
         <section className={styles.metadata}>
           <div><span>Draft reference</span><strong>{identity.draftReference}</strong></div>
-          <div><span>Official invoice number</span><strong>{identity.officialNumber}</strong></div>
-          <div><span>Invoice date</span><strong>{dateLabel(issueDate, "Draft")}</strong></div>
-          <div><span>Due date</span><strong>{dateLabel(dueDate)}</strong></div>
+          <div><span>Official invoice number</span><strong>{identity.isDraft ? "Assigned when issued" : identity.officialNumber}</strong></div>
+          <div><span>Invoice date</span><strong>{identity.isDraft ? "Assigned when issued by Sage" : dateLabel(issueDate)}</strong></div>
+          <div><span>Due date</span><strong>{identity.isDraft ? `${paymentTermsDays} days from Sage posting` : dateLabel(dueDate)}</strong></div>
           <div><span>Job number</span><strong>{invoice.jobNumber || booking?.jobNumber || "—"}</strong></div>
           <div><span>PO number</span><strong>{invoice.purchaseOrderNumber || "—"}</strong></div>
           <div><span>Source quote</span><strong>{invoice.sourceQuote?.quoteNumber || "—"}</strong></div>
-          <div><span>Payment terms</span><strong>{Number(invoice.paymentTermsDays || 30)} days</strong></div>
+          <div><span>Payment terms</span><strong>{paymentTermsDays} days</strong></div>
         </section>
 
         {(invoice.location || jobDates) ? (
@@ -334,7 +343,7 @@ export default function InvoiceDocumentPage() {
         <section className={styles.lowerSection}>
           <div className={styles.paymentNotes}>
             <span className={styles.eyebrow}>Payment information</span>
-            <p>Payment due within {Number(invoice.paymentTermsDays || 30)} days.</p>
+            <p>{identity.isDraft ? `Payment terms: ${paymentTermsDays} days from Sage posting.` : `Payment due within ${paymentTermsDays} days.`}</p>
             {identity.isDraft ? (
               <p>This draft is not issued and is not a request for payment.</p>
             ) : (

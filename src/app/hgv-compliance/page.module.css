@@ -363,9 +363,9 @@
   min-width: 0;
   scroll-margin-top: 8px;
   padding: 10px;
-  border: 2px solid #111827;
+  border: 2px solid var(--color-border-strong);
   border-radius: 10px;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 5px 14px rgba(15, 23, 42, .08);
 }
 
@@ -377,7 +377,7 @@
 .collapsedYearSection {
   grid-column: auto;
   padding: 0;
-  background: #fff9e6;
+  background: var(--color-warning-surface);
   box-shadow: 0 2px 7px rgba(15, 23, 42, .06);
 }
 
@@ -388,9 +388,9 @@
   gap: 12px;
   margin: -10px -10px 9px;
   padding: 8px 11px;
-  border-bottom: 2px solid #111827;
+  border-bottom: 2px solid var(--color-border-strong);
   border-radius: 8px 8px 0 0;
-  background: linear-gradient(90deg, #ffd966 0%, #fff2cc 58%, #f8fafc 100%);
+  background: linear-gradient(90deg, var(--color-warning-surface) 0%, var(--color-warning-soft) 58%, var(--color-surface-subtle) 100%);
 }
 
 .yearHeading > div {

@@ -903,7 +903,7 @@ export default function JobHomePage() {
               />
             </div>
 
-            <section className={layoutStyles.workspacePanel} style={card}>
+            <section className={layoutStyles.workspacePanel}>
               <div className={layoutStyles.workspaceHeading}>
                 <div>
                   <h3 style={{ ...titleMd, fontSize: 15 }}>Job workspaces</h3>

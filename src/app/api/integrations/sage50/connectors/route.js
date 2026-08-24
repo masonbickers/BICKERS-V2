@@ -7,6 +7,7 @@ import {
   connectorActorSnapshot,
   createConnectorCredential,
   createSage50ConnectorRecord,
+  connectorReadyForReadOnly,
   publicConnectorStatus,
 } from "../../../../utils/sage50ConnectorIdentity.js";
 import {
@@ -121,6 +122,62 @@ export async function POST(req) {
       await adminPatchDocument(CONNECTOR_COLLECTION, existingRow.id, next);
       await writeConnectorAudit({
         action: enabled ? "sage50_connector_enabled" : "sage50_connector_disabled",
+        actor,
+        connector: next,
+        now,
+      });
+      return Response.json({ ok: true, connector: publicConnectorStatus(next) });
+    }
+
+    if (action === "bind_company") {
+      const expectedSageCompanyIdentifier = text(body.sageCompanyIdentifier, 160);
+      if (!expectedSageCompanyIdentifier) {
+        return jsonError("A Sage company identifier is required.", 400);
+      }
+      const next = {
+        ...current,
+        expectedSageCompanyIdentifier,
+        invoicePostingEnabled: false,
+        status: current.isEnabled ? "offline" : "disabled",
+        lastHeartbeatAt: null,
+        updatedAt: now,
+      };
+      await adminPatchDocument(CONNECTOR_COLLECTION, existingRow.id, next);
+      await writeConnectorAudit({
+        action: "sage50_connector_company_bound",
+        actor,
+        connector: next,
+        details: { sageCompanyIdentifier: expectedSageCompanyIdentifier },
+        now,
+      });
+      return Response.json({ ok: true, connector: publicConnectorStatus(next) });
+    }
+
+    if (["enable_invoice_posting", "disable_invoice_posting"].includes(action)) {
+      const enabled = action === "enable_invoice_posting";
+      if (enabled) {
+        const status = publicConnectorStatus(current);
+        if (
+          !connectorReadyForReadOnly(current) ||
+          !status.writeAdapterName ||
+          !status.capabilities.includes("invoice_write")
+        ) {
+          return jsonError(
+            "The bound connector must report read-only and invoice-write readiness before posting can be enabled.",
+            409
+          );
+        }
+      }
+      const next = {
+        ...current,
+        invoicePostingEnabled: enabled,
+        updatedAt: now,
+      };
+      await adminPatchDocument(CONNECTOR_COLLECTION, existingRow.id, next);
+      await writeConnectorAudit({
+        action: enabled
+          ? "sage50_connector_invoice_posting_enabled"
+          : "sage50_connector_invoice_posting_disabled",
         actor,
         connector: next,
         now,

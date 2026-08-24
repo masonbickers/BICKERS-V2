@@ -80,7 +80,7 @@ test("browser routes derive tenant authority and use a separate collection", () 
     new URL("../src/app/api/integrations/sage50/customer-lookups/claim/route.js", import.meta.url),
     "utf8"
   );
-  assert.match(queue, /requireActiveUserFromRequest\(req, \{ module: "finance" \}\)/);
+  assert.match(queue, /requireFinanceFromRequest\(req\)/);
   assert.match(queue, /contact\.companyId/);
   assert.match(queue, /findTenantConnector\(tenantId\)/);
   assert.doesNotMatch(queue, /body\.tenantId|body\.connectorId/);
@@ -133,6 +133,6 @@ test("Windows host polls lookup jobs only and exposes read-only adapter search",
   assert.match(worker, /search_customers_read_only/);
   assert.match(adapter, /SearchCustomersAsync/);
   assert.match(client, /customer-lookups\/claim/);
-  assert.doesNotMatch(worker + client, /export-jobs/);
+  assert.doesNotMatch(worker, /export-jobs/);
   assert.doesNotMatch(adapter, /CreateCustomer|UpdateCustomer|DeleteCustomer/);
 });

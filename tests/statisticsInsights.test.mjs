@@ -6,6 +6,13 @@ import { DEFAULT_BICKERS_BUSINESS_RULES, validateBickersBusinessRules } from "..
 import { buildFilteredStatisticsSectionAnalysis, buildStatisticsInsightSnapshot, redactSnapshotForVariant } from "../src/app/utils/statisticsInsightSnapshot.js";
 import { londonClock } from "../src/app/utils/londonTime.js";
 import { buildMonthlyVisualSummary, getStatisticsMonthPhase } from "../src/app/utils/statisticsVisualAnalysis.js";
+import {
+  buildStatisticsCurrentActions,
+  buildStatisticsMonthComparison,
+  selectActiveUpcomingBookings,
+  selectStatisticsAudienceAction,
+  shouldShowStatisticsAnalysis,
+} from "../src/app/utils/statisticsDashboard.js";
 
 const booking = (id, status, date, extra = {}) => ({ id, jobNumber: id, client: "Production A", status, bookingDates: [date], notesByDate: { [date]: "On Set" }, ...extra });
 
@@ -131,4 +138,73 @@ test("chart month phase separates completed results from pipeline", () => {
   assert.equal(getStatisticsMonthPhase("Jun 26", now), "completed");
   assert.equal(getStatisticsMonthPhase("Jul 26", now), "pipeline");
   assert.equal(getStatisticsMonthPhase("Aug 26", now), "pipeline");
+});
+
+test("current actions use a fixed next-30-day confirmed window", () => {
+  const rows = [
+    booking("2001", "Confirmed", "2026-08-22", { employees: [], vehicles: ["truck"], equipment: [] }),
+    booking("2002", "Confirmed", "2026-09-20", { employees: ["Max"], vehicles: ["truck"], equipment: ["rig"] }),
+    booking("2003", "Confirmed", "2026-09-25"),
+    booking("2004", "Action Required", "2026-08-23"),
+    booking("2005", "Ready to Invoice", "2026-08-10"),
+  ];
+  const actions = buildStatisticsCurrentActions(rows, { now: new Date("2026-08-21T08:00:00Z") });
+  assert.equal(actions.confirmedUpcoming, 2);
+  assert.equal(actions.allocationGaps, 1);
+  assert.equal(actions.missingCrew, 1);
+  assert.equal(actions.missingEquipment, 1);
+  assert.equal(actions.actionRequired, 1);
+  assert.equal(actions.readyToInvoice, 1);
+});
+
+test("current actions expose the correct management and booking-team variant", () => {
+  const actions = { readyToInvoice: 4, coreDataGaps: 7 };
+  assert.deepEqual(selectStatisticsAudienceAction(actions, "management"), {
+    id: "ready-to-invoice",
+    label: "Ready to invoice",
+    value: 4,
+    hint: "Open the finance queue",
+    href: "/finance-queue",
+  });
+  assert.deepEqual(selectStatisticsAudienceAction(actions, "booking"), {
+    id: "core-data-gaps",
+    label: "Core data gaps",
+    value: 7,
+    hint: "Missing dates, status or valid job number",
+  });
+});
+
+test("next up excludes inactive and commercially closed outcomes", () => {
+  const rows = [
+    booking("2101", "DNH", "2026-08-22"),
+    booking("2102", "Cancelled", "2026-08-23"),
+    booking("2103", "Complete", "2026-08-24"),
+    booking("2104", "First Pencil", "2026-08-25"),
+    booking("2105", "Confirmed", "2026-08-21"),
+  ];
+  assert.deepEqual(
+    selectActiveUpcomingBookings(rows, { now: new Date("2026-08-21T08:00:00Z") }).map((row) => row.id),
+    ["2105", "2104"]
+  );
+});
+
+test("month comparison defaults to the latest completed calendar month", () => {
+  const rows = [
+    booking("2201", "Complete", "2026-06-10"),
+    booking("2202", "Complete", "2026-07-10"),
+    booking("2203", "Complete", "2026-07-11"),
+    booking("2204", "Confirmed", "2026-08-12"),
+    { id: "2205", jobNumber: "2205", status: "Complete" },
+  ];
+  const comparison = buildStatisticsMonthComparison(rows, { now: new Date("2026-08-21T08:00:00Z") });
+  assert.equal(comparison.current.key, "2026-07");
+  assert.equal(comparison.current.jobs, 2);
+  assert.equal(comparison.previous.jobs, 1);
+  assert.equal(comparison.deltaJobs, 1);
+});
+
+test("stale daily analysis is hidden while filtered verified analysis remains visible", () => {
+  assert.equal(shouldShowStatisticsAnalysis({ analysis: { summary: "Old" }, stale: true }), false);
+  assert.equal(shouldShowStatisticsAnalysis({ analysis: { summary: "Current filter" }, stale: true, filtered: true }), true);
+  assert.equal(shouldShowStatisticsAnalysis({ analysis: { summary: "Current" } }), true);
 });

@@ -10,6 +10,9 @@ public sealed record HeartbeatRequest(
     [property: JsonPropertyName("sdoVersion")] string? SdoVersion,
     [property: JsonPropertyName("sageCompanyName")] string? SageCompanyName,
     [property: JsonPropertyName("sageCompanyIdentifier")] string? SageCompanyIdentifier,
+    [property: JsonPropertyName("adapterName")] string? AdapterName,
+    [property: JsonPropertyName("writeAdapterName")] string? WriteAdapterName,
+    [property: JsonPropertyName("capabilities")] IReadOnlyList<string> Capabilities,
     [property: JsonPropertyName("lastErrorCode")] string? LastErrorCode,
     [property: JsonPropertyName("lastErrorMessage")] string? LastErrorMessage);
 

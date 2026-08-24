@@ -7,7 +7,7 @@ import {
 import {
   canAccessCompany,
   jsonError,
-  requireActiveUserFromRequest,
+  requireFinanceFromRequest,
 } from "../../../admin/_lib.js";
 import { createInvoiceDeliveryState } from "../../../../utils/invoiceLifecycle.js";
 import { sendServerEmail } from "../../../../utils/serverEmailTransport.js";
@@ -58,7 +58,7 @@ export async function POST(req, context) {
   let subject = "";
   let attemptAt = "";
   try {
-    const auth = await requireActiveUserFromRequest(req);
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
     const { id: rawId } = await context.params;
     invoiceId = safeId(rawId);

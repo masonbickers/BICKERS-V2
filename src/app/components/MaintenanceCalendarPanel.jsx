@@ -14,6 +14,7 @@ import { localizer } from "../utils/localizer";
 import {
   buildMaintenanceBookingDraftFromDueEvent,
   buildMaintenanceCalendarEvents,
+  getMaintenanceEventScheduleRule,
   getMaintenanceDisplayType,
   isMaintenanceCalendarEventDraggable,
   isMaintenanceMoveOutsideDueWeek,
@@ -228,12 +229,16 @@ export default function MaintenanceCalendarPanel({
     const booking = maintenanceBookings.find((item) => String(item?.id || "") === bookingId);
     const change = buildDropUpdates(booking || event, event, start);
     if (!bookingId || !change?.updates) return;
+    const scheduleRule = getMaintenanceEventScheduleRule(event, start);
     setPendingDrop({
       bookingId, booking: booking || event, updates: change.updates,
       title: event?.title || "this booking",
       fromLabel: formatRange(change.movedDateKeys ? [...change.movedDateKeys] : [event?.start]),
       toLabel: formatRange(change.movedNextDateKeys?.length ? change.movedNextDateKeys : [start]),
-      requiresReason: isMaintenanceMoveOutsideDueWeek(event, start), reason: "", saving: false,
+      requiresReason: scheduleRule.requiresExceptionReason,
+      requiresAcknowledgement: scheduleRule.requiresAcknowledgement,
+      motExpiryAcknowledged: false,
+      reason: "", saving: false,
     });
   }, [maintenanceBookings, openRequestedBooking]);
 
@@ -241,12 +246,13 @@ export default function MaintenanceCalendarPanel({
     if (!pendingDrop?.bookingId || pendingDrop.saving) return;
     const reason = String(pendingDrop.reason || "").trim();
     if (pendingDrop.requiresReason && !reason) return;
+    if (pendingDrop.requiresAcknowledgement && !pendingDrop.motExpiryAcknowledged) return;
     const previous = maintenanceBookings;
     const optimistic = { ...pendingDrop.updates, scheduleExceptionReason: reason, updatedAt: new Date().toISOString() };
     setPendingDrop((current) => current ? { ...current, saving: true } : current);
     setMaintenanceBookings?.((current) => (current || []).map((booking) => String(booking?.id || "") === pendingDrop.bookingId ? { ...booking, ...optimistic } : booking));
     try {
-      await rescheduleMaintenanceBooking({ bookingId: pendingDrop.bookingId, booking: pendingDrop.booking, updates: pendingDrop.updates, reason, authState: dataAccessState });
+      await rescheduleMaintenanceBooking({ bookingId: pendingDrop.bookingId, booking: pendingDrop.booking, updates: pendingDrop.updates, reason, motExpiryAcknowledged: pendingDrop.motExpiryAcknowledged, authState: dataAccessState });
       setPendingDrop(null);
     } catch (error) {
       setMaintenanceBookings?.(previous);
@@ -286,11 +292,12 @@ export default function MaintenanceCalendarPanel({
 
     {selectedEvent ? <DashboardMaintenanceModal event={selectedEvent} onClose={() => setSelectedEvent(null)} /> : null}
     {bookingDraft ? <MaintenanceBookingForm {...bookingDraft} onClose={() => setBookingDraft(null)} onSaved={() => setBookingDraft(null)} /> : null}
-    {pendingDrop ? <Modal open onClose={() => !pendingDrop.saving && setPendingDrop(null)} eyebrow="Maintenance schedule" title="Move maintenance appointment" size="sm" density="compact" footer={<><Button variant="secondary" type="button" size="sm" onClick={() => setPendingDrop(null)} disabled={pendingDrop.saving}>Cancel</Button><Button type="button" size="sm" onClick={confirmDrop} disabled={pendingDrop.saving || (pendingDrop.requiresReason && !pendingDrop.reason.trim())} loading={pendingDrop.saving}>Move appointment</Button></>}>
+    {pendingDrop ? <Modal open onClose={() => !pendingDrop.saving && setPendingDrop(null)} eyebrow="Maintenance schedule" title="Move maintenance appointment" size="sm" density="compact" footer={<><Button variant="secondary" type="button" size="sm" onClick={() => setPendingDrop(null)} disabled={pendingDrop.saving}>Cancel</Button><Button type="button" size="sm" onClick={confirmDrop} disabled={pendingDrop.saving || (pendingDrop.requiresReason && !pendingDrop.reason.trim()) || (pendingDrop.requiresAcknowledgement && !pendingDrop.motExpiryAcknowledged)} loading={pendingDrop.saving}>Move appointment</Button></>}>
         <div className={styles.dialogBody}><div className={styles.dialogCopy}>You changed the date of <strong>{pendingDrop.title}</strong>.</div>
           <div className={styles.range}><div className={styles.rangeBox}><div className={styles.rangeLabel}>From</div><div className={styles.rangeValue}>{pendingDrop.fromLabel}</div></div><div className={styles.rangeBox}><div className={styles.rangeLabel}>To</div><div className={styles.rangeValue}>{pendingDrop.toLabel}</div></div></div>
           <label className={styles.reason}>Reason {pendingDrop.requiresReason ? "(required outside the legal ISO week)" : "(optional)"}<input value={pendingDrop.reason} onChange={(event) => setPendingDrop((current) => ({ ...current, reason: event.target.value }))} disabled={pendingDrop.saving} /></label>
-          <div className={styles.hint}>{pendingDrop.requiresReason ? "This appointment crosses its legal due week, so an audit reason is required." : "This appointment remains within its legal due week."}</div>
+          {pendingDrop.requiresAcknowledgement ? <label className={styles.acknowledgement}><input type="checkbox" checked={pendingDrop.motExpiryAcknowledged} onChange={(event) => setPendingDrop((current) => ({ ...current, motExpiryAcknowledged: event.target.checked }))} disabled={pendingDrop.saving} /><span>I acknowledge that the MOT will be expired on the appointment date.</span></label> : null}
+          <div className={styles.hint}>{pendingDrop.requiresAcknowledgement ? "The appointment can be moved once the expired MOT is acknowledged." : pendingDrop.requiresReason ? "This appointment crosses its legal due week, so an audit reason is required." : "This appointment remains within its legal due week."}</div>
         </div>
     </Modal> : null}
   </section>;

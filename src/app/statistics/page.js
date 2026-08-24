@@ -11,7 +11,9 @@ import DailyBriefingPanel from "./DailyBriefingPanel";
 import { Button, Panel } from "@/app/components/ui";
 import {
   CalculationDetails,
+  CollapsibleSection,
   CompactRankingTable,
+  CurrentActionsStrip,
   DrilldownModal,
   HeadlineCards,
   SectionAnalysisPanel,
@@ -23,10 +25,15 @@ import {
 import { buildBookingAnalytics, normaliseBookingForAnalytics } from "@/app/utils/bookingAnalytics";
 import { buildFilteredStatisticsSectionAnalysis } from "@/app/utils/statisticsInsightSnapshot";
 import {
-  getPreviousMonthKey,
   getStatisticsDateRange,
   matchesStatisticsFilters,
 } from "@/app/utils/statisticsFilters";
+import {
+  buildStatisticsCurrentActions,
+  buildStatisticsMonthComparison,
+  selectActiveUpcomingBookings,
+  selectStatisticsAudienceAction,
+} from "@/app/utils/statisticsDashboard";
 import { buildMonthlyVisualSummary, getStatisticsMonthPhase } from "@/app/utils/statisticsVisualAnalysis";
 import {
   dataAccessKey,
@@ -36,16 +43,7 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
-import {
-  BarChart3,
-  BriefcaseBusiness,
-  CalendarDays,
-  Download,
-  Filter,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { Download } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import {
   FIXED_JOB_STATUS_STYLES,
@@ -67,25 +65,13 @@ function StatisticsEmptyState({ title, description, action = null }) {
 /* ------------------------------- Styling tokens ------------------------------- */
 const UI = UI_TOKENS;
 
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "var(--space-3)",
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-const h1 = {
-  color: UI.text,
-  fontSize: "var(--font-size-xl)",
-  lineHeight: 1.08,
-  fontWeight: 750,
-  letterSpacing: 0,
-  margin: 0,
-};
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const card = {
+  ...surface,
+  padding: "var(--space-3)",
+  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
+};
+const panel = { ...surface, padding: "var(--space-3)" };
 const chip = {
   display: "inline-flex",
   alignItems: "center",
@@ -99,65 +85,10 @@ const chip = {
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
-const grid = (cols = 4) => ({
-  display: "grid",
-  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: UI.gap,
-});
-const card = {
-  ...surface,
-  padding: "var(--space-3)",
-  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
-};
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder };
-const filterSelectStyle = {
-  width: "100%",
-  minHeight: "var(--control-height-md)",
-  padding: "7px 9px",
-  borderRadius: UI.radiusSm,
-  border: UI.border,
-  fontSize: 13.5,
-  outline: "none",
-  background: "var(--color-surface)",
-  color: UI.text,
-  boxSizing: "border-box",
-};
-const panel = { ...surface, padding: "var(--space-3)" };
 const sectionTitle = { fontWeight: 800, fontSize: "var(--font-size-lg)", color: UI.text, lineHeight: 1.2 };
 const sectionMeta = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4 };
 const statLabel = { color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 };
 const statValue = { fontSize: "var(--font-size-xl)", fontWeight: 800, color: UI.text, lineHeight: 1.1 };
-
-const statisticsCss = `
-  @media (max-width: 1180px) {
-    .statistics-two-col {
-      grid-template-columns: 1fr !important;
-    }
-    .statistics-header-actions {
-      justify-content: flex-start !important;
-      width: 100%;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .statistics-bar-row,
-    .statistics-job-row {
-      grid-template-columns: 1fr !important;
-    }
-    .statistics-shortcuts {
-      grid-template-columns: 1fr !important;
-    }
-    .statistics-table-heading,
-    .statistics-table-row {
-      min-width: 760px !important;
-    }
-  }
-`;
-
-const mono = {
-  fontFamily:
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-};
 
 const displayToken = (value) => {
   if (typeof value === "string") return value.trim();
@@ -195,7 +126,7 @@ function downloadCSV(filename, rows) {
 const severityStyles = {
   high: { border: "var(--color-danger-border)", bg: UI.dangerSoft, text: UI.dangerText },
   medium: { border: UI.warningBorder, bg: UI.warningSoft, text: "var(--color-warning)" },
-  neutral: { border: "var(--color-border)", bg: "var(--color-white)", text: UI.text },
+  neutral: { border: "var(--color-border)", bg: UI.bgAlt, text: UI.text },
 };
 
 /* Section */
@@ -410,17 +341,6 @@ const monthLabel = (ym) => {
 
 const monthInputValue = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-
-const monthBounds = (ym) => {
-  const [rawYear, rawMonth] = String(ym || "").split("-").map(Number);
-  const now = new Date();
-  const year = rawYear || now.getFullYear();
-  const monthIndex = rawMonth ? rawMonth - 1 : now.getMonth();
-  const start = new Date(year, monthIndex, 1);
-  const end = new Date(year, monthIndex + 1, 0);
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
-};
 
 const toCrewNames = (employees) => {
   if (!Array.isArray(employees)) return [];
@@ -644,12 +564,6 @@ const getCreditForNote = (note) => {
   return 0;
 };
 
-const getCreditSkipReason = (note, prettyStatus) => {
-  if (!shouldCountShootFromStatus(prettyStatus)) return `Status excluded: ${prettyStatus || "TBC"}`;
-  if (!String(note || "").trim()) return "No note saved for this date";
-  return "Note is not a credit type";
-};
-
 const formatCredits = (value) => {
   const n = Number(value || 0);
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
@@ -682,17 +596,6 @@ const shouldCountBookingDayForStatus = (prettyStatus, date, today = new Date()) 
 const isInactiveStatus = (prettyStatus) => {
   const s = norm(prettyStatus);
   return s === "dnh" || s.includes("postpon") || s.includes("cancel") || s.includes("lost") || s.includes("maintenance");
-};
-
-const insightBoxStyle = {
-  marginTop: 8,
-  padding: "7px 9px",
-  borderLeft: "3px solid var(--color-brand)",
-  borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
-  background: "var(--color-brand-soft)",
-  color: "var(--color-text)",
-  fontSize: "var(--font-size-xs)",
-  lineHeight: 1.45,
 };
 
 const numberLabel = (value) => {
@@ -931,52 +834,6 @@ function AnalyticsSummarySection({ title, summary, items = [] }) {
     </div>
   );
 }
-function UsageTable({ title, rows = [], onRowClick }) {
-  return (
-    <div style={panel}>
-      <div className={layoutStyles.extracted17}>
-        <div style={sectionTitle}>{title}</div>
-        <div style={sectionMeta}>{rows.length} item(s)</div>
-      </div>
-      <div className={layoutStyles.extracted18}>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 60px 86px 70px", gap: "var(--space-2)", ...statLabel }}>
-          <span>Name</span>
-          <span className={layoutStyles.extracted19}>Jobs</span>
-          <span className={layoutStyles.extracted20}>Days</span>
-          <span className={layoutStyles.extracted21}>Credits</span>
-        </div>
-        {rows.slice(0, 8).map((row) => (
-          <button
-            key={row.name}
-            type="button"
-            onClick={() => onRowClick?.(row)}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0,1fr) 60px 86px 70px",
-              gap: "var(--space-2)",
-              alignItems: "center",
-              border: "none",
-              borderTop: "1px solid var(--color-brand-soft)",
-              padding: "6px 0 0",
-              background: "transparent",
-              color: UI.text,
-              fontSize: "var(--font-size-sm)",
-              textAlign: "left",
-              cursor: onRowClick ? "pointer" : "default",
-            }}
-          >
-            <span className={layoutStyles.extracted22}>{row.name}</span>
-            <span className={layoutStyles.extracted23}>{row.count}</span>
-            <span className={layoutStyles.extracted24}>{row.bookingDays}</span>
-            <span className={layoutStyles.extracted25}>{formatCredits(row.credits)}</span>
-          </button>
-        ))}
-        {!rows.length && <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No data for this filter.</div>}
-      </div>
-    </div>
-  );
-}
-
 function MonthlyPerformanceTable({ rows = [], onMonthClick }) {
   const summary = monthlyVisualSummary(rows.map((row) => ({ label: monthLabel(row.month), value: row.bookings })), "Bookings", "value");
   return (
@@ -1029,79 +886,6 @@ function MonthlyPerformanceTable({ rows = [], onMonthClick }) {
   );
 }
 
-function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
-  if (!drilldown) return null;
-
-  return (
-    <div style={{ ...panel, marginBottom: UI.gap, borderColor: UI.brandBorder }}>
-      <div className={layoutStyles.extracted28}>
-        <div>
-          <div style={sectionTitle}>{drilldown.title}</div>
-          <div style={sectionMeta}>
-            {drilldown.bookings.length} booking{drilldown.bookings.length === 1 ? "" : "s"}
-          </div>
-        </div>
-        <div className={layoutStyles.extracted29}>
-          <button type="button" onClick={onExport} disabled={!drilldown.bookings.length} style={{ ...chip, cursor: drilldown.bookings.length ? "pointer" : "not-allowed", opacity: drilldown.bookings.length ? 1 : 0.55 }}>
-            <Download size={14} />
-            Export CSV
-          </button>
-          <button type="button" onClick={onClose} style={{ ...chip, cursor: "pointer" }}>
-            <X size={14} />
-            Clear
-          </button>
-        </div>
-      </div>
-      <div className={layoutStyles.extracted30}>
-        <div className="statistics-table-heading" style={{ display: "grid", gridTemplateColumns: "90px 180px 120px 90px 90px 90px 80px 220px 220px", gap: "var(--space-2)", minWidth: 1180, ...statLabel }}>
-          <span>Job #</span>
-          <span>Client</span>
-          <span>Status</span>
-          <span>First</span>
-          <span>Last</span>
-          <span>Days</span>
-          <span>Credits</span>
-          <span>Vehicles</span>
-          <span>Crew</span>
-        </div>
-        {drilldown.bookings.map((booking) => (
-          <Link
-            key={booking.id || booking.jobNumber}
-            href={`/view-booking/${booking.id}`}
-            className="statistics-table-row"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "90px 180px 120px 90px 90px 90px 80px 220px 220px",
-              gap: "var(--space-2)",
-              minWidth: 1180,
-              borderTop: "1px solid var(--color-brand-soft)",
-              paddingTop: 6,
-              color: UI.text,
-              textDecoration: "none",
-              fontSize: "var(--font-size-sm)",
-            }}
-          >
-            <b>{booking.jobNumber || "-"}</b>
-            <span className={layoutStyles.extracted31}>{booking.client || "-"}</span>
-            <span>{booking.status || "-"}</span>
-            <span>{fmtDDMMYY(parseDate(booking.firstDate))}</span>
-            <span>{fmtDDMMYY(parseDate(booking.lastDate))}</span>
-            <span>{booking.bookingDayCount}</span>
-            <span>{formatCredits(booking.creditTotal)}</span>
-            <span className={layoutStyles.extracted32}>
-              {booking.vehicles?.map((vehicle) => formatVehicle(displayToken(vehicle))).filter(Boolean).join(", ") || "-"}
-            </span>
-            <span className={layoutStyles.extracted33}>
-              {booking.employees?.map(displayToken).filter(Boolean).join(", ") || "-"}
-            </span>
-          </Link>
-        ))}
-        {!drilldown.bookings.length && <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No matching bookings.</div>}
-      </div>
-    </div>
-  );
-}
-
 export default function StatisticsPage() {
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
@@ -1115,11 +899,6 @@ export default function StatisticsPage() {
 
   const [rangeMode, setRangeMode] = useState("12m"); // 30d | 90d | 12m | month | all
   const [selectedMonth, setSelectedMonth] = useState(() => monthInputValue(new Date()));
-  const [compareMonth, setCompareMonth] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return monthInputValue(d);
-  });
   const [statusFilter, setStatusFilter] = useState("All");
   const [clientFilter, setClientFilter] = useState("all");
   const [vehicleFilter, setVehicleFilter] = useState("all");
@@ -1129,11 +908,6 @@ export default function StatisticsPage() {
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [briefingState, setBriefingState] = useState({ loading: true, briefing: null, variant: "booking" });
   const handleBriefingState = useCallback((next) => setBriefingState(next), []);
-
-  useEffect(() => {
-    const previous = getPreviousMonthKey(selectedMonth);
-    if (previous) setCompareMonth(previous);
-  }, [selectedMonth]);
 
   // Live bookings
   useEffect(() => {
@@ -1422,6 +1196,17 @@ export default function StatisticsPage() {
     [analytics.bookings]
   );
 
+  const drilldownAllBookingsByIds = useCallback(
+    (title, ids = []) => {
+      const wanted = new Set(ids);
+      setDrilldown({
+        title,
+        bookings: allBookingAnalytics.bookings.filter((booking) => wanted.has(booking.id)),
+      });
+    },
+    [allBookingAnalytics.bookings]
+  );
+
   const drilldownByPredicate = useCallback(
     (title, predicate) => {
       setDrilldown({
@@ -1540,127 +1325,12 @@ export default function StatisticsPage() {
   };
 
   const monthComparison = useMemo(() => {
-    if (rangeMode !== "month") return null;
-
-    const current = monthBounds(selectedMonth);
-    const previous = monthBounds(compareMonth);
-    const q = search.trim().toLowerCase();
-
-    const inWindow = (job, bounds) => {
-      const days = normaliseJobDates(job);
-      const startMs = bounds.start.getTime();
-      const endMs = bounds.end.getTime();
-      const anyDate = days.some((d) => d.getTime() >= startMs && d.getTime() <= endMs);
-      const created = parseDate(job.createdAt);
-      const createdInWindow = created ? created.getTime() >= startMs && created.getTime() <= endMs : false;
-      return anyDate || createdInWindow;
-    };
-
-    const matchesCommonFilters = (job) => {
-      const prettyStatus = prettifyStatus(job.status || "");
-      if (statusFilter !== "All" && prettyStatus !== statusFilter) return false;
-      if (!q) return true;
-
-      const hay = [
-        job.id,
-        job.jobNumber,
-        job.client,
-        job.location,
-        job.notes,
-        prettyStatus,
-        ...(toCrewNames(job.employees) || []),
-        ...(toVehicleTokens(job.vehicles) || []),
-        ...(toEquipmentTokens(job.equipment) || []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return hay.includes(q);
-    };
-
-    const summarise = (bounds) => {
-      const rows = jobsAll.filter((job) => matchesCommonFilters(job) && inWindow(job, bounds));
-      let bookingDays = 0;
-      let shootDays = 0;
-
-      for (const job of rows) {
-        const pretty = prettifyStatus(job.status || "");
-        const days = normaliseJobDates(job).filter(
-          (d) => d.getTime() >= bounds.start.getTime() && d.getTime() <= bounds.end.getTime()
-        );
-        bookingDays += days.length;
-        if (!shouldCountShootFromStatus(pretty)) continue;
-        for (const d of days) {
-          if (isShootNote(getNoteForISODate(job, isoDay(d)))) shootDays += 1;
-        }
-      }
-
-      return { jobs: rows.length, bookingDays, shootDays };
-    };
-
-    const currentStats = summarise(current);
-    const previousStats = summarise(previous);
-    const delta = (key) => currentStats[key] - previousStats[key];
-
-    return {
-      currentLabel: monthLabel(selectedMonth),
-      previousLabel: monthLabel(compareMonth),
-      current: currentStats,
-      previous: previousStats,
-      deltaJobs: delta("jobs"),
-      deltaBookingDays: delta("bookingDays"),
-      deltaShootDays: delta("shootDays"),
-    };
-  }, [compareMonth, jobsAll, rangeMode, search, selectedMonth, statusFilter]);
+    const currentMonth = monthInputValue(todayMidnight);
+    const targetMonth = rangeMode === "month" && selectedMonth < currentMonth ? selectedMonth : "";
+    return buildStatisticsMonthComparison(jobsDimensionFiltered, { now: todayMidnight, targetMonth });
+  }, [jobsDimensionFiltered, rangeMode, selectedMonth, todayMidnight]);
 
   /* Section */
-  const kpis = useMemo(() => {
-    const totalJobs = jobsFiltered.length;
-
-    let totalDays = 0;
-    let upcomingJobs = 0;
-    let completedJobs = 0;
-    let cancelledJobs = 0;
-    let actionJobs = 0;
-    let missingHS = 0;
-    let missingRA = 0;
-
-    const now = todayMidnight.getTime();
-
-    for (const j of jobsFiltered) {
-      const ds = normaliseJobDates(j);
-      totalDays += ds.length;
-
-      const pretty = prettifyStatus(j.status || "");
-      if (pretty === "Complete") completedJobs++;
-      if (pretty === "Cancelled") cancelledJobs++;
-      if (pretty === "Action Required") actionJobs++;
-
-      const anyFutureOrToday = ds.some((d) => d.getTime() >= now);
-      if (anyFutureOrToday) upcomingJobs++;
-
-      if (j.hasHS === false) missingHS++;
-      if (j.hasRiskAssessment === false) missingRA++;
-    }
-
-    const deletedTotal = deletedBookings.length;
-    const restoredTotal = deletedBookings.filter((d) => !!d?.restoredAt).length;
-
-    return {
-      totalJobs,
-      totalDays,
-      upcomingJobs,
-      completedJobs,
-      cancelledJobs,
-      actionJobs,
-      missingHS,
-      missingRA,
-      deletedTotal,
-      restoredTotal,
-    };
-  }, [jobsFiltered, deletedBookings, todayMidnight]);
-
   const statusBreakdown = useMemo(() => {
     const m = new Map();
     for (const j of jobsFiltered) inc(m, prettifyStatus(j.status || ""), 1);
@@ -1762,42 +1432,6 @@ export default function StatisticsPage() {
       return { label: monthLabel(label), total, segments };
     });
   }, [jobsFiltered]);
-
-  const creditBreakdownByMonth = useMemo(() => {
-    const rows = [];
-    for (const j of jobsFiltered) {
-      const pretty = prettifyStatus(j.status || "");
-      const statusCounts = shouldCountShootFromStatus(pretty);
-
-      for (const { date, iso } of getJobDateEntries(j)) {
-        const note = getNoteForISODate(j, iso);
-        const credit = statusCounts ? getCreditForNote(note) : 0;
-        rows.push({
-          month: yyyymm(date),
-          date: iso,
-          jobNumber: j.jobNumber || j.id || "",
-          client: j.client || "",
-          note,
-          credit,
-          counted: credit > 0,
-          reason: credit > 0 ? "Counted" : getCreditSkipReason(note, pretty),
-        });
-      }
-    }
-    return rows;
-  }, [jobsFiltered]);
-
-  const selectedMonthCreditRows = useMemo(() => {
-    const key = rangeMode === "month" ? selectedMonth : yyyymm(todayMidnight);
-    return creditBreakdownByMonth
-      .filter((row) => row.month === key)
-      .sort((a, b) => a.date.localeCompare(b.date) || String(a.jobNumber).localeCompare(String(b.jobNumber)));
-  }, [creditBreakdownByMonth, rangeMode, selectedMonth, todayMidnight]);
-
-  const totalCredits = useMemo(
-    () => Math.round(creditsByMonth.reduce((sum, row) => sum + Number(row.total || 0), 0) * 100) / 100,
-    [creditsByMonth]
-  );
 
   const shootKpis = useMemo(() => {
     const monthKeyNow = yyyymm(todayMidnight);
@@ -1977,52 +1611,6 @@ export default function StatisticsPage() {
     };
   }, [jobsFiltered]);
 
-  const timelineStats = useMemo(() => {
-    const createToConfirmed = [];
-    const createToShoot = [];
-
-    for (const j of jobsFiltered) {
-      const createdAt = parseDate(j.createdAt);
-      if (!createdAt) continue;
-
-      const confirmedAt =
-        parseDate(j.lifecycle?.confirmedAt) ||
-        (prettifyStatus(j.status || "") === "Confirmed"
-          ? parseDate(j.statusChangedAt || j.updatedAt || j.createdAt)
-          : null);
-
-      if (confirmedAt) {
-        const diff = Math.round((confirmedAt.getTime() - createdAt.getTime()) / 86400000);
-        if (Number.isFinite(diff) && diff >= 0) createToConfirmed.push(diff);
-      }
-
-      const firstShootDate =
-        parseDate(j.firstBookingDate) ||
-        normaliseJobDates(j)[0] ||
-        parseDate(j.startDate) ||
-        parseDate(j.date);
-
-      if (firstShootDate) {
-        const diff = Math.round((firstShootDate.getTime() - createdAt.getTime()) / 86400000);
-        if (Number.isFinite(diff)) createToShoot.push(diff);
-      }
-    }
-
-    const avgCreateToConfirmedDays = createToConfirmed.length
-      ? Math.round((createToConfirmed.reduce((sum, n) => sum + n, 0) / createToConfirmed.length) * 10) / 10
-      : 0;
-    const avgCreateToShootDays = createToShoot.length
-      ? Math.round((createToShoot.reduce((sum, n) => sum + n, 0) / createToShoot.length) * 10) / 10
-      : 0;
-
-    return {
-      avgCreateToConfirmedDays,
-      avgCreateToShootDays,
-      confirmedSample: createToConfirmed.length,
-      shootSample: createToShoot.length,
-    };
-  }, [jobsFiltered]);
-
   const firstPencilFunnel = useMemo(() => {
     const outcomeMap = new Map();
     let total = 0;
@@ -2087,58 +1675,14 @@ export default function StatisticsPage() {
     };
   }, [analyticsOutcomeJobs]);
 
-  const topClients = useMemo(() => {
-    const m = new Map();
-    for (const j of jobsFiltered) inc(m, (j.client || "-").trim(), 1);
-    return clampTopN(m.entries(), 8).map(([label, value]) => ({ label, value }));
-  }, [jobsFiltered]);
-
   const topLocations = useMemo(() => {
     return buildCanonicalLocationRanking(jobsFiltered, 8);
   }, [jobsFiltered]);
 
-  const topCrew = useMemo(() => {
-    const m = new Map();
-    for (const j of jobsFiltered) for (const n of toCrewNames(j.employees)) inc(m, n, 1);
-    return clampTopN(m.entries(), 10).map(([label, value]) => ({ label, value }));
-  }, [jobsFiltered]);
-
-  const topEquipment = useMemo(() => {
-    const m = new Map();
-    for (const j of jobsFiltered) for (const e of toEquipmentTokens(j.equipment)) inc(m, e, 1);
-    return clampTopN(m.entries(), 10).map(([label, value]) => ({ label, value }));
-  }, [jobsFiltered]);
-
-  const topVehicles = useMemo(() => {
-    const m = new Map();
-    for (const j of jobsFiltered) {
-      const vs = Array.isArray(j.vehicles) ? j.vehicles : [];
-      for (const v of vs) {
-        const label =
-          typeof v === "string"
-            ? resolveVehicleLabel(v)
-            : resolveVehicleLabel(v?.id || v?.registration || v?.name || "");
-        inc(m, label, 1);
-      }
-    }
-    return clampTopN(m.entries(), 10).map(([label, value]) => ({ label, value }));
-  }, [jobsFiltered, resolveVehicleLabel]);
-
-  const upcomingNext = useMemo(() => {
-    const now = todayMidnight.getTime();
-    const list = jobsFiltered
-      .map((j) => {
-        const ds = normaliseJobDates(j);
-        const next = ds.find((d) => d.getTime() >= now) || null;
-        return { j, next };
-      })
-      .filter((x) => !!x.next)
-      .sort((a, b) => a.next.getTime() - b.next.getTime())
-      .slice(0, 8)
-      .map((x) => x.j);
-
-    return list;
-  }, [jobsFiltered, todayMidnight]);
+  const upcomingNext = useMemo(
+    () => selectActiveUpcomingBookings(jobsFiltered, { now: todayMidnight, limit: 6 }),
+    [jobsFiltered, todayMidnight]
+  );
 
   const jobRow = (j) => {
     const ds = normaliseJobDates(j);
@@ -2187,9 +1731,48 @@ export default function StatisticsPage() {
     { label: "Jobs", value: analytics.totals.bookingCount, hint: "Bookings in this range", onClick: () => drilldownByPredicate("All filtered jobs", () => true) },
     { label: "Booking days", value: analytics.totals.bookingDays, hint: "Total scheduled days", onClick: () => drilldownByPredicate("Jobs with booking dates", (booking) => booking.bookingDayCount > 0) },
     { label: "Shoot days", value: shootKpis.totalShootDays, hint: "On Set and Night Shoot", onClick: () => drilldownByPredicate("Jobs with shoot days", (booking) => booking.shootDayCount > 0) },
-    { label: "Upcoming", value: kpis.upcomingJobs, hint: "Jobs dated today or later", onClick: () => drilldownByPredicate("Upcoming jobs", (booking) => booking.dates.some((date) => date >= isoDay(todayMidnight))) },
     { label: "Confirmed", value: analytics.totals.confirmed, hint: "Currently confirmed", onClick: () => drilldownByPredicate("Confirmed jobs", (booking) => booking.statusCategory === "confirmed") },
     { label: "Conversion", value: `${analytics.totals.conversionRate}%`, hint: "Won jobs as a share of bookings", onClick: () => drilldownByPredicate("Won jobs", (booking) => booking.statusCategory === "won") },
+  ];
+
+  const currentActions = useMemo(
+    () => buildStatisticsCurrentActions(jobsAll, { now: todayMidnight }),
+    [jobsAll, todayMidnight]
+  );
+  const audienceCurrentAction = selectStatisticsAudienceAction(currentActions, briefingState.variant);
+  const monthlyPerformanceRows = analytics.byMonth.filter((row) => /^\d{4}-\d{2}$/.test(String(row.month || "")));
+  const currentActionItems = [
+    {
+      label: "Confirmed next 30 days",
+      value: currentActions.confirmedUpcoming,
+      hint: "Committed upcoming jobs",
+      onClick: () => drilldownAllBookingsByIds("Confirmed jobs in the next 30 days", currentActions.confirmedUpcomingIds),
+      tone: "success",
+    },
+    {
+      label: "Allocation gaps",
+      value: currentActions.allocationGaps,
+      hint: "Confirmed jobs missing crew, vehicle or equipment",
+      onClick: () => drilldownAllBookingsByIds("Confirmed jobs with allocation gaps", currentActions.allocationGapIds),
+      tone: currentActions.allocationGaps ? "warning" : "success",
+    },
+    {
+      label: "Action required",
+      value: currentActions.actionRequired,
+      hint: "Jobs in the action queue",
+      onClick: () => drilldownAllBookingsByIds("Jobs requiring action", currentActions.actionRequiredIds),
+      tone: currentActions.actionRequired ? "warning" : "success",
+    },
+    audienceCurrentAction.id === "ready-to-invoice"
+      ? {
+        ...audienceCurrentAction,
+        tone: audienceCurrentAction.value ? "warning" : "success",
+      }
+      : {
+        ...audienceCurrentAction,
+        onClick: () => drilldownAllBookingsByIds("Bookings with core data gaps", currentActions.coreDataGapIds),
+        tone: audienceCurrentAction.value ? "warning" : "success",
+      },
   ];
 
   const tabPanelProps = (id) => ({
@@ -2205,7 +1788,7 @@ export default function StatisticsPage() {
           <BusinessPageHeader
             title="Statistics"
             subtitle="A clear view of booking performance, workload and business health."
-            eyebrow="Management dashboard"
+            eyebrow="Business dashboard"
             actions={
               <div className={styles.headerActions}>
                 <Button variant="secondary" onClick={exportAnalyticsSummary} disabled={loading || !jobsFiltered.length}>
@@ -2216,6 +1799,8 @@ export default function StatisticsPage() {
           />
 
           <DailyBriefingPanel onStateChange={handleBriefingState} hidden />
+
+          {!accessGate.checking && !loading && accessGate.allowed ? <CurrentActionsStrip items={currentActionItems} /> : null}
 
           <StatisticsFilterToolbar
             search={search}
@@ -2260,7 +1845,7 @@ export default function StatisticsPage() {
               {activeTab === "overview" ? (
                 <section {...tabPanelProps("overview")}>
                   <TabHeading title={tabTitles.overview} rangeLabel={rangeLabel} count={jobsFiltered.length} />
-                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.overview || briefingState.briefing?.sections?.overview} sectionKey="overview" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} />
+                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.overview || briefingState.briefing?.sections?.overview} sectionKey="overview" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} stale={briefingState.stale} generatedAt={briefingState.briefing?.generatedAt} />
                   <HeadlineCards items={headlineItems} />
                   <div className={styles.twoColumn}>
                     <StackedBarChart title="Jobs by month" subtitle="Scheduled jobs grouped by first booking date; segments show current status. Closed outcomes are excluded." data={bookingsByMonth} rightLabel="Jobs" />
@@ -2279,10 +1864,10 @@ export default function StatisticsPage() {
                   </div>
                   <Panel className={styles.panelPadding}>
                     <div className={styles.tabHeader}>
-                      <div><h3 className={styles.panelTitle}>Next up</h3><p className={styles.panelMeta}>The next eight jobs in this filtered range</p><p className={styles.blockSummary}><strong>Summary:</strong> {upcomingNext.length ? `${upcomingNext.length} upcoming jobs are shown here; the earliest is #${upcomingNext[0].jobNumber || upcomingNext[0].id} for ${upcomingNext[0].client || "an unrecorded client"}.` : "No upcoming jobs are available in this selection."}</p></div>
+                      <div><h3 className={styles.panelTitle}>Next up</h3><p className={styles.panelMeta}>The next six active jobs in this filtered range</p></div>
                       <Button as={Link} href="/job-sheet?section=Upcoming" variant="ghost" size="sm">View all jobs</Button>
                     </div>
-                    <div className={styles.upcomingList}>{upcomingNext.length ? upcomingNext.map(jobRow) : <div className={styles.panelPadding}>No upcoming jobs in this selection.</div>}</div>
+                    <div className={styles.upcomingList}>{upcomingNext.length ? upcomingNext.map(jobRow) : <div className={styles.panelPadding}>No active upcoming jobs in this selection.</div>}</div>
                   </Panel>
                   <CalculationDetails>Shoot days count booking days marked On Set or Night Shoot. Cancelled, lost, postponed and DNH bookings are excluded.</CalculationDetails>
                 </section>
@@ -2291,28 +1876,28 @@ export default function StatisticsPage() {
               {activeTab === "trends" ? (
                 <section {...tabPanelProps("trends")}>
                   <TabHeading title={tabTitles.trends} rangeLabel={rangeLabel} count={jobsFiltered.length} />
-                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.trends || briefingState.briefing?.sections?.trends} sectionKey="trends" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} />
-                  {monthComparison ? (
-                    <HeadlineCards items={[
-                      { label: monthComparison.currentLabel, value: monthComparison.current.jobs, hint: `${monthComparison.deltaJobs >= 0 ? "+" : ""}${monthComparison.deltaJobs} jobs vs ${monthComparison.previousLabel}` },
-                      { label: "Booking days", value: monthComparison.current.bookingDays, hint: `${monthComparison.deltaBookingDays >= 0 ? "+" : ""}${monthComparison.deltaBookingDays} vs previous month` },
-                      { label: "Shoot days", value: monthComparison.current.shootDays, hint: `${monthComparison.deltaShootDays >= 0 ? "+" : ""}${monthComparison.deltaShootDays} vs previous month` },
-                    ]} />
-                  ) : null}
+                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.trends || briefingState.briefing?.sections?.trends} sectionKey="trends" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} stale={briefingState.stale} generatedAt={briefingState.briefing?.generatedAt} />
+                  <HeadlineCards items={[
+                    { label: `${monthComparison.current.label} jobs`, value: monthComparison.current.jobs, hint: `${monthComparison.deltaJobs >= 0 ? "+" : ""}${monthComparison.deltaJobs} vs ${monthComparison.previous.label}` },
+                    { label: "Booking days", value: monthComparison.current.bookingDays, hint: `${monthComparison.deltaBookingDays >= 0 ? "+" : ""}${monthComparison.deltaBookingDays} vs previous month` },
+                    { label: "Shoot days", value: monthComparison.current.shootDays, hint: `${monthComparison.deltaShootDays >= 0 ? "+" : ""}${monthComparison.deltaShootDays} vs previous month` },
+                  ]} />
                   <div className={styles.stack}>
-                    <MonthlyPerformanceTable rows={analytics.byMonth} onMonthClick={(row) => drilldownByPredicate(`Bookings in ${monthLabel(row.month)}`, (booking) => booking.bookingMonth === row.month)} />
+                    <MonthlyPerformanceTable rows={monthlyPerformanceRows} onMonthClick={(row) => drilldownByPredicate(`Bookings in ${monthLabel(row.month)}`, (booking) => booking.bookingMonth === row.month)} />
                     <div className={styles.twoColumn}>
                       <StackedBarChart title="Booking days by month" subtitle="Scheduled days split by current booking status" data={jobsByMonth} rightLabel="Days" />
                       <StackedBarChart title="Shoot days by month" subtitle="On Set and Night Shoot day notes" data={shootDaysByMonth} rightLabel="Days" />
                     </div>
-                    <div className={styles.twoColumn}>
-                      <StackedBarChart title="Credits by month" subtitle="Credits derived from booking day notes" data={creditsByMonth} rightLabel="Credits" valueFormatter={formatCredits} />
-                      <BarChart title="Status outcomes" subtitle="Current status of filtered jobs" data={statusBreakdown.slice(0, 10)} rightLabel="Jobs" />
-                    </div>
-                    <div className={styles.twoColumn}>
-                      <BarChart title="Job length" subtitle={`Average ${jobLengthStats.avgLengthDays} days · median ${jobLengthStats.medianLengthDays} days`} data={jobLengthStats.distribution} rightLabel="Jobs" />
-                      <BarChart title="First pencil outcomes" subtitle={`${firstPencilFunnel.confirmedRate}% confirmed · ${firstPencilFunnel.deadRate}% dead outcomes`} data={firstPencilFunnel.chart} rightLabel="Jobs" />
-                    </div>
+                    <CollapsibleSection title="More trend detail" description="Credits, status outcomes, job length and First Pencil outcomes">
+                      <div className={styles.twoColumn}>
+                        <StackedBarChart title="Credits by month" subtitle="Credits derived from booking day notes" data={creditsByMonth} rightLabel="Credits" valueFormatter={formatCredits} />
+                        <BarChart title="Status outcomes" subtitle="Current status of filtered jobs" data={statusBreakdown.slice(0, 10)} rightLabel="Jobs" />
+                      </div>
+                      <div className={styles.twoColumn}>
+                        <BarChart title="Job length" subtitle={`Average ${jobLengthStats.avgLengthDays} days · median ${jobLengthStats.medianLengthDays} days`} data={jobLengthStats.distribution} rightLabel="Jobs" />
+                        <BarChart title="First pencil outcomes" subtitle={`${firstPencilFunnel.confirmedRate}% confirmed · ${firstPencilFunnel.deadRate}% dead outcomes`} data={firstPencilFunnel.chart} rightLabel="Jobs" />
+                      </div>
+                    </CollapsibleSection>
                   </div>
                   <CalculationDetails>Credits use the existing day-note rules: full operational days count as 1, half travel as 0.5 and travel time as 0.25.</CalculationDetails>
                 </section>
@@ -2321,35 +1906,47 @@ export default function StatisticsPage() {
               {activeTab === "resources" ? (
                 <section {...tabPanelProps("resources")}>
                   <TabHeading title={tabTitles.resources} rangeLabel={rangeLabel} count={jobsFiltered.length} />
-                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.resources || briefingState.briefing?.sections?.resources} sectionKey="resources" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} />
+                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.resources || briefingState.briefing?.sections?.resources} sectionKey="resources" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} stale={briefingState.stale} generatedAt={briefingState.briefing?.generatedAt} />
+                  <CurrentActionsStrip
+                    title="Allocation health"
+                    description="Confirmed work in the next 30 days · live across all report ranges"
+                    items={[
+                      { label: "Confirmed jobs", value: currentActions.confirmedUpcoming, hint: "Committed upcoming work", onClick: () => drilldownAllBookingsByIds("Confirmed jobs in the next 30 days", currentActions.confirmedUpcomingIds) },
+                      { label: "Any allocation gap", value: currentActions.allocationGaps, hint: "Missing crew, vehicle or equipment", onClick: () => drilldownAllBookingsByIds("Confirmed jobs with allocation gaps", currentActions.allocationGapIds), tone: currentActions.allocationGaps ? "warning" : "success" },
+                      { label: "Missing crew", value: currentActions.missingCrew, hint: "No crew recorded", onClick: () => drilldownAllBookingsByIds("Confirmed jobs missing crew", currentActions.missingCrewIds), tone: currentActions.missingCrew ? "warning" : "success" },
+                      { label: "Missing vehicle", value: currentActions.missingVehicles, hint: "No vehicle recorded", onClick: () => drilldownAllBookingsByIds("Confirmed jobs missing vehicles", currentActions.missingVehicleIds), tone: currentActions.missingVehicles ? "warning" : "success" },
+                      { label: "Missing equipment", value: currentActions.missingEquipment, hint: "No equipment recorded", onClick: () => drilldownAllBookingsByIds("Confirmed jobs missing equipment", currentActions.missingEquipmentIds), tone: currentActions.missingEquipment ? "warning" : "success" },
+                    ]}
+                  />
                   <div className={styles.twoColumn}>
-                    <CompactRankingTable title="Top clients" rows={analytics.topClients} onRowClick={(row) => drilldownBookingsByIds(`Client: ${row.name}`, row.bookingIds)} />
-                    <CompactRankingTable title="Top vehicles" rows={resolvedTopVehicles} onRowClick={(row) => drilldownBookingsByIds(`Vehicle: ${row.name}`, row.bookingIds)} />
-                    <CompactRankingTable title="Top crew" rows={analytics.topEmployees} onRowClick={(row) => drilldownBookingsByIds(`Crew: ${row.name}`, row.bookingIds)} />
-                    <CompactRankingTable title="Top equipment" rows={analytics.topEquipment} onRowClick={(row) => drilldownBookingsByIds(`Equipment: ${row.name}`, row.bookingIds)} />
-                    <CompactRankingTable title="Top locations" rows={locationRows} onRowClick={(row) => drilldownBookingsByIds(`Location: ${row.name}`, row.bookingIds)} />
-                    <AnalyticsSummarySection title="Crew overview" summary={`${crewStats.crewedJobs} jobs have recorded crew. The average recorded allocation is ${crewStats.avgCrewPerJob} people per crewed job and ${crewStats.avgConfirmedCrewPerJob} for currently confirmed jobs; this describes allocation volume, not employee performance.`} items={[
-                      { label: "Average crew", value: crewStats.avgCrewPerJob },
-                      { label: "Confirmed average", value: crewStats.avgConfirmedCrewPerJob },
-                      { label: "Largest crew", value: crewStats.largestCrew },
-                      { label: "Crewed jobs", value: crewStats.crewedJobs },
-                    ]} />
+                    <CompactRankingTable title="Top clients" rows={analytics.topClients} showBookingDays onRowClick={(row) => drilldownBookingsByIds(`Client: ${row.name}`, row.bookingIds)} />
+                    <CompactRankingTable title="Top vehicles" rows={resolvedTopVehicles} showBookingDays onRowClick={(row) => drilldownBookingsByIds(`Vehicle: ${row.name}`, row.bookingIds)} />
+                    <CompactRankingTable title="Top crew" rows={analytics.topEmployees} showBookingDays onRowClick={(row) => drilldownBookingsByIds(`Crew: ${row.name}`, row.bookingIds)} />
                   </div>
+                  <CollapsibleSection title="More resource detail" description="Equipment, locations and allocation volume">
+                    <div className={styles.twoColumn}>
+                      <CompactRankingTable title="Top equipment" rows={analytics.topEquipment} showBookingDays onRowClick={(row) => drilldownBookingsByIds(`Equipment: ${row.name}`, row.bookingIds)} />
+                      <CompactRankingTable title="Top locations" rows={locationRows} onRowClick={(row) => drilldownBookingsByIds(`Location: ${row.name}`, row.bookingIds)} />
+                      <AnalyticsSummarySection title="Crew overview" summary={`${crewStats.crewedJobs} jobs have recorded crew. This describes allocation volume, not employee performance.`} items={[
+                        { label: "Average crew", value: crewStats.avgCrewPerJob },
+                        { label: "Confirmed average", value: crewStats.avgConfirmedCrewPerJob },
+                        { label: "Largest crew", value: crewStats.largestCrew },
+                        { label: "Crewed jobs", value: crewStats.crewedJobs },
+                      ]} />
+                    </div>
+                  </CollapsibleSection>
                 </section>
               ) : null}
 
               {activeTab === "finance" ? (
                 <section {...tabPanelProps("finance")}>
                   <TabHeading title={tabTitles.finance} rangeLabel={rangeLabel} count={jobsFiltered.length} />
-                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.financeQuality || briefingState.briefing?.sections?.financeQuality} sectionKey="financeQuality" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} />
+                  <SectionAnalysisPanel analysis={filteredSectionAnalysis?.financeQuality || briefingState.briefing?.sections?.financeQuality} sectionKey="financeQuality" filtered={Boolean(filteredSectionAnalysis)} loading={!filteredSectionAnalysis && briefingState.loading} stale={briefingState.stale} generatedAt={briefingState.briefing?.generatedAt} />
                   <div className={styles.twoColumn}>
-                    <AnalyticsSummarySection title="Finance readiness" summary={`${analytics.financeReadiness.readyToInvoice} jobs are ready to invoice and ${analytics.financeReadiness.completeNotPaid} completed jobs are not recorded as paid. Missing commercial information is shown separately and is not treated as zero value.`} items={[
-                      { label: "Ready to invoice", value: analytics.financeReadiness.readyToInvoice },
-                      { label: "Complete not paid", value: analytics.financeReadiness.completeNotPaid },
-                      { label: "Paid", value: analytics.financeReadiness.paid },
-                      { label: "Missing quote", value: analytics.financeReadiness.missingQuote },
-                      { label: "Missing files", value: analytics.financeReadiness.missingAttachments },
-                      { label: "Missing notes", value: analytics.financeReadiness.missingNotes },
+                    <AnalyticsSummarySection title="Finance readiness" summary={`${analytics.financeReadiness.readyToInvoice} jobs are ready to invoice and ${analytics.financeReadiness.completeNotPaid} completed jobs are not recorded as paid.`} items={[
+                      { label: "Ready to invoice", value: analytics.financeReadiness.readyToInvoice, onClick: () => drilldownByPredicate("Ready-to-invoice jobs", (booking) => prettifyStatus(booking.status) === "Ready to Invoice") },
+                      { label: "Complete not paid", value: analytics.financeReadiness.completeNotPaid, onClick: () => drilldownByPredicate("Completed jobs not recorded as paid", (booking) => prettifyStatus(booking.status) === "Complete") },
+                      { label: "Paid", value: analytics.financeReadiness.paid, onClick: () => drilldownByPredicate("Paid jobs", (booking) => prettifyStatus(booking.status) === "Paid") },
                     ]} />
                     <AnalyticsSummarySection title="Hotel costs" summary={`${analytics.hotelStats.hotelJobs} jobs contain hotel records covering ${analytics.hotelStats.totalHotelNights} nights. Bickers-payable accommodation totals ${gbp(analytics.hotelStats.bickersPayableHotelCost)}; production-paid stays remain in counts but are excluded from that payable value.`} items={[
                       { label: "Hotel jobs", value: analytics.hotelStats.hotelJobs },
@@ -2361,9 +1958,12 @@ export default function StatisticsPage() {
                     ]} />
                   </div>
                   <div className={styles.twoColumn}>
-                    <AnalyticsSummarySection title="Data quality" summary={`${analytics.dataQuality.missingDates} bookings are missing dates, ${analytics.dataQuality.missingStatus} are missing a status and ${analytics.dataQuality.invalidJobNumber} have an invalid job number. These are reporting gaps, not evidence of weak business performance.`} items={dataQualityCards.map((item) => ({ label: item.label, value: analytics.dataQuality[item.key], severity: item.severity, onClick: () => drilldownByPredicate(item.title, item.match) }))} />
+                    <AnalyticsSummarySection title="Core data quality" summary={`${analytics.dataQuality.missingDates} bookings are missing dates, ${analytics.dataQuality.missingStatus} are missing a status and ${analytics.dataQuality.invalidJobNumber} have an invalid job number.`} items={dataQualityCards.slice(0, 3).map((item) => ({ label: item.label, value: analytics.dataQuality[item.key], severity: item.severity, onClick: () => drilldownByPredicate(item.title, item.match) }))} />
                     <BarChart title="Payable hotel cost by month" subtitle="Production-paid accommodation is excluded" monthly data={hotelStats.costSeries} rightLabel="GBP" valueFormatter={gbp} />
                   </div>
+                  <CollapsibleSection title="Commercial coverage and legacy data" description="Supporting completeness checks across the selected bookings">
+                    <AnalyticsSummarySection items={dataQualityCards.slice(3).map((item) => ({ label: item.label, value: analytics.dataQuality[item.key], severity: item.severity, onClick: () => drilldownByPredicate(item.title, item.match) }))} />
+                  </CollapsibleSection>
                   <CalculationDetails>Hotel costs are assigned to the month of the job’s first date. Production-paid hotels remain in job and night counts but are excluded from Bickers payable totals.</CalculationDetails>
                 </section>
               ) : null}
@@ -2372,740 +1972,6 @@ export default function StatisticsPage() {
       </BusinessPage>
 
       <DrilldownModal drilldown={drilldown} onClose={() => setDrilldown(null)} onExport={exportDrilldown} formatVehicle={resolveVehicleLabel} formatCredits={formatCredits} displayToken={displayToken} />
-    </HeaderSidebarLayout>
-  );
-
-  const navCard = (href, title, subtitle, pillTxt) => (
-    <Link
-      href={href}
-      style={{
-        ...surface,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 10,
-        padding: "10px 12px",
-        minHeight: 54,
-        textDecoration: "none",
-        color: UI.text,
-        transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
-      }}
-      onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
-      onMouseLeave={(e) =>
-        Object.assign(e.currentTarget.style, {
-          transform: "none",
-          boxShadow: UI.shadowSm,
-          borderColor: "var(--color-border)",
-        })
-      }
-    >
-      <div className={layoutStyles.extracted35}>
-        <div className={layoutStyles.extracted36}>{title}</div>
-        <div style={{ ...sectionMeta, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{subtitle}</div>
-      </div>
-      <span style={{ ...chip, padding: "5px 8px", fontSize: 11, flexShrink: 0 }}>{pillTxt}</span>
-    </Link>
-  );
-
-  const kpiGrid = {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
-    gap: UI.gap,
-  };
-
-  return (
-    <HeaderSidebarLayout>
-      <style>{statisticsCss}</style>
-      <div data-sidebar-page style={pageWrap}>
-        <div data-sidebar-page-header className={layoutStyles.extracted37}>
-          <div>
-            <h1 style={{ ...h1, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-              <BarChart3 size={22} color={UI.brand} />
-              Statistics
-            </h1>
-            <div style={sub}>
-              Live booking insights across pipeline, operations, finance and utilisation.
-            </div>
-            <div style={{ ...sectionMeta, marginTop: 6 }}>
-              {getActiveFilterSummary()}
-            </div>
-          </div>
-          <div className={`statistics-header-actions ${layoutStyles.extracted38}`} >
-            <div style={chip}>
-              <BriefcaseBusiness size={14} />
-              {loading ? "Loading..." : `${jobsAll.length} jobs`}
-            </div>
-            <div style={{ ...chip, background: UI.successSoft, borderColor: "var(--color-success-border)", color: UI.successText }}>
-              <Filter size={14} />
-              Filtered: <b className={layoutStyles.extracted39}>{jobsFiltered.length}</b>
-            </div>
-            <div style={{ ...chip, background: UI.warningSoft, borderColor: UI.warningBorder }}>
-              <CalendarDays size={14} />
-              Deleted in scope: <b className={layoutStyles.extracted40}>{deletedJobsFiltered.length}</b>
-            </div>
-            <button type="button" onClick={exportAnalyticsSummary} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)" }}>
-              <Download size={14} />
-              Export summary CSV
-            </button>
-            <button type="button" onClick={exportDrilldown} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)" }}>
-              <Download size={14} />
-              Export drill-down CSV
-            </button>
-          </div>
-        </div>
-
-        <div style={{ ...panel, marginBottom: UI.gap }}>
-          <div className={layoutStyles.extracted41}>
-            <div>
-              <div style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                <SlidersHorizontal size={16} color={UI.brand} />
-                Filters
-              </div>
-              <div style={sectionMeta}>Refine the dashboard before analytics are calculated.</div>
-            </div>
-            {hasActiveFilters && (
-              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)" }}>
-                <X size={14} />
-                Clear filters
-              </button>
-            )}
-          </div>
-          <div className={layoutStyles.extracted42}>
-            <div className={layoutStyles.extracted43}>
-              <Search
-                size={16}
-                color={UI.muted}
-                className={layoutStyles.extracted44}
-                aria-hidden
-              />
-              <input
-                ref={searchRef}
-                type="text"
-                placeholder="Search job #, client, location, notes, crew, vehicle..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  width: "100%",
-                  minHeight: "var(--control-height-md)",
-                  padding: "7px 9px 7px 34px",
-                  borderRadius: UI.radiusSm,
-                  border: UI.border,
-                  fontSize: 13.5,
-                  outline: "none",
-                  background: "var(--color-surface)",
-                  color: UI.text,
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-
-            <select
-              value={rangeMode}
-              onChange={(e) => setRangeMode(e.target.value)}
-              style={{ ...filterSelectStyle, fontWeight: 800 }}
-            >
-              <option value="30d">Range: last 30 days</option>
-              <option value="90d">Range: last 90 days</option>
-              <option value="12m">Range: last 12 months</option>
-              <option value="month">Compare: two months</option>
-              <option value="all">Range: all time</option>
-            </select>
-
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value || monthInputValue(new Date()))}
-              disabled={rangeMode !== "month"}
-              title="Month A"
-              style={{
-                ...filterSelectStyle,
-                background: rangeMode === "month" ? "var(--color-surface)" : "var(--color-surface-subtle)",
-                fontWeight: 800,
-                color: rangeMode === "month" ? UI.text : UI.muted,
-                cursor: rangeMode === "month" ? "pointer" : "not-allowed",
-              }}
-            />
-
-            <input
-              type="month"
-              value={compareMonth}
-              onChange={(e) => setCompareMonth(e.target.value || selectedMonth)}
-              disabled={rangeMode !== "month"}
-              title="Month B"
-              style={{
-                ...filterSelectStyle,
-                background: rangeMode === "month" ? "var(--color-surface)" : "var(--color-surface-subtle)",
-                fontWeight: 800,
-                color: rangeMode === "month" ? UI.text : UI.muted,
-                cursor: rangeMode === "month" ? "pointer" : "not-allowed",
-              }}
-            />
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ ...filterSelectStyle, fontWeight: 800 }}
-            >
-              {allPrettyStatuses.map((s) => (
-                <option key={s} value={s}>
-                  Status: {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={layoutStyles.extracted45}>
-            <select value={dateRangeFilter} onChange={(e) => setDateRangeFilter(e.target.value)} style={filterSelectStyle}>
-              <option value="all">Date: All time</option>
-              <option value="thisMonth">Date: This month</option>
-              <option value="lastMonth">Date: Last month</option>
-              <option value="thisYear">Date: This year</option>
-              <option value="custom">Date: Custom later</option>
-            </select>
-
-            <select value={statusCategoryFilter} onChange={(e) => setStatusCategoryFilter(e.target.value)} style={filterSelectStyle}>
-              <option value="all">Category: All</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="tentative">Tentative</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-              <option value="open">Open</option>
-            </select>
-
-            <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={filterSelectStyle}>
-              {clientOptions.map((client) => (
-                <option key={client} value={client}>
-                  {client === "all" ? "All clients" : client}
-                </option>
-              ))}
-            </select>
-
-            <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={filterSelectStyle}>
-              {vehicleOptions.map((vehicle) => (
-                <option key={vehicle} value={vehicle}>
-                  {vehicle === "all" ? "All vehicles" : vehicle}
-                </option>
-              ))}
-            </select>
-
-            <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} style={filterSelectStyle}>
-              {employeeOptions.map((employee) => (
-                <option key={employee} value={employee}>
-                  {employee === "all" ? "All crew" : employee}
-                </option>
-              ))}
-            </select>
-
-            {hasActiveFilters && (
-              <button type="button" onClick={clearFilters} style={{ ...filterSelectStyle, cursor: "pointer", fontWeight: 900 }}>
-                Clear filters
-              </button>
-            )}
-          </div>
-
-          <div style={{ marginTop: 10, ...sectionMeta }}>
-            {rangeMode === "month" && monthComparison ? (
-              <>
-                Comparing <b>{monthComparison.currentLabel}</b> with <b>{monthComparison.previousLabel}</b>.
-                {" "}Jobs: <b>{monthComparison.current.jobs}</b> ({monthComparison.deltaJobs >= 0 ? "+" : ""}
-                {monthComparison.deltaJobs}) - Booking days: <b>{monthComparison.current.bookingDays}</b> (
-                {monthComparison.deltaBookingDays >= 0 ? "+" : ""}
-                {monthComparison.deltaBookingDays}) - Shoot days: <b>{monthComparison.current.shootDays}</b> (
-                {monthComparison.deltaShootDays >= 0 ? "+" : ""}
-                {monthComparison.deltaShootDays})
-              </>
-            ) : (
-              <>
-                Tip: click any preview job row to open its job page. Vehicle counts resolve to <b>Name - REG</b> where possible.
-              </>
-            )}
-          </div>
-        </div>
-
-        <DrilldownPanel
-          drilldown={drilldown}
-          onClose={() => setDrilldown(null)}
-          onExport={exportDrilldown}
-          formatVehicle={resolveVehicleLabel}
-        />
-
-        {!loading && jobsFiltered.length === 0 && (
-          <div style={{ ...panel, marginBottom: UI.gap, textAlign: "center", borderColor: UI.brandBorder }}>
-            <div style={{ ...sectionTitle, fontSize: 18 }}>No bookings match these filters</div>
-            <div style={{ ...sectionMeta, marginTop: 6 }}>
-              Broaden the date range, clear a client/vehicle/crew filter, or reset everything to return to the full dashboard.
-            </div>
-            {hasActiveFilters && (
-              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--color-surface)", marginTop: "var(--space-3)" }}>
-                <X size={14} />
-                Clear filters
-              </button>
-            )}
-          </div>
-        )}
-
-        <div style={{ marginBottom: UI.gap }}>
-          <div className={layoutStyles.extracted46}>
-            <div style={sectionTitle}>Shortcuts</div>
-            <div style={sectionMeta}>Jump into related pages</div>
-          </div>
-          <div className={`statistics-shortcuts ${layoutStyles.extracted47}`} >
-            {navCard("/job-sheet", "Job Sheet", "All jobs table", `${jobsAll.length}`)}
-            {navCard("/client-info", "Client Info", "Client list and history", "Directory")}
-            {navCard("/client-emails", "Client Emails", "Collated email list from jobs", "Contacts")}
-            {navCard("/saved-contacts", "Manage Saved Contacts", "Edit or remove saved booking contacts", "Contacts")}
-            {navCard("/review-queue", "Review Queue", "Ops review stage", "Open")}
-            {navCard("/finance-queue", "Ready to Invoice", "Finance queue", "Open")}
-            {navCard("/deleted-bookings", "Deleted Bookings", "Restore / purge", `${deletedBookings.length}`)}
-          </div>
-        </div>
-
-        {/* KPI cards */}
-        <div style={{ marginBottom: UI.gap }}>
-          <div className={layoutStyles.extracted48}>
-            <div style={sectionTitle}>At a glance</div>
-            <div style={sectionMeta}>
-              Range start: <span className={layoutStyles.extracted49}>{rangeStart ? fmtDDMMYY(rangeStart) : "All time"}</span>
-            </div>
-          </div>
-
-          <div style={kpiGrid}>
-            <div style={{ ...card, padding: "var(--space-3)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Jobs</div>
-              <div className={layoutStyles.extracted50}>{analytics.totals.bookingCount}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Filtered</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Booking days</div>
-              <div className={layoutStyles.extracted51}>{analytics.totals.bookingDays}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Sum of dates</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Credits</div>
-              <div className={layoutStyles.extracted52}>{formatCredits(analytics.totals.credits)}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>From day notes</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Travel days</div>
-              <div className={layoutStyles.extracted53}>{formatCredits(analytics.totals.travelDays)}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Travel + half travel + travel time</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Night shoots</div>
-              <div className={layoutStyles.extracted54}>{analytics.totals.nightShoots}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Night shoot day notes</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: UI.brandBorder }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Shoot days / month</div>
-              <div className={layoutStyles.extracted55}>{shootKpis.avgPerMonth}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Avg across <b>{shootKpis.monthsWithDataCount}</b> month(s) - This month: <b>{shootKpis.thisMonth}</b>
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Upcoming</div>
-              <div className={layoutStyles.extracted56}>{kpis.upcomingJobs}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Has date &gt;= today</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg job length</div>
-              <div className={layoutStyles.extracted57}>{jobLengthStats.avgLengthDays}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Median: <b>{jobLengthStats.medianLengthDays || 0}</b> day(s)
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed length</div>
-              <div className={layoutStyles.extracted58}>{jobLengthStats.avgConfirmedLengthDays}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Multi-day jobs: <b>{jobLengthStats.multiDayJobs}</b>
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-success-soft)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg crew / job</div>
-              <div className={layoutStyles.extracted59}>{crewStats.avgCrewPerJob}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Across <b>{crewStats.crewedJobs}</b> crewed job(s)
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-success-soft)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed crew</div>
-              <div className={layoutStyles.extracted60}>{crewStats.avgConfirmedCrewPerJob}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Largest crew: <b>{crewStats.largestCrew}</b>
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-warning-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Added to confirmed</div>
-              <div className={layoutStyles.extracted61}>{timelineStats.avgCreateToConfirmedDays}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Avg days across <b>{timelineStats.confirmedSample}</b> confirmed job(s)
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-warning-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Added to first shoot</div>
-              <div className={layoutStyles.extracted62}>{timelineStats.avgCreateToShootDays}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Avg days across <b>{timelineStats.shootSample}</b> job(s)
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-info-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>First pencil cohort</div>
-              <div className={layoutStyles.extracted63}>{firstPencilFunnel.total}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Current + deleted in scope
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-info-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>First pencil to confirmed</div>
-              <div className={layoutStyles.extracted64}>{firstPencilFunnel.confirmedRate}%</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                {firstPencilFunnel.confirmed} of {firstPencilFunnel.total}
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-danger-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>First pencil dead outcomes</div>
-              <div className={layoutStyles.extracted65}>{firstPencilFunnel.deadRate}%</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                Deleted / DNH / Lost / Cancelled / Postponed
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Hotel cost (payable)</div>
-              <div className={layoutStyles.extracted66}>{gbp(hotelStats.totalHotelCost)}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                {hotelStats.payableHotelJobs} job(s) - {hotelStats.payableHotelNights} night(s)
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)", borderColor: "var(--color-border)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night (payable)</div>
-              <div className={layoutStyles.extracted67}>{gbp(hotelStats.avgPerNight)}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
-                This month: <b>{gbp(hotelStats.thisMonthCost)}</b> ({hotelStats.thisMonthNights} nights)
-              </div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Complete</div>
-              <div className={layoutStyles.extracted68}>{kpis.completedJobs}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Status = Complete</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Needs action</div>
-              <div className={layoutStyles.extracted69}>{kpis.actionJobs}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Status = Action Required</div>
-            </div>
-
-            <div style={{ ...card, padding: "var(--space-3)" }}>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Deleted</div>
-              <div className={layoutStyles.extracted70}>{kpis.deletedTotal}</div>
-              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Deleted bookings</div>
-            </div>
-          </div>
-
-          <div style={{ ...surface, padding: "var(--space-3)", marginTop: "var(--space-3)" }}>
-            <div className={layoutStyles.extracted71}>
-              <span style={{ ...chip, background: "var(--color-warning-soft)" }}>
-                Missing HS: <b className={layoutStyles.extracted72}>{kpis.missingHS}</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-warning-soft)" }}>
-                Missing RA: <b className={layoutStyles.extracted73}>{kpis.missingRA}</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-canvas)" }}>
-                Cancelled: <b className={layoutStyles.extracted74}>{kpis.cancelledJobs}</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-info-soft)", borderColor: "var(--color-info-border)" }}>
-                First pencil confirmed: <b className={layoutStyles.extracted75}>{firstPencilFunnel.confirmedRate}%</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-danger-soft)", borderColor: "var(--color-danger-border)" }}>
-                First pencil dead: <b className={layoutStyles.extracted76}>{firstPencilFunnel.deadRate}%</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-accent-soft)", borderColor: "var(--color-warning-border)" }}>
-                Avg job length: <b className={layoutStyles.extracted77}>{jobLengthStats.avgLengthDays}</b> day(s)
-              </span>
-              <span style={{ ...chip, background: "var(--color-info-soft)", borderColor: "var(--color-info-border)" }}>
-                Avg crew / job: <b className={layoutStyles.extracted78}>{crewStats.avgCrewPerJob}</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-accent-soft)", borderColor: "var(--color-warning-border)" }}>
-                Added to confirmed: <b className={layoutStyles.extracted79}>{timelineStats.avgCreateToConfirmedDays}</b> day(s)
-              </span>
-              <span style={{ ...chip, background: "var(--color-warning-soft)", borderColor: "var(--color-warning-border)" }}>
-                Added to first shoot: <b className={layoutStyles.extracted80}>{timelineStats.avgCreateToShootDays}</b> day(s)
-              </span>
-              <span style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder }}>
-                Shoot days (total): <b className={layoutStyles.extracted81}>{shootKpis.totalShootDays}</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-info-soft)", borderColor: "var(--color-info-border)" }}>
-                Credits: <b className={layoutStyles.extracted82}>{formatCredits(totalCredits)}</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-brand-soft)", borderColor: "var(--color-border)" }}>
-                Avg hotel / job (payable): <b className={layoutStyles.extracted83}>{gbp(hotelStats.avgPerHotelJob)}</b>
-              </span>
-              <span style={{ ...chip, background: "var(--color-brand-soft)", borderColor: "var(--color-border)" }}>
-                Production-paid: <b className={layoutStyles.extracted84}>{hotelStats.productionPaidHotelNights}</b> nights
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <AnalyticsSummarySection
-            title="Pipeline"
-            items={[
-              { label: "Confirmed", value: analytics.totals.confirmed },
-              { label: "Tentative", value: analytics.totals.tentative },
-              { label: "Won", value: analytics.totals.won },
-              { label: "Lost", value: analytics.totals.lost },
-              { label: "Open", value: analytics.totals.open },
-              { label: "Conversion", value: `${analytics.totals.conversionRate}%` },
-              { label: "Lost rate", value: `${analytics.totals.lostRate}%` },
-            ]}
-          />
-          <AnalyticsSummarySection
-            title="Finance readiness"
-            items={[
-              { label: "Ready to invoice", value: analytics.financeReadiness.readyToInvoice },
-              { label: "Complete not paid", value: analytics.financeReadiness.completeNotPaid },
-              { label: "Paid", value: analytics.financeReadiness.paid },
-              { label: "Missing quote", value: analytics.financeReadiness.missingQuote },
-              { label: "Missing files", value: analytics.financeReadiness.missingAttachments },
-              { label: "Missing notes", value: analytics.financeReadiness.missingNotes },
-            ]}
-          />
-        </div>
-
-        <div style={{ marginBottom: UI.gap }}>
-          <MonthlyPerformanceTable
-            rows={analytics.byMonth}
-            onMonthClick={(row) =>
-              drilldownByPredicate(`Bookings in ${monthLabel(row.month)}`, (booking) => booking.bookingMonth === row.month)
-            }
-          />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <AnalyticsSummarySection
-            title="Data quality"
-            items={dataQualityCards.map((card) => ({
-              label: card.label,
-              value: analytics.dataQuality[card.key],
-              severity: card.severity,
-              onClick: () => drilldownByPredicate(card.title, card.match),
-            }))}
-          />
-          <AnalyticsSummarySection
-            title="Hotel costs"
-            items={[
-              { label: "Hotel jobs", value: analytics.hotelStats.hotelJobs },
-              { label: "Nights", value: analytics.hotelStats.totalHotelNights },
-              { label: "Total cost", value: gbp(analytics.hotelStats.totalHotelCost) },
-              { label: "Bickers payable", value: gbp(analytics.hotelStats.bickersPayableHotelCost) },
-              { label: "Avg cost/night", value: gbp(analytics.hotelStats.averageCostPerNight) },
-              { label: "Production paid", value: analytics.hotelStats.productionPaidHotelJobs },
-            ]}
-          />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <UsageTable title="Top clients" rows={analytics.topClients} onRowClick={(row) => drilldownBookingsByIds(`Client: ${row.name}`, row.bookingIds)} />
-          <UsageTable title="Top vehicles" rows={resolvedTopVehicles} onRowClick={(row) => drilldownBookingsByIds(`Vehicle: ${row.name}`, row.bookingIds)} />
-          <UsageTable title="Top crew" rows={analytics.topEmployees} onRowClick={(row) => drilldownBookingsByIds(`Crew: ${row.name}`, row.bookingIds)} />
-          <UsageTable title="Top equipment" rows={analytics.topEquipment} onRowClick={(row) => drilldownBookingsByIds(`Equipment: ${row.name}`, row.bookingIds)} />
-        </div>
-
-        {/* Charts */}
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <StackedBarChart
-            title="Bookings per month"
-            subtitle="Scheduled jobs grouped by first booking date; segments show current status. Closed outcomes are excluded."
-            data={bookingsByMonth}
-            rightLabel="Bookings"
-          />
-          <StackedBarChart
-            title="Booking days per month"
-            subtitle="Past: Complete/Confirmed. Upcoming: First Pencil/Second Pencil/Confirmed."
-            data={jobsByMonth}
-            rightLabel="Days"
-          />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <StackedBarChart
-            title="Shoot days per month"
-            subtitle="Counts days where the per-day note is On Set / Night Shoot"
-            data={shootDaysByMonth}
-            rightLabel="Shoot"
-          />
-          <StackedBarChart
-            title="Credits per month"
-            subtitle="On Set/Night Shoot/Travel/Split/Standby/Rehearsal = 1, half travel = 0.5, travel time = 0.25"
-            data={creditsByMonth}
-            rightLabel="Credits"
-            valueFormatter={(v) => formatCredits(v)}
-          />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <div style={{ ...panel, minHeight: 220 }}>
-            <div style={{ ...sectionTitle, marginBottom: "var(--space-2)" }}>
-              Credit breakdown {rangeMode === "month" ? monthLabel(selectedMonth) : monthLabel(yyyymm(todayMidnight))}
-            </div>
-            <div style={sectionMeta}>
-              Counts per-day diary notes from <span className={layoutStyles.extracted85}>notesByDate</span>, <span className={layoutStyles.extracted86}>dayNotes</span>,
-              and related daily note fields. <b>On Set</b>, <b>Night Shoot</b>, <b>Travel Day</b>, <b>Split Day</b>,
-              <b>Standby Day</b>, and <b>Rehearsal Day</b> count as 1 credit. <b>1/2 Travel Day</b> counts as 0.5.
-              <b> Travel Time</b> counts as 0.25.
-            </div>
-            <div className={layoutStyles.extracted87}>
-              {selectedMonthCreditRows.length ? (
-                selectedMonthCreditRows.slice(0, 30).map((row, idx) => (
-                  <div
-                    key={`${row.date}-${row.jobNumber}-${idx}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "76px 72px minmax(0,1fr) 110px 52px",
-                      gap: "var(--space-2)",
-                      alignItems: "center",
-                      fontSize: "var(--font-size-xs)",
-                      borderTop: idx ? "1px solid var(--color-brand-soft)" : "none",
-                      paddingTop: idx ? 6 : 0,
-                    }}
-                  >
-                    <span className={layoutStyles.extracted88}>{fmtDDMMYY(parseDate(row.date))}</span>
-                    <b>{row.jobNumber}</b>
-                    <span
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        color: row.counted ? UI.text : UI.muted,
-                      }}
-                    >
-                      {row.note || "No note"}{row.client ? ` - ${row.client}` : ""}
-                    </span>
-                    <span style={{ color: row.counted ? "var(--color-success)" : UI.muted, fontSize: 11 }}>{row.reason}</span>
-                    <b style={{ textAlign: "right", color: row.counted ? UI.text : UI.muted }}>{formatCredits(row.credit)}</b>
-                  </div>
-                ))
-              ) : (
-                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No credited days in this month.</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart
-            title="First pencil outcomes"
-            subtitle="Based on current status plus deleted bookings, and history logs where available"
-            data={firstPencilFunnel.chart}
-            rightLabel="Jobs"
-          />
-          <BarChart
-            title="Job length distribution"
-            subtitle="How many booking days each job spans"
-            data={jobLengthStats.distribution}
-            rightLabel="Jobs"
-          />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart
-            title="Hotel cost per month (payable)"
-            subtitle="Excludes Production-paid; uses hotelTotal, else costPerNight x nights"
-            data={hotelStats.costSeries}
-            rightLabel="GBP"
-            valueFormatter={(v) => gbp(v)}
-          />
-          <BarChart
-            title="Status breakdown"
-            subtitle="Filtered set"
-            data={statusBreakdown.slice(0, 10)}
-            rightLabel="Jobs"
-          />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart title="Top vehicles" subtitle="Resolved to Name - REG where possible" data={topVehicles} rightLabel="Jobs" />
-          <BarChart title="Top crew" subtitle="From booking.employees" data={topCrew} rightLabel="Bookings" />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart title="Top clients" subtitle="Production / client" data={topClients} rightLabel="Jobs" />
-          <BarChart title="Top locations" subtitle="Location field" data={topLocations} rightLabel="Jobs" />
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart title="Top equipment" subtitle="From booking.equipment" data={topEquipment} rightLabel="Mentions" />
-          <div style={{ ...panel, minHeight: 220 }}>
-            <div style={{ ...sectionTitle, marginBottom: "var(--space-2)" }}>Hotel stat rules</div>
-            <div style={sectionMeta}>
-              We treat a booking as having a hotel if <span className={layoutStyles.extracted89}>hasHotel</span> is true, or if we can find any
-              of: <span className={layoutStyles.extracted90}>hotelTotal</span>, <span className={layoutStyles.extracted91}>hotelCostPerNight</span>,{" "}
-              <span className={layoutStyles.extracted92}>hotelNights</span> (plus common aliases).
-              <br />
-              <br />
-              If <span className={layoutStyles.extracted93}>hotelPaidBy</span> is <b>Production</b>, we still count hotel jobs/nights, but we{" "}
-              <b>exclude the GBP cost</b> from payable totals and charts.
-              <br />
-              <br />
-              Monthly hotel cost is assigned to the month of the job&apos;s <b>first date</b> (simple & consistent).
-            </div>
-          </div>
-        </div>
-
-        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
-          <div style={{ ...panel, minHeight: 220 }}>
-            <div className={layoutStyles.extracted94}>
-              <div style={sectionTitle}>Next up</div>
-              <Link
-                href="/job-sheet?section=Upcoming"
-                style={{ fontSize: "var(--font-size-sm)", fontWeight: 800, color: UI.brand, textDecoration: "none" }}
-              >
-                View all -&gt;
-              </Link>
-            </div>
-            <div style={{ border: UI.border, borderRadius: UI.radius, overflow: "hidden" }}>
-              {loading ? (
-                <div style={{ padding: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>Loading...</div>
-              ) : upcomingNext.length ? (
-                upcomingNext.map(jobRow)
-              ) : (
-                <div style={{ padding: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>No upcoming jobs in current filters.</div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ ...panel, minHeight: 220 }}>
-            <div style={{ ...sectionTitle, marginBottom: "var(--space-2)" }}>How &quot;shoot days&quot; are counted</div>
-            <div style={sectionMeta}>
-              We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>On Set</b> or{" "}
-              <b>Night Shoot</b> (from <span className={layoutStyles.extracted95}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
-              <br />
-              <br />
-              We exclude obvious dead statuses (Cancelled / Lost / Postponed / DNH) from shoot-day counting.
-            </div>
-          </div>
-        </div>
-      </div>
     </HeaderSidebarLayout>
   );
 }

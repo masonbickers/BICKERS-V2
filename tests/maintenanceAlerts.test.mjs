@@ -96,6 +96,20 @@ test("same-week and completed appointments do not create schedule-exception warn
   );
 });
 
+test("an appointment before its due date does not warn when it is in an earlier ISO week", () => {
+  assert.equal(buildMaintenanceScheduleExceptionAlert({
+    id: "booking-early",
+    vehicleId: "vehicle-1",
+    status: "Booked",
+    appointmentDateISO: "2026-07-31",
+    items: [{
+      maintenanceTypeId: "pmi",
+      legalDueDateISO: "2026-08-07",
+      legalDueIsoWeek: "2026-W32",
+    }],
+  }), null);
+});
+
 test("recipient configuration is normalized and deduplicated", () => {
   assert.deepEqual(normalizeAlertRecipients([" Ops@Example.com ", "bad"], "ops@example.com"), ["ops@example.com"]);
 });

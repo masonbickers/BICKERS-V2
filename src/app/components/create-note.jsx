@@ -18,6 +18,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
@@ -47,7 +48,8 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
       try {
         const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
-          .map((d) => ({ id: d.id, name: d.data()?.name }))
+          .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+          .filter(isCurrentEmployeeRecord)
           .filter((x) => x.name);
         setEmployees(list);
       } catch (e) {
@@ -425,7 +427,7 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  background: "var(--button-primary-background)",
   color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 13,

@@ -25,6 +25,7 @@ import {
 import { Check, Trash2 } from "lucide-react";
 import { Button, Modal } from "@/app/components/ui";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 export default function EditNoteModal({ id, onClose }) {
   const dataAccessState = useDataAccessState();
@@ -79,7 +80,8 @@ export default function EditNoteModal({ id, onClose }) {
 
       setEmployees(
         employeeSnap.docs
-          .map((d) => ({ id: d.id, name: d.data()?.name }))
+          .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+          .filter(isCurrentEmployeeRecord)
           .filter((item) => item.name)
       );
     };
@@ -508,7 +510,7 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  background: "var(--button-primary-background)",
   color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 13,

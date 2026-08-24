@@ -40,6 +40,17 @@ import {
   buildSynchronizedVehicleStatus,
 } from "@/app/utils/bookingLifecycle";
 import { buildCompletionAttachmentPatch } from "@/app/utils/completionReviewAttachments";
+import {
+  COMPLETION_REVIEW_DESTINATION_STATUS,
+  buildCompletionReviewModel,
+  buildCompletionReviewPatch,
+  resolveAcceptedQuoteNumber,
+  timesheetLinksToJob,
+  validateCompletionReview,
+  validateOperationalCompletionReview,
+} from "@/app/utils/completionReview";
+import { buildFinanceReadiness } from "@/app/utils/financeReadiness";
+import { loadBookingFormReferenceData } from "@/app/utils/bookingFormReferenceData";
 
 const UI = UI_TOKENS;
 
@@ -55,8 +66,6 @@ const sectionHeader = {
   flexWrap: "wrap",
 };
 const toolbar = {
-  ...surface,
-  padding: 12,
   display: "grid",
   gridTemplateColumns: "minmax(240px, 1fr) minmax(150px, 1fr) 130px 122px 122px auto auto",
   gap: 8,
@@ -202,6 +211,11 @@ const prettifyStatus = (raw) => {
   return s.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, (m) => m.toUpperCase()) || "TBC";
 };
 
+const reviewQueueStatus = (raw) => {
+  const status = prettifyStatus(raw);
+  return status === "Ready to Invoice" ? "Complete" : status;
+};
+
 const statusColors = (label) => {
   return getFixedJobStatusStyle(label);
 };
@@ -266,6 +280,9 @@ export default function ReviewQueuePage() {
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
+  const [timesheets, setTimesheets] = useState([]);
+  const [timesheetsLoaded, setTimesheetsLoaded] = useState(false);
+  const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
   const [loading, setLoading] = useState(true);
   const [savingJobId, setSavingJobId] = useState("");
   const [completionJobId, setCompletionJobId] = useState("");
@@ -299,6 +316,45 @@ export default function ReviewQueuePage() {
     return () => unsub();
   }, [accessKey, dataAccessState]);
 
+  useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking || !gate.allowed) return undefined;
+    let active = true;
+    loadBookingFormReferenceData(db, { accessState: dataAccessState })
+      .then((referenceData) => {
+        if (active) setVehicleLookup(referenceData.vehicleLookup || { byId: {}, byReg: {}, byName: {} });
+      })
+      .catch((error) => console.warn("Could not resolve Review Queue vehicle names", error));
+    return () => {
+      active = false;
+    };
+  }, [accessKey, dataAccessState]);
+
+  useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      setTimesheets([]);
+      setTimesheetsLoaded(true);
+      return undefined;
+    }
+
+    setTimesheetsLoaded(false);
+    const unsub = onSnapshot(
+      tenantCollectionQuery(db, "timesheets", dataAccessState),
+      (snapshot) => {
+        setTimesheets(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() || {}) })));
+        setTimesheetsLoaded(true);
+      },
+      (error) => {
+        console.error("Failed to load Review Queue timesheets:", error);
+        setTimesheets([]);
+        setTimesheetsLoaded(true);
+      }
+    );
+    return () => unsub();
+  }, [accessKey, dataAccessState]);
+
   const jobs4 = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
 
   const todayMidnight = useMemo(() => {
@@ -322,11 +378,12 @@ export default function ReviewQueuePage() {
     return jobs4
       .filter((j) => {
         const s = String(j.status || "").toLowerCase();
-        const ready = /ready\s*to\s*invoice/.test(s);
-        const completeish = s === "confirmed" || s === "complete" || s === "completed";
-        // Finance-ready jobs remain visible here as a record of the handoff
-        // while also appearing in /finance-queue.
-        return ((completeish && beforeToday(j)) || ready) && !isPaid(j);
+        const completeish =
+          s === "confirmed" ||
+          s === "complete" ||
+          s === "completed" ||
+          /ready\s*[-_\s]*to\s*[-_\s]*invoice/.test(s);
+        return completeish && beforeToday(j) && !isPaid(j);
       })
       .sort((a, b) => {
         const da = normaliseDates(a).sort((x, y) => y - x)[0]?.getTime() || 0;
@@ -341,7 +398,7 @@ export default function ReviewQueuePage() {
   );
 
   const statusOptions = useMemo(
-    () => ["all", "Ready to Invoice", "Confirmed", "Complete", "Action Required"],
+    () => ["all", "Confirmed", "Complete", "Action Required"],
     []
   );
 
@@ -352,7 +409,8 @@ export default function ReviewQueuePage() {
 
     return queue.filter((j) => {
       if (clientFilter !== "all" && (j.client || "") !== clientFilter) return false;
-      if (statusFilter !== "all" && prettifyStatus(j.status) !== statusFilter) return false;
+      const selectedStatus = statusFilter === "Ready to Invoice" ? "Complete" : statusFilter;
+      if (selectedStatus !== "all" && reviewQueueStatus(j.status) !== selectedStatus) return false;
       if (overdueOnly && !beforeToday(j)) return false;
 
       if (from || to) {
@@ -446,6 +504,11 @@ export default function ReviewQueuePage() {
       : buildInitialLifecycle(previousStatus, job.createdAt || nowIso);
     const lifecycle = buildNextLifecycle(lifecycleBase, previousStatus, nextStatus, nowIso);
     const shouldSyncVehicleStatus = ["Complete", "Ready to Invoice"].includes(nextStatus);
+    const readyToInvoice = typeof serverPatch.readyToInvoice === "boolean"
+      ? serverPatch.readyToInvoice
+      : typeof localPatch.readyToInvoice === "boolean"
+        ? localPatch.readyToInvoice
+        : nextStatus === "Ready to Invoice";
     const vehicleStatus = shouldSyncVehicleStatus
       ? buildSynchronizedVehicleStatus(job, nextStatus)
       : job.vehicleStatus;
@@ -456,7 +519,7 @@ export default function ReviewQueuePage() {
       statusChangedAt: nowIso,
       statusHistory,
       lifecycle,
-      readyToInvoice: nextStatus === "Ready to Invoice",
+      readyToInvoice,
       ...(shouldSyncVehicleStatus ? { vehicleStatus } : {}),
     };
 
@@ -476,7 +539,7 @@ export default function ReviewQueuePage() {
           lifecycle,
           lastEditedBy: actor.email,
           lastEditedByUid: actor.uid,
-          readyToInvoice: nextStatus === "Ready to Invoice",
+          readyToInvoice,
           ...(shouldSyncVehicleStatus ? { vehicleStatus } : {}),
         })
       );
@@ -490,6 +553,48 @@ export default function ReviewQueuePage() {
       setSavingJobId("");
       restoreScrollAfterRender(restoreScroll);
     }
+  };
+
+  const markReadyForInvoicing = async (job) => {
+    // Completion Review already performs the required operational handoff and
+    // records this flag. Existing reviewed jobs should not be blocked by a
+    // second pass over legacy/uncertain finance metadata.
+    if (job?.readyToInvoice === true) {
+      return setQuickStatus(job, "Ready to Invoice", {
+        localPatch: { readyToInvoice: true },
+        serverPatch: { readyToInvoice: true },
+      });
+    }
+
+    if (!timesheetsLoaded) {
+      systemDialogs.showSystemNotification("Timesheet checks are still loading. Please try again in a moment.");
+      return false;
+    }
+
+    const model = buildCompletionReviewModel(job, vehicleLookup);
+    const completionErrors = validateCompletionReview({ fields: job, model, form: model });
+    if (completionErrors.length) {
+      openCompletionDialog(job);
+      systemDialogs.showSystemNotification(`Finish the job review: ${completionErrors.join("; ")}.`);
+      return false;
+    }
+
+    const linkedTimesheets = timesheets.filter((timesheet) => timesheetLinksToJob(timesheet, job.id));
+    const readiness = buildFinanceReadiness({
+      job,
+      timesheets: linkedTimesheets,
+      acceptedQuoteNumber: resolveAcceptedQuoteNumber(job),
+      readyForInvoicing: true,
+      hasPurchaseOrder: Boolean(String(job.po || "").trim()),
+    });
+    if (readiness.blockers.length) {
+      systemDialogs.showSystemNotification(
+        `Cannot send to Finance yet: ${readiness.blockers.map((check) => check.label).join("; ")}.`
+      );
+      return false;
+    }
+
+    return setQuickStatus(job, "Ready to Invoice");
   };
 
   const completionJob = useMemo(
@@ -541,9 +646,53 @@ export default function ReviewQueuePage() {
     };
   };
 
-  const completeJobWithDetails = async ({ fields, file, removedAttachmentIndexes = [] }) => {
+  const completeJobWithDetails = async ({
+    action = "ready_to_invoice",
+    fields,
+    reviewForm,
+    file,
+    removedAttachmentIndexes = [],
+  }) => {
     const job = completionJob;
     if (!job || completionSaving) return;
+
+    const readyForInvoicing = action === "ready_to_invoice";
+    const reviewModel = buildCompletionReviewModel(job, vehicleLookup);
+    const validator = readyForInvoicing
+      ? validateCompletionReview
+      : validateOperationalCompletionReview;
+    const reviewErrors = validator({ fields, model: reviewModel, form: reviewForm });
+    if (reviewErrors.length) {
+      setCompletionError(reviewErrors.join(" · "));
+      return;
+    }
+
+    if (readyForInvoicing && !timesheetsLoaded) {
+      setCompletionError("Timesheet checks are still loading. Please try again in a moment.");
+      return;
+    }
+
+    const details = buildCompletionReviewPatch({
+      job,
+      fields,
+      model: reviewModel,
+      form: reviewForm,
+      completedAt: new Date().toISOString(),
+    });
+    if (readyForInvoicing) {
+      const linkedTimesheets = timesheets.filter((timesheet) => timesheetLinksToJob(timesheet, job.id));
+      const readiness = buildFinanceReadiness({
+        job: { ...job, ...details },
+        timesheets: linkedTimesheets,
+        acceptedQuoteNumber: resolveAcceptedQuoteNumber(job),
+        readyForInvoicing: true,
+        hasPurchaseOrder: Boolean(details.po),
+      });
+      if (readiness.blockers.length) {
+        setCompletionError(`Cannot send to Finance yet: ${readiness.blockers.map((check) => check.label).join(" · ")}`);
+        return;
+      }
+    }
 
     if (file && file.type && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       setCompletionError("Please attach a PDF file.");
@@ -555,13 +704,6 @@ export default function ReviewQueuePage() {
     setCompletionProgress(0);
 
     try {
-      const details = {
-        generalNotes: fields.generalNotes,
-        po: fields.po.trim(),
-        invoiceContactName: fields.invoiceContactName.trim(),
-        invoiceContactEmail: fields.invoiceContactEmail.trim(),
-        invoiceContactPhone: fields.invoiceContactPhone.trim(),
-      };
       let attachment = null;
       if (file) attachment = await uploadCompletionPdf(job, file);
 
@@ -573,18 +715,21 @@ export default function ReviewQueuePage() {
       );
       const localPatch = {
         ...details,
+        readyToInvoice: readyForInvoicing,
         ...(attachmentPatch.changed
           ? { attachments: attachmentPatch.attachments, pdfUrl: attachmentPatch.pdfUrl }
           : {}),
       };
       const serverPatch = {
         ...details,
+        readyToInvoice: readyForInvoicing,
         ...(attachmentPatch.changed
           ? { attachments: attachmentPatch.attachments, pdfUrl: attachmentPatch.pdfUrl }
           : {}),
       };
 
-      const saved = await setQuickStatus(job, "Complete", { localPatch, serverPatch });
+      const destinationStatus = readyForInvoicing ? COMPLETION_REVIEW_DESTINATION_STATUS : "Complete";
+      const saved = await setQuickStatus(job, destinationStatus, { localPatch, serverPatch });
       if (saved !== false) setCompletionJobId("");
     } catch (error) {
       console.error("Failed to complete job review:", error);
@@ -654,7 +799,7 @@ export default function ReviewQueuePage() {
           </thead>
           <tbody>
             {jobs.map((j) => {
-              const pretty = prettifyStatus(j.status);
+              const pretty = reviewQueueStatus(j.status);
               const notesState = getCheckBadgeState(String(j?.generalNotes || "").trim().length > 0);
               const poState = getCheckBadgeState(String(j?.po || "").trim().length > 0);
               const quoteState = getCheckBadgeState(
@@ -690,25 +835,35 @@ export default function ReviewQueuePage() {
                             : option === "Ready for invoicing"
                             ? "Ready to Invoice"
                             : "Action Required";
-                        const currentStatus = prettifyStatus(j.status);
+                        const currentStatus = reviewQueueStatus(j.status);
                         const isActive = currentStatus === nextStatus;
 
                         return (
                           <button
                             key={option}
                             type="button"
+                            aria-pressed={isActive}
                             onClick={() =>
                               nextStatus === "Complete"
                                 ? openCompletionDialog(j)
-                                : setQuickStatus(j, nextStatus)
+                                : nextStatus === "Ready to Invoice"
+                                  ? markReadyForInvoicing(j)
+                                  : setQuickStatus(j, nextStatus)
                             }
                             disabled={savingJobId === j.id}
                             style={{
-                              ...btn(isActive ? "primary" : "ghost"),
+                              ...btn("ghost"),
+                              ...(isActive
+                                ? {
+                                    background: "var(--color-surface-raised)",
+                                    border: "1px solid var(--color-border-strong)",
+                                    color: "var(--color-text)",
+                                  }
+                                : {}),
                               minHeight: 24,
                               padding: "3px 7px",
                               fontSize: 11,
-                              boxShadow: "none",
+                              boxShadow: isActive ? "inset 0 0 0 1px var(--color-border)" : "none",
                               opacity: savingJobId === j.id ? 0.6 : 1,
                             }}
                           >
@@ -812,6 +967,7 @@ export default function ReviewQueuePage() {
         )}
         <CompletionReviewDialog
           job={completionJob}
+          vehicleLookup={vehicleLookup}
           open={Boolean(completionJob)}
           saving={completionSaving}
           uploadProgress={completionProgress}

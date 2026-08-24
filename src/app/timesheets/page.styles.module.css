@@ -110,3 +110,7 @@
   align-items: center;
   gap: 6px;
 }
+
+:global(:root[data-color-mode="dark"]) .darkCanvasSurface {
+  background: var(--color-canvas) !important;
+}

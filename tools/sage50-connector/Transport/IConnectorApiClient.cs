@@ -28,4 +28,28 @@ public interface IConnectorApiClient
         bool retryable,
         string machineCredential,
         CancellationToken cancellationToken);
+    Task<InvoiceExportClaimResponse> ClaimInvoiceExportAsync(
+        string machineCredential,
+        CancellationToken cancellationToken);
+    Task StartInvoiceExportAsync(
+        string queueJobId,
+        string leaseToken,
+        string machineCredential,
+        CancellationToken cancellationToken);
+    Task CompleteInvoiceExportAsync(
+        string queueJobId,
+        string leaseToken,
+        string sageInvoiceId,
+        string invoiceNumber,
+        DateOnly postedDate,
+        string machineCredential,
+        CancellationToken cancellationToken);
+    Task FailInvoiceExportAsync(
+        string queueJobId,
+        string leaseToken,
+        string code,
+        string message,
+        bool retryable,
+        string machineCredential,
+        CancellationToken cancellationToken);
 }

@@ -2,7 +2,7 @@ import test, { after, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
-import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 
 const projectId = "demo-bickers-service-access-rules";
 let env;
@@ -27,9 +27,15 @@ async function seed() {
       setDoc(doc(db, "users", "finance-a"), { uid: "finance-a", isEnabled: true, companyId: "company-a", role: "user", financeAccess: true, appAccess: { user: true, service: false } }),
       setDoc(doc(db, "users", "service-b"), { uid: "service-b", isEnabled: true, companyId: "company-b", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "platform"), { uid: "platform", isEnabled: true, role: "platformAdmin", appAccess: { user: true, service: true } }),
+      setDoc(doc(db, "employees", "employee-a"), { companyId: "company-a", authUid: "user-a", financeAccess: false, name: "Employee A" }),
       setDoc(doc(db, "bookings", "booking-a"), { companyId: "company-a", title: "A" }),
       setDoc(doc(db, "bookings", "booking-b"), { companyId: "company-b", title: "B" }),
       setDoc(doc(db, "contacts", "contact-a"), { companyId: "company-a", name: "A" }),
+      setDoc(doc(db, "contacts", "contact-basic"), { companyId: "company-a", name: "Basic" }),
+      setDoc(doc(db, "contacts", "contact-legacy-finance"), { companyId: "company-a", name: "Legacy", financeProfile: { defaultPaymentTerms: 30 } }),
+      setDoc(doc(db, "invoiceQueue", "invoice-a"), { companyId: "company-a", status: "draft" }),
+      setDoc(doc(db, "invoiceQueue", "invoice-b"), { companyId: "company-b", status: "draft" }),
+      setDoc(doc(db, "contactFinanceProfiles", "contact-a"), { companyId: "company-a", sageCustomerId: "SAGE-A" }),
       setDoc(doc(db, "maintenance", "maintenance-a"), { companyId: "company-a", title: "A" }),
       setDoc(doc(db, "maintenanceBookings", "maintenance-booking-a"), {
         companyId: "company-a",
@@ -162,6 +168,38 @@ test("receipt records are private to the submitter and available to company fina
   await assertFails(updateDoc(doc(financeDb, "receipts", "receipt-a"), { status: "checked" }));
   await assertSucceeds(updateDoc(doc(userDb, "receipts", "receipt-a"), { purpose: "Corrected fuel", valuePence: 1300, suggestedVatPence: 217 }));
   await assertFails(updateDoc(doc(userDb, "receiptGroups", "group-a"), { status: "submitted" }));
+});
+
+test("invoice records are private to same-company finance and customer finance profiles are server-only", async () => {
+  await seed();
+  await assertFails(getDoc(doc(env.authenticatedContext("user-a").firestore(), "invoiceQueue", "invoice-a")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("finance-a").firestore(), "invoiceQueue", "invoice-a")));
+  await assertFails(getDoc(doc(env.authenticatedContext("finance-a").firestore(), "invoiceQueue", "invoice-b")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "invoiceQueue", "invoice-a")));
+  await assertFails(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "invoiceQueue", "invoice-b")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("platform").firestore(), "invoiceQueue", "invoice-b")));
+  for (const uid of ["user-a", "finance-a", "admin-a", "platform"]) {
+    const db = env.authenticatedContext(uid).firestore();
+    await assertFails(getDoc(doc(db, "contactFinanceProfiles", "contact-a")));
+    await assertFails(updateDoc(doc(db, "invoiceQueue", "invoice-a"), { status: "approved" }));
+  }
+});
+
+test("ordinary staff can delete basic contacts but not contacts with finance data", async () => {
+  await seed();
+  const ordinaryDb = env.authenticatedContext("user-a").firestore();
+  await assertSucceeds(deleteDoc(doc(ordinaryDb, "contacts", "contact-basic")));
+  await assertFails(deleteDoc(doc(ordinaryDb, "contacts", "contact-a")));
+  await assertFails(deleteDoc(doc(ordinaryDb, "contacts", "contact-legacy-finance")));
+  await assertSucceeds(deleteDoc(doc(env.authenticatedContext("finance-a").firestore(), "contacts", "contact-a")));
+});
+
+test("finance grants cannot be changed by direct browser writes", async () => {
+  await seed();
+  const adminDb = env.authenticatedContext("admin-a").firestore();
+  await assertFails(updateDoc(doc(adminDb, "users", "user-a"), { financeAccess: true }));
+  await assertFails(updateDoc(doc(adminDb, "employees", "employee-a"), { financeAccess: true }));
+  await assertSucceeds(updateDoc(doc(adminDb, "employees", "employee-a"), { name: "Employee A Updated" }));
 });
 
 test("browser clients cannot manufacture or transition legal maintenance records", async () => {

@@ -215,7 +215,7 @@ const btn = (kind = "primary") => {
   return {
     ...base,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    background: "var(--button-primary-background)",
     color: "var(--color-white)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
   };
@@ -406,6 +406,7 @@ export default function EditEmployeePage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
+  const [financeAccessBusy, setFinanceAccessBusy] = useState(false);
   const [passportFile, setPassportFile] = useState(null);
   const [drivingLicenceFile, setDrivingLicenceFile] = useState(null);
   const [documentFiles, setDocumentFiles] = useState({});
@@ -437,6 +438,7 @@ export default function EditEmployeePage() {
     isService: false,
     appAccess: { user: true, service: false },
     defaultWorkspace: "user",
+    financeAccess: false,
     payrollRates: EMPTY_PAYROLL_RATES,
     employeeCode: "",
     userCode: "",
@@ -673,6 +675,7 @@ export default function EditEmployeePage() {
           isService: data.isService === true,
           appAccess: loadedAccess,
           defaultWorkspace: resolveDefaultWorkspace(data, loadedAccess),
+          financeAccess: data.financeAccess === true,
           employeeCode: asStr(data.employeeCode || data.userCode || data.code || ""),
           userCode: asStr(data.userCode || data.employeeCode || data.code || ""),
           code: asStr(data.code || data.userCode || data.employeeCode || ""),
@@ -985,6 +988,35 @@ export default function EditEmployeePage() {
       ...prev,
       defaultWorkspace: nextWorkspace,
     }));
+  };
+
+  const handleFinanceAccessToggle = async () => {
+    const linkedUserId = String(formData.authUid || formData.uid || "").trim();
+    if (!linkedUserId || financeAccessBusy) {
+      setSaveError("Link this employee to a user account before granting finance access.");
+      return;
+    }
+    setFinanceAccessBusy(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Sign in again before changing finance access.");
+      const nextFinanceAccess = formData.financeAccess !== true;
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(linkedUserId)}/finance-access`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ financeAccess: nextFinanceAccess, employeeId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Finance access could not be updated.");
+      setFormData((current) => ({ ...current, financeAccess: body.financeAccess === true }));
+      setSaveMessage(body.financeAccess ? "Finance access granted." : "Finance access revoked.");
+    } catch (error) {
+      setSaveError(error?.message || "Finance access could not be updated.");
+    } finally {
+      setFinanceAccessBusy(false);
+    }
   };
 
   const handlePayrollRateChange = (field, value) => {
@@ -1322,7 +1354,9 @@ export default function EditEmployeePage() {
         updatedBy,
       };
       const operationalRecord = withoutPrivateEmployeeFields({
-        ...formData,
+        ...Object.fromEntries(
+          Object.entries(formData).filter(([field]) => field !== "financeAccess")
+        ),
         ...employeeAccessPatch,
         name: employeeName,
         fullName: employeeName,
@@ -2684,6 +2718,21 @@ export default function EditEmployeePage() {
                     >
                       <span>Service app access</span>
                       <span>{formData.appAccess.service ? "On" : "Off"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleFinanceAccessToggle}
+                      disabled={financeAccessBusy || !(formData.authUid || formData.uid)}
+                      style={{
+                        ...btn(formData.financeAccess ? "primary" : "ghost"),
+                        justifyContent: "space-between",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>Finance access</span>
+                      <span>{financeAccessBusy ? "Saving…" : formData.financeAccess ? "On" : "Off"}</span>
                     </button>
                   </div>
 

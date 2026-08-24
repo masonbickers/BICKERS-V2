@@ -21,13 +21,23 @@ public sealed class ConnectorOptions
     [Range(5, 300)]
     public int LookupPollIntervalSeconds { get; init; } = 10;
 
+    [Range(5, 300)]
+    public int InvoicePollIntervalSeconds { get; init; } = 15;
+
+    [Range(5, 120)]
+    public int ApiRequestTimeoutSeconds { get; init; } = 30;
+
     [Required]
     public string SageAdapter { get; init; } = "auto";
+    public string SageWriteAdapter { get; init; } = "auto";
+    public bool EnableInvoicePosting { get; init; } = false;
+    public string ExpectedSageCompanyIdentifier { get; init; } = "";
 
     public string AdapterDirectory { get; init; } = "adapters";
     public string CredentialFilePath { get; init; } = "";
     public string[] SdoSearchPaths { get; init; } = [];
     public string[] SdoFilePatterns { get; init; } = [];
+    public string[] TrustedAdapterSha256 { get; init; } = [];
 
     public Uri ApiBaseUri()
     {

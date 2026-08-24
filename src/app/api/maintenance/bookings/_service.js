@@ -268,7 +268,9 @@ const createMutation = async ({ payload, actor, companyId }) => {
     legalDueWeeks: dueWeek ? [dueWeek] : [],
     bookingDates: dates,
   });
-  if (scheduleRule.blocked) throw new Error("MOT appointments must be on or before the legal expiry date.");
+  if (scheduleRule.requiresAcknowledgement && payload.motExpiryAcknowledged !== true) {
+    throw new Error("Acknowledge that the MOT will be expired on the appointment date before booking.");
+  }
   if (scheduleRule.requiresExceptionReason && !text(payload.scheduleExceptionReason)) {
     throw new Error("A reason is required when moving an inspection outside the legal ISO week.");
   }
@@ -293,6 +295,10 @@ const createMutation = async ({ payload, actor, companyId }) => {
     sourceDueDateISO: dueDate, sourceDueIsoWeek: dueWeek, sourceDueKey: text(payload.sourceDueKey),
     requirementKey: text(existing?.requirementKey || payload.sourceDueKey),
     scheduleExceptionReason: text(payload.scheduleExceptionReason),
+    motExpiryAcknowledged: scheduleRule.requiresAcknowledgement,
+    motExpiryAcknowledgedAt: scheduleRule.requiresAcknowledgement ? timestamp : "",
+    motExpiryAcknowledgedBy: scheduleRule.requiresAcknowledgement ? actor.email : "",
+    motExpiryAcknowledgedByUid: scheduleRule.requiresAcknowledgement ? actor.uid : "",
     createdAt: existing?.createdAt || timestamp,
     createdBy: existing?.createdBy || actor.email,
     createdByUid: existing?.createdByUid || actor.uid,
@@ -304,6 +310,7 @@ const createMutation = async ({ payload, actor, companyId }) => {
       `Status: ${titleStatus(status)}`,
       arrangedNow ? `Workshop date: ${dates.join(", ")}` : "",
       dueDate ? `Legal due date: ${dueDate}` : "",
+      scheduleRule.requiresAcknowledgement ? "Expired MOT appointment acknowledged" : "",
     ], timestamp)],
   }, id);
   const writes = [{
@@ -337,7 +344,9 @@ const rescheduleMutation = async ({ payload, actor, companyId }) => {
     bookingDates: dates,
   });
   const reason = text(payload.reason);
-  if (scheduleRule.blocked) throw new Error("MOT appointments must be on or before the legal expiry date.");
+  if (scheduleRule.requiresAcknowledgement && payload.motExpiryAcknowledged !== true) {
+    throw new Error("Acknowledge that the MOT will be expired on the appointment date before booking.");
+  }
   if (scheduleRule.requiresExceptionReason && !reason) throw new Error("A reason is required when moving an inspection outside the legal ISO week.");
   const timestamp = nowISO();
   const patch = {
@@ -346,11 +355,16 @@ const rescheduleMutation = async ({ payload, actor, companyId }) => {
       ? { workshop: { ...booking.workshop, bookedDate: dates[0], plannedDate: dates[0] } }
       : {}),
     scheduleExceptionReason: scheduleRule.requiresExceptionReason ? reason : "",
+    motExpiryAcknowledged: scheduleRule.requiresAcknowledgement,
+    motExpiryAcknowledgedAt: scheduleRule.requiresAcknowledgement ? timestamp : "",
+    motExpiryAcknowledgedBy: scheduleRule.requiresAcknowledgement ? actor.email : "",
+    motExpiryAcknowledgedByUid: scheduleRule.requiresAcknowledgement ? actor.uid : "",
     scheduleManuallyAdjusted: true,
     lastEditedBy: actor.email, lastEditedByUid: actor.uid, updatedAt: timestamp,
     history: [...safeArray(booking.history), historyEntry("Rescheduled", actor, [
       `Booking dates: ${canonical.schedule.bookingDates.join(", ") || "Unknown"} -> ${dates.join(", ")}`,
       reason ? `Reason: ${reason}` : "",
+      scheduleRule.requiresAcknowledgement ? "Expired MOT appointment acknowledged" : "",
     ], timestamp)],
   };
   const vehiclePatch = vehicle

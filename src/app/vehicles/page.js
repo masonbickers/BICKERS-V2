@@ -88,7 +88,7 @@ const btn = (kind = "primary") => {
     padding: "5px 8px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    background: "var(--button-primary-background)",
     color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
@@ -1123,7 +1123,7 @@ export default function VehicleMaintenancePage() {
                           </td>
                         </tr>
                       ) : list.map((v, i) => {
-                        const zebra = i % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
+                        const zebra = i % 2 === 0 ? "var(--color-surface)" : "var(--table-alternate-bg)";
                         const retentionPlate = isRetentionPlateRecord(v);
                         const outOfUse = isVehicleOutOfUse(v);
                         const reg = v.registration || v.reg || "-";

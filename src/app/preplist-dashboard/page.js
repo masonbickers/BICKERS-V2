@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 const PREP_STORAGE_KEY = "preplist:vehicle-checks:v2";
 const PREP_MANUAL_STORAGE_KEY = "preplist:manual-entries:v1";
@@ -250,7 +251,7 @@ export default function PrepListDashboardPage() {
         if (!active) return;
         setBookings(bSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setVehicles(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setEmployees(eSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setEmployees(eSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(isCurrentEmployeeRecord));
       } catch (error) {
         console.error("Failed loading prep dashboard data:", error);
       } finally {

@@ -535,6 +535,9 @@
 }
 
 /* Compact edit workspace: keep the primary booking controls above the fold. */
+.pageShell { display: flex; flex-direction: column; }
+.workspaceMain { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.workspaceForm { display: flex; min-height: 0; flex: 1; flex-direction: column; }
 .compactPageHeader {
   align-items: center;
   margin-bottom: 7px;
@@ -637,6 +640,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+:global(:root[data-color-mode="dark"]) .primaryAction:disabled {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface-raised) !important;
+  color: var(--color-text-muted) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
 }
 
 .contactSummary {
@@ -850,7 +861,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 12px -4px -32px;
+  margin: auto -4px -32px;
   padding: 9px 12px;
   border: 1px solid var(--color-border);
   border-bottom: 0;

@@ -6,6 +6,14 @@ export const SEMANTIC_STATUS_STYLES = Object.freeze({
   grey: { bg: "var(--status-grey)", text: "var(--status-grey-text)", border: "var(--status-grey-border)" },
 });
 
+export const SEMANTIC_STATUS_SURFACE_STYLES = Object.freeze({
+  red: { bg: "var(--color-danger-surface)", text: "var(--color-text)", border: "var(--color-danger)" },
+  orange: { bg: "var(--color-warning-surface)", text: "var(--color-text)", border: "var(--color-warning)" },
+  green: { bg: "var(--color-success-surface)", text: "var(--color-text)", border: "var(--color-success)" },
+  blue: { bg: "var(--color-info-surface)", text: "var(--color-text)", border: "var(--color-info)" },
+  grey: { bg: "var(--color-surface-hover)", text: "var(--color-text)", border: "var(--color-border-strong)" },
+});
+
 export const FIXED_JOB_STATUS_STYLES = Object.freeze({
   Confirmed: { bg: "var(--job-status-confirmed)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" },
   "First Pencil": { bg: "var(--job-status-first-pencil)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" },
@@ -28,6 +36,19 @@ export const FIXED_JOB_STATUS_STYLES = Object.freeze({
   Enquiry: { bg: "var(--job-status-enquiry)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" },
 });
 
+export const FIXED_JOB_STATUS_SURFACE_STYLES = Object.freeze(
+  Object.fromEntries(
+    Object.entries(FIXED_JOB_STATUS_STYLES).map(([status, style]) => [
+      status,
+      Object.freeze({
+        bg: style.bg.replace(")", "-surface)"),
+        text: `var(--job-status-large-text, ${style.text})`,
+        border: style.bg,
+      }),
+    ])
+  )
+);
+
 const STATUS_ALIASES = Object.freeze({ completed: "Complete", canceled: "Cancelled" });
 
 export function normalizeJobStatus(value = "") {
@@ -40,6 +61,10 @@ export function normalizeJobStatus(value = "") {
 
 export function getFixedJobStatusStyle(value = "") {
   return FIXED_JOB_STATUS_STYLES[normalizeJobStatus(value)] || getSemanticStatusStyle(value);
+}
+
+export function getFixedJobStatusSurfaceStyle(value = "") {
+  return FIXED_JOB_STATUS_SURFACE_STYLES[normalizeJobStatus(value)] || getSemanticStatusSurfaceStyle(value);
 }
 
 const EXACT_STATUS_TONES = Object.freeze({
@@ -118,4 +143,8 @@ export function getSemanticStatusTone(value = "") {
 
 export function getSemanticStatusStyle(value = "") {
   return SEMANTIC_STATUS_STYLES[getSemanticStatusTone(value)];
+}
+
+export function getSemanticStatusSurfaceStyle(value = "") {
+  return SEMANTIC_STATUS_SURFACE_STYLES[getSemanticStatusTone(value)];
 }

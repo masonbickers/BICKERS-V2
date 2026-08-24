@@ -30,6 +30,8 @@ public sealed record SageCapabilityReport(
     string? SdoVersion,
     string? CompanyName,
     string? CompanyIdentifier,
+    string? AdapterName,
+    IReadOnlyList<string> Capabilities,
     string? ErrorCode,
     string? ErrorMessage);
 

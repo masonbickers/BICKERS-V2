@@ -75,6 +75,17 @@ test("receipt evidence is writable by its owner and readable by company finance"
   await assertFails(getBytes(ref(env.authenticatedContext("service-b").storage(), path)));
 });
 
+test("issued invoice PDFs are server-only even for finance and administrators", async () => {
+  await seedUsers();
+  const path = "companies/company-a/issued-invoices/invoice-a/invoice.pdf";
+  await env.withSecurityRulesDisabled(async (context) => {
+    await uploadBytes(ref(context.storage(), path), pdf, { contentType: "application/pdf" });
+  });
+  for (const uid of ["user-a", "finance-a", "admin-a", "platform"]) {
+    await assertFails(getBytes(ref(env.authenticatedContext(uid).storage(), path)));
+  }
+});
+
 test("platform admins can upload their own receipt images for a company", async () => {
   await seedUsers();
   const path = "companies/bickers-action/receipts/platform/receipt-1/receipt.png";

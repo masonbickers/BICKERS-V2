@@ -2,6 +2,7 @@
 
 import { getDocs } from "firebase/firestore";
 import { tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 const CACHE_KEY = "booking-form-reference-data:v1";
 const CONTACTS_CACHE_KEY = "booking-form-saved-contacts:v2";
@@ -86,13 +87,8 @@ const sortVehicleGroupEntries = (groups) =>
 const buildReferenceData = ({ empSnap, vehicleSnap, equipSnap }) => {
   const allEmployees = empSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter(
-      (emp) =>
-        emp.archived !== true &&
-        emp.isArchived !== true &&
-        emp.active !== false &&
-        emp.appDisabled !== true
-    );
+    .filter(isCurrentEmployeeRecord)
+    .filter((employee) => employee.appDisabled !== true);
 
   const employeeList = allEmployees
     .filter((emp) => {

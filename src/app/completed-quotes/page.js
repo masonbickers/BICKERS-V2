@@ -19,8 +19,6 @@ const UI = UI_TOKENS;
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const toolbar = {
-  ...surface,
-  padding: 12,
   display: "grid",
   gridTemplateColumns: "minmax(250px, 1.15fr) minmax(170px, 1fr) 140px 132px 132px auto auto",
   gap: 8,

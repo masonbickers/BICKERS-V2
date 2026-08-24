@@ -38,6 +38,9 @@ test("heartbeat matches the existing authenticated connector API", () => {
     "sdoVersion",
     "sageCompanyName",
     "sageCompanyIdentifier",
+    "adapterName",
+    "writeAdapterName",
+    "capabilities",
     "lastErrorCode",
     "lastErrorMessage",
   ]) {
@@ -60,22 +63,37 @@ test("version gate is configurable and adapters are strictly read-only", () => {
   assert.doesNotMatch(projectSources, /GetTypeFromProgID|Sage\.\d+|SDOEngine\.\d+/);
 });
 
-test("host does not poll invoice export jobs or expose Sage write operations", () => {
-  const files = [
-    read("Program.cs"),
-    read("Hosting/ConnectorWorker.cs"),
-    read("Transport/ConnectorApiClient.cs"),
-    read("Sage/ISage50ReadOnlyAdapter.cs"),
-  ].join("\n");
-  assert.doesNotMatch(files, /export-jobs|create_sales_invoice/);
-  assert.doesNotMatch(files, /CreateInvoice|UpdateInvoice|DeleteInvoice|PostInvoice/);
+test("invoice posting is isolated behind a separate adapter and local kill switch", () => {
+  const readOnly = read("Sage/ISage50ReadOnlyAdapter.cs");
+  const writeContract = read("Sage/ISage50InvoiceWriteAdapter.cs");
+  const writeWorker = read("Hosting/InvoiceExportWorker.cs");
+  const settings = read("appsettings.json");
+  assert.doesNotMatch(readOnly, /CreateServiceInvoiceAsync|invoice_write/);
+  assert.match(writeContract, /CapabilityMode/);
+  assert.match(writeContract, /FindExistingServiceInvoiceAsync/);
+  assert.match(writeContract, /CreateServiceInvoiceAsync/);
+  assert.match(writeContract, /ExpectedSageCompanyIdentifier/);
+  assert.match(writeWorker, /EnableInvoicePosting/);
+  assert.match(writeWorker, /ContractVersion != 2/);
+  assert.match(writeWorker, /FindExistingServiceInvoiceAsync[\s\S]*CreateServiceInvoiceAsync/);
+  assert.match(settings, /"EnableInvoicePosting": false/);
+});
+
+test("adapter assemblies require an explicit SHA-256 trust allowlist", () => {
+  const loader = read("Sage/TrustedAdapterLoader.cs");
+  assert.match(loader, /SHA256\.HashData/);
+  assert.match(loader, /TrustedAdapterSha256/);
+  assert.match(loader, /Rejected untrusted Sage adapter assembly/);
 });
 
 test("worker uses cancellation and bounded backoff", () => {
   const worker = read("Hosting/ConnectorWorker.cs");
+  const program = read("Program.cs");
   assert.match(worker, /BackgroundService/);
   assert.match(worker, /stoppingToken/);
   assert.match(worker, /TimeSpan\.FromSeconds\(5\)/);
   assert.match(worker, /TimeSpan\.FromSeconds\(60\)/);
   assert.match(worker, /Task\.Delay\(retry, stoppingToken\)/);
+  assert.match(program, /ApiRequestTimeoutSeconds/);
+  assert.match(program, /client\.Timeout/);
 });

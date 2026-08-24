@@ -4,7 +4,7 @@ This is a .NET 8 Windows Worker Service. It runs on the trusted Windows machine
 that hosts, or can access, Sage 50 Accounts UK and the licensed Sage Data
 Objects installation.
 
-Its current responsibilities are deliberately read-only:
+Its default responsibilities are deliberately read-only:
 
 - protect the registered machine credential with Windows DPAPI;
 - authenticate to the existing connector heartbeat API;
@@ -16,15 +16,18 @@ Its current responsibilities are deliberately read-only:
 - send bounded health metadata;
 - run as either a Windows Service or an interactive console process.
 
-It does **not** call the invoice export-job claim endpoint and contains no
-create, update or delete operation for Sage records.
+An isolated invoice worker can additionally create service invoices through a
+separate `ISage50InvoiceWriteAdapter`. It runs only when local
+`EnableInvoicePosting` is true and the server-side connector has separately
+enabled posting. It never creates customers, credits, payments or allocations.
 
 ## Version adapter gate
 
 No Sage COM ProgID, SDO DLL version or login signature is hard-coded. The
 installed Sage and SDO versions must be detected before an adapter is selected.
 Version-specific adapter assemblies live in the configured `AdapterDirectory`
-and implement `ISage50ReadOnlyAdapter`.
+and implement `ISage50ReadOnlyAdapter` and, separately where approved,
+`ISage50InvoiceWriteAdapter`.
 
 An adapter is accepted only when:
 
@@ -38,9 +41,10 @@ If no compatible adapter is installed, the connector reports
 exact installed Sage 50 and SDO releases and build/approve the corresponding
 adapter instead of guessing a COM ProgID.
 
-Adapter assemblies must be administrator-controlled deployment artifacts.
-They must not expose invoice posting or any other write capability in this
-read-only host.
+Every adapter assembly must be an administrator-controlled deployment artifact
+whose SHA-256 digest is listed in `TrustedAdapterSha256`. The read-only adapter
+must not expose write methods. The write adapter is restricted to finding and
+creating service invoices for existing active Sage accounts.
 
 If the confirmed SDO adapter requires Sage credentials, that adapter must use
 Windows-protected secret storage and must never place them in `appsettings.json`
@@ -57,11 +61,18 @@ Edit `appsettings.json` on the Windows connector machine:
     "ConnectorId": "s50-registered-connector-id",
     "CompanyDataPath": "\\\\sage-server\\company-data",
     "HeartbeatIntervalSeconds": 60,
+    "LookupPollIntervalSeconds": 10,
+    "InvoicePollIntervalSeconds": 15,
+    "ApiRequestTimeoutSeconds": 30,
     "SageAdapter": "auto",
+    "SageWriteAdapter": "auto",
+    "EnableInvoicePosting": false,
+    "ExpectedSageCompanyIdentifier": "APPROVED-COMPANY-ID",
     "AdapterDirectory": "adapters",
     "CredentialFilePath": "",
     "SdoSearchPaths": [],
-    "SdoFilePatterns": []
+    "SdoFilePatterns": [],
+    "TrustedAdapterSha256": ["UPPERCASE-SHA256-WITHOUT-SEPARATORS"]
   }
 }
 ```
@@ -71,10 +82,13 @@ installed SDO component is not registered in Windows Programs and Features.
 The defaults do not assume a DLL name.
 
 The machine credential is never placed in `appsettings.json`.
+Keep `EnableInvoicePosting` false until read-only lookup succeeds, the company
+binding is confirmed, and a test-company service invoice has been reconciled.
 
 ## Build and publish
 
-On a machine with the .NET 8 SDK:
+On a machine with the .NET 8 SDK, use the runtime matching the captured Sage/SDO
+architecture (`win-x64` shown):
 
 ```powershell
 dotnet restore
@@ -109,5 +123,21 @@ configured heartbeat interval. There is no tight polling loop.
 
 Customer lookup polling uses the separately configured
 `LookupPollIntervalSeconds` and only the
-`/api/integrations/sage50/customer-lookups` routes. It never reads or claims an
-invoice export job.
+`/api/integrations/sage50/customer-lookups` routes.
+
+Invoice polling uses `InvoicePollIntervalSeconds` and the authenticated
+`/api/integrations/sage50/export-jobs` claim/callback routes. It validates
+contract v2 and totals, checks for an existing invoice using both the immutable
+idempotency key and draft reference, and only then requests service-invoice
+creation. If Sage succeeds but the callback fails, the lease expires and the
+next attempt resolves the existing Sage invoice instead of creating a duplicate.
+
+## Commissioning gate
+
+This repository deliberately does not include Sage's licensed v34 SDK/SDO
+implementation. Before deployment, capture the exact Sage and SDO builds and
+architectures on the Windows host, implement both adapter interfaces against
+that exact build, test against a backed-up Sage test-company copy, record each
+adapter SHA-256, and compile/publish on a Windows machine with .NET 8.
+Follow `docs/sage-50-v34-commissioning.md` and use
+`collect-diagnostics.ps1` for the redacted host evidence capture.

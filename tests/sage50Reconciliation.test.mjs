@@ -25,11 +25,12 @@ const invoice = {
   }],
   totals: { net: 1000, tax: 200, gross: 1200 },
   sageSync: { status: "pending", sageCustomerId: "BADBIRD" },
+  internalFinanceNotes: "Internal approval context only",
   audit: [],
 };
 
 const job = {
-  contractVersion: 1,
+  contractVersion: 2,
   product: "sage_50_accounts_uk",
   jobId: "invoice:company-1:booking-1:DRAFT-9164-booking-1",
   invoiceId: "booking-1",
@@ -41,7 +42,7 @@ const job = {
     totals: { net: 1000, tax: 200, gross: 1200 },
   },
   result: {
-    contractVersion: 1,
+    contractVersion: 2,
     product: "sage_50_accounts_uk",
     jobId: "invoice:company-1:booking-1:DRAFT-9164-booking-1",
     outcome: "succeeded",
@@ -72,6 +73,9 @@ test("reconciles a successful Sage result through the protected issue transition
   assert.equal(result.invoice.issuedSnapshot.invoiceNumber, "SI-1001");
   assert.equal(result.invoice.issuedSnapshot.jobNumber, "9164");
   assert.equal(result.invoice.issuedSnapshot.companyId, "company-1");
+  assert.equal(result.invoice.internalFinanceNotes, "Internal approval context only");
+  assert.equal("internalFinanceNotes" in result.invoice.issuedSnapshot, false);
+  assert.doesNotMatch(JSON.stringify(result.invoice.issuedSnapshot), /Internal approval context only/);
   assert.equal(result.invoice.audit.at(-1).action, "sage50_export_reconciled");
   assert.equal(result.booking.financeState, "invoiced");
   assert.equal(result.job.invoiceReconciled, true);

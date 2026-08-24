@@ -76,6 +76,22 @@ test("protected draft save strips attempted authoritative lifecycle changes", ()
   assert.equal(saved.audit.at(-1).action, "draft_created");
 });
 
+test("protected draft save persists internal finance notes without changing the public note", () => {
+  const draft = createDraft();
+  const saved = buildProtectedDraftSave({
+    incoming: {
+      ...draft,
+      notes: "Thank you for your business.",
+      internalFinanceNotes: "Check the agreed mileage before approval.",
+    },
+    booking,
+    actor: "finance@example.com",
+    now: "2026-07-24T09:05:00.000Z",
+  });
+  assert.equal(saved.notes, "Thank you for your business.");
+  assert.equal(saved.internalFinanceNotes, "Check the agreed mileage before approval.");
+});
+
 test("approval runs through the canonical transition and writes actor audit", () => {
   const approved = applyProtectedInvoiceAction({
     invoice: createDraft(),
@@ -86,6 +102,22 @@ test("approval runs through the canonical transition and writes actor audit", ()
   assert.equal(approved.status, INVOICE_STATUSES.APPROVED);
   assert.equal(approved.approvedAt, "2026-07-24T10:00:00.000Z");
   assert.equal(approved.audit.at(-1).by, "finance@example.com");
+});
+
+test("protected approval enforces a required customer PO policy", () => {
+  const invoice = {
+    ...createDraft(),
+    customer: { ...createDraft().customer, poRequirement: "required" },
+    purchaseOrderNumber: "",
+  };
+  assert.throws(
+    () => applyProtectedInvoiceAction({
+      invoice,
+      action: INVOICE_LIFECYCLE_ACTIONS.APPROVE,
+      actor: "finance@example.com",
+    }),
+    /requires a PO number/i
+  );
 });
 
 test("returning an invoice to draft requires a reason", () => {
@@ -230,7 +262,28 @@ test("invoice workspace contains no direct authoritative Firestore writes", () =
   assert.doesNotMatch(source, /\btransitionInvoice\s*\(/);
 });
 
-test("lifecycle route requires protected authentication", () => {
+test("invoice workspace saves the current draft before preview and approval", () => {
+  const source = readFileSync(
+    new URL("../src/app/invoice/[id]/page.js", import.meta.url),
+    "utf8"
+  );
+  assert.match(source, /openInvoiceDocument[\s\S]*?await persistInvoice\(currentInvoice/);
+  assert.match(source, /action === "approve"[\s\S]*?await saveDraft\(\)/);
+  assert.match(source, /expectedUpdatedAt: currentInvoice\.updatedAt/);
+});
+
+test("customer-facing invoice surfaces never reference internal finance notes", () => {
+  for (const relativePath of [
+    "../src/app/invoice-view/[id]/page.js",
+    "../src/app/utils/issuedInvoicePdf.js",
+    "../src/app/api/invoices/[id]/delivery/route.js",
+  ]) {
+    const source = readFileSync(new URL(relativePath, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /internalFinanceNotes/);
+  }
+});
+
+test("lifecycle route requires protected finance authentication", () => {
   const source = readFileSync(
     new URL(
       "../src/app/api/invoices/[id]/lifecycle/route.js",
@@ -238,8 +291,7 @@ test("lifecycle route requires protected authentication", () => {
     ),
     "utf8"
   );
-  assert.match(source, /requireActiveUserFromRequest\(req\)/);
-  assert.match(source, /requireAdminFromRequest/);
+  assert.match(source, /requireFinanceFromRequest\(req\)/);
   assert.match(source, /canAccessCompany/);
 });
 
@@ -251,6 +303,8 @@ test("Firestore rules make invoice lifecycle records server-write-only", () => {
   const invoiceRule = source.match(
     /match \/invoiceQueue\/\{docId\} \{([\s\S]*?)\n    \}/
   )?.[1] || "";
-  assert.match(invoiceRule, /allow read: if canReadUserTenantDoc\(\)/);
+  assert.match(invoiceRule, /allow read: if hasUserAccess\(\)/);
+  assert.match(invoiceRule, /&& isFinanceReviewer\(\)/);
+  assert.match(invoiceRule, /&& financeCompanyAllowed\(resource\.data\)/);
   assert.match(invoiceRule, /allow create, update, delete: if false/);
 });

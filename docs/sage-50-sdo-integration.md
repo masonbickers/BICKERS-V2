@@ -20,17 +20,17 @@ access, is the only component permitted to call SDO.
 2. The server creates a versioned connector job from the approved invoice
    snapshot. Tenant identity comes from authenticated server context, never the
    request body.
-3. A future authenticated transport makes the job available to the authorised
-   Windows connector.
+3. The authenticated lease transport makes the job available to the authorised
+   Windows connector only when both posting kill switches are enabled.
 4. The connector validates the contract version, product, tenant assignment and
    idempotency key before any SDO operation.
 5. The connector returns a signed/authenticated result containing either the
    Sage invoice identity and official number or a structured failure.
-6. A future protected server action validates that result before changing the
+6. A protected Finance action validates that result before changing the
    invoice lifecycle or sync metadata.
 
-Steps 3–6 remain architectural boundaries for invoice transport. No job
-transport, SDO invocation or invoice creation is implemented yet.
+The repository implements steps 1–6 around a version-specific adapter boundary.
+It does not contain Sage's licensed v34 SDO adapter or prove a real Sage post.
 
 ## Connector registration and heartbeat
 
@@ -39,7 +39,8 @@ The web application supports one server-managed connector record per tenant:
 - `GET /api/integrations/sage50/connectors` returns an administrator-safe,
   redacted status view.
 - `POST /api/integrations/sage50/connectors` supports `register`,
-  `rotate_credential`, `enable` and `disable`.
+  `rotate_credential`, `enable`, `disable`, `bind_company`,
+  `enable_invoice_posting` and `disable_invoice_posting`.
 - `POST /api/integrations/sage50/connectors/heartbeat` accepts bounded machine
   and Sage installation metadata from the registered connector.
 
@@ -52,7 +53,8 @@ credential.
 
 Connector records are held in the server-only `sage50Connectors` collection.
 Firestore browser reads and writes are denied. Heartbeats cannot change tenant,
-connector identity, enablement, credential data, job state or invoice state.
+connector identity, enablement, posting enablement, credential data, job state
+or invoice state.
 Registration, rotation, enablement changes and meaningful heartbeat state
 changes write administrator audit events.
 
@@ -60,9 +62,9 @@ changes write administrator audit events.
 
 The deployable .NET 8 Windows Worker Service is in
 `tools/sage50-connector/`. It runs as a Windows Service in production and a
-console application for diagnostics. Its current implementation is limited to
-machine authentication, heartbeat scheduling, Sage/SDO discovery and a
-read-only company capability test.
+console application for diagnostics. It provides machine authentication,
+heartbeat scheduling, Sage/SDO discovery, read-only customer lookup and an
+optional service-invoice export worker.
 
 The registered machine credential is stored locally with Windows DPAPI
 `LocalMachine` protection and a restricted file ACL. It is not stored in
@@ -70,13 +72,16 @@ The registered machine credential is stored locally with Windows DPAPI
 
 The exact installed Sage 50 and compatible SDO version remains an enforced
 adapter gate. The host does not hard-code a COM ProgID or SDO DLL. It loads an
-administrator-deployed adapter implementing the read-only connector interface,
-and rejects missing, mismatched or non-read-only adapters. Until a compatible
-version adapter is installed, heartbeat health is safely reported as degraded.
+administrator-deployed adapter implementing the relevant read-only or
+invoice-write interface. Adapter DLLs must match an administrator-configured
+SHA-256 allowlist. Missing, mismatched, untrusted or incorrectly scoped
+adapters are rejected and heartbeat health is safely reported as degraded.
 
-The host does not call the invoice export-job claim endpoint and contains no
-Sage write operation. It may poll the separate customer lookup queue to run
-bounded, read-only account searches through an approved version adapter.
+Invoice polling starts only when local `EnableInvoicePosting` is true. The
+server independently requires the connector record's `invoicePostingEnabled`,
+the expected and reported Sage company identifiers to match, and heartbeat
+capabilities to include `invoice_write`. The write adapter must find an existing
+invoice by idempotency key/reference before attempting service-invoice creation.
 
 ## Export queue and leases
 
@@ -92,8 +97,8 @@ Sage and SDO versions reported.
 - Claims use Firestore document update-time preconditions so concurrent
   connectors cannot both acquire the same job.
 - Claim leases last two minutes. Processing extends the lease to five minutes.
-  Expired claimed or processing jobs can be reclaimed and increment the attempt
-  count.
+Expired claimed or processing jobs can be reclaimed and increment the attempt
+count. Retryable failures use bounded retry delays and stop after three claims.
 - Connector callbacks are `/started`, `/succeeded` and `/failed` below the
   claimed job ID. They require both machine authentication and the active lease.
 - Queue creation uses a deterministic document ID derived from the existing
@@ -124,6 +129,7 @@ Each job contains:
 - Stable job and idempotency keys.
 - Server-derived tenant ID and authenticated actor.
 - Approved invoice identity and source quote.
+- Explicit ISO invoice date derived on the server in the Europe/London timezone.
 - Saved Sage customer reference.
 - Exact nominal and tax code for every line.
 - Recalculated line and invoice totals.
@@ -131,9 +137,9 @@ Each job contains:
 The contract deliberately contains no Sage login credentials, SDO credentials,
 company-data path, OAuth fields or web-session token.
 
-## Security requirements for the future transport
+## Security requirements
 
-- Use mutually authenticated service identity; do not expose a public
+- Use the registered high-entropy machine identity; do not expose an
   unauthenticated polling endpoint.
 - Bind each connector identity to an explicit tenant/company allowlist.
 - Encrypt transport traffic and secrets at rest.
@@ -149,5 +155,6 @@ company-data path, OAuth fields or web-session token.
 - OAuth, client IDs, client secrets, redirect URIs and refresh tokens.
 - Sage Business Cloud Accounting endpoints or business selection.
 - Next.js/Vercel access to COM, ActiveX, SDO or Sage company files.
-- Sage invoice posting logic inside the Windows connector.
-- Real Sage customer, invoice, credit-note, payment or allocation creation.
+- Sage customer creation or automatic remapping.
+- Credit-note, payment, allocation, supplier or payroll creation.
+- Treating repository tests as evidence of a real v34/SDO connection or post.

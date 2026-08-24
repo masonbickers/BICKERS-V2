@@ -25,6 +25,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* ───────────────────────────────────────────
    Mini design system
@@ -239,6 +240,7 @@ export default function Page() {
         const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
+          .filter(isCurrentEmployeeRecord)
           .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
         if (mounted) setEmployees(list);
       } catch (e) {

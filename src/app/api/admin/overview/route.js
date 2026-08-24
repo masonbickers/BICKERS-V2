@@ -29,6 +29,7 @@ const accessUserFromEmployee = (employee = {}) => {
     defaultWorkspace: isService ? "service" : "user",
     companyId: employee.companyId || "bickers-action",
     employeeId: employee.id || employee.employeeId || "",
+    financeAccess: employee.financeAccess === true,
     phoneVerified: employee.phoneVerified === true,
     mfaEnabled: false,
     mfaMethod: "",

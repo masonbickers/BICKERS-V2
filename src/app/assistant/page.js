@@ -438,7 +438,7 @@ export default function AssistantPage() {
                         borderRadius: 18,
                         padding: "12px 14px",
                         border: isUser ? `1px solid ${UI.brand}` : UI.border,
-                        background: isUser ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)" : "var(--color-surface)",
+                        background: isUser ? "var(--button-primary-background)" : "var(--color-surface)",
                         color: isUser ? "var(--color-white)" : UI.text,
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.6,
@@ -514,7 +514,7 @@ export default function AssistantPage() {
                     border: `1px solid ${UI.brand}`,
                     background: loading || !String(input).trim()
                       ? "var(--color-border)"
-                      : "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+                      : "var(--button-primary-background)",
                     color: loading || !String(input).trim() ? "var(--color-text-muted)" : "var(--color-white)",
                     fontWeight: 800,
                     cursor: loading || !String(input).trim() ? "not-allowed" : "pointer",

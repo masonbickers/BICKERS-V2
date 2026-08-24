@@ -238,6 +238,18 @@
 .isoWarning > span { color: var(--color-text-muted); }
 .isoWarning label { display: block; margin: 4px 0 6px; font-weight: 850; }
 
+.isoWarning .expiryAcknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.expiryAcknowledgement input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
 .extracted13 {
   min-width: 0;
 }

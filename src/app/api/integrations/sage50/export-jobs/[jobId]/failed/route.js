@@ -1,6 +1,10 @@
 import {
   validateSage50ConnectorResult,
 } from "../../../../../../utils/sage50ConnectorContract.js";
+import {
+  MAX_EXPORT_JOB_ATTEMPTS,
+  nextExportRetryAt,
+} from "../../../../../../utils/sage50ExportQueue.js";
 import { connectorError } from "../../../connectors/_lib.js";
 import {
   authenticateJobConnector,
@@ -21,14 +25,15 @@ export async function POST(req, context) {
     if (auth.error) return auth.error;
     const body = await req.json().catch(() => ({}));
     if (
-      auth.job.status === "failed" &&
+      ["failed", "retry_wait"].includes(auth.job.status) &&
       auth.job.result?.error?.code === (text(body.error?.code || body.errorCode, 80) || null) &&
       auth.job.result?.error?.message === text(body.error?.message || body.errorMessage)
     ) {
       return Response.json({
         ok: true,
         jobId: auth.job.jobId,
-        status: "failed",
+        status: auth.job.status,
+        nextAttemptAt: auth.job.nextAttemptAt || null,
         invoiceLifecycleChanged: false,
       });
     }
@@ -58,10 +63,13 @@ export async function POST(req, context) {
     };
     const errors = validateSage50ConnectorResult(result);
     if (errors.length) return connectorError(errors.join("\n"), 400);
+    const shouldRetry = result.error.retryable &&
+      Number(auth.job.attemptCount || 0) < MAX_EXPORT_JOB_ATTEMPTS;
     const next = {
       ...auth.job,
-      status: "failed",
-      completedAt: now,
+      status: shouldRetry ? "retry_wait" : "failed",
+      completedAt: shouldRetry ? null : now,
+      nextAttemptAt: shouldRetry ? nextExportRetryAt(auth.job.attemptCount, new Date(now)) : null,
       result,
       leaseTokenHash: null,
       leaseExpiresAt: null,
@@ -75,6 +83,8 @@ export async function POST(req, context) {
       details: {
         errorCode: result.error.code,
         retryable: result.error.retryable,
+        retryScheduled: shouldRetry,
+        nextAttemptAt: next.nextAttemptAt,
         invoiceLifecycleChanged: false,
       },
       now,
@@ -83,6 +93,7 @@ export async function POST(req, context) {
       ok: true,
       jobId: next.jobId,
       status: next.status,
+      nextAttemptAt: next.nextAttemptAt,
       invoiceLifecycleChanged: false,
     });
   } catch (error) {

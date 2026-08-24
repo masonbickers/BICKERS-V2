@@ -6,7 +6,7 @@ import {
   createCustomerLookupLease,
   lookupCanBeClaimed,
 } from "../../../../../utils/sage50CustomerLookup.js";
-import { publicConnectorStatus } from "../../../../../utils/sage50ConnectorIdentity.js";
+import { connectorReadyForReadOnly } from "../../../../../utils/sage50ConnectorIdentity.js";
 import {
   authenticateConnector,
   connectorError,
@@ -24,13 +24,7 @@ export async function POST(req) {
     const auth = await authenticateConnector(req);
     if (auth.error) return auth.error;
     const connector = auth.connector;
-    const status = publicConnectorStatus(connector);
-    if (
-      status.status !== "online" ||
-      !status.connectorVersion ||
-      !status.sageVersion ||
-      !status.sdoVersion
-    ) {
+    if (!connectorReadyForReadOnly(connector)) {
       return connectorError("Connector read-only capability is not ready.", 409);
     }
     const nowDate = new Date();

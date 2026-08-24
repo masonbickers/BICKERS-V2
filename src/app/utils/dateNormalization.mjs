@@ -1,4 +1,10 @@
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const UK_CALENDAR_DATE = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+});
 
 export function normalizeDate(value) {
   if (value == null || value === "") return null;
@@ -33,7 +39,10 @@ export function normalizeDate(value) {
 export function calendarDayNumber(value) {
   const date = normalizeDate(value);
   if (!date) return null;
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+  const parts = Object.fromEntries(
+    UK_CALENDAR_DATE.formatToParts(date).map(({ type, value: partValue }) => [type, partValue])
+  );
+  return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) / 86_400_000;
 }
 
 export function calendarDayDifference(value, from = new Date()) {
