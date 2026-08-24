@@ -17,6 +17,7 @@
     "audit:auth-repair": "node scripts/auth-access-repair-report.mjs",
     "audit:styles": "node scripts/style-audit.mjs",
     "audit:styles:check": "node scripts/style-audit.mjs --check",
+    "audit:dark": "node scripts/migrate-dark-mode-surfaces.mjs --check",
     "audit:maintenance": "node scripts/audit-maintenance-data.mjs",
     "config:validate": "node scripts/validate-deployment-config.mjs",
     "audit:deployment-admins": "node scripts/audit-deployment-admin-roles.mjs",
@@ -35,6 +36,7 @@
     "verify:production": "npm run test:unit && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:browser",
     "verify:clean-checkout": "node scripts/verify-clean-checkout.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs",
+    "migrate:finance-access": "node --conditions=react-server scripts/migrate-finance-access-lockdown.mjs",
     "migrate:receipt-groups": "node scripts/migrate-receipt-groups.mjs"
   },
   "dependencies": {

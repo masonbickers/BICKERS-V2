@@ -32,7 +32,7 @@ test("protected delivery sends the stored authoritative PDF without regenerating
     new URL("../src/app/api/invoices/[id]/delivery/route.js", import.meta.url),
     "utf8"
   );
-  assert.match(route, /requireActiveUserFromRequest\(req\)/);
+  assert.match(route, /requireFinanceFromRequest\(req\)/);
   assert.match(route, /invoice\.issuedDocument\.storagePath/);
   assert.match(route, /adminDownloadStorageObject/);
   assert.match(route, /issuedDocument\.sha256/);

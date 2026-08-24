@@ -23,6 +23,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* ───────────────────────────────────────────
    UI tokens
@@ -256,7 +257,7 @@ export default function UCrewManagePage() {
         id: d.id,
         __collection: "employees",
         ...d.data(),
-      }));
+      })).filter(isCurrentEmployeeRecord);
       rows.sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)));
       setEmployees(rows);
     });

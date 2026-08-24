@@ -102,9 +102,10 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
 import { Badge, Button, Input, Modal, Spinner } from "@/app/components/ui";
-import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import { FIXED_JOB_STATUS_STYLES, getFixedJobStatusStyle, getFixedJobStatusSurfaceStyle } from "@/app/utils/jobStatusColors";
 import { findBookingQuoteDocument } from "@/app/utils/bookingQuoteDocument";
 import { hasImportedQuoteSelection, verifiedImportedQuoteNumber } from "@/app/utils/importedQuoteMatch";
+import { buildDiaryBookingReturnTo } from "@/app/utils/quoteNavigation";
 import {
   buildDashboardVehicleRegister,
   resolveDashboardVehicleDisplays,
@@ -129,7 +130,11 @@ const OFF_ROAD_ALLOWED_GROUPS = new Set([
 const isOffRoadAllowedGroup = (group) =>
   OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
 
-const NIGHT_SHOOT_STYLE = { bg: "var(--job-status-night)", text: "var(--job-status-text-dark)", border: "var(--job-status-border)" };
+const NIGHT_SHOOT_STYLE = {
+  bg: "var(--job-status-night-surface)",
+  text: "var(--job-status-large-text, var(--job-status-text-dark))",
+  border: "var(--job-status-night)",
+};
 
 // ---- status colour map used for per-vehicle pills ----
 const STATUS_COLORS = {
@@ -1545,7 +1550,11 @@ function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
   const currentQuote = quoteOptions[currentIndex] || null;
   const returnTo =
     typeof window !== "undefined"
-      ? `${window.location.pathname}${window.location.search || ""}`
+      ? buildDiaryBookingReturnTo({
+          pathname: window.location.pathname,
+          search: window.location.search,
+          bookingId: viewer?.bookingId,
+        })
       : "/dashboard";
   const quoteSrcParams = new URLSearchParams({
     quote: currentQuote?.quoteNumber || "",
@@ -1633,6 +1642,7 @@ function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
           key={quoteSrc}
           title="Quote viewer"
           src={quoteSrc}
+          scrolling="no"
           className={layoutStyles.quoteViewerFrame}
           data-ready={frameStatus === "ready"}
         />
@@ -1642,7 +1652,7 @@ function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
 }
 
 /* ------------------------------- Page component ----------------------------- */
-export default function DashboardPage({ bookingSaved, initialDate = "", initialView = "week", mode = "dashboard" }) {
+export default function DashboardPage({ bookingSaved, initialDate = "", initialView = "week", initialBookingId = "", mode = "dashboard" }) {
   const router = useRouter();
   const isUCraneMode = mode === "u-crane";
   const workDiaryCalendarRef = useRef(null);
@@ -1694,7 +1704,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [createNoteDate, setCreateNoteDate] = useState("");
   const [notes, setNotes] = useState([]);
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [selectedBookingId, setSelectedBookingId] = useState(initialBookingId || null);
   const [selectedDeletedId, setSelectedDeletedId] = useState(null);
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingHolidayId, setEditingHolidayId] = useState(null);
@@ -1761,6 +1771,16 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const handleCloseBookingModal = useCallback(() => {
     setSelectedBookingId(null);
     setSelectedDeletedId(null);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("booking")) return;
+    params.delete("booking");
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`
+    );
   }, []);
 
   const openQuoteViewer = useCallback((payload) => {
@@ -1789,6 +1809,24 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     });
   }, []);
 
+  const openBookingQuoteViewer = useCallback((booking, initialQuoteNumber = "") => {
+    const bookingId = String(booking?.id || "").trim();
+    if (!bookingId) return;
+
+    const quoteNumber = String(initialQuoteNumber || getEventQuoteNumber(booking)).trim();
+    const quoteOptions = getEventQuoteOptions(booking);
+    const quoteDocument = findBookingQuoteDocument(booking, quoteNumber);
+
+    openQuoteViewer({
+      bookingId,
+      jobNumber: booking?.jobNumber || "",
+      client: booking?.client || booking?.productionCompany || booking?.title || "Quote",
+      quoteOptions,
+      initialQuoteNumber: quoteNumber,
+      documentUrl: quoteOptions.length ? "" : quoteDocument?.url || "",
+    });
+  }, [openQuoteViewer]);
+
   const moveQuoteViewer = useCallback((direction) => {
     setQuoteViewer((current) => {
       if (!current?.quoteOptions?.length) return current;
@@ -1801,8 +1839,27 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, []);
 
   useEffect(() => {
+    if (initialBookingId) setSelectedBookingId(initialBookingId);
+  }, [initialBookingId]);
+
+  useEffect(() => {
     const handleQuoteViewMessage = (event) => {
       if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "bickers:quote-back") {
+        const bookingId = String(event.data?.bookingId || "").trim();
+        if (!bookingId) return;
+        setQuoteViewer(null);
+        setSelectedBookingId(bookingId);
+        const params = new URLSearchParams(window.location.search);
+        params.set("booking", bookingId);
+        const query = params.toString();
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${window.location.pathname}${query ? `?${query}` : ""}`
+        );
+        return;
+      }
       if (event.data?.type !== "bickers:quote-edit") return;
       const href = String(event.data?.href || "");
       if (!href.startsWith("/quote/")) return;
@@ -3545,11 +3602,12 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               eventPropGetter={(event) => {
               //  bank holiday styling
               if (event.status === "Bank Holiday") {
-                const bankHolidayBorder = getWorkDiaryBorder("Bank Holiday", "var(--shell-muted)");
+                const bankHolidayTone = getFixedJobStatusSurfaceStyle("Bank Holiday");
+                const bankHolidayBorder = getWorkDiaryBorder("Bank Holiday", bankHolidayTone.border);
                 return {
                   style: {
-                    backgroundColor: "var(--color-brand-soft)",
-                    color: "var(--color-brand-hover)",
+                    backgroundColor: bankHolidayTone.bg,
+                    color: bankHolidayTone.text,
                     fontWeight: 800,
                     padding: 0,
                     borderRadius: 8,
@@ -3568,7 +3626,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 String(event.status || "").trim().toLowerCase()
               );
               const jobCardClassName = isJobCard ? "work-diary-job-card" : "";
-              const tone = getStatusStyle(status);
+              const tone = getFixedJobStatusSurfaceStyle(status);
               let bg = tone.bg;
               let text = tone.text;
               let border = getWorkDiaryBorder(status, tone.border);
@@ -3989,6 +4047,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             initialBooking={selectedBooking}
             initialVehicles={vehiclesData}
             onEdit={getEditBookingUrl}
+            onViewQuote={openBookingQuoteViewer}
             onClose={handleCloseBookingModal}
           />
         )

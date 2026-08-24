@@ -5,8 +5,7 @@ import {
 import {
   canAccessCompany,
   jsonError,
-  requireActiveUserFromRequest,
-  requireAdminFromRequest,
+  requireFinanceFromRequest,
 } from "../../../admin/_lib";
 import {
   INVOICE_LIFECYCLE_ACTIONS,
@@ -17,6 +16,7 @@ import {
   createInvoiceCustomerSnapshot,
   normaliseCustomerFinanceProfile,
 } from "../../../../utils/accountingMappings.js";
+import { CONTACT_FINANCE_PROFILE_COLLECTION } from "../../../../utils/contactFinanceProfiles.js";
 
 export const runtime = "nodejs";
 
@@ -33,10 +33,7 @@ export async function POST(req, context) {
     if (action === INVOICE_LIFECYCLE_ACTIONS.CONFIRM_EXTERNAL_ISSUE) {
       return jsonError("Use the trusted Sage 50 export reconciliation route.", 400);
     }
-    const auth =
-      action === INVOICE_LIFECYCLE_ACTIONS.CONFIRM_EXTERNAL_ISSUE
-        ? await requireAdminFromRequest(req)
-        : await requireActiveUserFromRequest(req);
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
 
     const { id: rawId } = await context.params;
@@ -79,16 +76,27 @@ export async function POST(req, context) {
       let incomingInvoice = body.invoice;
       const contactId = safeId(incomingInvoice?.customer?.contactId);
       if (contactId) {
-        const contact = await adminReadDocument("contacts", contactId);
+        const [contact, financeProfile] = await Promise.all([
+          adminReadDocument("contacts", contactId),
+          adminReadDocument(CONTACT_FINANCE_PROFILE_COLLECTION, contactId),
+        ]);
         if (!contact || text(contact.companyId) !== targetCompanyId) {
           return jsonError("Selected billing customer was not found for this company.", 400);
         }
-        const financeProfile = normaliseCustomerFinanceProfile(contact);
+        if (financeProfile && text(financeProfile.companyId) !== targetCompanyId) {
+          return jsonError("Billing customer finance profile company mismatch.", 409);
+        }
+        const protectedContact = {
+          id: contactId,
+          ...contact,
+          financeProfile: financeProfile || contact.financeProfile,
+        };
+        const normalizedFinanceProfile = normaliseCustomerFinanceProfile(protectedContact);
         incomingInvoice = {
           ...incomingInvoice,
-          customer: createInvoiceCustomerSnapshot({ id: contactId, ...contact }, incomingInvoice.customer),
-          currency: financeProfile.defaultCurrency,
-          paymentTermsDays: financeProfile.defaultPaymentTerms,
+          customer: createInvoiceCustomerSnapshot(protectedContact, incomingInvoice.customer),
+          currency: normalizedFinanceProfile.defaultCurrency,
+          paymentTermsDays: normalizedFinanceProfile.defaultPaymentTerms,
         };
       }
       nextInvoice = buildProtectedDraftSave({

@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  applyHeartbeatCompanyBinding,
+  connectorReadyForInvoiceWrite,
+  connectorReadyForReadOnly,
   createConnectorCredential,
   createSage50ConnectorRecord,
   publicConnectorStatus,
@@ -42,6 +45,7 @@ test("heartbeat metadata is bounded and cannot set protected fields", () => {
     connectorVersion: "1.0.0",
     lastErrorCode: "SDO_BUSY",
     lastErrorMessage: "Company data is temporarily locked.",
+    capabilities: ["read_only_customer_lookup", "invoice_write", "attacker_capability"],
     tenantId: "attacker-company",
     credentialHash: "attacker-hash",
   });
@@ -49,6 +53,56 @@ test("heartbeat metadata is bounded and cannot set protected fields", () => {
   assert.equal(heartbeat.machineName, "SAGE-SERVER");
   assert.equal("tenantId" in heartbeat, false);
   assert.equal("credentialHash" in heartbeat, false);
+  assert.deepEqual(heartbeat.capabilities, ["read_only_customer_lookup", "invoice_write"]);
+});
+
+test("company binding removes capabilities on a mismatched heartbeat", () => {
+  const heartbeat = applyHeartbeatCompanyBinding(
+    { expectedSageCompanyIdentifier: "COMPANY-A" },
+    sanitiseHeartbeat({
+      status: "online",
+      sageCompanyIdentifier: "COMPANY-B",
+      capabilities: ["read_only_customer_lookup", "invoice_write"],
+    })
+  );
+  assert.equal(heartbeat.status, "error");
+  assert.equal(heartbeat.lastErrorCode, "sage_company_binding_mismatch");
+  assert.deepEqual(heartbeat.capabilities, []);
+});
+
+test("an unbound connector cannot advertise usable capabilities", () => {
+  const heartbeat = applyHeartbeatCompanyBinding(
+    {},
+    sanitiseHeartbeat({
+      status: "online",
+      sageCompanyIdentifier: "COMPANY-A",
+      capabilities: ["read_only_customer_lookup"],
+    })
+  );
+  assert.equal(heartbeat.status, "degraded");
+  assert.equal(heartbeat.lastErrorCode, "sage_company_binding_required");
+  assert.deepEqual(heartbeat.capabilities, []);
+});
+
+test("read and write readiness require binding, capabilities and both kill switches", () => {
+  const now = Date.parse("2026-07-24T12:00:00.000Z");
+  const record = {
+    status: "online",
+    isEnabled: true,
+    lastHeartbeatAt: "2026-07-24T11:59:00.000Z",
+    connectorVersion: "2.0.0",
+    sageVersion: "34.0",
+    sdoVersion: "34.0",
+    sageCompanyIdentifier: "COMPANY-A",
+    expectedSageCompanyIdentifier: "COMPANY-A",
+    adapterName: "v34-read",
+    writeAdapterName: "v34-write",
+    capabilities: ["read_only_customer_lookup", "invoice_write"],
+    invoicePostingEnabled: false,
+  };
+  assert.equal(connectorReadyForReadOnly(record, now), true);
+  assert.equal(connectorReadyForInvoiceWrite(record, now), false);
+  assert.equal(connectorReadyForInvoiceWrite({ ...record, invoicePostingEnabled: true }, now), true);
 });
 
 test("public status is redacted and treats stale connectors as offline", () => {
@@ -79,7 +133,11 @@ test("connector routes are protected and Firestore denies direct access", () => 
   );
   const rules = readFileSync(new URL("../firestore.rules", import.meta.url), "utf8");
   assert.match(management, /requireAdminFromRequest/);
+  assert.match(management, /bind_company/);
+  assert.match(management, /enable_invoice_posting/);
+  assert.match(management, /invoicePostingEnabled: false/);
   assert.match(heartbeat, /authenticateConnector/);
+  assert.match(heartbeat, /applyHeartbeatCompanyBinding/);
   const connectorRule = rules.slice(rules.indexOf("match /sage50Connectors/{connectorId}"));
   assert.equal(connectorRule.includes("match /sage50Connectors/{connectorId}"), true);
   assert.equal(connectorRule.includes("allow read, write: if false;"), true);

@@ -30,6 +30,7 @@ import {
   isUCraneVehicle,
 } from "@/app/utils/uCraneBookingConfiguration";
 import { formatUkDate, formatUkDateTime } from "@/app/utils/dateDisplay";
+import { buildDiaryBookingReturnTo, buildQuoteHref } from "@/app/utils/quoteNavigation";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -301,6 +302,7 @@ export default function ViewBookingModal({
   initialBooking = null,
   initialVehicles = [],
   onEdit = null,
+  onViewQuote = null,
 }) {
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
@@ -347,6 +349,36 @@ export default function ViewBookingModal({
       setEditLoading(false);
       systemDialogs.showSystemNotification("Failed to open edit page. Please try again.");
     }
+  };
+
+  const handleCreateQuote = () => {
+    const bookingId = booking?.id || id;
+    if (!bookingId || editLoading) return;
+
+    const returnTo = buildDiaryBookingReturnTo({
+      pathname: pathname || "/dashboard",
+      search: typeof window !== "undefined" ? window.location.search : "",
+      bookingId,
+    });
+    router.push(buildQuoteHref({ mode: "edit", bookingId, returnTo }));
+  };
+
+  const handleViewQuote = () => {
+    const bookingId = booking?.id || id;
+    const quoteNumber = getViewableQuoteNumber(booking || {});
+    if (!bookingId || editLoading) return;
+
+    if (typeof onViewQuote === "function") {
+      onViewQuote({ ...(booking || {}), id: bookingId }, quoteNumber);
+      return;
+    }
+
+    const returnTo = buildDiaryBookingReturnTo({
+      pathname: pathname || "/dashboard",
+      search: typeof window !== "undefined" ? window.location.search : "",
+      bookingId,
+    });
+    router.push(buildQuoteHref({ mode: "view", bookingId, quoteNumber, returnTo }));
   };
 
   useEffect(() => {
@@ -594,9 +626,6 @@ export default function ViewBookingModal({
   const quoteStatus = quoteStatusSummary(booking);
   const viewableQuoteNumber = getViewableQuoteNumber(booking);
   const canViewQuote = !fromDeleted && Boolean(booking?.id && (viewableQuoteNumber || latestQuoteEntry(booking)));
-  const quoteViewHref = canViewQuote
-    ? `/quote-view/${booking.id}${viewableQuoteNumber ? `?quote=${encodeURIComponent(viewableQuoteNumber)}` : ""}`
-    : "";
 
   const showReasons = ["Lost", "Postponed", "Cancelled"].includes(booking.status);
   const reasonsText =
@@ -672,8 +701,10 @@ export default function ViewBookingModal({
       ) : (
         <>
           {canViewQuote ? (
-            <Button onClick={() => router.push(quoteViewHref)} disabled={editLoading} size="sm">View quote</Button>
-          ) : null}
+            <Button onClick={handleViewQuote} disabled={editLoading} size="sm">View quote</Button>
+          ) : (
+            <Button onClick={handleCreateQuote} disabled={editLoading} size="sm">Create quote</Button>
+          )}
           <Button onClick={handleEdit} disabled={editLoading} loading={editLoading} size="sm">Edit</Button>
           <Button onClick={handleDelete} disabled={editLoading} variant="danger" size="sm">Delete</Button>
           <Button onClick={onClose} disabled={editLoading} variant="secondary" size="sm">Close</Button>
@@ -711,7 +742,7 @@ export default function ViewBookingModal({
                     {canViewQuote ? (
                       <button
                         type="button"
-                        onClick={() => router.push(quoteViewHref)}
+                        onClick={handleViewQuote}
                         className={layoutStyles.extracted13}
                       >
                         View quote

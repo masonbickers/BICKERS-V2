@@ -67,6 +67,7 @@ import {
   blockingStatusesForPriorityEdit,
   canAutoAssignVehicleAsSecondPencil,
   canRetainVehiclePriorityOnEdit,
+  existingVehicleStatusesConflictWithRequested,
 } from "@/app/utils/bookingVehiclePriority";
 import {
   CalendarDays,
@@ -104,7 +105,8 @@ const jobStatusBadgeStyle = (status) => {
 };
 
 const pageWrap = {
-  minHeight: "100vh",
+  minHeight: "100%",
+  boxSizing: "border-box",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
   background: UI.page,
   padding: `${SPACE.lg}px ${SPACE.lg}px ${SPACE.xl * 2}px`,
@@ -298,8 +300,9 @@ const btn = {
 };
 const btnPrimary = {
   ...btn,
-  background: UI.brand,
-  color: "var(--color-white)",
+  background: "var(--button-primary-background)",
+  borderColor: "var(--button-primary-border)",
+  color: "var(--button-primary-text)",
   boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
 };
 const btnGhost = {
@@ -375,7 +378,6 @@ const VEHICLE_STATUSES = [
 
 const SECOND_PENCIL_STATUS = "Second Pencil";
 const BLOCKING_STATUSES = ["Confirmed", "First Pencil", SECOND_PENCIL_STATUS];
-const SECOND_PENCIL_BLOCKING_STATUSES = [SECOND_PENCIL_STATUS, "Maintenance"];
 const doesBlockBooking = (b) =>
   BLOCKING_STATUSES.includes((b.status || "").trim());
 const isVehicleBlockingStatus = (status) => {
@@ -383,13 +385,7 @@ const isVehicleBlockingStatus = (status) => {
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
 };
 const existingVehicleStatusConflictsWithRequested = (existingStatuses = [], requestedStatus = "") => {
-  const requested = (requestedStatus || "").trim();
-  const existing = existingStatuses.map((s) => (s || "").trim()).filter(Boolean);
-  if (!isVehicleBlockingStatus(requested)) return false;
-  if (requested === SECOND_PENCIL_STATUS) {
-    return existing.some((s) => SECOND_PENCIL_BLOCKING_STATUSES.includes(s));
-  }
-  return existing.some((s) => isVehicleBlockingStatus(s));
+  return existingVehicleStatusesConflictWithRequested(existingStatuses, requestedStatus);
 };
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
@@ -3122,8 +3118,8 @@ export default function EditBookingPage() {
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
-      <div style={pageWrap}>
-        <div style={mainWrap}>
+      <div className={layoutStyles.pageShell} style={pageWrap}>
+        <div className={layoutStyles.workspaceMain} style={mainWrap}>
           <div className={`${layoutStyles.extracted2} ${layoutStyles.compactPageHeader}`}>
             <div className={layoutStyles.compactTitleBlock}>
               <div className={layoutStyles.compactTitleLine}>
@@ -3137,6 +3133,7 @@ export default function EditBookingPage() {
             <button
               type="button"
               onClick={() => router.push(quoteCards.length ? addAnotherQuoteHref : `/quote/${bookingId}`)}
+              className={layoutStyles.primaryAction}
               style={{ ...btnPrimary, whiteSpace: "nowrap" }}
             ><FileText size={14} /> {quoteCards.length ? "Add another quote" : "Create Quote"}</button>
           </div>
@@ -3169,6 +3166,7 @@ export default function EditBookingPage() {
           </div>
 
           <form
+            className={layoutStyles.workspaceForm}
             onSubmit={(e) => {
               e.preventDefault();
               handleUpdate();
@@ -4558,7 +4556,7 @@ export default function EditBookingPage() {
             </div>
 
             {quoteCards.length ? (
-              <div style={card}>
+              <div style={{ ...card, marginTop: SPACE.sm }}>
               <div className={layoutStyles.extracted58}>
                 <div className={layoutStyles.extracted59}>
                   <span style={iconBox()}><FileText size={17} /></span>
@@ -4820,6 +4818,7 @@ export default function EditBookingPage() {
                     type="submit"
                     disabled={!coreFilled || saving}
                     title={saveTooltip}
+                    className={layoutStyles.primaryAction}
                     style={{
                       ...btnPrimary,
                       opacity: coreFilled && !saving ? 1 : 0.5,

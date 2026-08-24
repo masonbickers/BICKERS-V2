@@ -56,7 +56,10 @@ import {
   isUCraneVehicle,
   normalizeUCraneArmFitted,
 } from "@/app/utils/uCraneBookingConfiguration";
-import { canAutoAssignVehicleAsSecondPencil } from "@/app/utils/bookingVehiclePriority";
+import {
+  canAutoAssignVehicleAsSecondPencil,
+  existingVehicleStatusesConflictWithRequested,
+} from "@/app/utils/bookingVehiclePriority";
 import {
   CalendarDays,
   ChevronDown,
@@ -90,7 +93,8 @@ const jobStatusBadgeStyle = (status) => {
 };
 
 const pageWrap = {
-  minHeight: "100vh",
+  minHeight: "100%",
+  boxSizing: "border-box",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
   background: UI.page,
   padding: `${SPACE.lg}px ${SPACE.lg}px ${SPACE.xl * 2}px`,
@@ -436,20 +440,13 @@ const VEHICLE_STATUSES = [
 
 const SECOND_PENCIL_STATUS = "Second Pencil";
 const BLOCKING_STATUSES = ["Confirmed", "First Pencil", SECOND_PENCIL_STATUS];
-const SECOND_PENCIL_BLOCKING_STATUSES = [SECOND_PENCIL_STATUS, "Maintenance"];
 const doesBlockBooking = (b) => BLOCKING_STATUSES.includes((b.status || "").trim());
 const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
 };
 const existingVehicleStatusConflictsWithRequested = (existingStatuses = [], requestedStatus = "") => {
-  const requested = (requestedStatus || "").trim();
-  const existing = existingStatuses.map((s) => (s || "").trim()).filter(Boolean);
-  if (!isVehicleBlockingStatus(requested)) return false;
-  if (requested === SECOND_PENCIL_STATUS) {
-    return existing.some((s) => SECOND_PENCIL_BLOCKING_STATUSES.includes(s));
-  }
-  return existing.some((s) => isVehicleBlockingStatus(s));
+  return existingVehicleStatusesConflictWithRequested(existingStatuses, requestedStatus);
 };
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
@@ -2214,8 +2211,8 @@ function CreateBookingForm({ initialStatus }) {
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
-      <div style={pageWrap}>
-        <div style={mainWrap}>
+      <div className={layoutStyles.pageShell} style={pageWrap}>
+        <div className={layoutStyles.workspaceMain} style={mainWrap}>
           <div className={`${layoutStyles.extracted2} ${layoutStyles.compactPageHeader}`}>
             <div className={layoutStyles.compactTitleBlock}>
               <div className={layoutStyles.compactTitleLine}>
@@ -2228,6 +2225,7 @@ function CreateBookingForm({ initialStatus }) {
             </div>
             <button
               type="button"
+              className={layoutStyles.primaryAction}
               disabled={!coreFilled}
               title={saveTooltip || "Save booking and open quote page"}
               onClick={() => handleSubmit({ openQuote: true })}
@@ -2271,6 +2269,7 @@ function CreateBookingForm({ initialStatus }) {
           </div>
 
           <form
+            className={layoutStyles.workspaceForm}
             onSubmit={(e) => {
               e.preventDefault();
               handleSubmit();
@@ -3444,6 +3443,7 @@ function CreateBookingForm({ initialStatus }) {
                   <div className={layoutStyles.extracted65}>
                     <button
                       type="submit"
+                      className={layoutStyles.primaryAction}
                       disabled={!coreFilled}
                       title={saveTooltip}
                       style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
@@ -3493,7 +3493,7 @@ function CreateBookingForm({ initialStatus }) {
                   onClick={() => handleSubmit({ openQuote: true })}
                   style={{ ...btnPrimary, background: UI.green, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
                 ><FileText size={14} /> Save & Quote</button>
-                <button type="submit" disabled={!coreFilled} title={saveTooltip} style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}>
+                <button type="submit" className={layoutStyles.primaryAction} disabled={!coreFilled} title={saveTooltip} style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}>
                   <Save size={14} /> Save Booking
                 </button>
               </div>

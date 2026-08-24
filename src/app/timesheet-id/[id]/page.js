@@ -40,6 +40,11 @@ import {
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
+import {
+  computeOnSetBreakdown,
+  computeOnSetHours,
+} from "@/app/utils/timesheetOnSetHours";
+import { computeTimesheetDayBreakdown } from "@/app/utils/timesheetHours";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -173,7 +178,7 @@ const controlButton = (kind = "ghost", disabled = false) => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+      background: "var(--button-primary-background)",
       color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
@@ -516,82 +521,6 @@ function computeOfficeHours(entry) {
   return diffHours(entry.startTime, entry.endTime);
 }
 
-function computeWaitingAllowanceHours(entry) {
-  const arrive = entry?.arriveTime;
-  const call = entry?.callTime;
-  if (!arrive || !call) return 0;
-
-  const preCallHrs = getPrecallHours(entry);
-  const callMinutes = toMinutes(call);
-  const arriveMinutes = toMinutes(arrive);
-  if (callMinutes == null || arriveMinutes == null) return 0;
-
-  let targetMinutes = callMinutes - Math.round(preCallHrs * 60);
-  while (targetMinutes < 0) targetMinutes += 24 * 60;
-
-  let diffMinutes = targetMinutes - arriveMinutes;
-  if (diffMinutes < 0) diffMinutes += 24 * 60;
-
-  return Math.min(Math.max(0, diffMinutes / 60), 1);
-}
-
-function computeHotelTravelExemptionHours(entry) {
-  return entry?.overnight ? 0.5 : 0;
-}
-
-function getPrecallHours(entry) {
-  return getPrecallInfo(entry).hours;
-}
-
-function computeOnSetBreakdown(entry) {
-  const travelToHrs = computeTravelHours(entry);
-  const preCallHrs = getPrecallHours(entry);
-  const callToWrapHrs =
-    entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
-  const travelBackHrs =
-    entry?.wrapTime && entry?.arriveBack ? diffHours(entry.wrapTime, entry.arriveBack) : 0;
-
-  if (entry?.callTime) {
-    const callToFinishHrs = entry?.arriveBack
-      ? diffHours(entry.callTime, entry.arriveBack)
-      : entry?.wrapTime
-      ? diffHours(entry.callTime, entry.wrapTime)
-      : 0;
-
-    const onSetPaidHrs = 10;
-    const extraAfterTenHrs = Math.max(0, callToFinishHrs - onSetPaidHrs);
-
-    return {
-      travelToHrs,
-      preCallHrs,
-      onSetBlockHrs: callToWrapHrs,
-      onSetPaidHrs,
-      travelBackHrs,
-      extraAfterTenHrs,
-      totalHrs: travelToHrs + preCallHrs + onSetPaidHrs + extraAfterTenHrs,
-    };
-  }
-
-  const fallbackWindowHrs =
-    entry?.leaveTime && entry?.arriveBack ? diffHours(entry.leaveTime, entry.arriveBack) : 0;
-  const legacyOnSetHrs = callToWrapHrs || fallbackWindowHrs;
-
-  return {
-    travelToHrs,
-    preCallHrs,
-    onSetBlockHrs: legacyOnSetHrs,
-    onSetPaidHrs: legacyOnSetHrs,
-    travelBackHrs,
-    extraAfterTenHrs: travelBackHrs,
-    totalHrs: Math.max(0, legacyOnSetHrs + preCallHrs),
-  };
-}
-
-/* On-set hours (match mobile's intention: call->wrap (+precall) OR leave->arriveBack fallback) */
-function computeOnSetHours(entry) {
-  return computeOnSetBreakdown(entry).totalHrs;
-}
-
 function isCancellationDay(entry) {
   if (!entry) return false;
 
@@ -619,17 +548,6 @@ function isTurnaroundDay(entry) {
   return false;
 }
 
-/*  Turnaround hours: 0 unless user added yardSegments */
-function computeTurnaroundHours(entry) {
-  const segs = extractYardSegments(entry);
-  if (!segs || segs.length === 0) return 0;
-
-  // If they manually added blocks on a turnaround day, count them (and don’t force lunch deduction)
-  let total = 0;
-  segs.forEach((s) => (total += diffHours(s.start, s.end)));
-  return Math.max(0, total);
-}
-
 /* Determine day mode (mirror mobile: uses entry.mode + isTurnaround flag) */
 function detectMode(entry, isWeekend) {
   if (!entry) return isWeekend ? "off" : "missing";
@@ -647,6 +565,7 @@ function detectMode(entry, isWeekend) {
 
   if (rawMode === "travel") return "travel";
   if (rawMode === "onset") return "onset";
+  if (rawMode === "workshop") return "workshop";
   if (rawMode === "office") return "office";
   if (rawMode === "yard") return "yard";
 
@@ -2203,13 +2122,10 @@ export default function TimesheetDetailPage() {
         : 0;
       const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
       if (entryExists) {
-        if (mode === "yard") dayHours = computeYardHours(entry, day);
-        if (mode === "travel") dayHours = computeTravelHours(entry);
-        if (mode === "onset") dayHours = computeOnSetHours(entry);
+        if (["yard", "travel", "onset", "workshop", "turnaround"].includes(mode)) {
+          dayHours = computeTimesheetDayBreakdown(entry, day).total / 60;
+        }
         if (mode === "office") dayHours = computeOfficeHours(entry);
-
-        //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
-        if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
 
         if (
           mode === "holiday" ||
@@ -2233,11 +2149,14 @@ export default function TimesheetDetailPage() {
       const precallLabel = entryExists ? formatPrecallMinutes(entry?.precallDuration) : "";
       const onSetBreakdown = entryExists ? computeOnSetBreakdown(entry) : null;
       const travelToHrs = onSetBreakdown?.travelToHrs || 0;
+      const paidEarlyArrivalHrs = onSetBreakdown?.paidEarlyArrivalHrs || 0;
       const preCallHrs = onSetBreakdown?.preCallHrs || 0;
       const onSetBlockHrs = onSetBreakdown?.onSetBlockHrs || 0;
       const onSetPaidHrs = onSetBreakdown?.onSetPaidHrs || 0;
+      const onSetOvertimeHrs = onSetBreakdown?.onSetOvertimeHrs || 0;
       const travelBackHrs = onSetBreakdown?.travelBackHrs || 0;
-      const extraAfterTenHrs = onSetBreakdown?.extraAfterTenHrs || 0;
+      const travelInsideTenHrs = onSetBreakdown?.travelInsideTenHrs || 0;
+      const travelAfterTenHrs = onSetBreakdown?.travelAfterTenHrs || 0;
 
       // Turnaround job (how mobile saves it)
       const turnaroundJob = entryExists ? entry?.turnaroundJob || null : null;
@@ -2273,11 +2192,14 @@ export default function TimesheetDetailPage() {
         dayTotalLabel,
         precallLabel,
         travelToHrs,
+        paidEarlyArrivalHrs,
         preCallHrs,
         onSetBlockHrs,
         onSetPaidHrs,
+        onSetOvertimeHrs,
         travelBackHrs,
-        extraAfterTenHrs,
+        travelInsideTenHrs,
+        travelAfterTenHrs,
         yardSegs,
         turnaroundJob,
         hasTurnaroundJob,
@@ -2330,18 +2252,8 @@ export default function TimesheetDetailPage() {
       const isCancellationPayDay = isCancellationDay(entry);
       const actualTravelToHrs = card.travelToHrs || 0;
       const preCallHrs = card.preCallHrs || 0;
-      const waitingAllowanceHrs = card.mode === "onset" ? computeWaitingAllowanceHours(entry) : 0;
-      const callElapsedToWrap =
-        entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
-      const callElapsedToBack =
-        entry?.callTime && entry?.arriveBack ? diffHours(entry.callTime, entry.arriveBack) : 0;
-      const wrapOvertimeHrs = card.mode === "onset" ? Math.max(0, callElapsedToWrap - 10) : 0;
-      const rawTravelAfterTenHrs =
-        card.mode === "onset" ? Math.max(0, callElapsedToBack - Math.max(10, callElapsedToWrap || 0)) : 0;
-      const travelAfterTenHrs =
-        card.mode === "onset"
-          ? Math.max(0, rawTravelAfterTenHrs - computeHotelTravelExemptionHours(entry))
-          : 0;
+      const waitingAllowanceHrs = card.mode === "onset" ? card.paidEarlyArrivalHrs || 0 : 0;
+      const travelAfterTenHrs = card.mode === "onset" ? card.travelAfterTenHrs || 0 : 0;
       const travelHrs =
         hasJobOnTravelDay
           ? 0
@@ -2360,10 +2272,11 @@ export default function TimesheetDetailPage() {
           : hasJobOnTravelDay || isTurnaroundPayDay || isCancellationPayDay
           ? 10
           : 0;
-      const onSetOvertimeHrs = card.mode === "onset" ? wrapOvertimeHrs + preCallHrs : 0;
+      const onSetOvertimeHrs =
+        card.mode === "onset" ? (card.onSetOvertimeHrs || 0) + preCallHrs : 0;
       const payableDayTotalHrs =
         card.mode === "onset"
-          ? actualTravelToHrs + waitingAllowanceHrs + preCallHrs + onSetHrs + wrapOvertimeHrs + travelAfterTenHrs
+          ? computeOnSetHours(entry)
           : isHalfDayTravelNoteDay
           ? onSetHrs
           : isTravelTimeNoteDay
@@ -2796,11 +2709,14 @@ export default function TimesheetDetailPage() {
                 dayTotalLabel,
                 precallLabel,
                 travelToHrs,
+                paidEarlyArrivalHrs,
                 preCallHrs,
                 onSetBlockHrs,
                 onSetPaidHrs,
+                onSetOvertimeHrs,
                 travelBackHrs,
-                extraAfterTenHrs,
+                travelInsideTenHrs,
+                travelAfterTenHrs,
                 yardSegs,
                 turnaroundJob,
                 hasTurnaroundJob,
@@ -3409,17 +3325,31 @@ export default function TimesheetDetailPage() {
                       <div className={layoutStyles.extracted49}>
                         <div className={layoutStyles.extracted50}>Breakdown:</div>
                         <div className={layoutStyles.extracted51}>Travel to: {formatHoursLabel(travelToHrs)}</div>
+                        {paidEarlyArrivalHrs > 0 ? (
+                          <div>Paid early arrival: {formatHoursLabel(paidEarlyArrivalHrs)}</div>
+                        ) : null}
                         <div className={layoutStyles.extracted52}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
                         <div className={layoutStyles.extracted53}>
                           On set{entry.callTime ? " (10-hour block)" : ""}: {formatHoursLabel(onSetPaidHrs)}
                         </div>
-                        {entry.callTime ? (
+                        {entry.callTime && onSetOvertimeHrs > 0 ? (
                           <div className={layoutStyles.extracted54}>
-                            Extra after 10 hours: {formatHoursLabel(extraAfterTenHrs)}
+                            On-set overtime: {formatHoursLabel(onSetOvertimeHrs)}
                           </div>
-                        ) : (
+                        ) : null}
+                        {travelBackHrs > 0 ? (
                           <div className={layoutStyles.extracted55}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
-                        )}
+                        ) : null}
+                        {travelInsideTenHrs > 0 ? (
+                          <div style={{ fontSize: 12, color: UI.muted }}>
+                            Travel included within 10-hour block: {formatHoursLabel(travelInsideTenHrs)}
+                          </div>
+                        ) : null}
+                        {travelAfterTenHrs > 0 && travelAfterTenHrs !== travelBackHrs ? (
+                          <div style={{ fontSize: 12, color: UI.muted }}>
+                            Paid travel after 10-hour block: {formatHoursLabel(travelAfterTenHrs)}
+                          </div>
+                        ) : null}
                         {entry.callTime && entry.wrapTime ? (
                           <div style={{ fontSize: 12, color: UI.muted }}>
                             Actual on-set window: {formatHoursLabel(onSetBlockHrs)}

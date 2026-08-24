@@ -13,6 +13,7 @@ import { storage } from "../../../firebaseConfig"; //  use this
 import { auth } from "../../../firebaseConfig";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery, tenantPayload } from "@/app/utils/firestoreAccess";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* ───────────────────────────────────────────
    U-Crane roles (must match Crew Manager page)
@@ -246,7 +247,7 @@ export default function CreateBookingPage() {
         id: doc.id,
         __collection: "employees",
         ...doc.data(),
-      }));
+      })).filter(isCurrentEmployeeRecord);
       setEmployeeList(allEmployees);
 
       // - 6. Load U-Crane freelancers
@@ -937,7 +938,7 @@ const buttonStyle = {
   marginRight: "10px",
   marginTop: "0",
   padding: "8px 13px",
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  background: "var(--button-primary-background)",
   color: "var(--color-white)",
   border: "1px solid var(--color-brand)",
   borderRadius: "8px",

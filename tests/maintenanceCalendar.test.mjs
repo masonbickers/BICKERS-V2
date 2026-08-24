@@ -141,11 +141,13 @@ test("canonical calendar excludes orphaned bookings and jobs for deleted vehicle
 test("moving a booking outside its legal ISO week requires an exception reason", () => {
   const event = {
     legalDueIsoWeek: "2026-W32",
+    legalDueDateISO: "2026-08-07",
     canonicalItems: [
-      { maintenanceTypeId: "pmi", legalDueIsoWeek: "2026-W32" },
-      { maintenanceTypeId: "brake_test", legalDueIsoWeek: "2026-W32" },
+      { maintenanceTypeId: "pmi", legalDueDateISO: "2026-08-07", legalDueIsoWeek: "2026-W32" },
+      { maintenanceTypeId: "brake_test", legalDueDateISO: "2026-08-07", legalDueIsoWeek: "2026-W32" },
     ],
   };
+  assert.equal(isMaintenanceMoveOutsideDueWeek(event, "2026-07-31"), false);
   assert.equal(isMaintenanceMoveOutsideDueWeek(event, "2026-08-05"), false);
   assert.equal(isMaintenanceMoveOutsideDueWeek(event, "2026-08-17"), true);
 });

@@ -8,6 +8,10 @@ const ROOT = path.resolve("src/app");
 const checkOnly = process.argv.includes("--check");
 const CODE = new Set([".js", ".jsx"]);
 const CSS = new Set([".css"]);
+const PRINT_SURFACE_FILES = new Set([
+  path.resolve("src/app/invoice-view/[id]/page.module.css"),
+  path.resolve("src/app/quote/[id]/page.js"),
+]);
 
 function collect(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -17,31 +21,46 @@ function collect(directory) {
   });
 }
 
-function surfaceValue(value) {
-  // Token-driven colour mixes adapt with the active palette and are not
-  // light-only literal surfaces.
-  if (value.includes("color-mix(")) return value;
-  return value
-    .replaceAll("var(--color-white)", "var(--color-surface)")
-    .replaceAll("var(--shell-text)", "var(--color-surface-subtle)")
-    .replaceAll("var(--color-text)", "var(--shell-sidebar-bg)")
-    .replaceAll("var(--color-black)", "var(--shell-sidebar-bg)")
-    .replace(/\bblack\b/gi, "var(--shell-sidebar-bg)")
-    .replace(/\bpurple\b/gi, "var(--color-accent)")
-    .replace(/\bwhite\b/gi, "var(--color-surface)");
+function replaceExactPaletteAlias(value, replacements) {
+  const leading = value.match(/^\s*/)?.[0] || "";
+  const trailing = value.match(/\s*$/)?.[0] || "";
+  let core = value.trim();
+  const quote = ["\"", "'", "`"].includes(core[0]) && core.at(-1) === core[0] ? core[0] : "";
+  if (quote) core = core.slice(1, -1).trim();
+  const important = /\s*!important$/i.test(core) ? " !important" : "";
+  if (important) core = core.replace(/\s*!important$/i, "").trim();
+  const replacement = replacements.get(core.toLowerCase());
+  if (!replacement) return value;
+  return `${leading}${quote}${replacement}${important}${quote}${trailing}`;
 }
 
-function foregroundValue(value) {
-  return value
-    .replaceAll("var(--color-black)", "var(--color-text)")
-    .replace(/\bblack\b/gi, "var(--color-text)")
-    .replace(/\bred\b/gi, "var(--color-danger)");
-}
+const surfaceAliases = new Map([
+  ["var(--color-white)", "var(--color-surface)"],
+  ["var(--shell-text)", "var(--color-surface-subtle)"],
+  ["var(--color-text)", "var(--shell-sidebar-bg)"],
+  ["var(--color-black)", "var(--shell-sidebar-bg)"],
+  ["#fff", "var(--color-surface)"],
+  ["#ffffff", "var(--color-surface)"],
+  ["white", "var(--color-surface)"],
+  ["black", "var(--shell-sidebar-bg)"],
+  ["purple", "var(--color-accent)"],
+]);
+const foregroundAliases = new Map([
+  ["var(--color-black)", "var(--color-text)"],
+  ["black", "var(--color-text)"],
+  ["red", "var(--color-danger)"],
+]);
+const borderAliases = new Map([
+  ["var(--color-black)", "var(--color-border-strong)"],
+  ["black", "var(--color-border-strong)"],
+]);
+
+function surfaceValue(value) { return replaceExactPaletteAlias(value, surfaceAliases); }
+
+function foregroundValue(value) { return replaceExactPaletteAlias(value, foregroundAliases); }
 
 function borderValue(value) {
-  return value
-    .replaceAll("var(--color-black)", "var(--color-border-strong)")
-    .replace(/\bblack\b/gi, "var(--color-border-strong)");
+  return replaceExactPaletteAlias(value, borderAliases);
 }
 
 function writeWithRetry(file, value) {
@@ -58,9 +77,26 @@ function writeWithRetry(file, value) {
   throw lastError;
 }
 
+function changedLines(file, source, output) {
+  const before = source.split("\n");
+  const after = output.split("\n");
+  return before.flatMap((line, index) => {
+    const explicitlyAllowed = line.includes("style-audit-allow light-control")
+      || before[index - 1]?.includes("style-audit-allow light-control");
+    if (line === after[index] || explicitlyAllowed) return [];
+    return [{
+    file: path.relative(process.cwd(), file),
+    line: index + 1,
+    source: line.trim().slice(0, 180),
+    }];
+  });
+}
+
 let changedFiles = 0;
 let replacements = 0;
-for (const file of collect(ROOT)) {
+const violations = [];
+const files = collect(ROOT).filter((file) => !PRINT_SURFACE_FILES.has(file));
+for (const file of files) {
   const source = fs.readFileSync(file, "utf8");
   let output = source;
   if (CSS.has(path.extname(file))) {
@@ -105,18 +141,33 @@ for (const file of collect(ROOT)) {
     output = output.replace(/((?:^|[;}])\s*(?:color|fill|stroke)\s*:\s*)([^;}\n`]+)/gim, (match, prefix, value) => `${prefix}${foregroundValue(value)}`);
     output = output.replace(/((?:^|[;}])\s*border(?:-color)?\s*:\s*)([^;}\n`]+)/gim, (match, prefix, value) => `${prefix}${borderValue(value)}`);
   }
-  if (output !== source) { writeWithRetry(file, output); changedFiles += 1; }
+  if (output !== source) {
+    const fileViolations = checkOnly ? changedLines(file, source, output) : [];
+    if (checkOnly) violations.push(...fileViolations);
+    writeWithRetry(file, output);
+    if (!checkOnly || fileViolations.length > 0) changedFiles += 1;
+  }
 }
 
 // Any remaining black alias is a foreground/status/border use. Keep it palette-aware.
-for (const file of collect(ROOT)) {
+for (const file of files) {
   const source = fs.readFileSync(file, "utf8");
   const replacement = file.includes(`${path.sep}quote${path.sep}[id]${path.sep}`)
     ? "var(--color-border-strong)"
     : "var(--color-text)";
   const output = source.replaceAll("var(--color-black)", replacement);
-  if (output !== source) { writeWithRetry(file, output); changedFiles += 1; }
+  if (output !== source) {
+    const fileViolations = checkOnly ? changedLines(file, source, output) : [];
+    if (checkOnly) violations.push(...fileViolations);
+    writeWithRetry(file, output);
+    if (!checkOnly || fileViolations.length > 0) changedFiles += 1;
+  }
 }
 
-console.log(`Migrated ${replacements} light-only backgrounds across ${changedFiles} files.`);
+const uniqueViolations = [...new Map(violations.map((violation) => [`${violation.file}:${violation.line}`, violation])).values()];
+if (checkOnly && uniqueViolations.length > 0) {
+  console.log("Dark-mode compatibility violations:");
+  uniqueViolations.forEach((violation) => console.log(`- ${violation.file}:${violation.line} ${violation.source}`));
+}
+console.log(`${checkOnly ? "Found" : "Migrated"} ${checkOnly ? uniqueViolations.length : replacements} light-only backgrounds across ${changedFiles} files.`);
 if (checkOnly && changedFiles > 0) process.exitCode = 1;

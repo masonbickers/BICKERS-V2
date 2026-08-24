@@ -2,9 +2,32 @@ const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
 
 const PRIORITY_VEHICLE_STATUSES = new Set(["confirmed", "first pencil"]);
 const SECOND_PENCIL_BLOCKING_STATUSES = new Set(["second pencil", "maintenance"]);
+const VEHICLE_BLOCKING_STATUSES = new Set([
+  ...PRIORITY_VEHICLE_STATUSES,
+  ...SECOND_PENCIL_BLOCKING_STATUSES,
+]);
 
 export const isPriorityVehicleStatus = (status) =>
   PRIORITY_VEHICLE_STATUSES.has(normalizeStatus(status));
+
+export const existingVehicleStatusesConflictWithRequested = (
+  existingStatuses = [],
+  requestedStatus = ""
+) => {
+  const requested = normalizeStatus(requestedStatus);
+  const existing = existingStatuses.map(normalizeStatus).filter(Boolean);
+
+  if (!VEHICLE_BLOCKING_STATUSES.has(requested)) return false;
+  if (requested === "second pencil") {
+    return existing.some((status) => SECOND_PENCIL_BLOCKING_STATUSES.has(status));
+  }
+  if (PRIORITY_VEHICLE_STATUSES.has(requested)) {
+    return existing.some(
+      (status) => PRIORITY_VEHICLE_STATUSES.has(status) || status === "maintenance"
+    );
+  }
+  return existing.some((status) => VEHICLE_BLOCKING_STATUSES.has(status));
+};
 
 export const canAutoAssignVehicleAsSecondPencil = (
   existingStatuses = [],

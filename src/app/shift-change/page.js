@@ -31,6 +31,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getSemanticStatusStyle } from "@/app/utils/jobStatusColors";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 const ADMIN_EMAILS = new Set([
   "mason@bickers.co.uk",
@@ -102,6 +103,7 @@ export default function ShiftChangePage() {
 
       const employeeRows = employeeSnap.docs
         .map((snap) => ({ id: snap.id, ...(snap.data() || {}) }))
+        .filter(isCurrentEmployeeRecord)
         .filter((employee) => employeeName(employee))
         .sort((a, b) => employeeName(a).localeCompare(employeeName(b)));
 

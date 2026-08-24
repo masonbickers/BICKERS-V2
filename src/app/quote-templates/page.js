@@ -2,11 +2,12 @@
 
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { ArrowLeft, Copy, Lock, Percent, Plus, Save, Search, Trash2, Unlock } from "lucide-react";
+import { doc, getDoc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, ChevronRight, Copy, Lock, MoreHorizontal, Percent, Plus, RotateCcw, Save, Search, Trash2, Undo2, Unlock } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { Alert, Badge, Button, Input, Modal, Select, Tabs, Textarea } from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import { db } from "@/app/utils/firebaseClient";
 import {
@@ -16,20 +17,27 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
-import { mergeQuoteTemplatesWithDefaults } from "@/app/utils/quoteTemplateDefaults";
+import { mergeQuoteTemplatesWithDefaults, sanitizeQuoteTemplateData } from "@/app/utils/quoteTemplateDefaults";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { LEGACY_QUOTE_DOCUMENT_DEFAULTS, normalizeQuoteDocumentDefaults } from "@/app/utils/quoteDocumentDefaults";
+import {
+  SHARED_RATE_GROUPS,
+  SHARED_RATE_RULES,
+  applySharedRateToTemplates,
+  findSharedRateRuleForItem,
+  isCustomSharedRateLine,
+  isSharedRateLinkedLine,
+  normalizeSharedRatePrice,
+  nextQuoteTemplateRevision,
+  sharedRateLineStatus,
+  summarizeSharedRates,
+} from "@/app/utils/quoteTemplateSharedRates";
 
 const UI = UI_TOKENS;
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
-const DEFAULT_QUOTE_SETTINGS = {
-  defaultBickersContact: "",
-  defaultSourceFile: "",
-  footerApprovalText: "ALL TRACKING ACTIVITY ON A PUBLIC HIGHWAY MUST HAVE THE APPROVAL OF THE POLICE & LOCAL AUTHORITY",
-  footerInfoText: "For more information,\nplease contact us",
-  vatText: "Excludes VAT",
-  paymentDefaults: "",
-};
+const DEFAULT_QUOTE_SETTINGS = LEGACY_QUOTE_DOCUMENT_DEFAULTS;
 const slugify = (value) =>
   String(value || "quote-template")
     .trim()
@@ -125,124 +133,6 @@ const getGroupedPreviewRows = (lineItems = []) => {
   });
   return rows;
 };
-
-const normalizeSharedRateText = (value) =>
-  String(value || "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
-const SHARED_RATE_RULES = [
-  { id: "five_k_generator", label: "5K Generator", match: /5k generator/ },
-  { id: "driver_day", label: "Driver/Technician per 10hr day", match: /services? of driver.*technician.*10hr/ },
-  { id: "basic_riggers", label: "Basic Riggers Scaffolding Kit", match: /basic riggers scaffolding kit/ },
-  { id: "pre_rigging", label: "Pre-Rigging & Additional Equipment", match: /pre rigging.*(additional equipment|prep|prep work)|pre rigging and prep work charged/ },
-  { id: "overtime_1_5", label: "Overtime charged @ 1.5T", match: /overtime charged.*1 5t/ },
-  { id: "sunday_bank_holiday", label: "Sunday and Bank Holiday double time", match: /sunday.*bank holiday.*double time|double time.*sundays.*bank holidays/ },
-  { id: "turnaround", label: "Turnaround Day After Night Work", match: /turnaround day after night work/ },
-  { id: "late_working", label: "Late working 22:00-23:59", match: /supplementary charge for late working/ },
-  { id: "saturday", label: "Saturday working supplement", match: /supplementary charge applies for saturday working/ },
-  { id: "commercials_weekend_night", label: "Commercials weekend/night APA", match: /commercials.*(sundays|night work).*(saturday|saturdays).*1 5t/ },
-  { id: "recce_charge", label: "Recce charge per man", match: /recce charge per man/ },
-  { id: "tracking_travel_days", label: "Tracking vehicle and crew travel days", match: /tracking vehicle and crew travel days/ },
-  { id: "tracking_travel_time", label: "Tracking vehicle and crew travel time", match: /tracking vehicle and crew travel time/ },
-  { id: "overnight_meal", label: "Overnight Meal Allowance", match: /overnight.*meal allowance|overnights meal allowance/ },
-  { id: "breakfast_lunch", label: "Breakfast/Lunch not supplied", match: /breakfast lunch not supplied on location per man/ },
-  { id: "recce_travel_time", label: "Recce travel time/day", match: /recce travel time travel day/ },
-  { id: "recce_mileage", label: "Recce mileage", match: /recce mileage/ },
-  { id: "london_home_counties", label: "London/Home Counties fixed travel", match: /london and home counties fixed travel charge/ },
-  { id: "congestion_ulez", label: "London Congestion/ULEZ", match: /london congestion ulez charge/ },
-  { id: "clean_air", label: "Clean air zone charge", match: /clean air zone charge/ },
-];
-
-const findSharedRateRuleForItem = (item = {}) => {
-  const sharedRateId = String(item.sharedRateId || "").trim();
-  if (sharedRateId) {
-    const byId = SHARED_RATE_RULES.find((rule) => rule.id === sharedRateId);
-    if (byId) return byId;
-  }
-  const description = normalizeSharedRateText(item.description);
-  return SHARED_RATE_RULES.find((rule) => rule.match.test(description)) || null;
-};
-
-const itemMatchesSharedRateRule = (item = {}, rule) => {
-  if (!rule) return false;
-  if (String(item.sharedRateId || "").trim() === rule.id) return true;
-  return rule.match.test(normalizeSharedRateText(item.description));
-};
-
-const isCustomSharedRateLine = (item = {}) => Boolean(item.isCustomPrice || item.lockedSharedRate);
-
-const isSharedRateLinkedLine = (item = {}) =>
-  !isCustomSharedRateLine(item) && item.usesSharedRate !== false && Boolean(findSharedRateRuleForItem(item));
-
-const countValues = (values) =>
-  values.reduce((map, value) => {
-    const key = String(value ?? "");
-    map.set(key, (map.get(key) || 0) + 1);
-    return map;
-  }, new Map());
-
-const mostCommonValue = (values, fallback = "") => {
-  const counts = Array.from(countValues(values).entries()).sort((a, b) => b[1] - a[1]);
-  return counts[0]?.[0] ?? fallback;
-};
-
-const formatValueCounts = (values) =>
-  Array.from(countValues(values).entries())
-    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
-    .map(([value, count]) => `${value || "blank"} (${count})`)
-    .join(", ");
-
-const summarizeSharedRates = (templates = []) =>
-  SHARED_RATE_RULES.map((rule) => {
-    const matches = [];
-    templates.forEach((template) => {
-      (template.lineItems || []).forEach((item, itemIndex) => {
-        if (itemMatchesSharedRateRule(item, rule)) {
-          const templateExcluded = Boolean(template.excludeFromSharedRates);
-          const lineLocked = isCustomSharedRateLine(item);
-          matches.push({
-            templateId: template.id,
-            templateName: template.serviceDescription || template.file || template.id,
-            templateExcluded,
-            lineLocked,
-            willUpdate: !templateExcluded && !lineLocked,
-            itemIndex,
-            description: item.description || "",
-            sharedRateId: item.sharedRateId || rule.id,
-            unitPrice: String(item.unitPrice ?? ""),
-            totalMode: String(item.totalMode || "auto"),
-          });
-        }
-      });
-    });
-    const updateMatches = matches.filter((match) => match.willUpdate);
-    const excludedMatches = matches.filter((match) => match.templateExcluded);
-    const lockedMatches = matches.filter((match) => !match.templateExcluded && match.lineLocked);
-    const unitPrices = matches.map((match) => match.unitPrice);
-    const totalModes = matches.map((match) => match.totalMode);
-    return {
-      ...rule,
-      matches,
-      updateMatches,
-      excludedMatches,
-      lockedMatches,
-      occurrenceCount: matches.length,
-      templateCount: new Set(matches.map((match) => match.templateId)).size,
-      updateLineCount: updateMatches.length,
-      updateTemplateCount: new Set(updateMatches.map((match) => match.templateId)).size,
-      excludedTemplateCount: new Set(excludedMatches.map((match) => match.templateId)).size,
-      lockedLineCount: lockedMatches.length,
-      unitPrices: Array.from(new Set(unitPrices)),
-      totalModes: Array.from(new Set(totalModes)),
-      suggestedUnitPrice: mostCommonValue(unitPrices),
-      suggestedTotalMode: mostCommonValue(totalModes, "tbc"),
-      unitPriceSummary: formatValueCounts(unitPrices),
-      totalModeSummary: formatValueCounts(totalModes),
-    };
-  }).filter((summary) => summary.occurrenceCount);
 
 const pageWrap = { minHeight: "100vh", background: UI.bg, color: UI.text, padding: "12px 14px 24px" };
 const surface = {
@@ -510,9 +400,9 @@ const statusPill = (kind = "shared") => ({
   minHeight: 14,
   padding: "0 5px",
   borderRadius: 999,
-  border: kind === "custom" ? "1px solid var(--color-warning-border)" : kind === "excluded" ? "1px solid var(--color-danger-border)" : "1px solid var(--color-info-border)",
-  background: kind === "custom" ? "var(--color-warning-soft)" : kind === "excluded" ? "var(--color-danger-soft)" : "var(--color-info-soft)",
-  color: kind === "custom" ? "var(--color-warning)" : kind === "excluded" ? "var(--color-danger)" : "var(--color-brand)",
+  border: kind === "custom" ? "1px solid var(--color-warning-border)" : kind === "excluded" ? "1px solid var(--color-danger-border)" : kind === "template" ? "1px solid var(--color-border)" : "1px solid var(--color-info-border)",
+  background: kind === "custom" ? "var(--color-warning-soft)" : kind === "excluded" ? "var(--color-danger-soft)" : kind === "template" ? "var(--color-surface-subtle)" : "var(--color-info-soft)",
+  color: kind === "custom" ? "var(--color-warning)" : kind === "excluded" ? "var(--color-danger)" : kind === "template" ? "var(--color-text-muted)" : "var(--color-brand)",
   fontSize: 8.5,
   lineHeight: 1,
   fontWeight: 900,
@@ -599,8 +489,104 @@ const cloneLineItem = (section = "Equipment - Daily Rates (Optional Equipment Ch
   totalMode: "auto",
 });
 
+function QuoteTemplateLineEditor({
+  template,
+  onLineChange,
+  onAddLine,
+  onRemoveLine,
+  onMoveLine,
+  onToggleLineLock,
+  onRenameSection,
+  onAddDiscount,
+  onRemoveDiscount,
+}) {
+  const [collapsed, setCollapsed] = useState({});
+  const lineItems = useMemo(() => Array.isArray(template?.lineItems) ? template.lineItems : [], [template?.lineItems]);
+  const sections = useMemo(() => {
+    const byName = new Map();
+    return lineItems.reduce((result, item, index) => {
+      const name = String(item.section || "Quote lines");
+      if (!byName.has(name)) {
+        const section = { name, rows: [] };
+        byName.set(name, section);
+        result.push(section);
+      }
+      byName.get(name).rows.push({ item, index });
+      return result;
+    }, []);
+  }, [lineItems]);
+
+  if (!sections.length) {
+    return <div className={layoutStyles.editorEmpty}>No lines yet. Add a section or line to start this template.</div>;
+  }
+
+  return <div className={layoutStyles.lineEditor}>
+    {sections.map((section) => {
+      const closed = Boolean(collapsed[section.name]);
+      const hasDiscount = section.rows.some(({ item }) => isDiscountLine(item));
+      return <section key={section.name} className={layoutStyles.lineSection}>
+        <div className={layoutStyles.lineSectionHeader}>
+          <button type="button" className={layoutStyles.sectionToggle} aria-expanded={!closed} onClick={() => setCollapsed((current) => ({ ...current, [section.name]: !closed }))}>
+            {closed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+            <span>{section.name}</span>
+            <small>{section.rows.length} line{section.rows.length === 1 ? "" : "s"}</small>
+          </button>
+          <div className={layoutStyles.sectionActions}>
+            {isEquipmentSection(section.name) ? <Button size="sm" variant="secondary" onClick={() => hasDiscount ? onRemoveDiscount(section.name) : onAddDiscount(section.name)}>
+              {hasDiscount ? <Trash2 size={13} /> : <Percent size={13} />}{hasDiscount ? "Remove discount" : "Add discount"}
+            </Button> : null}
+            <Button size="sm" variant="secondary" onClick={() => onAddLine(section.name)}><Plus size={13} /> Add line</Button>
+          </div>
+        </div>
+        {!closed ? <div className={layoutStyles.lineTable}>
+          <div className={layoutStyles.lineTableHead} aria-hidden="true">
+            <span>Description</span><span>Qty</span><span>Unit price</span><span>Total mode</span><span>Status</span><span>Actions</span>
+          </div>
+          {section.rows.map(({ item, index }, sectionIndex) => {
+            const status = sharedRateLineStatus(item, template.excludeFromSharedRates);
+            return <div key={item.id || `${section.name}-${index}`} className={layoutStyles.lineRow} data-status={status.id}>
+              <div className={layoutStyles.mobileField} data-label="Description">
+                <Input value={item.description || ""} onChange={(event) => onLineChange(index, { description: event.target.value })} aria-label="Line description" />
+              </div>
+              <div className={layoutStyles.mobileField} data-label="Qty">
+                <Input value={item.qty || ""} onChange={(event) => onLineChange(index, { qty: event.target.value })} inputMode="decimal" aria-label="Quantity" />
+              </div>
+              <div className={layoutStyles.mobileField} data-label="Unit price">
+                {isDiscountLine(item) ? <Select value={DISCOUNT_OPTIONS.includes(item.unitPrice) ? item.unitPrice : DEFAULT_DISCOUNT} onChange={(event) => onLineChange(index, { unitPrice: event.target.value })} aria-label="Discount percentage">
+                  {DISCOUNT_OPTIONS.map((option) => <option key={option}>{option}</option>)}
+                </Select> : <Input value={item.unitPrice || ""} onChange={(event) => onLineChange(index, { unitPrice: event.target.value })} inputMode="decimal" aria-label="Unit price" />}
+              </div>
+              <div className={layoutStyles.mobileField} data-label="Total mode">
+                <Select value={item.totalMode || "auto"} onChange={(event) => onLineChange(index, { totalMode: event.target.value })} aria-label="Total mode">
+                  <option value="auto">Auto · {formatLineTotal(item, lineItems) || "-"}</option>
+                  <option value="tbc">TBC</option><option value="production">Production</option><option value="foc">FOC</option><option value="discount">Discount</option>
+                </Select>
+              </div>
+              <div className={layoutStyles.mobileField} data-label="Status">
+                <button type="button" className={layoutStyles.statusButton} data-status={status.id} onClick={() => status.id !== "template" && onToggleLineLock(index)} disabled={status.id === "excluded" || status.id === "template"} title={status.id === "shared" ? "Mark as Custom Price" : status.id === "custom" ? "Link to Shared Rates" : status.label}>
+                  {status.id === "custom" ? <Lock size={12} /> : status.id === "shared" ? <Unlock size={12} /> : null}{status.label}
+                </button>
+              </div>
+              <div className={layoutStyles.rowActions}>
+                <Button bare aria-label="Move line up" title="Move line up" disabled={sectionIndex === 0} onClick={() => onMoveLine(index, -1)}><ArrowUp size={15} /></Button>
+                <Button bare aria-label="Move line down" title="Move line down" disabled={sectionIndex === section.rows.length - 1} onClick={() => onMoveLine(index, 1)}><ArrowDown size={15} /></Button>
+                <Button bare aria-label="Delete line" title="Delete line" className={layoutStyles.deleteLineButton} onClick={() => onRemoveLine(index)}><Trash2 size={15} /></Button>
+              </div>
+            </div>;
+          })}
+        </div> : null}
+        {!closed ? <details className={layoutStyles.sectionAdvanced}>
+          <summary>Rename section</summary>
+          <div><Input defaultValue={section.name} onBlur={(event) => onRenameSection(section.name, event.target.value)} aria-label="Section name" /></div>
+        </details> : null}
+      </section>;
+    })}
+  </div>;
+}
+
 function QuoteTemplatePreview({
   template,
+  documentDefaults = DEFAULT_QUOTE_SETTINGS,
   onTemplateChange,
   onLineChange,
   onAddLine,
@@ -721,7 +707,6 @@ function QuoteTemplatePreview({
                   const item = row.item || {};
                   const isDiscount = isDiscountLine(item);
                   const customPrice = isCustomSharedRateLine(item);
-                  const sharedLinked = isSharedRateLinkedLine(item);
                   const cellStyle = isDiscount ? discountQuoteCell : quoteCell;
                   const descriptionStyle = isDiscount ? discountLineText : lineText;
                   const qtyStyle = isDiscount ? discountQtyText : qtyText;
@@ -732,14 +717,9 @@ function QuoteTemplatePreview({
                       ? item.unitPrice
                       : DEFAULT_DISCOUNT
                     : item.unitPrice || "";
-                  const sharedRateLabel = templateExcluded
-                    ? "Template Excluded"
-                    : customPrice
-                      ? "Custom Price"
-                      : sharedLinked
-                        ? "Shared Rate"
-                        : "Shared Rate";
-                  const sharedRateKind = templateExcluded ? "excluded" : customPrice ? "custom" : "shared";
+                  const lineStatus = sharedRateLineStatus(item, templateExcluded);
+                  const sharedRateLabel = lineStatus.label;
+                  const sharedRateKind = lineStatus.id;
 
                   return (
                     <tr key={row.key}>
@@ -842,7 +822,7 @@ function QuoteTemplatePreview({
                 <span>Total Price GBP</span>
                 <strong>{money(subtotal)}</strong>
               </div>
-              <div className={layoutStyles.extracted45}>Excludes VAT</div>
+              <div className={layoutStyles.extracted45}>{documentDefaults.vatText || "Excludes VAT"}</div>
             </div>
           </div>
         </div>
@@ -866,6 +846,21 @@ export default function QuoteTemplatesPage() {
   const [globalDrafts, setGlobalDrafts] = useState({});
   const [quoteDefaults, setQuoteDefaults] = useState(DEFAULT_QUOTE_SETTINGS);
   const [pendingSharedRate, setPendingSharedRate] = useState(null);
+  const [editorView, setEditorView] = useState("edit");
+  const [revision, setRevision] = useState(0);
+  const [lastSavedAt, setLastSavedAt] = useState("");
+  const [lastSharedRateUpdate, setLastSharedRateUpdate] = useState(null);
+  const [discardedLine, setDiscardedLine] = useState(null);
+  const [sharedFilter, setSharedFilter] = useState("all");
+  const [collapsedRateGroups, setCollapsedRateGroups] = useState({});
+  const [exceptionSummary, setExceptionSummary] = useState(null);
+  const [pendingTab, setPendingTab] = useState("");
+  const cleanSignatureRef = useRef("");
+  const cleanWorkspaceRef = useRef(null);
+  const initializedRateGroupsRef = useRef(false);
+
+  const workspaceSignature = useMemo(() => JSON.stringify({ templates, quoteDefaults: normalizeQuoteDocumentDefaults(quoteDefaults) }), [templates, quoteDefaults]);
+  const isDirty = Boolean(!loading && cleanSignatureRef.current && workspaceSignature !== cleanSignatureRef.current);
 
   useEffect(() => {
     const load = async () => {
@@ -880,11 +875,19 @@ export default function QuoteTemplatesPage() {
         const data = snap.exists() ? snap.data() : {};
         const loaded = Array.isArray(data?.templates)
           ? mergeQuoteTemplatesWithDefaults(data.templates, FULL_SIZE_TRACKING_QUOTE_TEMPLATES)
-          : FULL_SIZE_TRACKING_QUOTE_TEMPLATES;
+          : mergeQuoteTemplatesWithDefaults([], FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
         const next = clone(loaded);
+        const nextDefaults = normalizeQuoteDocumentDefaults(data?.quoteDefaults || {});
         setTemplates(next);
         setSelectedId(next[0]?.id || "");
-        setQuoteDefaults({ ...DEFAULT_QUOTE_SETTINGS, ...(data?.quoteDefaults || {}) });
+        setQuoteDefaults(nextDefaults);
+        setRevision(Number(data?.revision) || 0);
+        setLastSharedRateUpdate(data?.lastSharedRateUpdate || null);
+        const cleanWorkspace = { templates: next, quoteDefaults: nextDefaults };
+        cleanWorkspaceRef.current = clone(cleanWorkspace);
+        cleanSignatureRef.current = JSON.stringify(cleanWorkspace);
+        const updatedAt = data?.updatedAt?.toDate?.() || (data?.updatedAt ? new Date(data.updatedAt) : null);
+        setLastSavedAt(updatedAt && !Number.isNaN(updatedAt.getTime()) ? updatedAt.toLocaleString("en-GB") : "");
       } catch (err) {
         console.error("Failed loading quote templates:", err);
         setError("Unable to load quote templates.");
@@ -914,6 +917,22 @@ export default function QuoteTemplatesPage() {
   }, [search, templates]);
 
   const sharedRateSummaries = useMemo(() => summarizeSharedRates(templates), [templates]);
+  const filteredSharedRateSummaries = useMemo(() => sharedRateSummaries.filter((summary) => {
+    if (sharedFilter === "attention") return summary.hasVariance;
+    if (sharedFilter === "up-to-date") return !summary.hasVariance;
+    if (sharedFilter === "custom") return summary.lockedLineCount > 0;
+    if (sharedFilter === "excluded") return summary.excludedTemplateCount > 0;
+    return true;
+  }), [sharedFilter, sharedRateSummaries]);
+
+  useEffect(() => {
+    if (initializedRateGroupsRef.current || !sharedRateSummaries.length) return;
+    initializedRateGroupsRef.current = true;
+    setCollapsedRateGroups(Object.fromEntries(SHARED_RATE_GROUPS.map((group) => [
+      group.id,
+      !sharedRateSummaries.some((summary) => summary.group === group.id && summary.hasVariance),
+    ])));
+  }, [sharedRateSummaries]);
 
   useEffect(() => {
     setGlobalDrafts((current) => {
@@ -937,19 +956,12 @@ export default function QuoteTemplatesPage() {
       current.map((template) => (template.id === selectedId ? { ...template, ...patch } : template))
     );
   };
-  const updateSelectedId = (value) => {
-    const nextId = slugify(value);
-    setTemplates((current) =>
-      current.map((template) => (template.id === selectedId ? { ...template, id: nextId } : template))
-    );
-    setSelectedId(nextId);
-  };
 
   const updateLineItem = async (index, patch) => {
     if (!selectedTemplate) return;
     const lineItems = [...(selectedTemplate.lineItems || [])];
     const currentLine = lineItems[index] || {};
-    const editsSharedRateFields = ["description", "qty", "unitPrice", "totalMode"].some((field) =>
+    const editsSharedRateFields = ["description", "unitPrice", "totalMode"].some((field) =>
       Object.prototype.hasOwnProperty.call(patch, field)
     );
     const shouldPrompt =
@@ -999,9 +1011,15 @@ export default function QuoteTemplatesPage() {
     const rule = SHARED_RATE_RULES.find((item) => item.id === ruleId);
     if (!summary || !rule) return;
     const draft = globalDrafts[ruleId] || {};
-    const unitPrice = Object.prototype.hasOwnProperty.call(draft, "unitPrice")
+    const rawUnitPrice = Object.prototype.hasOwnProperty.call(draft, "unitPrice")
       ? draft.unitPrice
       : summary.suggestedUnitPrice;
+    const priceResult = normalizeSharedRatePrice(rawUnitPrice);
+    if (!priceResult.valid) {
+      setError(priceResult.error);
+      return;
+    }
+    const unitPrice = priceResult.value;
     const totalMode = draft.totalMode || summary.suggestedTotalMode || "tbc";
     setPendingSharedRate({
       ruleId,
@@ -1042,35 +1060,45 @@ export default function QuoteTemplatesPage() {
     setError("");
     setMessage("");
     try {
-      const nextTemplates = templates.map((template) => ({
-        ...template,
-        lineItems: (template.lineItems || []).map((item) =>
-          !template.excludeFromSharedRates &&
-          !isCustomSharedRateLine(item) &&
-          itemMatchesSharedRateRule(item, rule)
-            ? {
-                ...item,
-                sharedRateId: rule.id,
-                usesSharedRate: true,
-                isCustomPrice: false,
-                lockedSharedRate: false,
-                unitPrice: pendingSharedRate.unitPrice,
-                totalMode: pendingSharedRate.totalMode,
-              }
-            : item
-        ),
-      }));
-      await setDoc(
-        doc(db, "settings", "quoteTemplates"),
-        tenantPayload(authState, {
+      const settingsRef = doc(db, "settings", "quoteTemplates");
+      const result = await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(settingsRef);
+        const current = snapshot.exists() ? snapshot.data() : {};
+        const currentTemplates = mergeQuoteTemplatesWithDefaults(
+          Array.isArray(current.templates) ? current.templates : [],
+          FULL_SIZE_TRACKING_QUOTE_TEMPLATES
+        );
+        const nextTemplates = sanitizeQuoteTemplateData(applySharedRateToTemplates(currentTemplates, rule, {
+          unitPrice: pendingSharedRate.unitPrice,
+          totalMode: pendingSharedRate.totalMode,
+        }));
+        const nextRevision = (Number(current.revision) || 0) + 1;
+        const appliedAt = new Date().toISOString();
+        const appliedBy = authState.user?.email || "Unknown";
+        const nextDefaults = normalizeQuoteDocumentDefaults(current.quoteDefaults || quoteDefaults);
+        const storedDefaults = { ...(current.quoteDefaults || {}), ...nextDefaults };
+        transaction.set(settingsRef, tenantPayload(authState, {
           templates: nextTemplates,
-          quoteDefaults,
+          quoteDefaults: storedDefaults,
+          revision: nextRevision,
+          lastSharedRateUpdate: { ruleId: rule.id, label: rule.label, appliedAt, appliedBy },
           updatedAt: serverTimestamp(),
-          updatedBy: authState.user?.email || "Unknown",
-        }),
-        { merge: true }
-      );
-      setTemplates(nextTemplates);
+          updatedBy: appliedBy,
+        }), { merge: true });
+        return { nextTemplates, nextDefaults, nextRevision, appliedAt, appliedBy };
+      });
+      setTemplates(result.nextTemplates);
+      setQuoteDefaults(result.nextDefaults);
+      setRevision(result.nextRevision);
+      setLastSharedRateUpdate({ ruleId: rule.id, label: rule.label, appliedAt: result.appliedAt, appliedBy: result.appliedBy });
+      setLastSavedAt(new Date(result.appliedAt).toLocaleString("en-GB"));
+      const cleanWorkspace = { templates: result.nextTemplates, quoteDefaults: result.nextDefaults };
+      cleanWorkspaceRef.current = clone(cleanWorkspace);
+      cleanSignatureRef.current = JSON.stringify(cleanWorkspace);
+      setGlobalDrafts((current) => ({
+        ...current,
+        [rule.id]: { unitPrice: pendingSharedRate.unitPrice, totalMode: pendingSharedRate.totalMode },
+      }));
       setMessage(`Applied ${pendingSharedRate.label} to ${pendingSharedRate.updateLineCount} line${pendingSharedRate.updateLineCount === 1 ? "" : "s"} across ${pendingSharedRate.updateTemplateCount} template${pendingSharedRate.updateTemplateCount === 1 ? "" : "s"}.`);
       setPendingSharedRate(null);
     } catch (err) {
@@ -1083,7 +1111,11 @@ export default function QuoteTemplatesPage() {
 
   const addLine = (section) => {
     if (!selectedTemplate) return;
-    updateSelected({ lineItems: [...(selectedTemplate.lineItems || []), cloneLineItem(section)] });
+    const lineItems = [...(selectedTemplate.lineItems || [])];
+    const targetSection = section || "Quote lines";
+    const lastIndex = lineItems.reduce((found, item, index) => String(item.section || "Quote lines") === targetSection ? index : found, -1);
+    lineItems.splice(lastIndex >= 0 ? lastIndex + 1 : lineItems.length, 0, { ...cloneLineItem(targetSection), id: `${Date.now()}-template-line` });
+    updateSelected({ lineItems });
   };
 
   const addDiscountLine = (section) => {
@@ -1093,18 +1125,17 @@ export default function QuoteTemplatesPage() {
       (selectedTemplate.lineItems || []).find((item) => isEquipmentSection(item.section))?.section ||
       "Equipment - Daily Rates (Optional Equipment Charged if Used or Booked)";
     if (!isEquipmentSection(targetSection)) return;
-    updateSelected({
-      lineItems: [
-        ...(selectedTemplate.lineItems || []),
-        {
+    const lineItems = [...(selectedTemplate.lineItems || [])];
+    const lastIndex = lineItems.reduce((found, item, index) => String(item.section || "") === targetSection ? index : found, -1);
+    lineItems.splice(lastIndex >= 0 ? lastIndex + 1 : lineItems.length, 0, {
+          id: `${Date.now()}-template-discount`,
           section: targetSection,
           description: "Discount",
           qty: "",
           unitPrice: DEFAULT_DISCOUNT,
           totalMode: "discount",
-        },
-      ],
-    });
+        });
+    updateSelected({ lineItems });
   };
 
   const removeDiscountLines = (section = "") => {
@@ -1124,7 +1155,29 @@ export default function QuoteTemplatesPage() {
 
   const removeLine = (index) => {
     if (!selectedTemplate) return;
+    const removed = selectedTemplate.lineItems?.[index];
+    if (removed) setDiscardedLine({ templateId: selectedTemplate.id, item: clone(removed), index });
     updateSelected({ lineItems: (selectedTemplate.lineItems || []).filter((_, itemIndex) => itemIndex !== index) });
+  };
+
+  const undoRemoveLine = () => {
+    if (!discardedLine) return;
+    setTemplates((current) => current.map((template) => {
+      if (template.id !== discardedLine.templateId) return template;
+      const lineItems = [...(template.lineItems || [])];
+      lineItems.splice(Math.min(discardedLine.index, lineItems.length), 0, discardedLine.item);
+      return { ...template, lineItems };
+    }));
+    setDiscardedLine(null);
+  };
+
+  const moveLine = (index, direction) => {
+    if (!selectedTemplate) return;
+    const target = index + direction;
+    const lineItems = [...(selectedTemplate.lineItems || [])];
+    if (target < 0 || target >= lineItems.length || String(lineItems[index]?.section || "") !== String(lineItems[target]?.section || "")) return;
+    [lineItems[index], lineItems[target]] = [lineItems[target], lineItems[index]];
+    updateSelected({ lineItems });
   };
 
   const renameSection = (oldSection, nextSection) => {
@@ -1137,47 +1190,80 @@ export default function QuoteTemplatesPage() {
     });
   };
 
-  const persistQuoteTemplateSettings = async (nextTemplates, nextDefaults, successMessage) => {
+  const persistQuoteTemplateSettings = useCallback(async (nextTemplates, nextDefaults, successMessage) => {
     setSaving(true);
     setError("");
     setMessage("");
     try {
-      const cleanTemplates = nextTemplates.map((template) => ({
+      const cleanTemplates = sanitizeQuoteTemplateData(nextTemplates.map((template) => ({
         ...template,
         lineItems: Array.isArray(template.lineItems) ? template.lineItems : [],
-      }));
-      await setDoc(
-        doc(db, "settings", "quoteTemplates"),
-        tenantPayload(authState, {
+      })));
+      const settingsRef = doc(db, "settings", "quoteTemplates");
+      const nextRevision = await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(settingsRef);
+        const currentData = snapshot.exists() ? snapshot.data() : {};
+        const currentRevision = Number(currentData?.revision) || 0;
+        const updatedRevision = nextQuoteTemplateRevision(revision, currentRevision);
+        const normalizedDefaults = normalizeQuoteDocumentDefaults(nextDefaults);
+        transaction.set(settingsRef, tenantPayload(authState, {
           templates: cleanTemplates,
-          quoteDefaults: nextDefaults,
+          quoteDefaults: { ...(currentData.quoteDefaults || {}), ...normalizedDefaults },
+          revision: updatedRevision,
           updatedAt: serverTimestamp(),
           updatedBy: authState.user?.email || "Unknown",
-        }),
-        { merge: true }
-      );
+        }), { merge: true });
+        return updatedRevision;
+      });
+      const normalizedDefaults = normalizeQuoteDocumentDefaults(nextDefaults);
       setTemplates(cleanTemplates);
-      setQuoteDefaults(nextDefaults);
+      setQuoteDefaults(normalizedDefaults);
+      setRevision(nextRevision);
+      const cleanWorkspace = { templates: cleanTemplates, quoteDefaults: normalizedDefaults };
+      cleanWorkspaceRef.current = clone(cleanWorkspace);
+      cleanSignatureRef.current = JSON.stringify(cleanWorkspace);
+      setLastSavedAt(new Date().toLocaleString("en-GB"));
       setMessage(successMessage);
+      return true;
     } catch (err) {
       console.error("Failed saving quote templates:", err);
-      setError("Unable to save quote template settings.");
+      setError(err?.code === "quote-template-conflict"
+        ? "Another administrator saved Quote Templates first. Reload the page before publishing your changes."
+        : "Unable to save quote template settings.");
+      return false;
     } finally {
       setSaving(false);
     }
+  }, [authState, revision]);
+
+  const handlePrimarySave = useCallback(() => persistQuoteTemplateSettings(
+    templates,
+    quoteDefaults,
+    activeTab === "defaults" ? "Quote defaults saved." : "Quote template changes saved."
+  ), [activeTab, persistQuoteTemplateSettings, quoteDefaults, templates]);
+
+  useUnsavedChangesGuard({
+    isDirty,
+    message: "You have unpublished Quote Template changes.",
+    saveLabel: "Save Changes & Leave",
+    onSave: handlePrimarySave,
+  });
+
+  const discardChanges = () => {
+    const clean = cleanWorkspaceRef.current;
+    if (!clean) return;
+    setTemplates(clone(clean.templates));
+    setQuoteDefaults(clone(clean.quoteDefaults));
+    setSelectedId((current) => clean.templates.some((template) => template.id === current) ? current : clean.templates[0]?.id || "");
+    setMessage("Unpublished changes discarded.");
   };
 
-  const saveSelectedTemplate = async () => {
-    await persistQuoteTemplateSettings(templates, quoteDefaults, "Selected template saved.");
-  };
-
-  const saveDefaults = async () => {
-    await persistQuoteTemplateSettings(templates, quoteDefaults, "Quote defaults saved.");
-  };
-
-  const handlePrimarySave = () => {
-    if (activeTab === "defaults") return saveDefaults();
-    return saveSelectedTemplate();
+  const requestTabChange = (nextTab) => {
+    if (nextTab === "shared" && isDirty) {
+      setPendingTab(nextTab);
+      return;
+    }
+    setActiveTab(nextTab);
   };
 
   const addTemplate = () => {
@@ -1219,58 +1305,58 @@ export default function QuoteTemplatesPage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted46}>
+      <div style={pageWrap} className={layoutStyles.page}>
+        <div className={layoutStyles.pageHeader}>
           <div>
-            <h1 className={layoutStyles.extracted47}>Quote Templates</h1>
-            <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
-              View and edit the templates used by the quote builder.
-            </div>
+            <h1>Quote Templates</h1>
+            <p>Manage quote lines, shared prices and defaults used by new quotes.</p>
           </div>
-          <div className={layoutStyles.extracted48}>
-            <Link href="/completed-quotes" style={button}>
+          <div className={layoutStyles.headerActions}>
+            <Button as={Link} href="/completed-quotes" variant="secondary">
               <ArrowLeft size={14} />
               Completed Quotes
-            </Link>
-            {activeTab !== "shared" ? (
-              <button type="button" onClick={handlePrimarySave} disabled={saving} style={{ ...primaryButton, cursor: saving ? "wait" : "pointer", opacity: saving ? 0.75 : 1 }}>
-                <Save size={14} />
-                {saving ? "Saving..." : activeTab === "defaults" ? "Save Defaults" : "Save Template"}
-              </button>
-            ) : null}
+            </Button>
           </div>
         </div>
 
-        {message ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "var(--color-success)", fontWeight: 800 }}>{message}</div> : null}
-        {error ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "var(--color-danger)", fontWeight: 800 }}>{error}</div> : null}
+        {message ? <Alert variant="success" className={layoutStyles.pageAlert}>{message}</Alert> : null}
+        {error ? <Alert variant="danger" className={layoutStyles.pageAlert}>{error}</Alert> : null}
 
-        <div className={layoutStyles.extracted49}>
-          <button type="button" onClick={() => setActiveTab("templates")} style={tabButton(activeTab === "templates")}>
-            Templates
-          </button>
-          <button type="button" onClick={() => setActiveTab("shared")} style={tabButton(activeTab === "shared")}>
-            Shared Rates
-          </button>
-          <button type="button" onClick={() => setActiveTab("defaults")} style={tabButton(activeTab === "defaults")}>
-            Defaults / Settings
-          </button>
-        </div>
+        <Tabs className={layoutStyles.mainTabs} value={activeTab} onChange={requestTabChange} label="Quote template administration" items={[
+          { value: "templates", label: "Templates" },
+          { value: "shared", label: "Shared Rates" },
+          { value: "defaults", label: "Defaults" },
+        ]} />
+
+        {activeTab !== "shared" ? <div className={layoutStyles.saveBar} data-dirty={isDirty}>
+          <div className={layoutStyles.saveStatus}>
+            <strong>{saving ? "Saving changes…" : isDirty ? "Unsaved changes" : "All changes saved"}</strong>
+            <span>{isDirty ? "Publish when you are ready." : lastSavedAt ? `Saved ${lastSavedAt} · revision ${revision}` : `Revision ${revision}`}</span>
+          </div>
+          <div className={layoutStyles.saveActions}>
+            <Button variant="secondary" disabled={!isDirty || saving} onClick={discardChanges}><RotateCcw size={14} /> Discard</Button>
+            <Button loading={saving} disabled={!isDirty} onClick={handlePrimarySave}><Save size={14} /> Save Changes</Button>
+          </div>
+        </div> : null}
 
         {activeTab === "templates" ? (
-        <div className={layoutStyles.extracted50}>
-          <aside style={{ ...surface, padding: 10 }}>
-            <div className={layoutStyles.extracted51}>
-              <Search size={15} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search templates..." style={{ ...input, paddingLeft: 34 }} />
+        <div className={layoutStyles.templateWorkspace}>
+          <aside className={layoutStyles.templateSidebar}>
+            <div className={layoutStyles.searchField}>
+              <Search size={15} />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search templates…" aria-label="Search templates" />
             </div>
-            <div className={layoutStyles.extracted52}>
-              <button type="button" onClick={addTemplate} style={button}><Plus size={14} /> New</button>
-              <button type="button" onClick={duplicateTemplate} disabled={!selectedTemplate} style={button}><Copy size={14} /> Duplicate</button>
+            <Select className={layoutStyles.mobileTemplateSelect} value={selectedId} onChange={(event) => setSelectedId(event.target.value)} aria-label="Selected template">
+              {visibleTemplates.map((template) => <option key={template.id} value={template.id}>{template.serviceDescription || template.file || template.id}</option>)}
+            </Select>
+            <div className={layoutStyles.templateCreateActions}>
+              <Button size="sm" onClick={addTemplate}><Plus size={14} /> New</Button>
+              <Button size="sm" variant="secondary" onClick={duplicateTemplate} disabled={!selectedTemplate}><Copy size={14} /> Duplicate</Button>
             </div>
-            <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+            <div className={layoutStyles.templateCount}>
               {loading ? "Loading..." : `${visibleTemplates.length} of ${templates.length} templates`}
             </div>
-            <div className={layoutStyles.extracted53}>
+            <div className={layoutStyles.templateList}>
               {visibleTemplates.map((template) => {
                 const active = template.id === selectedId;
                 return (
@@ -1278,339 +1364,143 @@ export default function QuoteTemplatesPage() {
                     key={template.id}
                     type="button"
                     onClick={() => setSelectedId(template.id)}
-                    style={{
-                      textAlign: "left",
-                      padding: 9,
-                      borderRadius: 8,
-                      border: `1px solid ${active ? UI.brand : UI.border}`,
-                      background: active ? "var(--color-brand-soft)" : "var(--color-surface)",
-                      color: UI.text,
-                      cursor: "pointer",
-                    }}
+                    className={layoutStyles.templateListItem}
+                    data-active={active}
                   >
-                    <div className={layoutStyles.extracted54}>{template.serviceDescription || template.file || template.id}</div>
-                    <div style={{ color: UI.muted, fontSize: 11, marginTop: 2 }}>{template.file || template.id}</div>
+                    <strong>{template.serviceDescription || template.file || template.id}</strong>
+                    <span>{template.file || template.id}</span>
                   </button>
                 );
               })}
             </div>
           </aside>
 
-          <main style={{ ...surface, padding: 12 }}>
+          <main className={layoutStyles.templateEditorPanel}>
             {!selectedTemplate ? (
-              <div style={{ color: UI.muted, fontWeight: 800 }}>Select a template to edit.</div>
+              <div className={layoutStyles.editorEmpty}>Select a template to edit.</div>
             ) : (
-              <div className={layoutStyles.extracted55}>
-                <div className={layoutStyles.extracted56}>Template-only change. Editing selected template only. Changes here will not update other templates.</div>
-                <div className={layoutStyles.extracted57}>
+              <div className={layoutStyles.editorContent}>
+                <div className={layoutStyles.editorHeader}>
                   <div>
-                    <label style={label}>Template ID</label>
-                    <input value={selectedTemplate.id || ""} onChange={(event) => updateSelectedId(event.target.value)} style={input} />
+                    <label htmlFor="template-name">Template name</label>
+                    <Input id="template-name" value={selectedTemplate.serviceDescription || ""} onChange={(event) => updateSelected({ serviceDescription: event.target.value })} />
                   </div>
                   <div>
-                    <label style={label}>Source File</label>
-                    <input value={selectedTemplate.file || ""} onChange={(event) => updateSelected({ file: event.target.value })} style={input} />
+                    <label htmlFor="template-contact">Default Bickers Contact</label>
+                    <Input id="template-contact" list="template-contact-options" value={selectedTemplate.defaultBickersContact || ""} onChange={(event) => updateSelected({ defaultBickersContact: event.target.value })} placeholder={quoteDefaults.defaultBickersContact || "Adam Eastall"} />
+                    <datalist id="template-contact-options"><option value="Adam Eastall" /><option value="Sophie Albrow" /></datalist>
                   </div>
                 </div>
-                <div>
-                  <label style={label}>Default Bickers Contact</label>
-                  <input value={selectedTemplate.defaultBickersContact || ""} onChange={(event) => updateSelected({ defaultBickersContact: event.target.value })} style={input} />
-                </div>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    border: `1px solid ${selectedTemplate.excludeFromSharedRates ? "var(--color-warning-border)" : UI.border}`,
-                    background: selectedTemplate.excludeFromSharedRates ? "var(--color-warning-soft)" : "var(--color-surface)",
-                    borderRadius: 8,
-                    padding: 10,
-                    fontSize: 13,
-                    fontWeight: 900,
-                    color: UI.text,
-                  }}
-                >
+                <label className={layoutStyles.excludeToggle} data-excluded={Boolean(selectedTemplate.excludeFromSharedRates)}>
                   <input
                     type="checkbox"
                     checked={Boolean(selectedTemplate.excludeFromSharedRates)}
                     onChange={(event) => updateSelected({ excludeFromSharedRates: event.target.checked })}
                   />
-                  Exclude this template from Shared Rates updates
-                  {selectedTemplate.excludeFromSharedRates ? (
-                    <span className={layoutStyles.extracted58}>Excluded from Shared Rates</span>
-                  ) : (
-                    <span style={{ color: UI.muted, fontSize: 12 }}>Template can receive Shared Rate updates</span>
-                  )}
+                  <span><strong>Exclude this template from Shared Rates</strong><small>{selectedTemplate.excludeFromSharedRates ? "Global rates will skip every line in this template." : "Matching lines can receive confirmed global rate updates."}</small></span>
                 </label>
-                <div className={layoutStyles.extracted59}>
-                  <div>
-                    <label style={{ ...label, marginBottom: 2 }}>Quote Template Editor</label>
-                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700 }}>
-                      Edit lines directly on the quote layout.
-                    </div>
-                    <div className={layoutStyles.extracted60}>
-                      <span className={layoutStyles.extracted61}>Shared Rate = can update globally</span>
-                      <span className={layoutStyles.extracted62}>Custom Price = skipped by Shared Rates</span>
-                    </div>
-                  </div>
-                  <div className={layoutStyles.extracted63}>
-                    <button type="button" onClick={addSection} style={button}>
-                      <Plus size={14} />
-                      Add section
-                    </button>
-                    <button type="button" onClick={() => addLine((selectedTemplate.lineItems || [])[0]?.section || "Quote lines")} style={button}>
-                      <Plus size={14} />
-                      Add line
-                    </button>
-                    <button type="button" onClick={() => removeDiscountLines()} style={dangerButton}>
-                      <Trash2 size={14} />
-                      Remove all discounts
-                    </button>
-                    <button type="button" onClick={deleteTemplate} style={dangerButton}>
-                      <Trash2 size={14} />
-                      Delete Template
-                    </button>
+
+                <div className={layoutStyles.editorToolbar}>
+                  <Tabs value={editorView} onChange={setEditorView} label="Template editor view" items={[{ value: "edit", label: "Edit Lines" }, { value: "preview", label: "Preview" }]} />
+                  <div className={layoutStyles.editorActions}>
+                    <Button size="sm" variant="secondary" onClick={addSection}><Plus size={14} /> Add section</Button>
+                    <Button size="sm" variant="secondary" onClick={() => addLine((selectedTemplate.lineItems || [])[0]?.section || "Quote lines")}><Plus size={14} /> Add line</Button>
+                    <details className={layoutStyles.dangerMenu}>
+                      <summary aria-label="More template actions"><MoreHorizontal size={16} /> More</summary>
+                      <div>
+                        <button type="button" onClick={() => removeDiscountLines()}><Trash2 size={14} /> Remove all discounts</button>
+                        <button type="button" className={layoutStyles.dangerMenuItem} onClick={deleteTemplate}><Trash2 size={14} /> Delete template</button>
+                      </div>
+                    </details>
                   </div>
                 </div>
-                <QuoteTemplatePreview
-                  template={selectedTemplate}
-                  onTemplateChange={updateSelected}
-                  onLineChange={updateLineItem}
-                  onAddLine={addLine}
-                  onRemoveLine={removeLine}
-                  onToggleLineLock={toggleLineSharedRateLock}
-                  onRenameSection={renameSection}
-                  onAddDiscount={addDiscountLine}
-                  onRemoveDiscount={removeDiscountLines}
-                />
+
+                {editorView === "edit" ? <QuoteTemplateLineEditor template={selectedTemplate} onLineChange={updateLineItem} onAddLine={addLine} onRemoveLine={removeLine} onMoveLine={moveLine} onToggleLineLock={toggleLineSharedRateLock} onRenameSection={renameSection} onAddDiscount={addDiscountLine} onRemoveDiscount={removeDiscountLines} /> : <fieldset disabled className={layoutStyles.previewFieldset}><QuoteTemplatePreview template={selectedTemplate} documentDefaults={quoteDefaults} /></fieldset>}
+
+                <details className={layoutStyles.advancedDetails}>
+                  <summary>Advanced details</summary>
+                  <dl><div><dt>Template ID</dt><dd>{selectedTemplate.id}</dd></div><div><dt>Source file</dt><dd>{selectedTemplate.file || "None"}</dd></div></dl>
+                </details>
               </div>
             )}
           </main>
         </div>
         ) : null}
 
-        {activeTab === "shared" ? (
-          <main style={{ ...surface, padding: 12 }}>
-            <div className={layoutStyles.extracted64}>
-              <div className={layoutStyles.extracted65}>Global shared rate update. Applying a row here can update multiple templates.</div>
-              <div className={layoutStyles.extracted66}>
-                <div>
-                  <h2 className={layoutStyles.extracted67}>Shared Rates</h2>
-                  <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700, marginTop: 3 }}>
-                    Manage repeated line descriptions across all quote templates.
-                  </div>
-                </div>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>
-                  {sharedRateSummaries.filter((summary) => summary.unitPrices.length > 1 || summary.totalModes.length > 1).length} with variance
-                </div>
-              </div>
-
-              <div className={layoutStyles.extracted68}>
-                <div style={{ minWidth: 980, display: "grid", gridTemplateColumns: "minmax(230px, 1.2fr) 90px 110px minmax(220px, 1fr) 130px 118px", gap: 6, alignItems: "center", color: UI.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", padding: "0 2px" }}>
-                  <div>Shared line</div>
-                  <div>Templates</div>
-                  <div>Unit Price</div>
-                  <div>Current values</div>
-                  <div>Total Mode</div>
-                  <div>Action</div>
-                </div>
-                {sharedRateSummaries.map((summary) => {
-                  const draft = globalDrafts[summary.id] || {};
-                  const hasVariance = summary.unitPrices.length > 1 || summary.totalModes.length > 1;
-                  return (
-                    <div
-                      key={summary.id}
-                      style={{
-                        minWidth: 980,
-                        display: "grid",
-                        gridTemplateColumns: "minmax(230px, 1.2fr) 90px 110px minmax(220px, 1fr) 130px 118px",
-                        gap: 6,
-                        alignItems: "center",
-                        padding: 6,
-                        border: `1px solid ${hasVariance ? "var(--color-warning-border)" : UI.border}`,
-                        borderRadius: 8,
-                        background: hasVariance ? "var(--color-warning-soft)" : "var(--color-surface-subtle)",
-                      }}
-                    >
-                      <div>
-                        <div className={layoutStyles.extracted69}>{summary.label}</div>
-                        <div style={{ color: UI.muted, fontSize: 11, marginTop: 1 }}>
-                          {summary.updateLineCount} update / {summary.excludedTemplateCount} templates excluded / {summary.lockedLineCount} custom
-                        </div>
-                      </div>
-                      <div className={layoutStyles.extracted70}>{summary.updateTemplateCount}/{summary.templateCount}</div>
-                      <input
-                        value={draft.unitPrice ?? ""}
-                        onChange={(event) => updateGlobalDraft(summary.id, { unitPrice: event.target.value })}
-                        style={compactInput}
-                        placeholder="Unit"
-                      />
-                      <div style={{ color: hasVariance ? "var(--color-warning)" : UI.muted, fontSize: 11, fontWeight: 800, lineHeight: 1.35 }}>
-                        {summary.unitPrices.length > 1 ? `Varies: ${summary.unitPriceSummary}` : `Unit: ${summary.unitPriceSummary}`}
-                        <br />
-                        {summary.totalModes.length > 1 ? `Modes vary: ${summary.totalModeSummary}` : `Mode: ${summary.totalModeSummary}`}
-                      </div>
-                      <select
-                        value={draft.totalMode || summary.suggestedTotalMode || "tbc"}
-                        onChange={(event) => updateGlobalDraft(summary.id, { totalMode: event.target.value })}
-                        style={compactInput}
-                      >
-                        <option value="auto">Auto total</option>
-                        <option value="tbc">TBC</option>
-                        <option value="production">Production</option>
-                        <option value="foc">FOC</option>
-                        <option value="discount">Discount</option>
-                      </select>
-                      <button type="button" onClick={() => requestApplyGlobalRate(summary.id)} disabled={!summary.updateLineCount} style={{ ...primaryButton, opacity: summary.updateLineCount ? 1 : 0.55, cursor: summary.updateLineCount ? "pointer" : "not-allowed" }}>
-                        Apply Shared Rate
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </main>
-        ) : null}
-
-        {activeTab === "defaults" ? (
-          <main style={{ ...surface, padding: 12 }}>
-            <div className={layoutStyles.extracted71}>
-              <div className={layoutStyles.extracted72}>Quote-wide defaults. These settings are separate from individual template line items.</div>
-              <div>
-                <h2 className={layoutStyles.extracted73}>Defaults / Settings</h2>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700, marginTop: 3 }}>
-                  General defaults for quote creation and footer wording.
-                </div>
-              </div>
-              <div className={layoutStyles.extracted74}>
-                <div>
-                  <label style={label}>Global fallback Bickers Contact</label>
-                  <input value={quoteDefaults.defaultBickersContact || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, defaultBickersContact: event.target.value }))} style={input} />
-                </div>
-                <div>
-                  <label style={label}>Default Source File</label>
-                  <input value={quoteDefaults.defaultSourceFile || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, defaultSourceFile: event.target.value }))} style={input} />
-                </div>
-              </div>
-              <div>
-                <label style={label}>Quote Footer Approval Text</label>
-                <textarea value={quoteDefaults.footerApprovalText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, footerApprovalText: event.target.value }))} style={{ ...input, minHeight: 70, resize: "vertical" }} />
-              </div>
-              <div>
-                <label style={label}>Footer Contact Text</label>
-                <textarea value={quoteDefaults.footerInfoText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, footerInfoText: event.target.value }))} style={{ ...input, minHeight: 70, resize: "vertical" }} />
-              </div>
-              <div className={layoutStyles.extracted75}>
-                <div>
-                  <label style={label}>VAT Text</label>
-                  <input value={quoteDefaults.vatText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, vatText: event.target.value }))} style={input} />
-                </div>
-                <div>
-                  <label style={label}>Payment Defaults</label>
-                  <input value={quoteDefaults.paymentDefaults || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, paymentDefaults: event.target.value }))} style={input} />
-                </div>
-              </div>
-              <div>
-                <button type="button" onClick={saveDefaults} disabled={saving} style={{ ...primaryButton, opacity: saving ? 0.75 : 1 }}>
-                  <Save size={14} />
-                  {saving ? "Saving..." : "Save Defaults"}
-                </button>
-              </div>
-            </div>
-          </main>
-        ) : null}
-
-        {pendingSharedRate ? (
-          <div
-            className={layoutStyles.extracted76}
-            onClick={() => setPendingSharedRate(null)}
-          >
-            <div style={{ ...surface, width: "min(620px, 100%)", padding: 16 }} onClick={(event) => event.stopPropagation()}>
-              <div className={layoutStyles.extracted77}>Confirm Global Shared Rate Update</div>
-              <div style={{ color: UI.muted, fontSize: 13, fontWeight: 700, lineHeight: 1.45, marginBottom: 12 }}>
-                Found <strong>{pendingSharedRate.occurrenceCount}</strong> matching line{pendingSharedRate.occurrenceCount === 1 ? "" : "s"} across{" "}
-                <strong>{pendingSharedRate.templateCount}</strong> template{pendingSharedRate.templateCount === 1 ? "" : "s"}.
-              </div>
-              <div className={layoutStyles.extracted78}>Global shared rate update. This affects multiple templates and saves immediately.</div>
-              <div className={layoutStyles.extracted79}>
-                <div>
-                  <label style={label}>Shared Line</label>
-                  <div className={layoutStyles.extracted80}>{pendingSharedRate.label}</div>
-                </div>
-                <div>
-                  <label style={label}>New Values</label>
-                  <div className={layoutStyles.extracted81}>{pendingSharedRate.unitPrice || "blank"} / {pendingSharedRate.totalMode}</div>
-                </div>
-                <div>
-                  <label style={label}>Will Update</label>
-                  <div className={layoutStyles.extracted82}>{pendingSharedRate.updateLineCount} lines / {pendingSharedRate.updateTemplateCount} templates</div>
-                </div>
-                <div>
-                  <label style={label}>Skipped</label>
-                  <div className={layoutStyles.extracted83}>{pendingSharedRate.excludedTemplateCount} templates / {pendingSharedRate.lockedLineCount} custom lines</div>
-                </div>
-              </div>
-              <label style={label}>Preview Affected Lines</label>
-              <div style={{ maxHeight: 280, overflow: "auto", border: `1px solid ${UI.border}`, borderRadius: 8, marginBottom: 14, background: "var(--color-surface-subtle)" }}>
-                <div
-                  style={{
-                    minWidth: 860,
-                    display: "grid",
-                    gridTemplateColumns: "1.1fr 1.3fr 90px 90px 105px 105px 145px",
-                    gap: 0,
-                    padding: 7,
-                    background: "var(--color-border)",
-                    color: UI.text,
-                    fontSize: 10.5,
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  <div>Template</div>
-                  <div>Line description</div>
-                  <div>Current unit</div>
-                  <div>New unit</div>
-                  <div>Current mode</div>
-                  <div>New mode</div>
-                  <div>Status</div>
-                </div>
-                {(pendingSharedRate.previewRows || []).map((row) => {
-                  const statusKind = row.status === "Will update" ? "shared" : row.status.includes("custom") ? "custom" : "excluded";
-                  return (
-                    <div
-                      key={row.key}
-                      style={{
-                        minWidth: 860,
-                        display: "grid",
-                        gridTemplateColumns: "1.1fr 1.3fr 90px 90px 105px 105px 145px",
-                        gap: 0,
-                        padding: 7,
-                        borderTop: `1px solid ${UI.border}`,
-                        alignItems: "center",
-                        fontSize: 11,
-                        fontWeight: 800,
-                      }}
-                    >
-                      <div>{row.templateName}</div>
-                      <div>{row.description}</div>
-                      <div>{row.currentUnitPrice || "blank"}</div>
-                      <div>{row.newUnitPrice || "blank"}</div>
-                      <div>{row.currentTotalMode}</div>
-                      <div>{row.newTotalMode}</div>
-                      <div><span style={statusPill(statusKind)}>{row.status}</span></div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className={layoutStyles.extracted84}>
-                <button type="button" onClick={() => setPendingSharedRate(null)} style={button}>Cancel</button>
-                <button type="button" onClick={confirmApplyGlobalRate} disabled={saving || !pendingSharedRate.updateLineCount} style={{ ...primaryButton, opacity: saving || !pendingSharedRate.updateLineCount ? 0.75 : 1 }}>
-                  {saving ? "Applying..." : "Apply Shared Rate"}
-                </button>
-              </div>
-            </div>
+        {activeTab === "shared" ? <main className={layoutStyles.sharedRatesPanel}>
+          <div className={layoutStyles.sectionHeading}>
+            <div><h2>Shared Rates</h2><p>Confirmed changes save immediately across linked templates.</p></div>
+            <div className={layoutStyles.sharedSummary}><strong>{sharedRateSummaries.filter((summary) => summary.hasVariance).length}</strong> need attention</div>
           </div>
-        ) : null}
+          {lastSharedRateUpdate ? <Alert variant="neutral" className={layoutStyles.lastApplied}>Last applied: <strong>{lastSharedRateUpdate.label}</strong> by {lastSharedRateUpdate.appliedBy} on {new Date(lastSharedRateUpdate.appliedAt).toLocaleString("en-GB")}</Alert> : null}
+          <div className={layoutStyles.sharedFilters} role="group" aria-label="Filter shared rates">
+            {[
+              ["all", "All rates"], ["attention", "Needs attention"], ["up-to-date", "Up to date"], ["custom", "Custom lines"], ["excluded", "Excluded templates"],
+            ].map(([value, text]) => <Button key={value} size="sm" variant={sharedFilter === value ? "primary" : "secondary"} onClick={() => setSharedFilter(value)}>{text}</Button>)}
+          </div>
+          <div className={layoutStyles.sharedRateGroups}>
+            {SHARED_RATE_GROUPS.map((group) => {
+              const groupSummaries = filteredSharedRateSummaries.filter((summary) => summary.group === group.id);
+              if (!groupSummaries.length) return null;
+              const closed = Boolean(collapsedRateGroups[group.id]);
+              return <section key={group.id} className={layoutStyles.sharedRateGroup}>
+                <button type="button" className={layoutStyles.sharedRateGroupHeader} aria-expanded={!closed} onClick={() => setCollapsedRateGroups((current) => ({ ...current, [group.id]: !closed }))}>
+                  <span>{closed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}{group.label}</span>
+                  <small>{groupSummaries.length} rate{groupSummaries.length === 1 ? "" : "s"}</small>
+                </button>
+                {!closed ? <div className={layoutStyles.sharedRateRows}>{groupSummaries.map((summary) => {
+                  const draft = globalDrafts[summary.id] || {};
+                  const normalizedDraft = normalizeSharedRatePrice(draft.unitPrice ?? summary.suggestedUnitPrice);
+                  const priceChanged = normalizedDraft.valid && normalizedDraft.value !== summary.suggestedUnitPrice;
+                  const modeChanged = (draft.totalMode || summary.suggestedTotalMode) !== summary.suggestedTotalMode;
+                  const canApply = summary.updateLineCount > 0 && (summary.hasVariance || priceChanged || modeChanged);
+                  return <div key={summary.id} className={layoutStyles.sharedRateRow} data-variance={summary.hasVariance}>
+                    <div className={layoutStyles.sharedRateIdentity}>
+                      <strong>{summary.label}</strong>
+                      <div><span>{summary.updateTemplateCount} linked</span>{summary.lockedLineCount ? <button type="button" onClick={() => setExceptionSummary(summary)}>{summary.lockedLineCount} custom</button> : null}{summary.excludedTemplateCount ? <button type="button" onClick={() => setExceptionSummary(summary)}>{summary.excludedTemplateCount} excluded</button> : null}</div>
+                    </div>
+                    <div className={layoutStyles.mobileField} data-label="Unit price"><Input value={draft.unitPrice ?? ""} onChange={(event) => updateGlobalDraft(summary.id, { unitPrice: event.target.value })} aria-label={`${summary.label} unit price`} /></div>
+                    <div className={layoutStyles.sharedCurrentValues} data-variance={summary.hasVariance}>{summary.unitPrices.length > 1 ? `Prices: ${summary.unitPriceSummary}` : `£${summary.unitPriceSummary}`}<br />{summary.totalModes.length > 1 ? `Modes: ${summary.totalModeSummary}` : summary.totalModeSummary}</div>
+                    <div className={layoutStyles.mobileField} data-label="Total mode"><Select value={draft.totalMode || summary.suggestedTotalMode || "tbc"} onChange={(event) => updateGlobalDraft(summary.id, { totalMode: event.target.value })} aria-label={`${summary.label} total mode`}><option value="auto">Auto total</option><option value="tbc">TBC</option><option value="production">Production</option><option value="foc">FOC</option><option value="discount">Discount</option></Select></div>
+                    <Button size="sm" disabled={!canApply} onClick={() => requestApplyGlobalRate(summary.id)}>{canApply ? `Apply to ${summary.updateTemplateCount}` : "Up to date"}</Button>
+                  </div>;
+                })}</div> : null}
+              </section>;
+            })}
+            {!filteredSharedRateSummaries.length ? <div className={layoutStyles.editorEmpty}>No shared rates match this filter.</div> : null}
+          </div>
+        </main> : null}
+
+        {activeTab === "defaults" ? <main className={layoutStyles.defaultsPanel}>
+          <div className={layoutStyles.sectionHeading}><div><h2>Defaults</h2><p>These values are copied into new quotes. Existing saved quotes keep their original wording.</p></div></div>
+          <div className={layoutStyles.defaultsGrid}>
+            <label><span>Global fallback Bickers Contact</span><Input list="default-contact-options" value={quoteDefaults.defaultBickersContact || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, defaultBickersContact: event.target.value }))} placeholder="Adam Eastall" /><datalist id="default-contact-options"><option value="Adam Eastall" /><option value="Sophie Albrow" /></datalist></label>
+            <label><span>VAT text</span><Input value={quoteDefaults.vatText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, vatText: event.target.value }))} /></label>
+            <label className={layoutStyles.defaultsWide}><span>Quote footer approval text</span><Textarea rows={3} value={quoteDefaults.footerApprovalText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, footerApprovalText: event.target.value }))} /></label>
+            <label className={layoutStyles.defaultsWide}><span>Footer contact text</span><Textarea rows={3} value={quoteDefaults.footerInfoText || ""} onChange={(event) => setQuoteDefaults((current) => ({ ...current, footerInfoText: event.target.value }))} /></label>
+          </div>
+        </main> : null}
+
+        <Modal open={Boolean(pendingSharedRate)} onClose={() => setPendingSharedRate(null)} title="Confirm Shared Rate update" description="This saves immediately across every linked template." size="xl" footer={<><Button variant="secondary" onClick={() => setPendingSharedRate(null)}>Cancel</Button><Button loading={saving} disabled={!pendingSharedRate?.updateLineCount} onClick={confirmApplyGlobalRate}>Apply to {pendingSharedRate?.updateTemplateCount || 0} templates</Button></>}>
+          {pendingSharedRate ? <div className={layoutStyles.rateConfirmation}>
+            <div className={layoutStyles.confirmStats}><div><span>Shared line</span><strong>{pendingSharedRate.label}</strong></div><div><span>New values</span><strong>{pendingSharedRate.unitPrice || "blank"} · {pendingSharedRate.totalMode}</strong></div><div><span>Will update</span><strong>{pendingSharedRate.updateLineCount} lines</strong></div><div><span>Skipped</span><strong>{pendingSharedRate.lockedLineCount + pendingSharedRate.excludedTemplateCount}</strong></div></div>
+            <div className={layoutStyles.previewRows}>{pendingSharedRate.previewRows.map((row) => <div key={row.key} className={layoutStyles.previewRow}>
+              <div><strong>{row.templateName}</strong><span>{row.description}</span></div>
+              <div><span>{row.currentUnitPrice || "blank"} / {row.currentTotalMode}</span><strong>→ {row.newUnitPrice || "blank"} / {row.newTotalMode}</strong></div>
+              <Badge variant={row.status === "Will update" ? "success" : row.status.includes("custom") ? "warning" : "danger"}>{row.status}</Badge>
+            </div>)}</div>
+          </div> : null}
+        </Modal>
+
+        <Modal open={Boolean(exceptionSummary)} onClose={() => setExceptionSummary(null)} title={`${exceptionSummary?.label || "Shared Rate"} exceptions`} description="Custom lines and excluded templates are deliberately skipped." size="lg" footer={<Button variant="secondary" onClick={() => setExceptionSummary(null)}>Close</Button>}>
+          {exceptionSummary ? <div className={layoutStyles.exceptionList}>
+            {[...exceptionSummary.lockedMatches, ...exceptionSummary.excludedMatches].map((match) => <div key={`${match.templateId}-${match.itemIndex}`}><strong>{match.templateName}</strong><span>{match.description}</span><Badge variant={match.lineLocked ? "warning" : "danger"}>{match.lineLocked ? "Custom Price" : "Template Excluded"}</Badge></div>)}
+          </div> : null}
+        </Modal>
+
+        <Modal open={Boolean(pendingTab)} onClose={() => setPendingTab("")} title="Publish your changes first?" description="Shared Rates save immediately and cannot safely include unpublished template edits." footer={<><Button variant="secondary" onClick={() => setPendingTab("")}>Stay here</Button><Button variant="secondary" onClick={() => { discardChanges(); setActiveTab(pendingTab); setPendingTab(""); }}>Discard changes</Button><Button loading={saving} onClick={async () => { if (await handlePrimarySave()) { setActiveTab(pendingTab); setPendingTab(""); } }}>Save Changes</Button></>} />
+
+        {discardedLine ? <div className={layoutStyles.undoToast} role="status"><span>Line removed</span><Button size="sm" variant="secondary" onClick={undoRemoveLine}><Undo2 size={14} /> Undo</Button></div> : null}
       </div>
     </HeaderSidebarLayout>
   );

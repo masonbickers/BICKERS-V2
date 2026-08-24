@@ -72,9 +72,30 @@ test("issued downloads use protected storage and draft preview remains separate"
     "utf8"
   );
   const rules = readFileSync(new URL("../storage.rules", import.meta.url), "utf8");
-  assert.match(route, /requireActiveUserFromRequest\(req\)/);
+  assert.match(route, /requireFinanceFromRequest\(req\)/);
   assert.match(route, /adminDownloadStorageObject/);
   assert.match(view, /rawInvoice\.status === "issued"/);
   assert.match(view, /issued-document/);
   assert.match(rules, /issued-invoices[\s\S]*allow read, write: if false/);
+});
+
+test("draft preview keeps Sage-controlled dates pending and labels draft downloads", () => {
+  const view = readFileSync(
+    new URL("../src/app/invoice-view/[id]/page.js", import.meta.url),
+    "utf8"
+  );
+  const styles = readFileSync(
+    new URL("../src/app/invoice-view/[id]/page.module.css", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(view, /const issueDate = identity\.isDraft \? null : invoice\.issueDate \|\| invoice\.issuedAt/);
+  assert.doesNotMatch(view, /invoice\.issueDate \|\| invoice\.issuedAt \|\| invoice\.createdAt/);
+  assert.match(view, /Assigned when issued by Sage/);
+  assert.match(view, /days from Sage posting/);
+  assert.match(view, /Save draft PDF/);
+  assert.match(view, /Billing address incomplete/);
+  assert.match(styles, /\.linesTable td\s*\{[^}]*background:\s*#fff;[^}]*color:\s*#111827/);
+  assert.match(styles, /\.lowerSection\s*\{[^}]*break-inside:\s*avoid;[^}]*page-break-inside:\s*avoid/);
+  assert.match(styles, /@media print[\s\S]*\.previewNotice\s*\{[^}]*display:\s*none !important/);
 });

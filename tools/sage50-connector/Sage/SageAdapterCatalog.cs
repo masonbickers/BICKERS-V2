@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Runtime.Loader;
 using BickersAction.Sage50Connector.Configuration;
 using Microsoft.Extensions.Options;
 
@@ -8,6 +6,7 @@ namespace BickersAction.Sage50Connector.Sage;
 public sealed class SageAdapterCatalog(
     IOptions<ConnectorOptions> options,
     ISageInstallationDiscovery discovery,
+    TrustedAdapterLoader adapterLoader,
     ILogger<SageAdapterCatalog> logger) : ISageAdapterCatalog
 {
     private readonly ConnectorOptions _options = options.Value;
@@ -50,12 +49,43 @@ public sealed class SageAdapterCatalog(
             var result = await adapter.TestConnectionAsync(
                 _options.CompanyDataPath,
                 cancellationToken);
+            if (result.Connected && string.IsNullOrWhiteSpace(_options.ExpectedSageCompanyIdentifier))
+            {
+                return new SageCapabilityReport(
+                    "degraded",
+                    installation.SageVersion,
+                    installation.SdoVersion,
+                    result.CompanyName,
+                    result.CompanyIdentifier,
+                    adapter.AdapterName,
+                    [],
+                    "sage_company_binding_required",
+                    "An expected Sage company identifier must be configured before the connector can become ready.");
+            }
+            if (result.Connected && !string.Equals(
+                result.CompanyIdentifier,
+                _options.ExpectedSageCompanyIdentifier.Trim(),
+                StringComparison.Ordinal))
+            {
+                return new SageCapabilityReport(
+                    "error",
+                    installation.SageVersion,
+                    installation.SdoVersion,
+                    result.CompanyName,
+                    result.CompanyIdentifier,
+                    adapter.AdapterName,
+                    [],
+                    "sage_company_binding_mismatch",
+                    "The connected Sage company does not match the configured company binding.");
+            }
             return new SageCapabilityReport(
                 result.Connected ? "online" : "degraded",
                 installation.SageVersion,
                 installation.SdoVersion,
                 result.CompanyName,
                 result.CompanyIdentifier,
+                adapter.AdapterName,
+                result.Connected ? ["read_only_customer_lookup"] : [],
                 result.ErrorCode,
                 result.Connected
                     ? null
@@ -90,9 +120,14 @@ public sealed class SageAdapterCatalog(
         var connection = await adapter.TestConnectionAsync(
             _options.CompanyDataPath,
             cancellationToken);
-        if (!connection.Connected)
+        if (!connection.Connected ||
+            string.IsNullOrWhiteSpace(_options.ExpectedSageCompanyIdentifier) ||
+            !string.Equals(
+                connection.CompanyIdentifier,
+                _options.ExpectedSageCompanyIdentifier.Trim(),
+                StringComparison.Ordinal))
         {
-            throw new InvalidOperationException("Read-only Sage company connection is unavailable.");
+            throw new InvalidOperationException("Read-only Sage company binding is unavailable.");
         }
         var maxResults = Math.Clamp(query.MaxResults, 1, 25);
         var results = await adapter.SearchCustomersAsync(
@@ -103,41 +138,7 @@ public sealed class SageAdapterCatalog(
     }
 
     private IReadOnlyList<ISage50ReadOnlyAdapter> LoadAdapters()
-    {
-        var directory = _options.ResolveAdapterDirectory();
-        if (!Directory.Exists(directory))
-        {
-            logger.LogWarning("Sage adapter directory {AdapterDirectory} does not exist.", directory);
-            return [];
-        }
-        var adapters = new List<ISage50ReadOnlyAdapter>();
-        foreach (var path in Directory.EnumerateFiles(directory, "*.dll", SearchOption.TopDirectoryOnly))
-        {
-            try
-            {
-                var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));
-                foreach (var type in assembly.GetTypes().Where(type =>
-                    !type.IsAbstract &&
-                    typeof(ISage50ReadOnlyAdapter).IsAssignableFrom(type) &&
-                    type.GetConstructor(Type.EmptyTypes) is not null))
-                {
-                    if (Activator.CreateInstance(type) is ISage50ReadOnlyAdapter adapter)
-                    {
-                        adapters.Add(adapter);
-                    }
-                }
-            }
-            catch (Exception error) when (
-                error is BadImageFormatException or FileLoadException or ReflectionTypeLoadException)
-            {
-                logger.LogWarning(
-                    "Rejected Sage adapter assembly {AdapterAssembly} ({ErrorType}).",
-                    Path.GetFileName(path),
-                    error.GetType().Name);
-            }
-        }
-        return adapters;
-    }
+        => adapterLoader.Load<ISage50ReadOnlyAdapter>();
 
     private ISage50ReadOnlyAdapter? SelectAdapter(SageInstallationSnapshot installation)
     {
@@ -161,6 +162,8 @@ public sealed class SageAdapterCatalog(
             installation.SdoVersion,
             null,
             null,
+            null,
+            [],
             code,
             message);
 }

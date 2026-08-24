@@ -5,8 +5,46 @@ import {
   blockingStatusesForPriorityEdit,
   canAutoAssignVehicleAsSecondPencil,
   canRetainVehiclePriorityOnEdit,
+  existingVehicleStatusesConflictWithRequested,
   isPriorityVehicleStatus,
 } from "../src/app/utils/bookingVehiclePriority.js";
+
+test("a first pencil can take priority over an existing second pencil", () => {
+  assert.equal(
+    existingVehicleStatusesConflictWithRequested(["Second Pencil"], "First Pencil"),
+    false
+  );
+  assert.equal(
+    existingVehicleStatusesConflictWithRequested(["Second Pencil"], "Confirmed"),
+    false
+  );
+});
+
+test("priority and maintenance conflicts still block first pencil", () => {
+  assert.equal(
+    existingVehicleStatusesConflictWithRequested(["First Pencil"], "First Pencil"),
+    true
+  );
+  assert.equal(
+    existingVehicleStatusesConflictWithRequested(["Confirmed"], "First Pencil"),
+    true
+  );
+  assert.equal(
+    existingVehicleStatusesConflictWithRequested(["Maintenance"], "First Pencil"),
+    true
+  );
+});
+
+test("second pencil still cannot stack behind another second pencil", () => {
+  assert.equal(
+    existingVehicleStatusesConflictWithRequested(["Second Pencil"], "Second Pencil"),
+    true
+  );
+  assert.equal(
+    existingVehicleStatusesConflictWithRequested(["First Pencil"], "Second Pencil"),
+    false
+  );
+});
 
 test("confirmed and first-pencil conflicts can fall back to second pencil", () => {
   assert.equal(canAutoAssignVehicleAsSecondPencil(["First Pencil"], "Confirmed"), true);

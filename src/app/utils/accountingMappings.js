@@ -69,6 +69,9 @@ export function createInvoiceCustomerSnapshot(contact = {}, fallback = {}) {
     vatNumber: profile.vatNumber,
     sageCustomerId: profile.sageCustomerId,
     sageCustomerMappingStatus: profile.sageCustomerMappingStatus,
+    poRequirement: text(
+      contact.financeProfile?.poRequirement || contact.poRequirement || fallback.poRequirement
+    ) || "optional",
   };
 }
 
@@ -89,20 +92,27 @@ export function getAccountingMappingReadiness(invoice = {}) {
   if (!text(invoice.customer?.billingCountry)) {
     blockers.push({ code: "billing_country_missing", message: "Billing country is missing." });
   }
+  if (
+    text(invoice.customer?.poRequirement).toLowerCase() === "required" &&
+    !text(invoice.purchaseOrderNumber)
+  ) {
+    blockers.push({ code: "purchase_order_missing", message: "This customer requires a PO number." });
+  }
   (Array.isArray(invoice.lines) ? invoice.lines : [])
-    .filter((line) => {
+    .map((line, lineIndex) => ({ line, lineIndex }))
+    .filter(({ line }) => {
       const hasQuantity = line && (
         Object.prototype.hasOwnProperty.call(line, "quantity")
         || Object.prototype.hasOwnProperty.call(line, "qty")
       );
       return !hasQuantity || Number(line.quantity ?? line.qty ?? 0) > 0;
     })
-    .forEach((line, index) => {
+    .forEach(({ line, lineIndex }) => {
       if (!text(line.nominalCode)) {
-        blockers.push({ code: "nominal_code_missing", line: index + 1, message: `Line ${index + 1} needs a nominal code.` });
+        blockers.push({ code: "nominal_code_missing", line: lineIndex + 1, message: `Line ${lineIndex + 1} needs a nominal code.` });
       }
       if (!text(line.taxCode)) {
-        blockers.push({ code: "tax_code_missing", line: index + 1, message: `Line ${index + 1} needs a Sage tax code.` });
+        blockers.push({ code: "tax_code_missing", line: lineIndex + 1, message: `Line ${lineIndex + 1} needs a Sage tax code.` });
       }
     });
   return { ready: blockers.length === 0, blockers };

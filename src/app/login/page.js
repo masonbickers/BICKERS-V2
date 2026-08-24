@@ -65,6 +65,7 @@ export default function LoginPage() {
                   formFieldInputShowPasswordButton: { color: "#aeb8c6" },
                   socialButtonsBlockButton: {
                     minHeight: "42px",
+                    // style-audit-allow light-control: the identity-provider button is intentionally high-emphasis.
                     background: "#ffffff",
                     border: "1px solid #d7dee8",
                     color: "#111827",

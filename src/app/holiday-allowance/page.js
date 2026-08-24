@@ -22,6 +22,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* ────────────────────────────────────────────────────────────────
    CONFIG
@@ -257,23 +258,25 @@ export default function EmployeesAdminPage() {
       setLoading(true);
       try {
         const empSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
-        const list = empSnap.docs.map((d) => {
-          const x = d.data() || {};
-          const pattern = x.workPattern || DEFAULT_PATTERN;
-          return {
-            id: d.id,
-            name: pickName(x),
-            workPattern: pattern,
+        const list = empSnap.docs
+          .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+          .filter(isCurrentEmployeeRecord)
+          .map((x) => {
+            const pattern = x.workPattern || DEFAULT_PATTERN;
+            return {
+              id: x.id,
+              name: pickName(x),
+              workPattern: pattern,
 
-            // legacy (kept for compatibility)
-            holidayAllowance: asNum(x.holidayAllowance, entitlementFor(pattern)),
-            carriedOverDays: asNum(x.carriedOverDays, 0),
+              // legacy (kept for compatibility)
+              holidayAllowance: asNum(x.holidayAllowance, entitlementFor(pattern)),
+              carriedOverDays: asNum(x.carriedOverDays, 0),
 
-            // per-year maps
-            holidayAllowances: x.holidayAllowances || {},
-            carryOverByYear: x.carryOverByYear || {},
-          };
-        });
+              // per-year maps
+              holidayAllowances: x.holidayAllowances || {},
+              carryOverByYear: x.carryOverByYear || {},
+            };
+          });
 
         const holSnap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         const used = { [thisYear]: {}, [nextYear]: {} };
@@ -771,7 +774,7 @@ export default function EmployeesAdminPage() {
                     const balThis = balanceForYear(r, thisYear);
                     const recommendedCarry = clamp(balThis, 0, MAX_CARRY);
 
-                    const zebra = idx % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
+                    const zebra = idx % 2 === 0 ? "var(--color-surface)" : "var(--table-alternate-bg)";
 
                     return (
                       <tr key={r.id} style={{ background: zebra }}>

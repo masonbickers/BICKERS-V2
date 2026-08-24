@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getPreviousTimesheetWeekStart } from "@/app/utils/timesheetNotifications";
-import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
+import { computeTimesheetDayBreakdown } from "@/app/utils/timesheetHours";
 
 const DAYS = [
   "Monday",
@@ -126,25 +126,6 @@ function normaliseTimeValue(value) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-function getPrecallInfo(entry) {
-  const raw = entry?.precallDuration;
-  const timeValue = normaliseTimeValue(raw);
-  if (timeValue) {
-    const callMinutes = toMinutes(entry?.callTime);
-    const preCallMinutes = toMinutes(timeValue);
-    return {
-      hours:
-        callMinutes != null && preCallMinutes != null
-          ? Math.max(0, diffHours(timeValue, entry?.callTime))
-          : 0,
-    };
-  }
-
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) return { hours: 0 };
-  return { hours: value / 60 };
-}
-
 function getEmployeeYardAutofill(employee) {
   const defaults = employee?.timesheetDefaults || {};
   const start =
@@ -193,70 +174,8 @@ function getEmployeeYardAutofill(employee) {
   };
 }
 
-function extractYardSegments(entry) {
-  if (Array.isArray(entry?.yardSegments)) return entry.yardSegments;
-  if (entry?.leaveTime && entry?.arriveBack) return [{ start: entry.leaveTime, end: entry.arriveBack }];
-  if (entry?.start && entry?.end) return [{ start: entry.start, end: entry.end }];
-  return [];
-}
-
-function computeYardHours(entry, day) {
-  const segs = extractYardSegments(entry);
-  let total = 0;
-  segs.forEach((s) => {
-    total += diffHours(s.start, s.end);
-  });
-  if (entry?.yardTravelEnabled) {
-    total += diffHours(entry?.yardTravelLeaveTime, entry?.yardTravelArriveTime);
-  }
-  if (total > 0 && shouldDeductYardLunch(entry, day)) total -= LUNCH_DEDUCT_HRS;
-  return Math.max(0, total);
-}
-
-function computeTravelHours(entry) {
-  return diffHours(entry?.leaveTime, entry?.arriveTime);
-}
-
 function computeOfficeHours(entry) {
   return diffHours(entry?.startTime, entry?.endTime);
-}
-
-function getPrecallHours(entry) {
-  return getPrecallInfo(entry).hours;
-}
-
-function computeOnSetBreakdown(entry) {
-  const travelToHrs = computeTravelHours(entry);
-  const preCallHrs = getPrecallHours(entry);
-  const callToWrapHrs =
-    entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
-
-  if (entry?.callTime) {
-    const callToFinishHrs = entry?.arriveBack
-      ? diffHours(entry.callTime, entry.arriveBack)
-      : entry?.wrapTime
-      ? diffHours(entry.callTime, entry.wrapTime)
-      : 0;
-
-    const onSetPaidHrs = 10;
-    const extraAfterTenHrs = Math.max(0, callToFinishHrs - onSetPaidHrs);
-
-    return {
-      totalHrs: travelToHrs + preCallHrs + onSetPaidHrs + extraAfterTenHrs,
-    };
-  }
-
-  const fallbackWindowHrs =
-    entry?.leaveTime && entry?.arriveBack ? diffHours(entry.leaveTime, entry.arriveBack) : 0;
-  const legacyOnSetHrs = callToWrapHrs || fallbackWindowHrs;
-
-  return {
-    totalHrs: Math.max(0, legacyOnSetHrs + preCallHrs),
-  };
-}
-
-function computeOnSetHours(entry) {
-  return computeOnSetBreakdown(entry).totalHrs;
 }
 
 function isTurnaroundDay(entry) {
@@ -264,16 +183,6 @@ function isTurnaroundDay(entry) {
   if (entry.isTurnaround === true && String(entry.mode || "yard").toLowerCase() === "yard") return true;
   if (entry.turnaround === true || entry.turnaroundDay === true) return true;
   return false;
-}
-
-function computeTurnaroundHours(entry) {
-  const segs = extractYardSegments(entry);
-  if (!segs?.length) return 0;
-  let total = 0;
-  segs.forEach((s) => {
-    total += diffHours(s.start, s.end);
-  });
-  return Math.max(0, total);
 }
 
 function detectMode(entry, isWeekend) {
@@ -286,6 +195,7 @@ function detectMode(entry, isWeekend) {
   if (rawMode === "yard" && isTurnaroundDay(entry)) return "turnaround";
   if (rawMode === "travel") return "travel";
   if (rawMode === "onset") return "onset";
+  if (rawMode === "workshop") return "workshop";
   if (rawMode === "office") return "office";
   if (rawMode === "yard") return "yard";
   return "yard";
@@ -373,11 +283,10 @@ function getTimesheetWeekHours(ts, employee) {
     const entry = dayMap[day];
     if (!entry) return total;
     const mode = detectMode(entry, day === "Saturday" || day === "Sunday");
-    if (mode === "yard") return total + computeYardHours(entry, day);
-    if (mode === "travel") return total + computeTravelHours(entry);
-    if (mode === "onset") return total + computeOnSetHours(entry);
+    if (["yard", "travel", "onset", "workshop", "turnaround"].includes(mode)) {
+      return total + computeTimesheetDayBreakdown(entry, day).total / 60;
+    }
     if (mode === "office") return total + computeOfficeHours(entry);
-    if (mode === "turnaround") return total + computeTurnaroundHours(entry);
     if (mode === "holiday" || mode === "bankholiday") {
       const shouldDeduct =
         entry?.managerLunchDeduct === true
@@ -558,8 +467,8 @@ const btn = (kind = "ghost") => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-      color: "var(--color-white)",
+      background: "var(--button-primary-background)",
+      color: "var(--color-text-inverse)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
   }
@@ -1327,7 +1236,18 @@ export default function TimesheetListPage() {
             </div>
           </div>
 
-          <section style={{ ...cardStyle, padding: compactReviewView ? 10 : cardStyle.padding, marginBottom: UI.gap }}>
+          <section
+            className={layoutStyles.darkCanvasSurface}
+            style={{
+              ...cardStyle,
+              border: "none",
+              background: UI.bg,
+              boxShadow: "none",
+              padding: compactReviewView ? 10 : cardStyle.padding,
+              paddingInline: 0,
+              marginBottom: UI.gap,
+            }}
+          >
             <div className={layoutStyles.extracted4}>
               <div className={layoutStyles.extracted5}>
                 <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
@@ -1420,6 +1340,7 @@ export default function TimesheetListPage() {
                 const Icon = metric.icon;
                 return (
                   <section
+                    className={layoutStyles.darkCanvasSurface}
                     key={metric.label}
                     style={{
                       ...statCard,
@@ -1443,9 +1364,13 @@ export default function TimesheetListPage() {
           </section>
 
           <div
-            className="timesheet-filter-grid"
+            className={`timesheet-filter-grid ${layoutStyles.darkCanvasSurface}`}
             style={{
               ...cardStyle,
+              border: "none",
+              background: UI.bg,
+              boxShadow: "none",
+              paddingInline: 0,
               marginBottom: UI.gap,
               display: "grid",
               gridTemplateColumns: "minmax(240px, 1.2fr) repeat(3, minmax(180px, 0.75fr)) auto",
@@ -1577,7 +1502,10 @@ export default function TimesheetListPage() {
           </div>
 
           {isAdmin && settingsOpen ? (
-            <section style={{ ...cardStyle, marginBottom: UI.gap, padding: 14 }}>
+            <section
+              className={layoutStyles.darkCanvasSurface}
+              style={{ ...cardStyle, marginBottom: UI.gap, padding: 14 }}
+            >
               <div className={layoutStyles.extracted12}>
                 <div>
                   <h2 style={titleMd}>Timesheet Display Settings</h2>
@@ -1654,6 +1582,7 @@ export default function TimesheetListPage() {
 
           {loading ? (
             <div
+              className={layoutStyles.darkCanvasSurface}
               style={{
                 ...cardStyle,
                 padding: 18,
@@ -1679,6 +1608,7 @@ export default function TimesheetListPage() {
             </div>
           ) : filteredEmployees.length === 0 ? (
             <div
+              className={layoutStyles.darkCanvasSurface}
               style={{
                 ...cardStyle,
                 padding: 18,
@@ -1694,6 +1624,7 @@ export default function TimesheetListPage() {
 
               return (
                 <div
+                  className={layoutStyles.darkCanvasSurface}
                   key={emp.code}
                   style={{
                     ...cardStyle,
@@ -1843,6 +1774,7 @@ export default function TimesheetListPage() {
 
                       return (
                         <div
+                          className={layoutStyles.darkCanvasSurface}
                           key={weekStart}
                           onClick={() => ts && router.push(`/timesheet-id/${ts.id}`)}
                           style={{
@@ -1953,6 +1885,7 @@ export default function TimesheetListPage() {
                             ) : null}
 
                             <div
+                              className={layoutStyles.darkCanvasSurface}
                               style={{
                                 display: compactReviewView ? "flex" : "grid",
                                 gap: compactReviewView ? 8 : 4,
@@ -2057,7 +1990,7 @@ export default function TimesheetListPage() {
                                     background: isApproving
                                       ? UI.greenSoft
                                       : "linear-gradient(180deg, var(--color-success-accent) 0%, var(--color-success) 100%)",
-                                    color: isApproving ? UI.green : "var(--color-white)",
+                                    color: isApproving ? UI.green : "var(--color-text-inverse)",
                                     boxShadow: isApproving
                                       ? UI.shadowSm
                                       : "0 8px 18px rgba(21,128,61,0.22)",
@@ -2077,8 +2010,8 @@ export default function TimesheetListPage() {
                                     fontSize: compactReviewView ? 11.5 : 12.5,
                                     background: isCreatingManual
                                       ? UI.brandSoft
-                                      : "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
-                                    color: isCreatingManual ? UI.brand : "var(--color-white)",
+                                      : "var(--button-primary-background)",
+                                    color: isCreatingManual ? UI.brand : "var(--color-text-inverse)",
                                     boxShadow: isCreatingManual
                                       ? UI.shadowSm
                                       : "0 8px 18px rgba(31,75,122,0.18)",

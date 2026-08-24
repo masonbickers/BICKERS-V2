@@ -22,6 +22,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* ----------------------------- Page Component ----------------------------- */
 export default function EditNotePage() {
@@ -57,10 +58,9 @@ export default function EditNotePage() {
     (async () => {
       try {
         const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
-        const data = snapshot.docs.map((d) => ({
-          id: d.id,
-          name: d.data()?.name || "",
-        }));
+        const data = snapshot.docs
+          .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+          .filter(isCurrentEmployeeRecord);
         setEmployees(data);
       } catch (e) {
         console.error("Failed to fetch employees:", e);

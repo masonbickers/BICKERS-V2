@@ -2288,7 +2288,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Labour Rates - Daily Rates",
-        "description": "To Services of Driver/Technician per 9hr day (10hrs Inc. 1hr lunch)",
+        "description": "GLC Driver/Technician - 9hr Working Day plus 1hr Lunch",
         "qty": "",
         "unitPrice": "680.00",
         "totalMode": "auto",
@@ -2376,7 +2376,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Travel Charges",
-        "description": "Tracking Vehicle and Crew Travel Time",
+        "description": "GLC Crew & Vehicle Travel Time",
         "qty": "",
         "unitPrice": "68.00",
         "totalMode": "tbc",
@@ -5234,7 +5234,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "section": "Travel Charges",
         "description": "Tracking Vehicle and Crew Travel Time",
         "qty": "",
-        "unitPrice": "87.75",
+        "unitPrice": "58.50",
         "totalMode": "tbc",
         "sourceRow": 34
       },
@@ -5458,7 +5458,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
         "section": "Travel Charges",
         "description": "Tracking Vehicle and Crew Travel Time",
         "qty": "",
-        "unitPrice": "87.75",
+        "unitPrice": "58.50",
         "totalMode": "tbc",
         "sourceRow": 33
       },
@@ -8656,7 +8656,7 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Labour Rates - Daily Rates",
-        "description": "To Services of Driver/Technician per",
+        "description": "To Services of Driver/Technician per 10hr Cont. Day (call to Wrap)",
         "qty": "1",
         "unitPrice": "585.00",
         "totalMode": "auto",
@@ -9112,11 +9112,19 @@ export const FULL_SIZE_TRACKING_QUOTE_TEMPLATES = [
       },
       {
         "section": "Labour Rates - Daily Rates",
-        "description": "Recce Charge per man",
+        "description": "Commercials - Night Work and Sundays Charged at 2T / Saturdays Charged at 1.5T - APA",
         "qty": "",
         "unitPrice": "585.00",
         "totalMode": "tbc",
         "sourceRow": 25
+      },
+      {
+        "section": "Labour Rates - Daily Rates",
+        "description": "Recce Charge per man",
+        "qty": "",
+        "unitPrice": "585.00",
+        "totalMode": "tbc",
+        "sourceRow": 26
       },
       {
         "section": "Travel Charges",

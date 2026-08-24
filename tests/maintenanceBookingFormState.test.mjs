@@ -87,6 +87,10 @@ test("create and edit booking forms share the same overlap policy", async () => 
   assert.match(editSource, /Existing maintenance on this date — allowed/);
   assert.match(createSource, /Optional workshop details/);
   assert.match(editSource, /Optional workshop details/);
+  assert.match(createSource, /motExpiryAcknowledged/);
+  assert.match(editSource, /motExpiryAcknowledged/);
+  assert.match(createSource, /I acknowledge that the MOT will be expired on the appointment date/);
+  assert.match(editSource, /I acknowledge that the MOT will be expired on the appointment date/);
   assert.doesNotMatch(createSource, /<details className=\{layoutStyles\.(bookingSettings|additionalDetails)\}/);
   assert.doesNotMatch(editSource, /<details className=\{layoutStyles\.(bookingSettings|additionalDetails)\}/);
   assert.doesNotMatch(createSource, /Cost \(optional\)/);

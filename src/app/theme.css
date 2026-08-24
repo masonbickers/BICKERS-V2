@@ -36,6 +36,9 @@
   --color-border-strong: #c8d6e3;
   --color-brand: #1f4b7a;
   --color-brand-hover: #173b62;
+  --button-primary-background: linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%);
+  --button-primary-border: var(--color-brand-hover);
+  --button-primary-text: var(--color-text-inverse);
   --color-brand-soft: #edf3f8;
   --color-brand-border: #c8d6e3;
   --color-success: #166534;
@@ -99,6 +102,28 @@
   --job-status-booked: #fb923c;
   --job-status-enquiry: #c4b5fd;
   --job-status-night: #f796df;
+  /* Large event surfaces keep the live status palette in light modes. Dark mode
+     mutes only the area fill while retaining the original status rail. */
+  --job-status-confirmed-surface: var(--job-status-confirmed);
+  --job-status-first-pencil-surface: var(--job-status-first-pencil);
+  --job-status-second-pencil-surface: var(--job-status-second-pencil);
+  --job-status-action-required-surface: var(--job-status-action-required);
+  --job-status-complete-surface: var(--job-status-complete);
+  --job-status-dnh-surface: var(--job-status-dnh);
+  --job-status-holiday-surface: var(--job-status-holiday);
+  --job-status-maintenance-surface: var(--job-status-maintenance);
+  --job-status-postponed-surface: var(--job-status-postponed);
+  --job-status-cancelled-surface: var(--job-status-cancelled);
+  --job-status-lost-surface: var(--job-status-lost);
+  --job-status-deleted-surface: var(--job-status-deleted);
+  --job-status-bickers-surface: var(--job-status-bickers);
+  --job-status-stunt-surface: var(--job-status-stunt);
+  --job-status-bank-holiday-surface: var(--job-status-bank-holiday);
+  --job-status-note-surface: var(--job-status-note);
+  --job-status-requested-surface: var(--job-status-requested);
+  --job-status-booked-surface: var(--job-status-booked);
+  --job-status-enquiry-surface: var(--job-status-enquiry);
+  --job-status-night-surface: var(--job-status-night);
   --job-status-border: #111827;
   --job-status-text-dark: #111827;
   --job-status-text-light: #ffffff;
@@ -158,4 +183,30 @@ html[data-card-style="reduced"] [data-ui-panel] [data-ui-navigation-card] {
 
 :root[data-color-mode="normal"],
 :root[data-color-mode="light"] { color-scheme: light; }
-:root[data-color-mode="dark"] { color-scheme: dark; }
+:root[data-color-mode="dark"] {
+  color-scheme: dark;
+  --button-primary-background: color-mix(in srgb, var(--color-brand) 16%, var(--color-surface-raised));
+  --button-primary-border: color-mix(in srgb, var(--color-brand) 38%, var(--color-border-strong));
+  --button-primary-text: var(--color-text);
+  --job-status-large-text: var(--color-text);
+  --job-status-confirmed-surface: color-mix(in srgb, var(--job-status-confirmed) 20%, var(--color-surface-raised));
+  --job-status-first-pencil-surface: color-mix(in srgb, var(--job-status-first-pencil) 20%, var(--color-surface-raised));
+  --job-status-second-pencil-surface: color-mix(in srgb, var(--job-status-second-pencil) 20%, var(--color-surface-raised));
+  --job-status-action-required-surface: color-mix(in srgb, var(--job-status-action-required) 20%, var(--color-surface-raised));
+  --job-status-complete-surface: color-mix(in srgb, var(--job-status-complete) 20%, var(--color-surface-raised));
+  --job-status-dnh-surface: color-mix(in srgb, var(--job-status-dnh) 20%, var(--color-surface-raised));
+  --job-status-holiday-surface: color-mix(in srgb, var(--job-status-holiday) 20%, var(--color-surface-raised));
+  --job-status-maintenance-surface: color-mix(in srgb, var(--job-status-maintenance) 20%, var(--color-surface-raised));
+  --job-status-postponed-surface: color-mix(in srgb, var(--job-status-postponed) 20%, var(--color-surface-raised));
+  --job-status-cancelled-surface: color-mix(in srgb, var(--job-status-cancelled) 20%, var(--color-surface-raised));
+  --job-status-lost-surface: color-mix(in srgb, var(--job-status-lost) 20%, var(--color-surface-raised));
+  --job-status-deleted-surface: color-mix(in srgb, var(--job-status-deleted) 20%, var(--color-surface-raised));
+  --job-status-bickers-surface: color-mix(in srgb, var(--job-status-bickers) 20%, var(--color-surface-raised));
+  --job-status-stunt-surface: color-mix(in srgb, var(--job-status-stunt) 20%, var(--color-surface-raised));
+  --job-status-bank-holiday-surface: color-mix(in srgb, var(--job-status-bank-holiday) 20%, var(--color-surface-raised));
+  --job-status-note-surface: color-mix(in srgb, var(--job-status-note) 20%, var(--color-surface-raised));
+  --job-status-requested-surface: color-mix(in srgb, var(--job-status-requested) 20%, var(--color-surface-raised));
+  --job-status-booked-surface: color-mix(in srgb, var(--job-status-booked) 20%, var(--color-surface-raised));
+  --job-status-enquiry-surface: color-mix(in srgb, var(--job-status-enquiry) 20%, var(--color-surface-raised));
+  --job-status-night-surface: color-mix(in srgb, var(--job-status-night) 20%, var(--color-surface-raised));
+}

@@ -26,6 +26,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { Button, Modal } from "@/app/components/ui";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 
 const norm = (v) => String(v ?? "").trim().toLowerCase();
@@ -158,7 +159,8 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       try {
         const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
-          .map((d) => ({ id: d.id, name: d.data()?.name }))
+          .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+          .filter(isCurrentEmployeeRecord)
           .filter((x) => x.name);
         setEmployees(list);
       } catch (e) {

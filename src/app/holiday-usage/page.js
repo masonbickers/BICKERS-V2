@@ -50,6 +50,7 @@ import {
 import HolidayForm from "@/app/components/holidayform";
 import EditHolidayForm from "@/app/components/EditHolidayForm";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 import { getHolidayCarryOverWindow, resolveHolidayCarryOver } from "@/app/utils/holidayCarryOver";
 
 /* Admin allow-list */
@@ -96,6 +97,9 @@ const employeeAliasValues = (employee = {}) => [
 ];
 
 function isActiveEmployeeRecord(employee = {}) {
+  if (!isCurrentEmployeeRecord(employee)) return false;
+  if (employee.appDisabled === true || employee.disabled === true || employee.isEnabled === false) return false;
+
   const role = String(employee.role || "").trim().toLowerCase();
   const employmentType = String(employee.employmentType || employee.contractType || employee.employeeType || "")
     .trim()
@@ -104,16 +108,6 @@ function isActiveEmployeeRecord(employee = {}) {
     ? employee.jobTitle.join(" ").toLowerCase()
     : String(employee.jobTitle || "").toLowerCase();
 
-  if (
-    employee.deleted === true ||
-    employee.isDeleted === true ||
-    employee.archived === true ||
-    employee.isArchived === true ||
-    employee.active === false ||
-    employee.appDisabled === true ||
-    employee.disabled === true ||
-    employee.isEnabled === false
-  ) return false;
   const appAccess = employee.appAccess && typeof employee.appAccess === "object" ? employee.appAccess : {};
   const serviceOnly = employee.isService === true && appAccess.user !== true;
   if (serviceOnly) return false;

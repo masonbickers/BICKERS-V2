@@ -971,7 +971,7 @@ const btn = {
   justifyContent: "center",
   minHeight: 36,
   padding: "8px 13px",
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  background: "var(--button-primary-background)",
   color: "var(--color-white)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,

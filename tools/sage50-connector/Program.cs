@@ -4,6 +4,7 @@ using BickersAction.Sage50Connector.Sage;
 using BickersAction.Sage50Connector.Security;
 using BickersAction.Sage50Connector.Transport;
 using Microsoft.Extensions.Hosting.WindowsServices;
+using Microsoft.Extensions.Options;
 
 var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 {
@@ -21,10 +22,19 @@ builder.Services.AddWindowsService(options =>
 });
 builder.Services.AddSingleton<IMachineCredentialStore, DpapiMachineCredentialStore>();
 builder.Services.AddSingleton<ISageInstallationDiscovery, WindowsSageInstallationDiscovery>();
+builder.Services.AddSingleton<TrustedAdapterLoader>();
 builder.Services.AddSingleton<ISageAdapterCatalog, SageAdapterCatalog>();
-builder.Services.AddHttpClient<IConnectorApiClient, ConnectorApiClient>();
+builder.Services.AddSingleton<ISageInvoiceWriterCatalog, SageInvoiceWriterCatalog>();
+builder.Services
+    .AddHttpClient<IConnectorApiClient, ConnectorApiClient>()
+    .ConfigureHttpClient((services, client) =>
+    {
+        var options = services.GetRequiredService<IOptions<ConnectorOptions>>().Value;
+        client.Timeout = TimeSpan.FromSeconds(options.ApiRequestTimeoutSeconds);
+    });
 builder.Services.AddHostedService<ConnectorWorker>();
 builder.Services.AddHostedService<CustomerLookupWorker>();
+builder.Services.AddHostedService<InvoiceExportWorker>();
 
 using var host = builder.Build();
 if (await CredentialBootstrapper.TryHandleAsync(args, host.Services, CancellationToken.None))

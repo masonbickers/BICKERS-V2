@@ -727,3 +727,16 @@
   font-weight: 800;
   margin-bottom: 5px;
 }
+
+.expiryAcknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  font-weight: 800;
+}
+
+.expiryAcknowledgement input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}

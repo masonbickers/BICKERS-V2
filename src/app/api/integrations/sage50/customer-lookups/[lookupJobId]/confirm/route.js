@@ -6,9 +6,10 @@ import {
 import {
   canAccessCompany,
   jsonError,
-  requireActiveUserFromRequest,
+  requireFinanceFromRequest,
 } from "../../../../../admin/_lib.js";
 import { normaliseCustomerFinanceProfile } from "../../../../../../utils/accountingMappings.js";
+import { CONTACT_FINANCE_PROFILE_COLLECTION } from "../../../../../../utils/contactFinanceProfiles.js";
 import { sanitiseCustomerLookupResults } from "../../../../../../utils/sage50CustomerLookup.js";
 import {
   CUSTOMER_LOOKUP_COLLECTION,
@@ -24,7 +25,7 @@ const safeId = (value) => {
 
 export async function POST(req, context) {
   try {
-    const auth = await requireActiveUserFromRequest(req, { module: "finance" });
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
     const { lookupJobId: rawLookupJobId } = await context.params;
     const lookupJobId = safeId(rawLookupJobId);
@@ -61,13 +62,21 @@ export async function POST(req, context) {
     ) {
       return jsonError("Local customer company access denied.", 403);
     }
-    const contacts = await adminListDocuments("contacts", { maxDocuments: 1000 });
-    const duplicate = contacts.find(({ id, data }) =>
+    const [profiles, contacts] = await Promise.all([
+      adminListDocuments(CONTACT_FINANCE_PROFILE_COLLECTION, { maxDocuments: 1000 }),
+      adminListDocuments("contacts", { maxDocuments: 1000 }),
+    ]);
+    const duplicateProfile = profiles.find(({ id, data }) =>
       id !== lookup.contactId &&
       text(data.companyId) === text(lookup.tenantId) &&
-      text(data.financeProfile?.sageCustomerId) === selected.sageCustomerId
+      text(data.sageCustomerId) === selected.sageCustomerId
     );
-    if (duplicate) {
+    const duplicateLegacyContact = contacts.find(({ id, data }) =>
+      id !== lookup.contactId &&
+      text(data.companyId) === text(lookup.tenantId) &&
+      text(normaliseCustomerFinanceProfile(data).sageCustomerId) === selected.sageCustomerId
+    );
+    if (duplicateProfile || duplicateLegacyContact) {
       return jsonError("This Sage customer account is already mapped to another local customer.", 409);
     }
 
@@ -77,8 +86,23 @@ export async function POST(req, context) {
       email: auth.verifiedUser.email,
       role: auth.userData.role,
     };
+    const existingFinanceProfile = await adminReadDocumentWithMetadata(
+      CONTACT_FINANCE_PROFILE_COLLECTION,
+      lookup.contactId
+    );
+    if (
+      existingFinanceProfile &&
+      text(existingFinanceProfile.data.companyId) !== text(lookup.tenantId)
+    ) {
+      return jsonError("Customer finance profile company mismatch.", 409);
+    }
     const financeProfile = {
-      ...normaliseCustomerFinanceProfile(contactSnapshot.data),
+      ...normaliseCustomerFinanceProfile(
+        existingFinanceProfile?.data || contactSnapshot.data.financeProfile || contactSnapshot.data
+      ),
+      contactId: lookup.contactId,
+      companyId: lookup.tenantId,
+      schemaVersion: 1,
       sageCustomerId: selected.sageCustomerId,
       sageCustomerMappingStatus: "mapped",
       sageCustomerMappedAt: now,
@@ -98,10 +122,12 @@ export async function POST(req, context) {
     };
     await adminCommitDocumentPatches([
       {
-        collection: "contacts",
+        collection: CONTACT_FINANCE_PROFILE_COLLECTION,
         documentId: lookup.contactId,
-        patch: { financeProfile, updatedAt: now },
-        updateTime: contactSnapshot.updateTime,
+        patch: financeProfile,
+        ...(existingFinanceProfile?.updateTime
+          ? { updateTime: existingFinanceProfile.updateTime }
+          : {}),
       },
       {
         collection: CUSTOMER_LOOKUP_COLLECTION,

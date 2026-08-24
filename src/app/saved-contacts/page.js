@@ -21,6 +21,7 @@ import {
   dataAccessKey,
   reportDataAccessBlocked,
   resolveDataAccess,
+  SINGLE_COMPANY_ID,
   tenantCollectionQuery,
   tenantPayload,
   useDataAccessState,
@@ -31,6 +32,8 @@ import {
   createMergedContactPayload,
 } from "@/app/utils/savedContactDuplicates";
 import { normaliseCustomerFinanceProfile } from "../utils/accountingMappings.js";
+import { useAuth } from "@/app/context/authContext";
+import { hasFinanceAccess } from "@/app/utils/accessControl";
 
 const UI = UI_TOKENS;
 
@@ -58,9 +61,12 @@ const norm = (value = "") => String(value || "").trim().toLowerCase();
 
 export default function SavedContactsPage() {
   const searchParams = useSearchParams();
+  const { userDoc } = useAuth() || {};
+  const canFinance = hasFinanceAccess(userDoc);
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [contacts, setContacts] = useState([]);
+  const [financeProfiles, setFinanceProfiles] = useState({});
   const [search, setSearch] = useState(() => searchParams.get("search") || "");
   const [editingId, setEditingId] = useState("");
   const [draft, setDraft] = useState(emptyDraft);
@@ -94,9 +100,35 @@ export default function SavedContactsPage() {
     return () => unsub();
   }, [accessKey, dataAccessState]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!canFinance) {
+      setFinanceProfiles({});
+      return undefined;
+    }
+    const companyId = resolveDataAccess(dataAccessState).companyId || SINGLE_COMPANY_ID;
+    const profileUrl = `/api/finance/contact-profiles${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ""}`;
+    auth.currentUser?.getIdToken().then((token) => fetch(profileUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })).then(async (response) => {
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Could not load finance profiles.");
+      if (!cancelled) {
+        setFinanceProfiles(Object.fromEntries((body.profiles || []).map((profile) => [profile.contactId || profile.id, profile])));
+      }
+    }).catch(() => {
+      if (!cancelled) setFinanceProfiles({});
+    });
+    return () => { cancelled = true; };
+  }, [accessKey, canFinance, dataAccessState]);
+
   const filteredContacts = useMemo(() => {
     const q = norm(search);
-    const sorted = [...contacts].sort((a, b) => {
+    const visibleContacts = contacts.map((contact) => canFinance && financeProfiles[contact.id]
+      ? { ...contact, financeProfile: financeProfiles[contact.id] }
+      : contact);
+    const sorted = [...visibleContacts].sort((a, b) => {
       const aLabel = `${String(a?.name || "").trim()} ${String(a?.department || "").trim()}`.trim().toLowerCase();
       const bLabel = `${String(b?.name || "").trim()} ${String(b?.department || "").trim()}`.trim().toLowerCase();
       return aLabel.localeCompare(bLabel);
@@ -115,7 +147,7 @@ export default function SavedContactsPage() {
         .toLowerCase()
         .includes(q)
     );
-  }, [contacts, search]);
+  }, [canFinance, contacts, financeProfiles, search]);
 
   const duplicateAudit = useMemo(() => analyseSavedContactDuplicates(contacts), [contacts]);
 
@@ -157,11 +189,17 @@ export default function SavedContactsPage() {
         phone: draft.phone.trim(),
         number: draft.phone.trim(),
         department: draft.department.trim(),
-        financeProfile: {
-          ...draft.financeProfile,
-        },
         updatedAt: serverTimestamp(),
       }));
+      if (canFinance) {
+        const body = await authenticatedRequest(
+          `/api/finance/contact-profiles/${encodeURIComponent(draft.id)}`,
+          { method: "PUT", body: JSON.stringify({ profile: draft.financeProfile }) }
+        );
+        if (body.profile) {
+          setFinanceProfiles((current) => ({ ...current, [draft.id]: body.profile }));
+        }
+      }
       cancelEdit();
     } finally {
       setSaving(false);
@@ -316,7 +354,7 @@ export default function SavedContactsPage() {
           </BusinessHeaderActions>}
         />
 
-        {(duplicateAudit.strongGroups.length || duplicateAudit.possibleGroups.length) ? (
+        {canFinance && (duplicateAudit.strongGroups.length || duplicateAudit.possibleGroups.length) ? (
           <section className={layoutStyles.duplicatePanel} aria-labelledby="duplicate-review-heading">
             <div className={layoutStyles.duplicateHeader}>
               <div>
@@ -464,7 +502,7 @@ export default function SavedContactsPage() {
                       borderBottom: "1px solid var(--color-brand-soft)",
                     }}
                   >
-                    {isEditing ? (
+                    {isEditing && canFinance ? (
                       <div className={layoutStyles.extracted10}>
                         {[
                           ["billingLegalName", "Billing legal name"],
@@ -622,7 +660,7 @@ export default function SavedContactsPage() {
                       ) : (
                         <div>
                           <div style={{ fontWeight: 800, fontSize: 13, color: UI.text }}>{contact.name || "-"}</div>
-                          {contact.financeProfile?.sageCustomerId ? (
+                          {canFinance && contact.financeProfile?.sageCustomerId ? (
                             <div style={{ color: UI.muted, fontSize: 10, marginTop: 2 }}>
                               Sage: {contact.financeProfile.sageCustomerId}
                             </div>
@@ -698,14 +736,16 @@ export default function SavedContactsPage() {
                           >
                             Edit
                           </Button>
-                          <Button
-                            type="button"
-                            onClick={() => removeContact(contact)}
-                            variant="danger"
-                            size="sm"
-                          >
-                            Delete
-                          </Button>
+                          {canFinance ? (
+                            <Button
+                              type="button"
+                              onClick={() => removeContact(contact)}
+                              variant="danger"
+                              size="sm"
+                            >
+                              Delete
+                            </Button>
+                          ) : null}
                         </>
                       )}
                     </div>

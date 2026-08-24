@@ -22,6 +22,11 @@ export type Sage50ConnectorRecord = {
   sdoVersion: string | null;
   sageCompanyName: string | null;
   sageCompanyIdentifier: string | null;
+  expectedSageCompanyIdentifier: string | null;
+  adapterName: string | null;
+  writeAdapterName: string | null;
+  capabilities: Array<"read_only_customer_lookup" | "invoice_write">;
+  invoicePostingEnabled: boolean;
   credentialVersion: number;
   credentialHash: string;
   credentialPrefix: string;
@@ -43,6 +48,7 @@ export type Sage50CustomerLookupStatus =
   | "queued"
   | "claimed"
   | "processing"
+  | "retry_wait"
   | "succeeded"
   | "failed"
   | "expired"
@@ -83,7 +89,7 @@ export type Sage50ExportLine = {
 };
 
 export type Sage50ExportJob = {
-  contractVersion: 1;
+  contractVersion: 2;
   product: SageIntegrationProduct;
   jobId: string;
   idempotencyKey: string;
@@ -95,6 +101,7 @@ export type Sage50ExportJob = {
     bookingId: string;
     jobNumber: string;
     draftReference: string;
+    invoiceDate: string;
     currency: string;
     purchaseOrderNumber: string | null;
     paymentTermsDays: number;
@@ -127,7 +134,7 @@ export type Sage50ExportQueueRecord = Sage50ExportJob & {
 
 export type Sage50ConnectorResult =
   | {
-      contractVersion: 1;
+      contractVersion: 2;
       product: SageIntegrationProduct;
       jobId: string;
       outcome: "succeeded";
@@ -138,7 +145,7 @@ export type Sage50ConnectorResult =
       error: null;
     }
   | {
-      contractVersion: 1;
+      contractVersion: 2;
       product: SageIntegrationProduct;
       jobId: string;
       outcome: "failed";

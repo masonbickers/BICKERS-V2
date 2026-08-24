@@ -5,6 +5,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
+export { hasFinanceAccess } from "./financeAccess.js";
 
 /**
  * @typedef {Object} EmployeeAppAccess
@@ -208,16 +209,15 @@ export function isModuleEnabledForPath(pathname, featureFlags = DEFAULT_FEATURE_
   return normalizeFeatureFlags(featureFlags)[moduleKey] !== false;
 }
 
-export function isFinanceHandoffPath(pathname = "") {
+export function isFinancePath(pathname = "") {
   const path = String(pathname || "").toLowerCase();
-  return (
-    path === "/finance-queue" ||
-    path.startsWith("/invoice/") ||
-    path.startsWith("/invoice-view/") ||
-    path === "/invoiced" ||
-    path === "/paid"
+  return MODULE_ROUTE_PREFIXES.finance.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
   );
 }
+
+// Compatibility alias. Finance routes are no longer an operational access bypass.
+export const isFinanceHandoffPath = isFinancePath;
 
 export function inferAccessFromLegacyFields(raw = {}) {
   const role = String(raw?.role || "").trim().toLowerCase();

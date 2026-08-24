@@ -46,21 +46,27 @@ export const getMaintenanceScheduleRule = ({
     .filter(Boolean)
     .sort();
   const dueDate = maintenanceDateOnly(legalDueDate);
-  const outsideLegalWeek = rescheduleCrossesLegalIsoWeek(legalDueWeeks, dates);
+  const outsideScheduledWeek = rescheduleCrossesLegalIsoWeek(legalDueWeeks, dates);
+  const afterDueDate = Boolean(dueDate && dates.some((date) => date > dueDate));
+  // An earlier workshop slot is compliant even if it falls in the previous ISO
+  // week. The ISO-week exception exists to flag work arranged after the due
+  // date, not preventative work completed before it is due.
+  const outsideLegalWeek = outsideScheduledWeek && (!dueDate || afterDueDate);
 
   if (normalizedType === "MOT") {
-    const afterExpiry = Boolean(dueDate && dates.some((date) => date > dueDate));
     return {
       outsideLegalWeek,
+      requiresAcknowledgement: afterDueDate,
       requiresExceptionReason: false,
-      blocked: afterExpiry,
-      state: afterExpiry ? "after_expiry" : "allowed",
+      blocked: false,
+      state: afterDueDate ? "after_expiry" : "allowed",
     };
   }
 
   if (normalizedType === "SERVICE") {
     return {
       outsideLegalWeek,
+      requiresAcknowledgement: false,
       requiresExceptionReason: false,
       blocked: false,
       state: outsideLegalWeek ? "service_advisory" : "allowed",
@@ -70,6 +76,7 @@ export const getMaintenanceScheduleRule = ({
   const requiresExceptionReason = normalizedType === "INSPECTION" && outsideLegalWeek;
   return {
     outsideLegalWeek,
+    requiresAcknowledgement: false,
     requiresExceptionReason,
     blocked: false,
     state: requiresExceptionReason ? "inspection_exception" : "allowed",

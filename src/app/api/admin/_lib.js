@@ -5,6 +5,7 @@ import {
   hasServiceWorkspaceAccess,
   isAccountDisabled,
 } from "@/app/utils/accountAccess";
+import { financeAccessDecision } from "@/app/utils/financeAccess";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -266,6 +267,22 @@ export async function requireActiveUserFromRequest(req, options = {}) {
     return { error: jsonError("Service or Workshop access is required.", 403) };
   }
   return { idToken, verifiedUser, userData: { ...userData, role: normalizedRole } };
+}
+
+export function financeAccessError(userData = {}) {
+  const decision = financeAccessDecision(userData);
+  return decision.allowed ? null : jsonError(decision.error, decision.status);
+}
+
+export async function requireFinanceFromRequest(req) {
+  const active = await requireActiveUserFromRequest(req);
+  if (active.error) return active;
+  const accessError = financeAccessError(active.userData);
+  if (accessError) {
+    await writeBlockedAccessLog(req, active.verifiedUser, "Finance access required");
+    return { error: accessError };
+  }
+  return active;
 }
 
 export async function requireAdminFromRequest(req) {

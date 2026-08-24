@@ -9,6 +9,10 @@ export const SAGE_50_CONNECTOR_STATUSES = Object.freeze([
   "error",
   "disabled",
 ]);
+export const SAGE_50_CONNECTOR_CAPABILITIES = Object.freeze([
+  "read_only_customer_lookup",
+  "invoice_write",
+]);
 
 const text = (value, max = 200) => String(value ?? "").trim().slice(0, max);
 
@@ -67,6 +71,11 @@ export function createSage50ConnectorRecord({
     sdoVersion: null,
     sageCompanyName: null,
     sageCompanyIdentifier: null,
+    expectedSageCompanyIdentifier: null,
+    adapterName: null,
+    writeAdapterName: null,
+    capabilities: [],
+    invoicePostingEnabled: false,
     credentialVersion: 1,
     credentialHash,
     credentialPrefix,
@@ -87,7 +96,7 @@ export function sanitiseHeartbeat(body = {}) {
   const requestedStatus = text(body.status, 20).toLowerCase();
   const status = ["online", "degraded", "error"].includes(requestedStatus)
     ? requestedStatus
-    : "online";
+    : "error";
   return {
     status,
     machineName: text(body.machineName, 120) || null,
@@ -96,6 +105,13 @@ export function sanitiseHeartbeat(body = {}) {
     sdoVersion: text(body.sdoVersion, 80) || null,
     sageCompanyName: text(body.sageCompanyName, 160) || null,
     sageCompanyIdentifier: text(body.sageCompanyIdentifier, 160) || null,
+    adapterName: text(body.adapterName, 120) || null,
+    writeAdapterName: text(body.writeAdapterName, 120) || null,
+    capabilities: Array.from(new Set(
+      (Array.isArray(body.capabilities) ? body.capabilities : [])
+        .map((value) => text(value, 80).toLowerCase())
+        .filter((value) => SAGE_50_CONNECTOR_CAPABILITIES.includes(value))
+    )),
     lastErrorCode: status === "error" || status === "degraded"
       ? text(body.lastErrorCode, 80) || null
       : null,
@@ -103,6 +119,51 @@ export function sanitiseHeartbeat(body = {}) {
       ? text(body.lastErrorMessage, 500) || null
       : null,
   };
+}
+
+export function applyHeartbeatCompanyBinding(connector = {}, heartbeat = {}) {
+  const expected = text(connector.expectedSageCompanyIdentifier, 160);
+  const actual = text(heartbeat.sageCompanyIdentifier, 160);
+  if (!expected) {
+    return {
+      ...heartbeat,
+      status: "degraded",
+      capabilities: [],
+      lastErrorCode: "sage_company_binding_required",
+      lastErrorMessage: "An administrator-approved Sage company binding is required.",
+    };
+  }
+  if (expected === actual) return heartbeat;
+  return {
+    ...heartbeat,
+    status: "error",
+    capabilities: [],
+    lastErrorCode: "sage_company_binding_mismatch",
+    lastErrorMessage: "The connected Sage company does not match the administrator-approved company binding.",
+  };
+}
+
+export function connectorHasCapability(record = {}, capability) {
+  return Array.isArray(record.capabilities) && record.capabilities.includes(capability);
+}
+
+export function connectorReadyForReadOnly(record = {}, nowMs = Date.now()) {
+  const status = publicConnectorStatus(record, nowMs);
+  const expected = text(status.expectedSageCompanyIdentifier, 160);
+  const actual = text(status.sageCompanyIdentifier, 160);
+  return status.status === "online" &&
+    Boolean(status.connectorVersion && status.sageVersion && status.sdoVersion) &&
+    Boolean(status.adapterName) &&
+    Boolean(expected && actual && expected === actual) &&
+    connectorHasCapability(status, "read_only_customer_lookup");
+}
+
+export function connectorReadyForInvoiceWrite(record = {}, nowMs = Date.now()) {
+  const status = publicConnectorStatus(record, nowMs);
+  return connectorReadyForReadOnly(record, nowMs) &&
+    status.invoicePostingEnabled === true &&
+    Boolean(status.writeAdapterName) &&
+    connectorHasCapability(status, "invoice_write");
 }
 
 export function publicConnectorStatus(record = {}, nowMs = Date.now()) {
@@ -122,6 +183,13 @@ export function publicConnectorStatus(record = {}, nowMs = Date.now()) {
     sdoVersion: record.sdoVersion || null,
     sageCompanyName: record.sageCompanyName || null,
     sageCompanyIdentifier: record.sageCompanyIdentifier || null,
+    expectedSageCompanyIdentifier: record.expectedSageCompanyIdentifier || null,
+    adapterName: record.adapterName || null,
+    writeAdapterName: record.writeAdapterName || null,
+    capabilities: Array.isArray(record.capabilities)
+      ? record.capabilities.filter((value) => SAGE_50_CONNECTOR_CAPABILITIES.includes(value))
+      : [],
+    invoicePostingEnabled: record.invoicePostingEnabled === true,
     credentialVersion: Number(record.credentialVersion || 0),
     credentialPrefix: record.credentialPrefix || "",
     lastHeartbeatAt: record.lastHeartbeatAt || null,

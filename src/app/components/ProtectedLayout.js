@@ -8,8 +8,9 @@ import BrandedLoader from "./BrandedLoader";
 import HeaderSidebarLayout from "./HeaderSidebarLayout";
 import UserActivityTracker from "./UserActivityTracker";
 import {
+  hasFinanceAccess,
   isAdminPath,
-  isFinanceHandoffPath,
+  isFinancePath,
   isModuleEnabledForPath,
   isPathAllowedForAccess,
   isPersonalSettingsPath,
@@ -41,12 +42,14 @@ export default function ProtectedLayout({ children }) {
   const isPlatformAdminWorkspace = String(pathname || "").startsWith("/platform-admin");
   const role = normalizePlatformRole(userDoc?.role);
   const moduleEnabled = isModuleEnabledForPath(pathname, featureFlags);
-  const financeHandoffPath = isFinanceHandoffPath(pathname);
+  const financePath = isFinancePath(pathname);
+  const financeAllowed = hasFinanceAccess(userDoc);
   const personalSettingsPath = isPersonalSettingsPath(pathname);
   const pathAllowed =
     Boolean(employeeAccess) &&
     isPathAllowedForAccess(pathname, employeeAccess) &&
-    (personalSettingsPath || financeHandoffPath || ["admin", "platformAdmin"].includes(role) || moduleEnabled) &&
+    (!financePath || financeAllowed) &&
+    (personalSettingsPath || ["admin", "platformAdmin"].includes(role) || moduleEnabled) &&
     (!isAdminPath(pathname) || ["admin", "platformAdmin"].includes(role)) &&
     (!String(pathname || "").startsWith("/platform-admin") || role === "platformAdmin");
 

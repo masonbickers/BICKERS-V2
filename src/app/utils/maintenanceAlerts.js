@@ -141,17 +141,6 @@ export const buildMaintenanceScheduleExceptionAlert = (
       .map(safeText)
       .filter(Boolean)
   );
-  const bookedWeeks = new Set(bookingDates.map(getIsoWeekLabel).filter(Boolean));
-  const outsideLegalWeek =
-    legalWeeks.size > 0 && bookedWeeks.size > 0 && [...bookedWeeks].some((week) => !legalWeeks.has(week));
-  if (!outsideLegalWeek) return null;
-
-  const vehicleId = safeText(booking.vehicleId);
-  const bookingId = safeText(booking.id);
-  if (!vehicleId || !bookingId) return null;
-  const registration = safeText(
-    booking.registration || booking.vehicleRegistration || booking.vehicleLabel || booking.vehicleName
-  );
   const dueDateISO = [
     booking.legalDueDateISO,
     booking.sourceDueDateISO,
@@ -161,6 +150,20 @@ export const buildMaintenanceScheduleExceptionAlert = (
     .map(complianceDateOnly)
     .filter(Boolean)
     .sort()[0] || "";
+  const bookedWeeks = new Set(bookingDates.map(getIsoWeekLabel).filter(Boolean));
+  const outsideLegalWeek =
+    legalWeeks.size > 0 &&
+    bookedWeeks.size > 0 &&
+    (!dueDateISO || bookingDates.some((date) => date > dueDateISO)) &&
+    [...bookedWeeks].some((week) => !legalWeeks.has(week));
+  if (!outsideLegalWeek) return null;
+
+  const vehicleId = safeText(booking.vehicleId);
+  const bookingId = safeText(booking.id);
+  if (!vehicleId || !bookingId) return null;
+  const registration = safeText(
+    booking.registration || booking.vehicleRegistration || booking.vehicleLabel || booking.vehicleName
+  );
   const dueIsoWeek = [...legalWeeks].sort()[0] || getIsoWeekLabel(dueDateISO);
   const appointmentDateISO = bookingDates[0] || "";
   const reason = safeText(booking.scheduleExceptionReason);

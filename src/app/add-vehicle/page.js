@@ -85,7 +85,7 @@ const btn = (bg = "var(--color-white)", fg = UI.text, bd = "1px solid var(--colo
   border: bg === UI.brand ? `1px solid ${UI.brand}` : bd === "1px solid var(--color-border)" ? `1px solid ${UI.brandBorder}` : bd,
   background:
     bg === UI.brand
-      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      ? "var(--button-primary-background)"
       : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
   color: bg === UI.brand ? "var(--color-white)" : fg,
   fontWeight: 800,

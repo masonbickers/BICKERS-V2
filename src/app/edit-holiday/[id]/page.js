@@ -14,6 +14,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 const toDateValue = (value) => {
   if (!value) return "";
@@ -77,7 +78,9 @@ export default function EditHolidayPage() {
 
     const fetchEmployees = async () => {
       const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
-      const employeeData = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+      const employeeData = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...(doc.data() || {}) }))
+        .filter(isCurrentEmployeeRecord);
       setEmployees(employeeData);
     };
 
