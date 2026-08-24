@@ -1789,7 +1789,7 @@ export default function TimesheetDetailPage() {
     if (mode === "yard" || mode === "workshop") {
       return {
         ...base,
-        mode: mode === "workshop" ? "yard" : "yard",
+        mode,
         type: mode,
         yardSegments: [
           {
