@@ -69,6 +69,7 @@ export function createSage50ConnectorRecord({
     connectorVersion: null,
     sageVersion: null,
     sdoVersion: null,
+    processArchitecture: null,
     sageCompanyName: null,
     sageCompanyIdentifier: null,
     expectedSageCompanyIdentifier: null,
@@ -103,6 +104,7 @@ export function sanitiseHeartbeat(body = {}) {
     connectorVersion: text(body.connectorVersion, 60) || null,
     sageVersion: text(body.sageVersion, 80) || null,
     sdoVersion: text(body.sdoVersion, 80) || null,
+    processArchitecture: text(body.processArchitecture, 20).toLowerCase() || null,
     sageCompanyName: text(body.sageCompanyName, 160) || null,
     sageCompanyIdentifier: text(body.sageCompanyIdentifier, 160) || null,
     adapterName: text(body.adapterName, 120) || null,
@@ -152,7 +154,7 @@ export function connectorReadyForReadOnly(record = {}, nowMs = Date.now()) {
   const expected = text(status.expectedSageCompanyIdentifier, 160);
   const actual = text(status.sageCompanyIdentifier, 160);
   return status.status === "online" &&
-    Boolean(status.connectorVersion && status.sageVersion && status.sdoVersion) &&
+    Boolean(status.connectorVersion && status.sageVersion && status.sdoVersion && status.processArchitecture) &&
     Boolean(status.adapterName) &&
     Boolean(expected && actual && expected === actual) &&
     connectorHasCapability(status, "read_only_customer_lookup");
@@ -181,6 +183,7 @@ export function publicConnectorStatus(record = {}, nowMs = Date.now()) {
     connectorVersion: record.connectorVersion || null,
     sageVersion: record.sageVersion || null,
     sdoVersion: record.sdoVersion || null,
+    processArchitecture: record.processArchitecture || null,
     sageCompanyName: record.sageCompanyName || null,
     sageCompanyIdentifier: record.sageCompanyIdentifier || null,
     expectedSageCompanyIdentifier: record.expectedSageCompanyIdentifier || null,

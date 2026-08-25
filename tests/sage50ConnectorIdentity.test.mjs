@@ -43,6 +43,7 @@ test("heartbeat metadata is bounded and cannot set protected fields", () => {
     status: "degraded",
     machineName: "SAGE-SERVER",
     connectorVersion: "1.0.0",
+    processArchitecture: "X64",
     lastErrorCode: "SDO_BUSY",
     lastErrorMessage: "Company data is temporarily locked.",
     capabilities: ["read_only_customer_lookup", "invoice_write", "attacker_capability"],
@@ -51,6 +52,7 @@ test("heartbeat metadata is bounded and cannot set protected fields", () => {
   });
   assert.equal(heartbeat.status, "degraded");
   assert.equal(heartbeat.machineName, "SAGE-SERVER");
+  assert.equal(heartbeat.processArchitecture, "x64");
   assert.equal("tenantId" in heartbeat, false);
   assert.equal("credentialHash" in heartbeat, false);
   assert.deepEqual(heartbeat.capabilities, ["read_only_customer_lookup", "invoice_write"]);
@@ -91,16 +93,18 @@ test("read and write readiness require binding, capabilities and both kill switc
     isEnabled: true,
     lastHeartbeatAt: "2026-07-24T11:59:00.000Z",
     connectorVersion: "2.0.0",
-    sageVersion: "34.0",
-    sdoVersion: "34.0",
+    sageVersion: "33.1.359.0",
+    sdoVersion: "captured-v33.1-build",
+    processArchitecture: "x64",
     sageCompanyIdentifier: "COMPANY-A",
     expectedSageCompanyIdentifier: "COMPANY-A",
-    adapterName: "v34-read",
-    writeAdapterName: "v34-write",
+    adapterName: "sage50-v33.1.359.0-readonly",
+    writeAdapterName: "sage50-v33.1.359.0-invoice-write",
     capabilities: ["read_only_customer_lookup", "invoice_write"],
     invoicePostingEnabled: false,
   };
   assert.equal(connectorReadyForReadOnly(record, now), true);
+  assert.equal(connectorReadyForReadOnly({ ...record, processArchitecture: null }, now), false);
   assert.equal(connectorReadyForInvoiceWrite(record, now), false);
   assert.equal(connectorReadyForInvoiceWrite({ ...record, invoicePostingEnabled: true }, now), true);
 });

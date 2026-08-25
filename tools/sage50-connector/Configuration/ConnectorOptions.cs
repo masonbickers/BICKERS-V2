@@ -28,13 +28,18 @@ public sealed class ConnectorOptions
     public int ApiRequestTimeoutSeconds { get; init; } = 30;
 
     [Required]
-    public string SageAdapter { get; init; } = "auto";
-    public string SageWriteAdapter { get; init; } = "auto";
+    public string SageAdapter { get; init; } = "sage50-v33.1.359.0-readonly";
+    public string SageWriteAdapter { get; init; } = "sage50-v33.1.359.0-invoice-write";
     public bool EnableInvoicePosting { get; init; } = false;
     public string ExpectedSageCompanyIdentifier { get; init; } = "";
+    public string ExpectedSageVersion { get; init; } = "33.1.359.0";
+    public string ExpectedSdoVersion { get; init; } = "";
+    public string ExpectedProcessArchitecture { get; init; } = "";
 
     public string AdapterDirectory { get; init; } = "adapters";
     public string CredentialFilePath { get; init; } = "";
+    public string ReadOnlySageCredentialFilePath { get; init; } = "";
+    public string InvoiceWriteSageCredentialFilePath { get; init; } = "";
     public string[] SdoSearchPaths { get; init; } = [];
     public string[] SdoFilePatterns { get; init; } = [];
     public string[] TrustedAdapterSha256 { get; init; } = [];
@@ -65,5 +70,24 @@ public sealed class ConnectorOptions
             "BickersAction",
             "Sage50Connector",
             "connector.credential");
+    }
+
+    public string ResolveSageCredentialFilePath(string purpose)
+    {
+        var configured = purpose.Equals("read_only", StringComparison.Ordinal)
+            ? ReadOnlySageCredentialFilePath
+            : InvoiceWriteSageCredentialFilePath;
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return Path.GetFullPath(Environment.ExpandEnvironmentVariables(configured));
+        }
+        var fileName = purpose.Equals("read_only", StringComparison.Ordinal)
+            ? "sage-read-only.credential"
+            : "sage-invoice-write.credential";
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "BickersAction",
+            "Sage50Connector",
+            fileName);
     }
 }

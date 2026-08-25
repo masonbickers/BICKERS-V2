@@ -7,7 +7,8 @@ public sealed record DiscoveredComponent(
 
 public sealed record SageInstallationSnapshot(
     IReadOnlyList<DiscoveredComponent> SageProducts,
-    IReadOnlyList<DiscoveredComponent> SdoComponents)
+    IReadOnlyList<DiscoveredComponent> SdoComponents,
+    string ProcessArchitecture)
 {
     public string? SageVersion => SageProducts.FirstOrDefault()?.Version;
     public string? SdoVersion => SdoComponents.FirstOrDefault()?.Version;
@@ -28,6 +29,7 @@ public sealed record SageCapabilityReport(
     string Status,
     string? SageVersion,
     string? SdoVersion,
+    string? ProcessArchitecture,
     string? CompanyName,
     string? CompanyIdentifier,
     string? AdapterName,
@@ -36,6 +38,12 @@ public sealed record SageCapabilityReport(
     string? ErrorMessage);
 
 public sealed record SageCustomerLookupQuery(string SearchText, int MaxResults);
+
+public sealed record SageConnectionContext(
+    string CompanyDataPath,
+    string ExpectedCompanyIdentifier,
+    string Username,
+    string Password);
 
 public sealed record SageCustomerLookupResult(
     string SageCustomerId,

@@ -115,6 +115,7 @@ public sealed class ConnectorWorker(
             Safe(version, 60) ?? "unknown",
             Safe(report.SageVersion, 80),
             Safe(report.SdoVersion, 80),
+            Safe(report.ProcessArchitecture, 20),
             Safe(report.CompanyName, 160),
             Safe(report.CompanyIdentifier, 160),
             Safe(report.AdapterName, 120),

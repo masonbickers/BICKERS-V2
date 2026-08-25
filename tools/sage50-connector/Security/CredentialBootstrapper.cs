@@ -9,7 +9,10 @@ public static class CredentialBootstrapper
         IServiceProvider services,
         CancellationToken cancellationToken)
     {
-        if (!args.Any(arg => string.Equals(arg, "--set-credential", StringComparison.OrdinalIgnoreCase)))
+        var setConnector = HasArgument(args, "--set-credential");
+        var setReadOnly = HasArgument(args, "--set-sage-read-credential");
+        var setInvoiceWrite = HasArgument(args, "--set-sage-write-credential");
+        if (!setConnector && !setReadOnly && !setInvoiceWrite)
         {
             return false;
         }
@@ -18,21 +21,71 @@ public static class CredentialBootstrapper
             throw new PlatformNotSupportedException("Credential installation must run on Windows.");
         }
 
-        Console.Write("Paste the one-time connector credential: ");
-        using var secure = ReadSecret();
-        Console.WriteLine();
-        var credential = SecureStringToString(secure);
+        if (setConnector)
+        {
+            Console.Write("Paste the one-time connector credential: ");
+            var credential = ReadSecretAsString();
+            try
+            {
+                await services.GetRequiredService<IMachineCredentialStore>()
+                    .StoreAsync(credential, cancellationToken);
+                Console.WriteLine("Credential stored using Windows DPAPI machine protection.");
+            }
+            finally
+            {
+                credential = string.Empty;
+            }
+        }
+
+        if (setReadOnly)
+        {
+            await StoreSageCredentialAsync(
+                services,
+                SageCredentialPurpose.ReadOnly,
+                "read-only",
+                cancellationToken);
+        }
+        if (setInvoiceWrite)
+        {
+            await StoreSageCredentialAsync(
+                services,
+                SageCredentialPurpose.InvoiceWrite,
+                "invoice-write",
+                cancellationToken);
+        }
+        return true;
+    }
+
+    private static bool HasArgument(string[] args, string expected) =>
+        args.Any(arg => string.Equals(arg, expected, StringComparison.OrdinalIgnoreCase));
+
+    private static async Task StoreSageCredentialAsync(
+        IServiceProvider services,
+        SageCredentialPurpose purpose,
+        string label,
+        CancellationToken cancellationToken)
+    {
+        Console.Write($"Enter the dedicated Sage {label} username: ");
+        var username = Console.ReadLine() ?? "";
+        Console.Write($"Enter the dedicated Sage {label} password: ");
+        var password = ReadSecretAsString();
         try
         {
-            await services.GetRequiredService<IMachineCredentialStore>()
-                .StoreAsync(credential, cancellationToken);
-            Console.WriteLine("Credential stored using Windows DPAPI machine protection.");
+            await services.GetRequiredService<ISageCompanyCredentialStore>()
+                .StoreAsync(purpose, username, password, cancellationToken);
+            Console.WriteLine($"Sage {label} credential stored using Windows DPAPI machine protection.");
         }
         finally
         {
-            credential = string.Empty;
+            password = string.Empty;
         }
-        return true;
+    }
+
+    private static string ReadSecretAsString()
+    {
+        using var secure = ReadSecret();
+        Console.WriteLine();
+        return SecureStringToString(secure);
     }
 
     private static SecureString ReadSecret()

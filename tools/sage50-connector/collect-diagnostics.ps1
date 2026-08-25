@@ -1,7 +1,8 @@
 param(
     [string[]]$SdoSearchPath = @(),
-    [string]$ComProgId = "",
-    [string]$CompanyDataPath = ""
+    [string]$ComProgId = "SDOEngine.33",
+    [string]$CompanyDataPath = "",
+    [string]$ExpectedSageVersion = "33.1.359.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,6 +56,12 @@ if ($ComProgId) {
 }
 
 $os = Get-CimInstance Win32_OperatingSystem
+$processArchitecture = if ([Environment]::Is64BitProcess) { "x64" } else { "x86" }
+$installedProducts = @(Get-InstalledProducts)
+$sdoFiles = @(Get-SdoFiles)
+$detectedSageVersions = @($installedProducts |
+    Where-Object { $_.name -match "Sage 50 Accounts" } |
+    ForEach-Object { $_.version })
 $result = [ordered]@{
     capturedAtUtc = [DateTime]::UtcNow.ToString("o")
     machineName = [Environment]::MachineName
@@ -62,10 +69,16 @@ $result = [ordered]@{
         caption = [string]$os.Caption
         version = [string]$os.Version
         osArchitecture = [string]$os.OSArchitecture
-        processArchitecture = if ([Environment]::Is64BitProcess) { "64-bit" } else { "32-bit" }
+        processArchitecture = $processArchitecture
     }
-    installedComponents = @(Get-InstalledProducts)
-    discoveredSdoFiles = @(Get-SdoFiles)
+    target = [ordered]@{
+        sageVersion = $ExpectedSageVersion
+        sdoProgId = $ComProgId
+        connectorRuntimeIdentifier = "win-$processArchitecture"
+        exactSageVersionDetected = [bool]($detectedSageVersions -contains $ExpectedSageVersion)
+    }
+    installedComponents = $installedProducts
+    discoveredSdoFiles = $sdoFiles
     registeredComIdentity = $comIdentity
     companyDataAccessible = if ($CompanyDataPath) {
         [bool](Test-Path -LiteralPath $CompanyDataPath)

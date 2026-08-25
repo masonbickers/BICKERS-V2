@@ -6,12 +6,15 @@ public interface ISage50ReadOnlyAdapter
 {
     string AdapterName { get; }
     string CapabilityMode { get; }
+    string SupportedSageVersion { get; }
+    string SupportedSdoVersion { get; }
+    string SupportedProcessArchitecture { get; }
     bool CanHandle(SageInstallationSnapshot installation);
     Task<SageReadOnlyConnectionResult> TestConnectionAsync(
-        string companyDataPath,
+        SageConnectionContext context,
         CancellationToken cancellationToken);
     Task<IReadOnlyList<SageCustomerLookupResult>> SearchCustomersAsync(
-        string companyDataPath,
+        SageConnectionContext context,
         SageCustomerLookupQuery query,
         CancellationToken cancellationToken);
 }

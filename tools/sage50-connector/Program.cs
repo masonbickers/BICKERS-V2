@@ -21,6 +21,7 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = "Bickers Action Sage 50 Connector";
 });
 builder.Services.AddSingleton<IMachineCredentialStore, DpapiMachineCredentialStore>();
+builder.Services.AddSingleton<ISageCompanyCredentialStore, DpapiSageCompanyCredentialStore>();
 builder.Services.AddSingleton<ISageInstallationDiscovery, WindowsSageInstallationDiscovery>();
 builder.Services.AddSingleton<TrustedAdapterLoader>();
 builder.Services.AddSingleton<ISageAdapterCatalog, SageAdapterCatalog>();

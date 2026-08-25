@@ -30,7 +30,7 @@ access, is the only component permitted to call SDO.
    invoice lifecycle or sync metadata.
 
 The repository implements steps 1–6 around a version-specific adapter boundary.
-It does not contain Sage's licensed v34 SDO adapter or prove a real Sage post.
+It does not contain Sage's licensed v33.1 SDO adapter or prove a real Sage post.
 
 ## Connector registration and heartbeat
 
@@ -157,4 +157,4 @@ company-data path, OAuth fields or web-session token.
 - Next.js/Vercel access to COM, ActiveX, SDO or Sage company files.
 - Sage customer creation or automatic remapping.
 - Credit-note, payment, allocation, supplier or payroll creation.
-- Treating repository tests as evidence of a real v34/SDO connection or post.
+- Treating repository tests as evidence of a real v33.1/SDO connection or post.

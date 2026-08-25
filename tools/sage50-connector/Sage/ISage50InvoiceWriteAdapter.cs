@@ -6,15 +6,20 @@ public interface ISage50InvoiceWriteAdapter
 {
     string AdapterName { get; }
     string CapabilityMode { get; }
+    string SupportedSageVersion { get; }
+    string SupportedSdoVersion { get; }
+    string SupportedProcessArchitecture { get; }
     bool CanHandle(SageInstallationSnapshot installation);
+    Task<SageReadOnlyConnectionResult> TestConnectionAsync(
+        SageConnectionContext context,
+        CancellationToken cancellationToken);
     Task<SagePostedInvoice?> FindExistingServiceInvoiceAsync(
-        string companyDataPath,
-        string expectedSageCompanyIdentifier,
+        SageConnectionContext context,
         string idempotencyKey,
         string draftReference,
         CancellationToken cancellationToken);
     Task<SagePostedInvoice> CreateServiceInvoiceAsync(
-        string companyDataPath,
+        SageConnectionContext context,
         SageServiceInvoice invoice,
         CancellationToken cancellationToken);
 }

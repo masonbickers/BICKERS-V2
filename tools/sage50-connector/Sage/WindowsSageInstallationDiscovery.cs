@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using BickersAction.Sage50Connector.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.Win32;
@@ -16,7 +17,7 @@ public sealed class WindowsSageInstallationDiscovery(
         cancellationToken.ThrowIfCancellationRequested();
         if (!OperatingSystem.IsWindows())
         {
-            return Task.FromResult(new SageInstallationSnapshot([], []));
+            return Task.FromResult(new SageInstallationSnapshot([], [], "unknown"));
         }
 
         var installed = ReadInstalledProducts();
@@ -34,7 +35,10 @@ public sealed class WindowsSageInstallationDiscovery(
             "Sage discovery found {SageCount} Sage 50 installation(s) and {SdoCount} SDO component(s).",
             sage.Length,
             sdo.Length);
-        return Task.FromResult(new SageInstallationSnapshot(sage, sdo));
+        return Task.FromResult(new SageInstallationSnapshot(
+            sage,
+            sdo,
+            RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()));
     }
 
     private static IEnumerable<DiscoveredComponent> ReadInstalledProducts()
