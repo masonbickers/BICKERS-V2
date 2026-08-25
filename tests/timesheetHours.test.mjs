@@ -42,6 +42,27 @@ test("yard blocks, paid travel and overnight work match the app", () => {
   assert.equal(overnight.total, 4 * 60);
 });
 
+test("saved lunch overrides control the visible yard deduction and total", () => {
+  const baseEntry = {
+    mode: "yard",
+    yardSegments: [{ start: "08:00", end: "16:30" }],
+  };
+
+  const deducted = computeTimesheetDayBreakdown(
+    { ...baseEntry, managerLunchDeduct: true, lunchSup: true },
+    "Monday"
+  );
+  assert.equal(deducted.breakDeduction, 30);
+  assert.equal(deducted.total, 8 * 60);
+
+  const notDeducted = computeTimesheetDayBreakdown(
+    { ...baseEntry, managerLunchDeduct: false },
+    "Monday"
+  );
+  assert.equal(notDeducted.breakDeduction, 0);
+  assert.equal(notDeducted.total, 8.5 * 60);
+});
+
 test("travel and turnaround use the app ten-hour payroll value", () => {
   const travel = computeTimesheetDayBreakdown(
     { mode: "travel", leaveTime: "08:00", arriveTime: "14:00" },
@@ -70,8 +91,20 @@ test("workshop rows and segments match the app", () => {
       { mode: "workshop", yardSegments: [{ start: "22:00", end: "02:00" }] },
       "Thursday"
     ).total,
-    4 * 60
+    3.5 * 60
   );
+
+  const workshopDay = computeTimesheetDayBreakdown(
+    {
+      mode: "workshop",
+      yardSegments: [{ start: "08:00", end: "16:30" }],
+      managerLunchDeduct: true,
+    },
+    "Thursday"
+  );
+  assert.equal(workshopDay.workshop, 8.5 * 60);
+  assert.equal(workshopDay.breakDeduction, 30);
+  assert.equal(workshopDay.total, 8 * 60);
 });
 
 test("on-set totals and overtime buckets match the app", () => {

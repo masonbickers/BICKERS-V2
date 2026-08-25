@@ -1,3 +1,5 @@
+import { shouldDeductYardLunch } from "./timesheetLunch.js";
+
 const WEEKEND_DAYS = new Set(["Saturday", "Sunday"]);
 const WEEK_DAYS = [
   "Monday",
@@ -124,11 +126,9 @@ export function computeTimesheetDayBreakdown(entry, day = null) {
       ? durationMinutes(safeEntry.yardTravelLeaveTime, safeEntry.yardTravelArriveTime)
       : 0;
     const gross = result.yardWork + result.yardTravel;
-    result.breakDeduction = getLunchBreakDeductionMinutes(
-      day,
-      boolish(safeEntry.lunchSup),
-      gross
-    );
+    result.breakDeduction = shouldDeductYardLunch(safeEntry, day)
+      ? getLunchBreakDeductionMinutes(day, false, gross)
+      : 0;
     result.total = Math.max(0, gross - result.breakDeduction);
     return result;
   }
@@ -149,6 +149,9 @@ export function computeTimesheetDayBreakdown(entry, day = null) {
         (total, segment) => total + durationMinutes(segment?.start, segment?.end),
         0
       );
+      result.breakDeduction = shouldDeductYardLunch(safeEntry, day)
+        ? getLunchBreakDeductionMinutes(day, false, result.workshop)
+        : 0;
     } else {
       const rows = Array.isArray(safeEntry.workshopJobs) ? safeEntry.workshopJobs : [];
       result.workshop = rows.reduce(
@@ -156,7 +159,7 @@ export function computeTimesheetDayBreakdown(entry, day = null) {
         0
       );
     }
-    result.total = result.workshop;
+    result.total = Math.max(0, result.workshop - result.breakDeduction);
     return result;
   }
 
