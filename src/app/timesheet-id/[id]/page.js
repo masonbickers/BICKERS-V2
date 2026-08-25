@@ -2121,9 +2121,12 @@ export default function TimesheetDetailPage() {
           )
         : 0;
       const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
+      const dayBreakdown = entryExists
+        ? computeTimesheetDayBreakdown(entry, day)
+        : null;
       if (entryExists) {
         if (["yard", "travel", "onset", "workshop", "turnaround"].includes(mode)) {
-          dayHours = computeTimesheetDayBreakdown(entry, day).total / 60;
+          dayHours = dayBreakdown.total / 60;
         }
         if (mode === "office") dayHours = computeOfficeHours(entry);
 
@@ -2165,9 +2168,9 @@ export default function TimesheetDetailPage() {
       // Yard segments for UI (turnaround might have none)
       const yardSegs = entryExists ? extractYardSegments(entry) : [];
 
-      //  For UI label: whether lunch was deducted on yard day
-      const yardLunchDeducted =
-        entryExists && mode === "yard" && yardSegs.length > 0 && shouldDeductYardLunch(entry, day);
+      const lunchDeductionMinutes =
+        mode === "yard" || mode === "workshop" ? dayBreakdown?.breakDeduction || 0 : 0;
+      const yardLunchDeducted = lunchDeductionMinutes > 0;
 
       return {
         day,
@@ -2204,6 +2207,7 @@ export default function TimesheetDetailPage() {
         turnaroundJob,
         hasTurnaroundJob,
         yardLunchDeducted,
+        lunchDeductionMinutes,
       };
     });
 
@@ -2243,8 +2247,8 @@ export default function TimesheetDetailPage() {
       const isHalfDayTravelNoteDay =
         hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
       const workshopHrs =
-        card.mode === "yard"
-          ? computeYardHours(entry, card.day)
+        card.mode === "yard" || card.mode === "workshop"
+          ? computeTimesheetDayBreakdown(entry, card.day).total / 60
           : card.isPaidHolidayDay
           ? card.paidHolidayHoursToUse || card.paidHolidayHours
           : 0;
@@ -2317,7 +2321,10 @@ export default function TimesheetDetailPage() {
         dateLabel: dt ? formatShortDate(dt) : "-",
         jobName: getPayAdviceJobName(card, primaryJob),
         workshopHrs,
-        overtimeHrs: card.mode === "yard" ? Math.max(0, workshopHrs - 8.5) : 0,
+        overtimeHrs:
+          card.mode === "yard" || card.mode === "workshop"
+            ? Math.max(0, workshopHrs - 8.5)
+            : 0,
         travelHrs,
         sundayHrs,
         onSetHrs,
@@ -2721,6 +2728,7 @@ export default function TimesheetDetailPage() {
                 turnaroundJob,
                 hasTurnaroundJob,
                 yardLunchDeducted,
+                lunchDeductionMinutes,
               } = card;
 
               const isHolidayCard = mode === "holiday" || mode === "bankholiday" || isHalfHolidayDay;
@@ -2854,6 +2862,7 @@ export default function TimesheetDetailPage() {
                             style={{ ...formControlStyle, fontSize: 12, padding: "6px 8px" }}
                           >
                             <option value="yard">Yard</option>
+                            <option value="workshop">Workshop</option>
                             <option value="office">Office</option>
                             <option value="travel">Travel</option>
                             <option value="onset">On Set</option>
@@ -2915,7 +2924,7 @@ export default function TimesheetDetailPage() {
                             </div>
                           )}
 
-                          {["yard", "office"].includes(manualEntryDraft.mode) ? (
+                          {["yard", "workshop", "office"].includes(manualEntryDraft.mode) ? (
                             <div className={layoutStyles.extracted13}>
                               {[
                                 ["start", "Start"],
@@ -2967,9 +2976,10 @@ export default function TimesheetDetailPage() {
                             </div>
                           ) : null}
 
-                          {["yard", "travel", "onset"].includes(manualEntryDraft.mode) ? (
+                          {["yard", "workshop", "travel", "onset"].includes(manualEntryDraft.mode) ? (
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
-                              {manualEntryDraft.mode === "yard" && manualEntryDay !== "Saturday" ? (
+                              {["yard", "workshop"].includes(manualEntryDraft.mode) &&
+                              manualEntryDay !== "Saturday" ? (
                                 <label className={layoutStyles.extracted16}>
                                   <input
                                     type="checkbox"
@@ -3133,7 +3143,9 @@ export default function TimesheetDetailPage() {
                             className={layoutStyles.extracted26}
                           >
                             <span>
-                              {paidHolidayLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
+                              {paidHolidayLunchDeducted
+                                ? "Lunch deduction: -30 mins"
+                                : "Lunch deduction: None"}
                             </span>
                             <label
                               style={{
@@ -3218,11 +3230,17 @@ export default function TimesheetDetailPage() {
                     </div>
                   )}
 
-                  {/* Yard blocks (hide for turnaround UNLESS blocks exist) */}
-                  {entryExists && (mode === "yard" || (mode === "turnaround" && hasTimeBlocks)) && (
+                  {/* Yard/workshop blocks (hide for turnaround unless blocks exist) */}
+                  {entryExists &&
+                    (["yard", "workshop"].includes(mode) ||
+                      (mode === "turnaround" && hasTimeBlocks)) && (
                     <div className={layoutStyles.extracted37}>
                       <div className={layoutStyles.extracted38}>
-                        {mode === "turnaround" ? "Time blocks (optional):" : "Yard:"}
+                        {mode === "turnaround"
+                          ? "Time blocks (optional):"
+                          : mode === "workshop"
+                          ? "Workshop time:"
+                          : "Yard:"}
                       </div>
                       {yardSegs.map((seg, i) => {
                         const blockNote = getBlockNote(seg);
@@ -3253,12 +3271,14 @@ export default function TimesheetDetailPage() {
                         </div>
                       ) : null}
                       {entry?.overnight ? <div className={layoutStyles.extracted39}>- Overnight</div> : null}
-                      {mode === "yard" && (
+                      {["yard", "workshop"].includes(mode) && (
                         <div className={layoutStyles.extracted40}>
-                          {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
+                          {lunchDeductionMinutes > 0
+                            ? `Lunch deduction: -${lunchDeductionMinutes} mins`
+                            : "Lunch deduction: None"}
                         </div>
                       )}
-                      {mode === "yard" && day !== "Saturday" && (
+                      {["yard", "workshop"].includes(mode) && day !== "Saturday" && (
                         <label
                           style={{
                             display: "inline-flex",
