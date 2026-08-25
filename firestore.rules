@@ -584,14 +584,11 @@ service cloud.firestore {
     }
 
     // Private personnel records are separated from the operational employee
-    // directory and are available only to application administrators.
+    // directory and are readable only by application administrators. Browser
+    // writes remain blocked and must use a separately authorised server path.
     match /employeePersonnel/{employeeId} {
       allow read: if isAdmin() && existingDocBelongsToCurrentCompany();
-      allow create: if isAdmin() && incomingDocBelongsToCurrentCompany();
-      allow update: if isAdmin()
-        && existingDocBelongsToCurrentCompany()
-        && incomingDocBelongsToCurrentCompany();
-      allow delete: if isAdmin() && existingDocBelongsToCurrentCompany();
+      allow write: if false;
     }
 
     match /employees/{employeeId} {
