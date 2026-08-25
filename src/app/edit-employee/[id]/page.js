@@ -1381,8 +1381,22 @@ export default function EditEmployeePage() {
       const legacyPrivateDeletes = Object.fromEntries(
         PRIVATE_EMPLOYEE_FIELDS.map((field) => [field, deleteField()])
       );
+      const currentUser = auth.currentUser;
+      const idToken = await currentUser?.getIdToken();
+      if (!idToken) throw new Error("Sign in again before saving this employee.");
+      const personnelResponse = await fetch(
+        `/api/admin/employees/${encodeURIComponent(employeeId)}/personnel`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ privateRecord }),
+        }
+      );
+      const personnelResult = await personnelResponse.json().catch(() => ({}));
+      if (!personnelResponse.ok) {
+        throw new Error(personnelResult.error || "Private employee details could not be saved.");
+      }
       const batch = writeBatch(db);
-      batch.set(personnelRef, privateRecord, { merge: true });
       batch.set(docRef, { ...operationalRecord, ...legacyPrivateDeletes }, { merge: true });
       if (userRef) {
         batch.set(
@@ -1418,9 +1432,7 @@ export default function EditEmployeePage() {
       setGlobalPayrollRateHistory(nextGlobalRateHistory);
       setFormData((current) => ({ ...current, payrollRateHistory: nextEmployeeRateHistory }));
       try {
-        const currentUser = auth.currentUser;
         if (currentUser) {
-          const idToken = await currentUser.getIdToken();
           await fetch("/api/admin/activity-tracking/settings", {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
