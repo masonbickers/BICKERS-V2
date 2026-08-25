@@ -42,9 +42,15 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
 import {
   computeOnSetBreakdown,
-  computeOnSetHours,
 } from "@/app/utils/timesheetOnSetHours";
 import { computeTimesheetDayBreakdown } from "@/app/utils/timesheetHours";
+import {
+  calculatePayAdviceRowTotal,
+  calculatePayAdviceTotals,
+  computePayAdvicePayrollRow,
+  normalisePayAdviceRates,
+  normalisePayAdviceRowOverride,
+} from "@/app/utils/timesheetPayAdvice";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -2055,6 +2061,13 @@ export default function TimesheetDetailPage() {
   };
 
   const weekStartDate = useMemo(() => parseDateFlexible(timesheet?.weekStart), [timesheet?.weekStart]);
+  const weekEndDate = useMemo(() => {
+    if (!weekStartDate) return null;
+    const end = new Date(weekStartDate);
+    end.setDate(end.getDate() + 6);
+    end.setHours(0, 0, 0, 0);
+    return end;
+  }, [weekStartDate]);
 
   const dayMap = useMemo(() => normaliseDays(timesheet?.days), [timesheet?.days]);
 
@@ -2253,12 +2266,7 @@ export default function TimesheetDetailPage() {
       overnightRate: Number((globalPayrollRates?.overnightRate ?? employeePayrollRates?.overnightRate) || 0),
       travelMealRate: Number((globalPayrollRates?.travelMealRate ?? employeePayrollRates?.travelMealRate) || 0),
     };
-    const rates = {
-      ...baseRates,
-      ...Object.fromEntries(
-        Object.entries(payAdviceRateEdits || {}).map(([key, value]) => [key, Number(value || 0)])
-      ),
-    };
+    const rates = normalisePayAdviceRates(baseRates, payAdviceRateEdits);
 
     const rows = dayCards.map((card, index) => {
       const entry = card.entry || {};
@@ -2268,153 +2276,35 @@ export default function TimesheetDetailPage() {
       }
 
       const primaryJob = Array.isArray(card.jobsToday) && card.jobsToday.length ? card.jobsToday[0] : null;
-      const hasJobOnTravelDay = card.mode === "travel" && !!primaryJob;
-      const dayNoteType = String(primaryJob?.dayNoteType || "").toLowerCase();
-      const isTravelTimeNoteDay = hasJobOnTravelDay && dayNoteType === "travel time";
-      const isHalfDayTravelNoteDay =
-        hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
-      const workshopHrs =
-        card.mode === "yard" || card.mode === "workshop"
-          ? computeTimesheetDayBreakdown(entry, card.day).total / 60
-          : card.isPaidHolidayDay
-          ? card.paidHolidayHoursToUse || card.paidHolidayHours
-          : 0;
-      const isTurnaroundPayDay = card.mode === "turnaround";
       const isCancellationPayDay = isCancellationDay(entry);
-      const actualTravelToHrs = card.travelToHrs || 0;
-      const preCallHrs = card.preCallHrs || 0;
-      const waitingAllowanceHrs = card.mode === "onset" ? card.paidEarlyArrivalHrs || 0 : 0;
-      const travelAfterTenHrs = card.mode === "onset" ? card.travelAfterTenHrs || 0 : 0;
-      const travelHrs =
-        hasJobOnTravelDay
-          ? 0
-          : card.mode === "travel"
-          ? computeTravelHours(entry)
-          : card.mode === "onset"
-          ? actualTravelToHrs + waitingAllowanceHrs + travelAfterTenHrs
-          : 0;
-      const onSetHrs =
-        card.mode === "onset"
-          ? 10
-          : isHalfDayTravelNoteDay
-          ? 5
-          : isTravelTimeNoteDay
-          ? computeTravelHours(entry)
-          : hasJobOnTravelDay || isTurnaroundPayDay || isCancellationPayDay
-          ? 10
-          : 0;
-      const onSetOvertimeHrs =
-        card.mode === "onset" ? (card.onSetOvertimeHrs || 0) + preCallHrs : 0;
-      const payableDayTotalHrs =
-        card.mode === "onset"
-          ? computeOnSetHours(entry, { previousDayOvernight: card.previousDayOvernight })
-          : isHalfDayTravelNoteDay
-          ? onSetHrs
-          : isTravelTimeNoteDay
-          ? onSetHrs
-          : hasJobOnTravelDay
-          ? onSetHrs
-          : isTurnaroundPayDay || isCancellationPayDay
-          ? onSetHrs
-          : workshopHrs + travelHrs;
-      const sundayHrs = card.day === "Sunday" && card.mode === "travel" && !hasJobOnTravelDay ? travelHrs : 0;
-      const overnightUnits = entry?.overnight ? 1 : 0;
-      const travelMealUnits =
-        ((card.mode === "travel" && !hasJobOnTravelDay && !isTravelTimeNoteDay) || isHalfDayTravelNoteDay) &&
-        (entry?.travelLunchSup || entry?.mealSup || isHalfDayTravelNoteDay)
-          ? 1
-          : 0;
-      const hasWorkedDay = payableDayTotalHrs > 0;
-      const wrapMinutes = toMinutes(entry?.wrapTime);
-      const hasLateWrapSupplement = wrapMinutes != null && wrapMinutes > 22 * 60;
-      const isPlainTravelDay =
-        card.mode === "travel" && !hasJobOnTravelDay && !isTravelTimeNoteDay && !isHalfDayTravelNoteDay;
-      const weekendSupplementUnits = hasWorkedDay
-        ? card.day === "Sunday"
-          ? 2
-          : card.day === "Saturday"
-          ? isPlainTravelDay
-            ? 0
-            : hasLateWrapSupplement
-            ? 1
-            : 0.5
-          : hasLateWrapSupplement
-          ? 1
-          : 0
-        : 0;
+      const payrollRow = computePayAdvicePayrollRow({
+        card,
+        primaryJob,
+        isCancellationPayDay,
+      });
 
       const baseRow = {
         day: card.day,
         dateLabel: dt ? formatShortDate(dt) : "-",
         jobName: getPayAdviceJobName(card, primaryJob),
-        workshopHrs,
-        overtimeHrs:
-          card.mode === "yard" || card.mode === "workshop"
-            ? Math.max(0, workshopHrs - 8.5)
-            : 0,
-        travelHrs,
-        sundayHrs,
-        onSetHrs,
-        onSetOvertimeHrs,
-        weekendSupplementUnits,
-        overnightUnits,
-        travelMealUnits,
-        preCallHrs: 0,
-        dailyTotalHrs: payableDayTotalHrs,
+        ...payrollRow,
       };
 
-      const override = payAdviceEdits?.[card.day] || {};
+      const override = normalisePayAdviceRowOverride(payAdviceEdits?.[card.day] || {});
       const mergedRow = {
         ...baseRow,
         ...override,
       };
 
-      const monetaryTotal =
-        (Number(mergedRow.workshopHrs) || 0) * rates.workshopRate +
-        (Number(mergedRow.overtimeHrs) || 0) * rates.overtimeRate +
-        (Number(mergedRow.travelHrs) || 0) * rates.travelRate +
-        (Number(mergedRow.sundayHrs) || 0) * rates.sundayRate +
-        (Number(mergedRow.onSetHrs) || 0) * rates.onSetRate +
-        (Number(mergedRow.onSetOvertimeHrs) || 0) * rates.onSetOvertimeRate +
-        (Number(mergedRow.weekendSupplementUnits) || 0) * rates.weekendSupplementRate +
-        (Number(mergedRow.overnightUnits) || 0) * rates.overnightRate +
-        (Number(mergedRow.travelMealUnits) || 0) * rates.travelMealRate;
-
       return {
         ...mergedRow,
-        totalMonetary: Number(monetaryTotal.toFixed(2)),
+        totalMonetary: calculatePayAdviceRowTotal(mergedRow, rates),
       };
     });
 
-    const totalFor = (key) => rows.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
-
     return {
       rows,
-      totals: {
-        workshopHrs: totalFor("workshopHrs"),
-        overtimeHrs: totalFor("overtimeHrs"),
-        travelHrs: totalFor("travelHrs"),
-        sundayHrs: totalFor("sundayHrs"),
-        onSetHrs: totalFor("onSetHrs"),
-        onSetOvertimeHrs: totalFor("onSetOvertimeHrs"),
-        weekendSupplementUnits: totalFor("weekendSupplementUnits"),
-        overnightUnits: totalFor("overnightUnits"),
-        travelMealUnits: totalFor("travelMealUnits"),
-        preCallHrs: 0,
-        dailyTotalHrs: totalFor("dailyTotalHrs"),
-        workshopAmount: Number((totalFor("workshopHrs") * rates.workshopRate).toFixed(2)),
-        overtimeAmount: Number((totalFor("overtimeHrs") * rates.overtimeRate).toFixed(2)),
-        travelAmount: Number((totalFor("travelHrs") * rates.travelRate).toFixed(2)),
-        sundayAmount: Number((totalFor("sundayHrs") * rates.sundayRate).toFixed(2)),
-        onSetAmount: Number((totalFor("onSetHrs") * rates.onSetRate).toFixed(2)),
-        onSetOvertimeAmount: Number((totalFor("onSetOvertimeHrs") * rates.onSetOvertimeRate).toFixed(2)),
-        weekendSupplementAmount: Number(
-          (totalFor("weekendSupplementUnits") * rates.weekendSupplementRate).toFixed(2)
-        ),
-        overnightAmount: Number((totalFor("overnightUnits") * rates.overnightRate).toFixed(2)),
-        travelMealAmount: Number((totalFor("travelMealUnits") * rates.travelMealRate).toFixed(2)),
-        totalMonetary: totalFor("totalMonetary"),
-      },
+      totals: calculatePayAdviceTotals(rows, rates),
       rates,
     };
   }, [dayCards, weekStartDate, payAdviceEdits, employeePayrollRates, globalPayrollRates, payAdviceRateEdits]);
@@ -2448,6 +2338,7 @@ export default function TimesheetDetailPage() {
     const payload = {
       rows: rows || {},
       rates: rates || {},
+      calculationVersion: 2,
       updatedAt: new Date().toISOString(),
     };
     try {
@@ -3491,7 +3382,7 @@ export default function TimesheetDetailPage() {
               Weekly Pay Advice
             </div>
             <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: UI.ink }}>
-              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatShortDate(timesheet.weekStart)}
+              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatShortDate(weekEndDate)}
             </div>
             <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
               Auto-filled from the current timesheet. Finance can use this as the first-pass pay advice view.
@@ -3627,7 +3518,7 @@ export default function TimesheetDetailPage() {
                     "O/Time Hrs",
                     "Travel Hrs",
                     "Sunday Hrs",
-                    "On Set Hrs",
+                    "On Set Units",
                     "On Set O/T",
                     "Sa/Su Units",
                     "O/N Units",

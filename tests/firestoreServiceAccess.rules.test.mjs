@@ -28,6 +28,7 @@ async function seed() {
       setDoc(doc(db, "users", "service-b"), { uid: "service-b", isEnabled: true, companyId: "company-b", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "platform"), { uid: "platform", isEnabled: true, role: "platformAdmin", appAccess: { user: true, service: true } }),
       setDoc(doc(db, "employees", "employee-a"), { companyId: "company-a", authUid: "user-a", financeAccess: false, name: "Employee A" }),
+      setDoc(doc(db, "employeePersonnel", "employee-a"), { companyId: "company-a", dateOfBirth: "1990-01-01" }),
       setDoc(doc(db, "bookings", "booking-a"), { companyId: "company-a", title: "A" }),
       setDoc(doc(db, "bookings", "booking-b"), { companyId: "company-b", title: "B" }),
       setDoc(doc(db, "contacts", "contact-a"), { companyId: "company-a", name: "A" }),
@@ -111,6 +112,18 @@ test("admin and platform admin can both read the single Bickers data set", async
   await seed();
   await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "bookings", "booking-b")));
   await assertSucceeds(getDoc(doc(env.authenticatedContext("platform").firestore(), "bookings", "booking-b")));
+});
+
+test("personnel files are available only to administrators", async () => {
+  await seed();
+  const userDb = env.authenticatedContext("user-a").firestore();
+  const adminDb = env.authenticatedContext("admin-a").firestore();
+  const platformDb = env.authenticatedContext("platform").firestore();
+
+  await assertFails(getDocs(collection(userDb, "employeePersonnel")));
+  await assertSucceeds(getDocs(collection(adminDb, "employeePersonnel")));
+  await assertSucceeds(getDocs(collection(platformDb, "employeePersonnel")));
+  await assertSucceeds(updateDoc(doc(adminDb, "employeePersonnel", "employee-a"), { dateOfBirth: "1990-02-01" }));
 });
 
 test("activity tracking collections are server-only even for administrators", async () => {
