@@ -123,7 +123,8 @@ test("personnel files are available only to administrators", async () => {
   await assertFails(getDocs(collection(userDb, "employeePersonnel")));
   await assertSucceeds(getDocs(collection(adminDb, "employeePersonnel")));
   await assertSucceeds(getDocs(collection(platformDb, "employeePersonnel")));
-  await assertSucceeds(updateDoc(doc(adminDb, "employeePersonnel", "employee-a"), { dateOfBirth: "1990-02-01" }));
+  await assertFails(updateDoc(doc(adminDb, "employeePersonnel", "employee-a"), { dateOfBirth: "1990-02-01" }));
+  await assertFails(updateDoc(doc(platformDb, "employeePersonnel", "employee-a"), { dateOfBirth: "1990-02-01" }));
 });
 
 test("activity tracking collections are server-only even for administrators", async () => {
