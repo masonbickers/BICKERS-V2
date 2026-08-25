@@ -64,7 +64,7 @@
   --control-disabled-opacity: .62;
   --color-accent: #8b5e3c;
   --color-accent-soft: #f5ede6;
-  --color-overlay: rgba(15,23,42,.52);
+  --color-overlay: rgba(17,17,17,.52);
   /* Generic semantic palette used outside the booking diary. */
   --status-red: #f73939;
   --status-red-text: #ffffff;

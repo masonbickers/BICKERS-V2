@@ -1,11 +1,11 @@
 import { computeTimesheetDayBreakdown } from "./timesheetHours.js";
 
-export function computePaidEarlyArrivalHours(entry) {
-  return computeTimesheetDayBreakdown({ ...(entry || {}), mode: "onset" }).paidEarly / 60;
+export function computePaidEarlyArrivalHours(entry, options = {}) {
+  return computeTimesheetDayBreakdown({ ...(entry || {}), mode: "onset" }, null, options).paidEarly / 60;
 }
 
-export function computeOnSetBreakdown(entry) {
-  const result = computeTimesheetDayBreakdown({ ...(entry || {}), mode: "onset" });
+export function computeOnSetBreakdown(entry, options = {}) {
+  const result = computeTimesheetDayBreakdown({ ...(entry || {}), mode: "onset" }, null, options);
 
   return {
     travelToHrs: result.outboundTravel / 60,
@@ -21,6 +21,6 @@ export function computeOnSetBreakdown(entry) {
   };
 }
 
-export function computeOnSetHours(entry) {
-  return computeOnSetBreakdown(entry).totalHrs;
+export function computeOnSetHours(entry, options = {}) {
+  return computeOnSetBreakdown(entry, options).totalHrs;
 }

@@ -116,3 +116,24 @@ test("short on-set days use actual app hours rather than a web-only guarantee", 
   assert.equal(breakdown.onSetPaidHrs, 6);
   assert.equal(breakdown.totalHrs, 6);
 });
+
+test("overnight location suppresses next-day outbound travel and early arrival", () => {
+  const breakdown = computeOnSetBreakdown(
+    {
+      leaveTime: "18:15",
+      arriveTime: "18:45",
+      callTime: "19:00",
+      wrapTime: "05:15",
+      arriveBack: "05:30",
+      overnight: true,
+    },
+    { previousDayOvernight: true }
+  );
+
+  assert.equal(breakdown.travelToHrs, 0);
+  assert.equal(breakdown.paidEarlyArrivalHrs, 0);
+  assert.equal(breakdown.onSetPaidHrs, 10);
+  assert.equal(breakdown.onSetOvertimeHrs, 0.25);
+  assert.equal(breakdown.travelBackHrs, 0);
+  assert.equal(breakdown.totalHrs, 10.25);
+});

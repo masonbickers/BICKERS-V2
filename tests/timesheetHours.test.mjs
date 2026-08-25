@@ -143,6 +143,44 @@ test("on-set totals and overtime buckets match the app", () => {
   assert.equal(earlyCall.total, 10 * 60);
 });
 
+test("an overnight stay makes the next day's journey to site unpaid", () => {
+  const friday = computeTimesheetDayBreakdown(
+    {
+      mode: "onset",
+      leaveTime: "18:15",
+      arriveTime: "18:45",
+      callTime: "19:00",
+      wrapTime: "05:15",
+      arriveBack: "05:30",
+      overnight: true,
+    },
+    "Friday",
+    { previousEntry: { mode: "travel", overnight: true } }
+  );
+
+  assert.equal(friday.outboundTravel, 0);
+  assert.equal(friday.paidEarly, 0);
+  assert.equal(friday.onSetStandard, 10 * 60);
+  assert.equal(friday.onSetOvertime, 15);
+  assert.equal(friday.returnTravelAllowance, 15);
+  assert.equal(friday.returnTravel, 0);
+  assert.equal(friday.total, 10.25 * 60);
+});
+
+test("overnight hotel return travel is paid only after the 30-minute allowance", () => {
+  const breakdown = computeTimesheetDayBreakdown({
+    mode: "onset",
+    callTime: "08:00",
+    wrapTime: "18:00",
+    arriveBack: "18:45",
+    overnight: true,
+  });
+
+  assert.equal(breakdown.returnTravelAllowance, 30);
+  assert.equal(breakdown.returnTravel, 15);
+  assert.equal(breakdown.total, 10.25 * 60);
+});
+
 test("weekly total uses current day data instead of a stale stored value", () => {
   const offWeek = Object.fromEntries(
     ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
@@ -158,4 +196,29 @@ test("weekly total uses current day data instead of a stale stored value", () =>
     },
   };
   assert.equal(computeTimesheetWeekHours(timesheet), 16.5);
+});
+
+test("weekly totals carry overnight context into the following day", () => {
+  const offWeek = Object.fromEntries(
+    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
+      (day) => [day, { mode: "off" }]
+    )
+  );
+  const timesheet = {
+    days: {
+      ...offWeek,
+      Thursday: { mode: "travel", leaveTime: "09:00", arriveTime: "18:00", overnight: true },
+      Friday: {
+        mode: "onset",
+        leaveTime: "18:15",
+        arriveTime: "18:45",
+        callTime: "19:00",
+        wrapTime: "05:15",
+        arriveBack: "05:30",
+        overnight: true,
+      },
+    },
+  };
+
+  assert.equal(computeTimesheetWeekHours(timesheet), 20.25);
 });

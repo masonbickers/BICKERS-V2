@@ -15,6 +15,8 @@ import {
   buildExistingJobDetailsLookup,
   contactIdFromEmail,
   employeesKey,
+  findMismatchedQuoteAttachments,
+  hasBookingContactDetails,
   mergeBookingContacts,
   normalizeJobNumberForLookup,
   normalizeVehicleKeysListForLookup,
@@ -791,19 +793,27 @@ function CreateBookingForm({ initialStatus }) {
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
     : isBickersJob
-    ? Boolean((client || "").trim())
-    : Boolean((client || "").trim() && (location || "").trim());
+    ? Boolean((production || "").trim())
+    : Boolean((production || "").trim() && (location || "").trim());
+
+  const hasRequiredContact = hasBookingContactDetails(additionalContacts);
 
   const saveTooltip = isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
+      : !hasRequiredContact
+      ? "Add a contact name with an email or phone number"
       : ""
     : isBickersJob
     ? !coreFilled
-      ? "Fill Production Company to save"
+      ? "Fill Production to save"
+      : !hasRequiredContact
+      ? "Add a contact name with an email or phone number"
       : ""
     : !coreFilled
-    ? "Fill Production Company and Location to save"
+    ? "Fill Production and Location to save"
+    : !hasRequiredContact
+    ? "Add a contact name with an email or phone number"
     : "";
 
   const hotelTotal =
@@ -1773,9 +1783,34 @@ function CreateBookingForm({ initialStatus }) {
 
     if (!coreFilled) {
       const missing = [];
-      if (!isMaintenance && !(client || "").trim()) missing.push("Production Company");
+      if (!isMaintenance && !(production || "").trim()) missing.push("Production");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
       return systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
+    }
+
+    if (!hasRequiredContact) {
+      setContactsExpanded(true);
+      ensureSavedContactsLoaded();
+      return systemDialogs.showSystemNotification(
+        "Please add a contact name with either an email address or phone number."
+      );
+    }
+
+    const mismatchedQuoteAttachments = findMismatchedQuoteAttachments(jobNumber, [
+      ...(attachments || []),
+      ...(newFiles || []),
+    ]);
+    if (mismatchedQuoteAttachments.length) {
+      const quoteJobs = Array.from(
+        new Set(mismatchedQuoteAttachments.map(({ quoteJobNumber }) => quoteJobNumber))
+      ).join(", ");
+      return systemDialogs.showSystemNotification(
+        `${mismatchedQuoteAttachments.length} quote ${
+          mismatchedQuoteAttachments.length === 1 ? "file belongs" : "files belong"
+        } to another job (${quoteJobs}). Remove ${
+          mismatchedQuoteAttachments.length === 1 ? "it" : "them"
+        } or correct the job number before saving.`
+      );
     }
 
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
@@ -2449,11 +2484,11 @@ function CreateBookingForm({ initialStatus }) {
                 <div className={`create-booking-two ${layoutStyles.extracted9}`}>
                   <div>
                     <label style={field.label}>Production Company</label>
-                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
+                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} />
                   </div>
                   <div>
                     <label style={field.label}>Production</label>
-                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} />
+                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} required={!isMaintenance} />
                   </div>
                 </div>
 
@@ -2485,6 +2520,12 @@ function CreateBookingForm({ initialStatus }) {
                       </button>
                     </div>
                   </div>
+
+                  {!hasRequiredContact ? (
+                    <p className={layoutStyles.contactReminder}>
+                      Required: add a contact name with either an email address or phone number.
+                    </p>
+                  ) : null}
 
                   {!contactsExpanded ? (
                     <button type="button" className={layoutStyles.contactSummary} onClick={() => setContactsExpanded(true)}>

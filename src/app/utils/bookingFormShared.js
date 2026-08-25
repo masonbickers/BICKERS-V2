@@ -4,6 +4,42 @@ export const contactIdFromEmail = (email) =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "_") || null;
 
+export const hasBookingContactDetails = (contacts) =>
+  (Array.isArray(contacts) ? contacts : []).some((contact) => {
+    const hasName = Boolean(String(contact?.name || "").trim());
+    const hasEmailOrPhone = [contact?.email, contact?.phone, contact?.number].some((value) =>
+      String(value || "").trim()
+    );
+    return hasName && hasEmailOrPhone;
+  });
+
+const attachmentName = (attachment) => {
+  if (attachment && typeof attachment === "object") {
+    return String(attachment.name || attachment.label || "").trim();
+  }
+  if (typeof attachment !== "string") return "";
+
+  try {
+    const decoded = decodeURIComponent(attachment).split("?")[0];
+    return decoded.split("/").pop() || decoded;
+  } catch {
+    return attachment.split("?")[0].split("/").pop() || attachment;
+  }
+};
+
+export const findMismatchedQuoteAttachments = (jobNumber, attachments) => {
+  const bookingJobNumbers = new Set(String(jobNumber || "").match(/\d{4,}/g) || []);
+  if (!bookingJobNumbers.size) return [];
+
+  return (Array.isArray(attachments) ? attachments : []).flatMap((attachment) => {
+    const name = attachmentName(attachment);
+    const quoteJobNumber = name.match(/(?:^|[^a-z0-9])Q(\d{4,})(?=[^0-9]|$)/i)?.[1] || "";
+    return quoteJobNumber && !bookingJobNumbers.has(quoteJobNumber)
+      ? [{ attachment, name, quoteJobNumber }]
+      : [];
+  });
+};
+
 export const employeesKey = (employee) =>
   `${employee?.role || ""}::${employee?.name || ""}`;
 

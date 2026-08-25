@@ -89,7 +89,7 @@ const GLOBAL_SEARCH_PAGE_ITEMS = [
   { label: "Invoiced Jobs", path: "/invoiced", Icon: Receipt, keywords: "issued invoices finance" },
   { label: "Paid Jobs", path: "/paid", Icon: Receipt, keywords: "settled payment finance" },
   { label: "Completed Quotes", path: "/completed-quotes", Icon: FileText, keywords: "quotes saved" },
-  { label: "Employees", path: "/employee-home", Icon: Users, keywords: "staff people crew" },
+  { label: "Employees", path: "/employees", Icon: Users, keywords: "staff people crew" },
   { label: "Timesheets", path: "/timesheets", Icon: Clock3, keywords: "hours staff payroll" },
   { label: "Holiday Usage", path: "/holiday-usage", Icon: CalendarDays, keywords: "leave hr allowance" },
   { label: "Vehicles", path: "/vehicles", Icon: CarFront, keywords: "fleet register registration" },
@@ -574,7 +574,7 @@ function HeaderSidebarLayoutInner({
       heading: "People & Fleet",
       items: [
         { label: "HR / Timesheets", path: "/hr", Icon: Clock3 },
-        { label: contentLabel("navigation.employees"), path: "/employee-home", Icon: Users },
+        { label: contentLabel("navigation.employees"), path: "/employees", Icon: Users },
         { label: `${contentLabel("navigation.vehicles")} & ${contentLabel("navigation.equipment")}`, path: "/vehicle-home", Icon: CarFront },
         { label: "Vehicle Register", path: "/vehicles", Icon: ListTree },
         { label: "Maintenance alerts", path: "/maintenance-alerts", Icon: Wrench },

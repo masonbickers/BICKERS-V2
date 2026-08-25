@@ -12,6 +12,7 @@ const WEEK_DAYS = [
 ];
 const ON_SET_STANDARD_DAY_MINUTES = 10 * 60;
 const ON_SET_EARLY_ARRIVAL_CAP_MINUTES = 60;
+const OVERNIGHT_HOTEL_RETURN_ALLOWANCE_MINUTES = 30;
 const ON_SET_EARLY_CALL_CUTOFF_MINUTES = 7 * 60;
 const MAX_REASONABLE_PRECALL_WINDOW_MINUTES = 12 * 60;
 const DEFAULT_YARD_START = "08:00";
@@ -79,8 +80,10 @@ export function getLunchBreakDeductionMinutes(day, lunchSupplied, grossMinutes) 
   return Math.min(30, gross);
 }
 
-export function computeTimesheetDayBreakdown(entry, day = null) {
+export function computeTimesheetDayBreakdown(entry, day = null, options = {}) {
   const safeEntry = entry || {};
+  const startsFromOvernightLocation =
+    boolish(options?.previousDayOvernight) || boolish(options?.previousEntry?.overnight);
   const mode = String(safeEntry.mode || "off").trim().toLowerCase();
   const result = {
     mode,
@@ -97,6 +100,7 @@ export function computeTimesheetDayBreakdown(entry, day = null) {
     onSetStandard: 0,
     onSetOvertime: 0,
     returnTravel: 0,
+    returnTravelAllowance: 0,
     returnWithinStandard: 0,
     returnAfterStandard: 0,
   };
@@ -164,12 +168,14 @@ export function computeTimesheetDayBreakdown(entry, day = null) {
   }
 
   if (mode === "onset") {
-    result.outboundTravel = durationMinutes(safeEntry.leaveTime, safeEntry.arriveTime);
+    result.outboundTravel = startsFromOvernightLocation
+      ? 0
+      : durationMinutes(safeEntry.leaveTime, safeEntry.arriveTime);
     const validPrecall = hasValidPrecallSequence(safeEntry);
     if (validPrecall) {
       result.precall = durationMinutes(safeEntry.precallDuration, safeEntry.callTime);
     }
-    if (safeEntry.arriveTime && safeEntry.callTime) {
+    if (!startsFromOvernightLocation && safeEntry.arriveTime && safeEntry.callTime) {
       const requiredStart = validPrecall ? safeEntry.precallDuration : safeEntry.callTime;
       const earlyArrival = durationMinutes(safeEntry.arriveTime, requiredStart);
       if (earlyArrival <= MAX_REASONABLE_PRECALL_WINDOW_MINUTES) {
@@ -180,7 +186,11 @@ export function computeTimesheetDayBreakdown(entry, day = null) {
     const onSetGross = durationMinutes(safeEntry.callTime, safeEntry.wrapTime);
     result.onSetOvertime = onSetOvertimeMinutes(safeEntry);
     result.onSetStandard = Math.max(0, onSetGross - result.onSetOvertime);
-    result.returnTravel = durationMinutes(safeEntry.wrapTime, safeEntry.arriveBack);
+    const returnTravelActual = durationMinutes(safeEntry.wrapTime, safeEntry.arriveBack);
+    result.returnTravelAllowance = boolish(safeEntry.overnight)
+      ? Math.min(returnTravelActual, OVERNIGHT_HOTEL_RETURN_ALLOWANCE_MINUTES)
+      : 0;
+    result.returnTravel = Math.max(0, returnTravelActual - result.returnTravelAllowance);
     const remainingStandard = Math.max(0, ON_SET_STANDARD_DAY_MINUTES - onSetGross);
     result.returnWithinStandard = Math.min(result.returnTravel, remainingStandard);
     result.returnAfterStandard = Math.max(0, result.returnTravel - result.returnWithinStandard);
@@ -198,9 +208,10 @@ export function computeTimesheetDayBreakdown(entry, day = null) {
 export function computeTimesheetWeekHours(timesheet) {
   const days = timesheet?.days;
   if (days && typeof days === "object") {
-    const totalMinutes = WEEK_DAYS.reduce((total, day) => {
+    const totalMinutes = WEEK_DAYS.reduce((total, day, dayIndex) => {
       const fallback = { mode: WEEKEND_DAYS.has(day) ? "off" : "yard" };
-      return total + computeTimesheetDayBreakdown(days[day] || fallback, day).total;
+      const previousEntry = dayIndex > 0 ? days[WEEK_DAYS[dayIndex - 1]] : null;
+      return total + computeTimesheetDayBreakdown(days[day] || fallback, day, { previousEntry }).total;
     }, 0);
     return Math.round((totalMinutes / 60) * 100) / 100;
   }
