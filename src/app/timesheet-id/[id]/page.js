@@ -1786,6 +1786,27 @@ export default function TimesheetDetailPage() {
       updatedAt: new Date().toISOString(),
     };
 
+    if (mode === "turnaround") {
+      return {
+        ...base,
+        mode: "yard",
+        type: "yard",
+        isTurnaround: true,
+        turnaround: true,
+        turnaroundDay: true,
+        turnaroundJob: primaryJob
+          ? {
+              bookingId: primaryJob.bookingId || primaryJob.id || "",
+              jobNumber: primaryJob.jobNumber || "",
+              production: primaryJob.production || "",
+              location: primaryJob.location || "",
+            }
+          : null,
+        yardSegments: [],
+        managerLunchDeduct: false,
+      };
+    }
+
     if (mode === "yard" || mode === "workshop") {
       return {
         ...base,
@@ -2041,8 +2062,10 @@ export default function TimesheetDetailPage() {
   const { dayCards, weeklyTotal } = useMemo(() => {
     let total = 0;
 
-    const cards = DAYS.map((day) => {
+    const cards = DAYS.map((day, cardIndex) => {
       const entry = dayMap?.[day] ?? null;
+      const previousEntry = cardIndex > 0 ? dayMap?.[DAYS[cardIndex - 1]] ?? null : null;
+      const previousDayOvernight = previousEntry?.overnight ?? false;
       const isWeekend = day === "Saturday" || day === "Sunday";
 
       const rawJobs = jobsByDay?.[day] || [];
@@ -2122,7 +2145,7 @@ export default function TimesheetDetailPage() {
         : 0;
       const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
       const dayBreakdown = entryExists
-        ? computeTimesheetDayBreakdown(entry, day)
+        ? computeTimesheetDayBreakdown(entry, day, { previousDayOvernight })
         : null;
       if (entryExists) {
         if (["yard", "travel", "onset", "workshop", "turnaround"].includes(mode)) {
@@ -2150,7 +2173,9 @@ export default function TimesheetDetailPage() {
 
       const dayTotalLabel = formatHoursLabel(dayHours);
       const precallLabel = entryExists ? formatPrecallMinutes(entry?.precallDuration) : "";
-      const onSetBreakdown = entryExists ? computeOnSetBreakdown(entry) : null;
+      const onSetBreakdown = entryExists
+        ? computeOnSetBreakdown(entry, { previousDayOvernight })
+        : null;
       const travelToHrs = onSetBreakdown?.travelToHrs || 0;
       const paidEarlyArrivalHrs = onSetBreakdown?.paidEarlyArrivalHrs || 0;
       const preCallHrs = onSetBreakdown?.preCallHrs || 0;
@@ -2168,12 +2193,14 @@ export default function TimesheetDetailPage() {
       // Yard segments for UI (turnaround might have none)
       const yardSegs = entryExists ? extractYardSegments(entry) : [];
 
+      //  For UI label: whether lunch was deducted on yard day
       const lunchDeductionMinutes =
         mode === "yard" || mode === "workshop" ? dayBreakdown?.breakDeduction || 0 : 0;
       const yardLunchDeducted = lunchDeductionMinutes > 0;
 
       return {
         day,
+        previousDayOvernight,
         dayDateLabel,
         ymdForDay,
         entry,
@@ -2280,7 +2307,7 @@ export default function TimesheetDetailPage() {
         card.mode === "onset" ? (card.onSetOvertimeHrs || 0) + preCallHrs : 0;
       const payableDayTotalHrs =
         card.mode === "onset"
-          ? computeOnSetHours(entry)
+          ? computeOnSetHours(entry, { previousDayOvernight: card.previousDayOvernight })
           : isHalfDayTravelNoteDay
           ? onSetHrs
           : isTravelTimeNoteDay
@@ -2866,6 +2893,7 @@ export default function TimesheetDetailPage() {
                             <option value="office">Office</option>
                             <option value="travel">Travel</option>
                             <option value="onset">On Set</option>
+                            <option value="turnaround">Turnaround Day</option>
                             <option value="off">Off</option>
                             <option value="unpaid">Unpaid</option>
                           </select>
@@ -3230,7 +3258,7 @@ export default function TimesheetDetailPage() {
                     </div>
                   )}
 
-                  {/* Yard/workshop blocks (hide for turnaround unless blocks exist) */}
+                  {/* Yard blocks (hide for turnaround UNLESS blocks exist) */}
                   {entryExists &&
                     (["yard", "workshop"].includes(mode) ||
                       (mode === "turnaround" && hasTimeBlocks)) && (

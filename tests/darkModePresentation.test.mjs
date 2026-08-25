@@ -7,6 +7,7 @@ const read = (path) => fs.readFileSync(new URL(path, import.meta.url), "utf8");
 test("operational tables use semantic row surfaces instead of fixed white backgrounds", () => {
   const sources = [
     read("../src/app/vehicles/page.js"),
+    read("../src/app/equipment/page.js"),
     read("../src/app/holiday-allowance/page.js"),
     read("../src/app/h-and-s/[id]/page.js"),
   ];
@@ -16,6 +17,26 @@ test("operational tables use semantic row surfaces instead of fixed white backgr
     assert.match(source, /var\(--color-surface\)/);
     assert.match(source, /var\(--table-alternate-bg\)/);
   });
+});
+
+test("equipment register headers and neutral counter remain legible in dark mode", () => {
+  const equipmentPage = read("../src/app/equipment/page.js");
+  const equipmentStyles = read("../src/app/equipment/page.styles.module.css");
+
+  assert.doesNotMatch(equipmentPage, /chip\("var\(--color-white\)"/);
+  assert.match(equipmentPage, /chip\("var\(--color-surface-raised\)", UI\.text\)/);
+  assert.match(equipmentStyles, /\.extracted7\s*\{[^}]*background:\s*var\(--color-surface-raised\);[^}]*color:\s*var\(--color-text\);[^}]*border-bottom:\s*1px solid var\(--color-border-strong\)/);
+});
+
+test("vehicle register headers and neutral counters remain legible in dark mode", () => {
+  const vehiclePage = read("../src/app/vehicles/page.js");
+  const vehicleStyles = read("../src/app/vehicles/page.styles.module.css");
+
+  assert.doesNotMatch(vehiclePage, /chip\("var\(--color-white\)"/);
+  assert.match(vehiclePage, /chip\("var\(--color-surface-raised\)", UI\.text\)/);
+  assert.match(vehiclePage, /background:\s*"var\(--color-surface-raised\)"[\s\S]*color:\s*UI\.text[\s\S]*borderBottom:\s*"1px solid var\(--color-border-strong\)"/);
+  assert.match(vehicleStyles, /\.extracted10\s*\{[^}]*color:\s*var\(--color-text-muted\)/);
+  assert.match(vehicleStyles, /\.retentionTable th\s*\{[^}]*background:\s*var\(--color-surface-raised\);[^}]*color:\s*var\(--color-text\)/);
 });
 
 test("dark booking events use muted area fills while compact status colours remain available", () => {
@@ -43,6 +64,14 @@ test("primary actions use the shared dark-safe button surface", () => {
   assert.match(sharedUi, /\.primary\{[^}]*background:var\(--button-primary-background\)/);
   assert.match(healthAndSafety, /background:\s*"var\(--button-primary-background\)"/);
   assert.doesNotMatch(healthAndSafety, /background:\s*"linear-gradient\(180deg, var\(--color-brand-hover\)/);
+});
+
+test("create enquiry columns merge with the dark canvas", () => {
+  const enquiryPage = read("../src/app/create-enquiry/page.js");
+  const enquiryStyles = read("../src/app/create-enquiry/page.styles.module.css");
+
+  assert.equal((enquiryPage.match(/layoutStyles\.enquiryColumnPanel/g) || []).length, 2);
+  assert.match(enquiryStyles, /:global\(:root\[data-color-mode="dark"\]\) \.enquiryColumnPanel\s*\{[^}]*background:\s*var\(--color-canvas\) !important/);
 });
 
 test("quote footer keeps print-paper contrast in dark mode", () => {

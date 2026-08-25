@@ -359,6 +359,10 @@
   grid-template-columns: minmax(390px, .9fr) minmax(620px, 1.45fr);
 }
 
+:global(:root[data-color-mode="dark"]) .enquiryColumnPanel {
+  background: var(--color-canvas) !important;
+}
+
 .enquiryDetailsSection {
   display: grid;
   gap: 8px;

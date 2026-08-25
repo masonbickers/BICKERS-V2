@@ -400,7 +400,7 @@ export function themeToCssVariables(value = {}, options = {}) {
     "--color-info-surface": info.soft,
     "--color-selection-surface": brandSoft,
     "--control-disabled-opacity": useDark ? "0.7" : "0.62",
-    "--color-overlay": rgba(useDark ? "#020617" : theme.textColor, useDark ? 0.72 : 0.52),
+    "--color-overlay": rgba(useDark ? "#111111" : theme.textColor, useDark ? 0.72 : 0.52),
     "--shell-sidebar-bg": theme.shellColor, "--shell-topbar-bg": theme.shellColor,
     "--shell-text": theme.shellTextColor, "--shell-muted": mixColors(theme.shellTextColor, theme.shellColor, 0.34),
     "--shell-border": rgba(theme.shellTextColor, 0.14),

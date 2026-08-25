@@ -279,12 +279,13 @@ function getTimesheetWeekHours(ts, employee) {
   const dayMap = normaliseDays(ts?.days);
   const employeeYardAutofill = getEmployeeYardAutofill(employee);
 
-  return DAYS.reduce((total, day) => {
+  return DAYS.reduce((total, day, dayIndex) => {
     const entry = dayMap[day];
     if (!entry) return total;
+    const previousEntry = dayIndex > 0 ? dayMap[DAYS[dayIndex - 1]] : null;
     const mode = detectMode(entry, day === "Saturday" || day === "Sunday");
     if (["yard", "travel", "onset", "workshop", "turnaround"].includes(mode)) {
-      return total + computeTimesheetDayBreakdown(entry, day).total / 60;
+      return total + computeTimesheetDayBreakdown(entry, day, { previousEntry }).total / 60;
     }
     if (mode === "office") return total + computeOfficeHours(entry);
     if (mode === "holiday" || mode === "bankholiday") {

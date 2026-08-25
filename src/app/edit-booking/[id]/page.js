@@ -24,6 +24,8 @@ import {
 import {
   contactIdFromEmail,
   employeesKey,
+  findMismatchedQuoteAttachments,
+  hasBookingContactDetails,
   normalizeVehicleKeysListForLookup,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
@@ -1474,19 +1476,27 @@ export default function EditBookingPage() {
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
     : isBickersJob
-    ? Boolean((client || "").trim())
-    : Boolean((client || "").trim() && (location || "").trim());
+    ? Boolean((production || "").trim())
+    : Boolean((production || "").trim() && (location || "").trim());
+
+  const hasRequiredContact = hasBookingContactDetails(additionalContacts);
 
   const saveTooltip = isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
+      : !hasRequiredContact
+      ? "Add a contact name with an email or phone number"
       : ""
     : isBickersJob
     ? !coreFilled
-      ? "Fill Production Company to save"
+      ? "Fill Production to save"
+      : !hasRequiredContact
+      ? "Add a contact name with an email or phone number"
       : ""
     : !coreFilled
-    ? "Fill Production Company and Location to save"
+    ? "Fill Production and Location to save"
+    : !hasRequiredContact
+    ? "Add a contact name with an email or phone number"
     : "";
 
   const selectedVehicleDetails = useMemo(() => {
@@ -2436,9 +2446,34 @@ export default function EditBookingPage() {
 
     if (!coreFilled) {
       const missing = [];
-      if (!isMaintenance && !(client || "").trim()) missing.push("Production Company");
+      if (!isMaintenance && !(production || "").trim()) missing.push("Production");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
       return systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
+    }
+
+    if (!hasRequiredContact) {
+      setContactsExpanded(true);
+      ensureSavedContactsLoaded();
+      return systemDialogs.showSystemNotification(
+        "Please add a contact name with either an email address or phone number."
+      );
+    }
+
+    const mismatchedQuoteAttachments = findMismatchedQuoteAttachments(jobNumber, [
+      ...(attachments || []),
+      ...(newFiles || []),
+    ]);
+    if (mismatchedQuoteAttachments.length) {
+      const quoteJobs = Array.from(
+        new Set(mismatchedQuoteAttachments.map(({ quoteJobNumber }) => quoteJobNumber))
+      ).join(", ");
+      return systemDialogs.showSystemNotification(
+        `${mismatchedQuoteAttachments.length} quote ${
+          mismatchedQuoteAttachments.length === 1 ? "file belongs" : "files belong"
+        } to another job (${quoteJobs}). Remove ${
+          mismatchedQuoteAttachments.length === 1 ? "it" : "them"
+        } or correct the job number before saving.`
+      );
     }
 
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
@@ -3174,7 +3209,7 @@ export default function EditBookingPage() {
           >
             <div className={`edit-booking-grid ${layoutStyles.extracted6} ${layoutStyles.bookingColumns}`} >
               {/* Column 1: Job Info */}
-              <div style={card}>
+              <div style={{ ...card, background: UI.page }}>
                 <div className={layoutStyles.extracted7}>
                   <span style={iconBox()}><FileText size={17} /></span>
                   <h3 style={cardTitle}>Job Info</h3>
@@ -3291,11 +3326,11 @@ export default function EditBookingPage() {
                 <div className={`edit-booking-two ${layoutStyles.extracted8}`}>
                   <div>
                     <label style={field.label}>Production Company</label>
-                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
+                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} />
                   </div>
                   <div>
                     <label style={field.label}>Production</label>
-                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} />
+                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} required={!isMaintenance} />
                   </div>
                 </div>
 
@@ -3337,6 +3372,12 @@ export default function EditBookingPage() {
                       </button>
                     </div>
                   </div>
+
+                  {!hasRequiredContact ? (
+                    <p className={layoutStyles.contactRequirement}>
+                      Required: add a contact name with either an email address or phone number.
+                    </p>
+                  ) : null}
 
                   {!contactsExpanded ? (
                     <button
@@ -3670,7 +3711,7 @@ export default function EditBookingPage() {
               </div>
 
               {/* Column 2: Dates & People */}
-              <div style={card}>
+              <div style={{ ...card, background: UI.page }}>
                 <div className={layoutStyles.extracted22}>
                   <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><CalendarDays size={17} /></span>
                   <h3 style={cardTitle}>Dates & People</h3>
@@ -4216,7 +4257,7 @@ export default function EditBookingPage() {
               </div>
 
               {/* Column 3: Vehicles + Equipment */}
-              <div className={layoutStyles.resourceCard} style={card}>
+              <div className={layoutStyles.resourceCard} style={{ ...card, background: UI.page }}>
                 <div className={layoutStyles.extracted47}>
                   <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
                   <h3 style={cardTitle}>Vehicles & Resources</h3>

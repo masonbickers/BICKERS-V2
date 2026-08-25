@@ -3,12 +3,49 @@ import assert from "node:assert/strict";
 
 import {
   buildExistingJobDetailsLookup,
+  findMismatchedQuoteAttachments,
+  hasBookingContactDetails,
   mergeBookingContacts,
   normalizeJobNumberForLookup,
 } from "../src/app/utils/bookingFormShared.js";
 
+test("finds quote files that belong to another job", () => {
+  const mismatches = findMismatchedQuoteAttachments("9312", [
+    { name: "Q9155-001 - Army Of Shadows.pdf" },
+    { name: "Q9312-001 - Shoot To Kill Films.xls" },
+    { name: "risk-assessment.pdf" },
+  ]);
+
+  assert.deepEqual(
+    mismatches.map(({ name, quoteJobNumber }) => ({ name, quoteJobNumber })),
+    [{ name: "Q9155-001 - Army Of Shadows.pdf", quoteJobNumber: "9155" }]
+  );
+});
+
+test("allows quote files for a legitimate multi-job booking", () => {
+  assert.deepEqual(
+    findMismatchedQuoteAttachments("9155 9312 9256", [
+      { name: "Q9155-001.pdf" },
+      { name: "Q9312-001.xls" },
+      "https://example.test/quotes/9256_Q9256-001.pdf?token=abc",
+    ]),
+    []
+  );
+});
+
 test("normalizes job numbers for matching user input", () => {
   assert.equal(normalizeJobNumberForLookup("  Ab-9309  "), "ab-9309");
+});
+
+test("requires meaningful booking contact details", () => {
+  assert.equal(hasBookingContactDetails(), false);
+  assert.equal(hasBookingContactDetails([]), false);
+  assert.equal(hasBookingContactDetails([{ department: "Production" }]), false);
+  assert.equal(hasBookingContactDetails([{ name: "Alex Smith" }]), false);
+  assert.equal(hasBookingContactDetails([{ email: "contact@example.com" }]), false);
+  assert.equal(hasBookingContactDetails([{ number: "07700 900123" }]), false);
+  assert.equal(hasBookingContactDetails([{ name: "Alex Smith", email: "contact@example.com" }]), true);
+  assert.equal(hasBookingContactDetails([{ name: "Alex Smith", number: "07700 900123" }]), true);
 });
 
 test("builds reusable production details from bookings with the same job number", () => {

@@ -616,7 +616,7 @@ export default function CreateEnquiryPage() {
           >
             <div className={layoutStyles.extracted7}>
               <div className={`create-booking-grid ${layoutStyles.extracted8} ${layoutStyles.bookingColumns} ${layoutStyles.enquiryColumns}`} >
-                <div style={card}>
+                <div className={layoutStyles.enquiryColumnPanel} style={card}>
                   <div className={layoutStyles.extracted9}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Job Info</h3>
@@ -894,7 +894,7 @@ export default function CreateEnquiryPage() {
                   </div>
                 </div>
 
-                <div className={layoutStyles.resourceCard} style={card}>
+                <div className={`${layoutStyles.resourceCard} ${layoutStyles.enquiryColumnPanel}`} style={card}>
                   <div className={layoutStyles.extracted26}>
                     <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
                     <h3 style={cardTitle}>Vehicles &amp; Resources</h3>

@@ -80,6 +80,32 @@ test("calculates a linked raw travel day saved by the timesheet app", () => {
   assert.equal(rows[0].date, "2026-08-09T00:00:00.000Z");
 });
 
+test("calculates a manually saved turnaround day as ten hours", () => {
+  const timesheet = {
+    id: "manual-turnaround",
+    employeeName: "Ben Kerry",
+    weekStart: "2026-08-17",
+    status: "approved",
+    days: {
+      Sunday: {
+        bookingId,
+        mode: "yard",
+        type: "yard",
+        manualEntry: true,
+        isTurnaround: true,
+        turnaround: true,
+        turnaroundDay: true,
+        yardSegments: [],
+      },
+    },
+  };
+
+  const rows = invoiceTimesheetRows([timesheet], bookingId);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].hours, 10);
+  assert.equal(rows[0].overtimeHours, 0);
+});
+
 test("calculates a linked raw on-set day saved by the timesheet app", () => {
   const timesheet = {
     id: "3514_2026-08-10",

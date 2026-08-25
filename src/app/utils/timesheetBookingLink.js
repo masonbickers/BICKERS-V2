@@ -89,14 +89,20 @@ function invoiceHourSummary(entry = {}, dayName = "") {
     entry.turnaround === true ||
     entry.turnaroundDay === true ||
     (entry.isTurnaround === true && rawMode === "yard");
+  if (isTurnaround) {
+    return {
+      hours: 10,
+      overtimeHours: storedOvertime ?? 0,
+    };
+  }
   let hours = yardSegments(entry).reduce(
     (total, segment) => total + elapsedHours(segment?.start, segment?.end),
     0
   );
-  if (!isTurnaround && entry.yardTravelEnabled) {
+  if (entry.yardTravelEnabled) {
     hours += elapsedHours(entry.yardTravelLeaveTime, entry.yardTravelArriveTime);
   }
-  if (!isTurnaround && hours > 0 && shouldDeductYardLunch(entry, dayName)) {
+  if (hours > 0 && shouldDeductYardLunch(entry, dayName)) {
     hours -= LUNCH_DEDUCT_HOURS;
   }
   hours = Math.max(0, hours);

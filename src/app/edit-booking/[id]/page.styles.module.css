@@ -642,6 +642,14 @@
   gap: 6px;
 }
 
+.contactRequirement {
+  margin: -2px 0 8px;
+  color: var(--color-warning);
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
 :global(:root[data-color-mode="dark"]) .primaryAction:disabled {
   border-color: var(--color-border) !important;
   background: var(--color-surface-raised) !important;

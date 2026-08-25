@@ -883,9 +883,9 @@ export default function VehicleMaintenancePage() {
             </div>
 
             <div className={layoutStyles.extracted4}>
-              <span style={chip("var(--color-white)", UI.text)}>{kpis.count} vehicles</span>
+              <span style={chip("var(--color-surface-raised)", UI.text)}>{kpis.count} vehicles</span>
               {kpis.retainedPlates ? (
-                <span style={chip("var(--color-white)", UI.text)}>
+                <span style={chip("var(--color-surface-raised)", UI.text)}>
                   {kpis.retainedPlates} retained {kpis.retainedPlates === 1 ? "plate" : "plates"}
                 </span>
               ) : null}
@@ -999,9 +999,9 @@ export default function VehicleMaintenancePage() {
                         key={header.label}
                         style={{
                           padding: "5px 10px",
-                          background: UI.brand,
-                          color: "var(--color-white)",
-                          borderBottom: "1px solid var(--color-text-muted)",
+                          background: "var(--color-surface-raised)",
+                          color: UI.text,
+                          borderBottom: "1px solid var(--color-border-strong)",
                           whiteSpace: "nowrap",
                           textAlign: "left",
                           fontWeight: 900,
