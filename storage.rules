@@ -239,6 +239,60 @@ service firebase.storage {
         && isSafeMimeType('image/.*');
     }
 
+    match /vehicle-checks/{uid}/{checkId}/{filename} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && request.auth.uid == uid
+        && isSafeFileSize(20 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /uploads/photos/{uid}/{yyyy}/{mm}/{filename} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && request.auth.uid == uid
+        && isSafeFileSize(20 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /expenses/{uid}/{allPaths=**} {
+      allow read: if hasUserAccess()
+        && (request.auth.uid == uid || isAdmin());
+      allow write: if hasUserAccess()
+        && request.auth.uid == uid
+        && isSafeFileSize(10 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /serviceRecords/{recordId}/{allPaths=**} {
+      allow read: if hasServiceAccess();
+      allow write: if hasServiceAccess()
+        && isSafeFileSize(20 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /defectReports/{reportId}/{allPaths=**} {
+      allow read: if hasServiceAccess();
+      allow write: if hasServiceAccess()
+        && isSafeFileSize(20 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /equipmentInspections/{inspectionId}/{allPaths=**} {
+      allow read: if hasServiceAccess();
+      allow write: if hasServiceAccess()
+        && isSafeFileSize(20 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /profilePictures/{fileName} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && fileName == request.auth.uid + ".jpg"
+        && isSafeFileSize(10 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
     /* Shared technical-library documents used by the employee mobile app. */
     match /insurance/{allPaths=**} {
       allow read: if hasUserAccess();

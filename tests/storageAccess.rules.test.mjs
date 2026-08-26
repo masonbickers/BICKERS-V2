@@ -113,6 +113,48 @@ test("Recce photos support current location folders and the legacy path", async 
   ));
 });
 
+test("employee app upload families remain available without cross-user writes", async () => {
+  await seedUsers();
+  const userStorage = env.authenticatedContext("user-a").storage();
+  const serviceStorage = env.authenticatedContext("service-a").storage();
+  const userPaths = [
+    "vehicle-checks/user-a/check-a/photo.jpg",
+    "uploads/photos/user-a/2026/08/photo.jpg",
+    "expenses/user-a/expense-a.jpg",
+    "profilePictures/user-a.jpg",
+  ];
+  const servicePaths = [
+    "serviceRecords/service-a/checks/photo.jpg",
+    "defectReports/defect-a/vehicle-a/photo.jpg",
+    "equipmentInspections/inspection-a/photos/photo.jpg",
+  ];
+
+  for (const path of userPaths) {
+    await assertSucceeds(uploadBytes(ref(userStorage, path), png, { contentType: "image/jpeg" }));
+    await assertSucceeds(getBytes(ref(userStorage, path)));
+  }
+  for (const path of servicePaths) {
+    await assertSucceeds(uploadBytes(ref(serviceStorage, path), png, { contentType: "image/jpeg" }));
+    await assertSucceeds(getBytes(ref(serviceStorage, path)));
+  }
+
+  await assertFails(uploadBytes(
+    ref(env.authenticatedContext("admin-a").storage(), "vehicle-checks/user-a/check-a/admin.jpg"),
+    png,
+    { contentType: "image/jpeg" },
+  ));
+  await assertFails(uploadBytes(
+    ref(env.authenticatedContext("admin-a").storage(), "profilePictures/user-a.jpg"),
+    png,
+    { contentType: "image/jpeg" },
+  ));
+  await assertFails(uploadBytes(
+    ref(userStorage, "serviceRecords/service-a/checks/user.jpg"),
+    png,
+    { contentType: "image/jpeg" },
+  ));
+});
+
 test("technical library files are readable by user-workspace accounts only", async () => {
   await seedUsers();
   await env.withSecurityRulesDisabled(async (context) => {

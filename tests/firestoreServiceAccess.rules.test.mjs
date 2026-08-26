@@ -110,6 +110,54 @@ test("working terms acceptance is signed once and remains readable", async () =>
   await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "workingTermsAcceptances", "user-a", "versions", "1.1")));
 });
 
+test("mobile expense claims are owner-controlled and finance-readable", async () => {
+  await seed();
+  const userDb = env.authenticatedContext("user-a").firestore();
+  const expenseRef = doc(userDb, "expenses", "expense-a");
+  await assertSucceeds(setDoc(expenseRef, {
+    ownerUid: "user-a",
+    employeeId: "employee-a",
+    employeeCode: "0001",
+    employeeName: "Employee A",
+    type: "Parking",
+    paymentMethod: "personal",
+    amount: 12.5,
+    note: "Production parking",
+    status: "submitted",
+  }));
+  await assertSucceeds(getDoc(expenseRef));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("finance-a").firestore(), "expenses", "expense-a")));
+  await assertFails(getDoc(doc(env.authenticatedContext("service-a").firestore(), "expenses", "expense-a")));
+  await assertSucceeds(updateDoc(expenseRef, { note: "Updated parking note" }));
+  await assertFails(updateDoc(expenseRef, { status: "approved" }));
+  await assertSucceeds(deleteDoc(expenseRef));
+  await assertFails(setDoc(doc(userDb, "expenses", "spoofed"), {
+    ownerUid: "service-a",
+    type: "Parking",
+    paymentMethod: "personal",
+    amount: 10,
+    status: "submitted",
+  }));
+});
+
+test("equipment inspections are available only to service-workspace accounts", async () => {
+  await seed();
+  const serviceDb = env.authenticatedContext("service-a").firestore();
+  const inspectionRef = doc(serviceDb, "equipmentInspections", "inspection-a");
+  await assertSucceeds(setDoc(inspectionRef, {
+    equipmentName: "Camera crane",
+    inspectionDateISO: "2026-08-26",
+    overallResult: "pass",
+  }));
+  await assertSucceeds(getDoc(inspectionRef));
+  await assertSucceeds(updateDoc(inspectionRef, { overallResult: "fail" }));
+  await assertSucceeds(deleteDoc(inspectionRef));
+  await assertFails(setDoc(
+    doc(env.authenticatedContext("user-a").firestore(), "equipmentInspections", "inspection-user"),
+    { equipmentName: "Not permitted" },
+  ));
+});
+
 test("single-company users can read legacy and company-stamped booking records", async () => {
   await seed();
   const db = env.authenticatedContext("user-a").firestore();

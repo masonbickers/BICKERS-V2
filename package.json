@@ -32,6 +32,7 @@
     "test:vehicle-maintenance-flow": "node --test tests/vehicleMaintenanceFlow.test.mjs tests/maintenanceRecord.test.mjs tests/maintenanceMutationPolicy.test.mjs tests/maintenanceDataAudit.test.mjs tests/maintenanceAlerts.test.mjs",
     "test:unit": "node scripts/run-node-test-suite.mjs",
     "test:rules": "node scripts/run-with-jdk21.mjs -- npm run test:firestore-rules && node scripts/run-with-jdk21.mjs -- npm run test:storage-rules",
+    "deploy:firebase-rules": "npm run test:rules && firebase deploy --only firestore:rules,storage --project bickers-booking",
     "test:browser": "playwright test",
     "verify:production": "npm run test:unit && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:browser",
     "verify:clean-checkout": "node scripts/verify-clean-checkout.mjs",

@@ -694,6 +694,36 @@ service cloud.firestore {
       allow delete: if canDeleteUserTenantDoc();
     }
 
+    // Employees manage only their own submitted expense claims. Finance status
+    // transitions remain server-owned so staff cannot approve their own claims.
+    match /expenses/{expenseId} {
+      allow read: if hasUserAccess()
+        && (resource.data.ownerUid == request.auth.uid || isFinanceReviewer());
+      allow create: if hasUserAccess()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == "submitted"
+        && request.resource.data.type is string
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.paymentMethod in ["personal", "company_card"];
+      allow update: if hasUserAccess()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && resource.data.status == "submitted"
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "employeeId", "employeeCode", "employeeName",
+          "type", "otherType", "paymentMethod", "amount",
+          "jobId", "jobNumber", "jobLabel", "note", "receiptUrl", "updatedAt"
+        ])
+        && request.resource.data.type is string
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.paymentMethod in ["personal", "company_card"];
+      allow delete: if hasUserAccess()
+        && resource.data.ownerUid == request.auth.uid
+        && resource.data.status == "submitted";
+    }
+
     // Staff can submit and view only their own receipts. Explicit finance
     // reviewers can access the company queue without exposing it to other staff.
     match /receiptGroups/{groupId} {
@@ -851,6 +881,13 @@ service cloud.firestore {
     }
 
     match /defectReports/{docId} {
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
+    }
+
+    match /equipmentInspections/{docId} {
       allow read: if canReadServiceTenantDoc();
       allow create: if canCreateServiceTenantDoc();
       allow update: if canUpdateServiceTenantDoc();
