@@ -51,3 +51,11 @@ export function hasMeaningfulCreateBookingDraft(
       hasEntries(draft.vehicleStatus)
   );
 }
+
+export function isEmptyCreateBookingDraftEntry(entry = {}) {
+  const data = entry?.data && typeof entry.data === "object" ? entry.data : {};
+  const status = String(data.status || "").trim();
+  const initialStatus = status === "Enquiry" ? "Enquiry" : "First Pencil";
+
+  return !hasMeaningfulCreateBookingDraft(data, { initialStatus });
+}

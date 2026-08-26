@@ -35,6 +35,13 @@ test("warns when timesheet requirement cannot be determined", () => {
   assert.equal(result.warnings.at(-1).code, "timesheet_requirement_uncertain");
 });
 
+test("does not require timesheets when the booking explicitly has no crew", () => {
+  const result = buildFinanceReadiness({ ...ready, job: { employees: [] } });
+  assert.equal(result.blockers.length, 0);
+  assert.equal(result.warnings.length, 0);
+  assert.equal(result.checks.at(-1).label, "No crew booked — timesheets not required");
+});
+
 test("recognises a recorded warning acknowledgement", () => {
   const result = buildFinanceReadiness({
     ...ready,
@@ -57,6 +64,21 @@ test("blocks missing accepted quote and incomplete operational review", () => {
     result.blockers.map((check) => check.code),
     ["operational_review", "accepted_quote"]
   );
+});
+
+test("passes the quote check when no quote was explicitly confirmed", () => {
+  const result = buildFinanceReadiness({
+    ...ready,
+    acceptedQuoteNumber: "",
+    job: { quoteNotRequired: true, employees: [] },
+  });
+  const quoteCheck = result.checks.find((check) => check.code === "accepted_quote");
+  assert.deepEqual(quoteCheck, {
+    code: "accepted_quote",
+    type: "passed",
+    label: "No quote required — confirmed",
+  });
+  assert.equal(result.blockers.length, 0);
 });
 
 test("recognises submitted and approved timesheet states", () => {

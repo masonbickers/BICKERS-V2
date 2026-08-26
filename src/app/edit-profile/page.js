@@ -79,7 +79,7 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  background: "var(--button-primary-background)",
   borderColor: UI.brand,
   color: "var(--color-white)",
 };

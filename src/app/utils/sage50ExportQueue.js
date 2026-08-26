@@ -5,6 +5,7 @@ export const SAGE_50_EXPORT_JOB_STATUSES = Object.freeze([
   "queued",
   "claimed",
   "processing",
+  "retry_wait",
   "succeeded",
   "failed",
   "cancelled",
@@ -12,6 +13,8 @@ export const SAGE_50_EXPORT_JOB_STATUSES = Object.freeze([
 
 export const CLAIM_LEASE_MS = 2 * 60 * 1000;
 export const PROCESSING_LEASE_MS = 5 * 60 * 1000;
+export const MAX_EXPORT_JOB_ATTEMPTS = 3;
+const RETRY_DELAYS_MS = Object.freeze([60_000, 5 * 60_000, 15 * 60_000]);
 
 const text = (value) => String(value ?? "").trim();
 
@@ -38,8 +41,17 @@ export function leaseIsExpired(job = {}, nowMs = Date.now()) {
 }
 
 export function jobCanBeClaimed(job = {}, nowMs = Date.now()) {
+  const retryAt = Date.parse(job.nextAttemptAt || "");
   return job.status === "queued" ||
+    (job.status === "retry_wait" &&
+      Number(job.attemptCount || 0) < MAX_EXPORT_JOB_ATTEMPTS &&
+      Number.isFinite(retryAt) && retryAt <= nowMs) ||
     (["claimed", "processing"].includes(job.status) && leaseIsExpired(job, nowMs));
+}
+
+export function nextExportRetryAt(attemptCount, now = new Date()) {
+  const index = Math.max(0, Math.min(Number(attemptCount || 1) - 1, RETRY_DELAYS_MS.length - 1));
+  return new Date(now.getTime() + RETRY_DELAYS_MS[index]).toISOString();
 }
 
 export function createExportQueueRecord({ contract, connectorId, now } = {}) {
@@ -55,6 +67,7 @@ export function createExportQueueRecord({ contract, connectorId, now } = {}) {
     leaseExpiresAt: null,
     processingStartedAt: null,
     completedAt: null,
+    nextAttemptAt: null,
     result: null,
     createdAt: now,
     updatedAt: now,
@@ -76,6 +89,7 @@ export function publicExportJobStatus(job = {}) {
     leaseExpiresAt: job.leaseExpiresAt || null,
     processingStartedAt: job.processingStartedAt || null,
     completedAt: job.completedAt || null,
+    nextAttemptAt: job.nextAttemptAt || null,
     invoiceReconciled: job.invoiceReconciled === true,
     reconciledAt: job.reconciledAt || null,
     result: job.result

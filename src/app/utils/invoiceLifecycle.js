@@ -135,6 +135,24 @@ export function getSageReadiness(invoice = {}) {
   return { ready: blockers.length === 0, blockers };
 }
 
+export function getInvoiceApprovalReadiness(invoice = {}) {
+  const validationBlockers = validateInvoice(invoice).map((message, index) => ({
+    code: `invoice_validation_${index + 1}`,
+    message,
+  }));
+  const mappingBlockers = getAccountingMappingReadiness(invoice).blockers;
+  const blockers = [...validationBlockers, ...mappingBlockers].filter(
+    (blocker, index, all) =>
+      all.findIndex(
+        (candidate) =>
+          candidate.code === blocker.code &&
+          candidate.line === blocker.line &&
+          candidate.message === blocker.message
+      ) === index
+  );
+  return { ready: blockers.length === 0, blockers };
+}
+
 export function normaliseSageSyncState(invoice = {}) {
   const current = createSageSyncState(invoice.sageSync);
   const readiness = getSageReadiness(invoice);
@@ -200,6 +218,7 @@ export function parseInvoiceRecord(invoice = {}, booking = {}) {
   const withIdentity = normaliseInvoiceIdentity(invoice, booking);
   return {
     ...withIdentity,
+    internalFinanceNotes: text(withIdentity.internalFinanceNotes),
     sageSync: normaliseSageSyncState(withIdentity),
     delivery: createInvoiceDeliveryState(withIdentity.delivery),
   };
@@ -296,6 +315,36 @@ export function calculateInvoiceTotals(lines = []) {
     tax: roundMoney(calculatedLines.reduce((sum, line) => sum + line.tax, 0)),
     gross: roundMoney(calculatedLines.reduce((sum, line) => sum + line.gross, 0)),
   };
+}
+
+export function duplicateInvoiceLineForEditing(lines = [], index = -1, id = `line-${Date.now()}`) {
+  const source = lines[index];
+  if (!source) return [...lines];
+  const duplicate = {
+    ...source,
+    id,
+    sourceLineId: "",
+    section: text(source.section) || "Additional charges",
+  };
+  return [...lines.slice(0, index + 1), duplicate, ...lines.slice(index + 1)];
+}
+
+export function excludeInvoiceLineForEditing(lines = [], index = -1) {
+  return lines.map((line, lineIndex) =>
+    lineIndex === index ? { ...line, quantity: 0 } : line
+  );
+}
+
+export function restoreInvoiceLineFromQuote(lines = [], index = -1, sourceLines = []) {
+  const target = lines[index];
+  if (!target) return [...lines];
+  const sourceLine = sourceLines.find(
+    (line) => text(line.id) === text(target.sourceLineId)
+  );
+  const restoredQuantity = number(sourceLine?.qty ?? sourceLine?.quantity) || 1;
+  return lines.map((line, lineIndex) =>
+    lineIndex === index ? { ...line, quantity: restoredQuantity } : line
+  );
 }
 
 export function hydrateInvoiceDraftForEditing(invoice = {}) {
@@ -464,6 +513,7 @@ export function createInvoiceDraftFromQuote({
     lines: totals.lines,
     totals: { net: totals.net, tax: totals.tax, gross: totals.gross },
     notes: "",
+    internalFinanceNotes: "",
     changeReason: "",
     payments: [],
     audit: [

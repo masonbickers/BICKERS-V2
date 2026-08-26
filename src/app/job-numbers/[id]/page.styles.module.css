@@ -60,13 +60,14 @@
 
 .extracted14 {
   margin-top: 10px;
-  border: 1px dashed var(--color-border-strong);
-  background: var(--color-surface-subtle);
-  color: var(--color-text-muted);
+  border: 1px solid var(--color-brand-border);
+  border-left: 4px solid var(--color-brand);
+  background: var(--color-brand-soft);
+  color: var(--color-text);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 13px;
-  font-weight: 800;
+  line-height: 1.45;
 }
 
 .extracted15 {
@@ -235,6 +236,10 @@
   min-width: 0;
 }
 
+.extracted40[data-locked="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .extracted41 {
   display: grid;
   gap: 10px;
@@ -320,36 +325,147 @@
   margin-top: 8px;
 }
 
-.extracted54 {
-  margin-bottom: 10px;
-}
-
-.extracted55 {
-  margin-bottom: 8px;
-}
-
-.extracted56 {
-  font-weight: 900;
-  margin-bottom: 5px;
-  font-size: 12px;
-}
-
-.extracted57 {
-  margin: 0;
-  padding-left: 18px;
-}
-
-.extracted58 {
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.extracted59 {
-  font-weight: 900;
-}
-
 .extracted60 {
   color: var(--color-danger);
   font-size: 12px;
   margin-top: 8px;
+}
+
+.fileCount {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.currentFileLink,
+.fileLink {
+  color: var(--color-brand);
+  font-weight: 900;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.currentFileLink {
+  display: inline-flex;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.fileList {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fileRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  font-size: 12px;
+}
+
+.fileLink {
+  min-width: 0;
+}
+
+.fileMeta {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.emptyFiles {
+  padding: 10px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-subtle);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.fileUpload {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.fileUploadLabel {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.fileInput {
+  width: 100%;
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.extracted37 button:focus-visible,
+.extracted37 summary:focus-visible,
+.currentFileLink:focus-visible,
+.fileLink:focus-visible,
+.fileInput:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1120px) {
+  .extracted40 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .extracted40 > :last-child {
+    position: static !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .extracted25,
+  .extracted42 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .extracted43 {
+    grid-template-columns: minmax(92px, 0.35fr) minmax(0, 1fr);
+  }
+
+  .extracted37 {
+    width: 100%;
+    padding-left: 34px;
+  }
+}
+
+@media (max-width: 560px) {
+  .extracted21 {
+    font-size: 17px;
+  }
+
+  .extracted42,
+  .extracted43 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .extracted48 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fileRow {
+    display: grid;
+  }
 }

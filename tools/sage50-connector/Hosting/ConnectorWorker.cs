@@ -11,6 +11,7 @@ public sealed class ConnectorWorker(
     IOptions<ConnectorOptions> options,
     IMachineCredentialStore credentialStore,
     ISageAdapterCatalog sageAdapterCatalog,
+    ISageInvoiceWriterCatalog invoiceWriterCatalog,
     IConnectorApiClient apiClient,
     IHostApplicationLifetime lifetime,
     ILogger<ConnectorWorker> logger) : BackgroundService
@@ -49,7 +50,7 @@ public sealed class ConnectorWorker(
             {
                 var capability = await sageAdapterCatalog
                     .CheckReadOnlyCapabilityAsync(stoppingToken);
-                var heartbeat = BuildHeartbeat(capability);
+                var heartbeat = await BuildHeartbeatAsync(capability, stoppingToken);
                 var response = await apiClient.SendHeartbeatAsync(
                     heartbeat,
                     credential,
@@ -83,19 +84,45 @@ public sealed class ConnectorWorker(
         logger.LogInformation("Sage 50 connector stopped gracefully.");
     }
 
-    private static HeartbeatRequest BuildHeartbeat(SageCapabilityReport report)
+    private async Task<HeartbeatRequest> BuildHeartbeatAsync(
+        SageCapabilityReport report,
+        CancellationToken cancellationToken)
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
+        var capabilities = report.Capabilities.ToList();
+        string? writeAdapterName = null;
+        string? errorCode = report.ErrorCode;
+        string? errorMessage = report.ErrorMessage;
+        var status = report.Status;
+        if (_options.EnableInvoicePosting && status.Equals("online", StringComparison.Ordinal))
+        {
+            var writeCapability = await invoiceWriterCatalog.CheckCapabilityAsync(cancellationToken);
+            if (writeCapability.Ready)
+            {
+                writeAdapterName = writeCapability.AdapterName;
+                capabilities.Add("invoice_write");
+            }
+            else
+            {
+                status = "degraded";
+                errorCode = writeCapability.ErrorCode;
+                errorMessage = writeCapability.ErrorMessage;
+            }
+        }
         return new HeartbeatRequest(
-            Safe(report.Status, 20) ?? "error",
+            Safe(status, 20) ?? "error",
             Safe(Environment.MachineName, 120) ?? "unknown",
             Safe(version, 60) ?? "unknown",
             Safe(report.SageVersion, 80),
             Safe(report.SdoVersion, 80),
+            Safe(report.ProcessArchitecture, 20),
             Safe(report.CompanyName, 160),
             Safe(report.CompanyIdentifier, 160),
-            Safe(report.ErrorCode, 80),
-            Safe(report.ErrorMessage, 500));
+            Safe(report.AdapterName, 120),
+            Safe(writeAdapterName, 120),
+            capabilities.Distinct(StringComparer.Ordinal).ToArray(),
+            Safe(errorCode, 80),
+            Safe(errorMessage, 500));
     }
 
     private static string? Safe(string? value, int maxLength)

@@ -74,6 +74,9 @@ export function buildFinanceReadiness({
   hasPurchaseOrder = false,
 } = {}) {
   const checks = [];
+  const quoteNotRequired = Boolean(
+    job?.quoteNotRequired === true || job?.quoteRequirement?.notRequired === true
+  );
   checks.push(
     readyForInvoicing
       ? { code: "operational_review", type: "passed", label: "Operational review complete" }
@@ -82,7 +85,9 @@ export function buildFinanceReadiness({
   checks.push(
     text(acceptedQuoteNumber)
       ? { code: "accepted_quote", type: "passed", label: `Approved job quote ${text(acceptedQuoteNumber)}` }
-      : { code: "accepted_quote", type: "blocker", label: "Approved job quote missing" }
+      : quoteNotRequired
+        ? { code: "accepted_quote", type: "passed", label: "No quote required — confirmed" }
+        : { code: "accepted_quote", type: "blocker", label: "Approved job quote missing" }
   );
 
   const poRequired = resolvePurchaseOrderRequirement(job);
@@ -110,6 +115,7 @@ export function buildFinanceReadiness({
 
   const requirement = resolveTimesheetRequirement(job);
   const linkedTimesheets = Array.isArray(timesheets) ? timesheets : [];
+  const explicitlyNoBookedCrew = Array.isArray(job?.employees) && job.employees.length === 0;
   const timesheetAcknowledgement = latestAcknowledgement(job, "timesheet_requirement_uncertain");
   if (linkedTimesheets.length && linkedTimesheets.every(isLinkedTimesheetValid)) {
     checks.push({ code: "timesheets", type: "passed", label: "Timesheets linked" });
@@ -119,6 +125,8 @@ export function buildFinanceReadiness({
     checks.push({ code: "timesheets", type: "blocker", label: "Required timesheets are missing" });
   } else if (requirement === false) {
     checks.push({ code: "timesheets", type: "passed", label: "Timesheets not required" });
+  } else if (explicitlyNoBookedCrew) {
+    checks.push({ code: "timesheets", type: "passed", label: "No crew booked — timesheets not required" });
   } else if (timesheetAcknowledgement) {
     const suffix = confirmationSuffix(timesheetAcknowledgement);
     checks.push({

@@ -228,7 +228,7 @@
 
 .overviewGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
   margin-bottom: var(--space-3);
   align-items: stretch;
@@ -236,13 +236,11 @@
 
 .overviewMain {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
 }
 
-.overviewHeader,
 .workspaceHeading,
-.railHeader,
 .searchHeading {
   display: flex;
   align-items: flex-start;
@@ -263,23 +261,9 @@
 .workspaceGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(96px, auto);
+  align-content: start;
   gap: 10px;
-}
-
-.overviewRail {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  gap: var(--space-3);
-}
-
-.railHeader {
-  margin-bottom: 8px;
-}
-
-.railLinks {
-  display: grid;
-  gap: 6px;
 }
 
 .searchPanel {

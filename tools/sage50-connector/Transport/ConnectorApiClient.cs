@@ -63,6 +63,7 @@ public sealed class ConnectorApiClient(
         string machineCredential,
         CancellationToken cancellationToken) =>
         SendWithoutResultAsync(
+            "customer-lookups",
             lookupJobId,
             "started",
             leaseToken,
@@ -77,6 +78,7 @@ public sealed class ConnectorApiClient(
         string machineCredential,
         CancellationToken cancellationToken) =>
         SendWithoutResultAsync(
+            "customer-lookups",
             lookupJobId,
             "succeeded",
             leaseToken,
@@ -93,6 +95,7 @@ public sealed class ConnectorApiClient(
         string machineCredential,
         CancellationToken cancellationToken) =>
         SendWithoutResultAsync(
+            "customer-lookups",
             lookupJobId,
             "failed",
             leaseToken,
@@ -100,8 +103,74 @@ public sealed class ConnectorApiClient(
             new { code, message, retryable },
             cancellationToken);
 
+    public async Task<InvoiceExportClaimResponse> ClaimInvoiceExportAsync(
+        string machineCredential,
+        CancellationToken cancellationToken)
+    {
+        using var request = Request(
+            HttpMethod.Post,
+            "/api/integrations/sage50/export-jobs/claim",
+            machineCredential);
+        request.Content = JsonContent.Create(new { }, options: JsonOptions);
+        return await SendAsync<InvoiceExportClaimResponse>(request, cancellationToken);
+    }
+
+    public Task StartInvoiceExportAsync(
+        string queueJobId,
+        string leaseToken,
+        string machineCredential,
+        CancellationToken cancellationToken) =>
+        SendWithoutResultAsync(
+            "export-jobs",
+            queueJobId,
+            "started",
+            leaseToken,
+            machineCredential,
+            new { },
+            cancellationToken);
+
+    public Task CompleteInvoiceExportAsync(
+        string queueJobId,
+        string leaseToken,
+        string sageInvoiceId,
+        string invoiceNumber,
+        DateOnly postedDate,
+        string machineCredential,
+        CancellationToken cancellationToken) =>
+        SendWithoutResultAsync(
+            "export-jobs",
+            queueJobId,
+            "succeeded",
+            leaseToken,
+            machineCredential,
+            new
+            {
+                sageInvoiceId,
+                invoiceNumber,
+                postedDate = postedDate.ToString("yyyy-MM-dd")
+            },
+            cancellationToken);
+
+    public Task FailInvoiceExportAsync(
+        string queueJobId,
+        string leaseToken,
+        string code,
+        string message,
+        bool retryable,
+        string machineCredential,
+        CancellationToken cancellationToken) =>
+        SendWithoutResultAsync(
+            "export-jobs",
+            queueJobId,
+            "failed",
+            leaseToken,
+            machineCredential,
+            new { code, message, retryable },
+            cancellationToken);
+
     private async Task SendWithoutResultAsync(
-        string lookupJobId,
+        string resource,
+        string jobId,
         string action,
         string leaseToken,
         string machineCredential,
@@ -110,7 +179,7 @@ public sealed class ConnectorApiClient(
     {
         using var request = Request(
             HttpMethod.Post,
-            $"/api/integrations/sage50/customer-lookups/{Uri.EscapeDataString(lookupJobId)}/{action}",
+            $"/api/integrations/sage50/{resource}/{Uri.EscapeDataString(jobId)}/{action}",
             machineCredential);
         request.Headers.Add("X-Sage-Lease-Token", leaseToken);
         request.Content = JsonContent.Create(body, options: JsonOptions);

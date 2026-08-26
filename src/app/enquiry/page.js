@@ -160,10 +160,10 @@ const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, f
 const th = {
   textAlign: "left",
   padding: "6px 8px",
-  borderBottom: "1px solid var(--color-border)",
+  borderBottom: "1px solid var(--color-border-strong)",
   position: "sticky",
   top: 0,
-  background: "var(--color-surface-subtle)",
+  background: "var(--table-header-bg, var(--color-surface-subtle))",
   zIndex: 1,
   color: UI.muted,
   fontSize: 10.5,

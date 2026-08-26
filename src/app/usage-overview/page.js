@@ -59,7 +59,7 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      ? "var(--button-primary-background)"
       : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
     color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,

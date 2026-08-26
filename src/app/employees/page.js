@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ContactRound,
   FileText,
+  FileSignature,
   FileUp,
   IdCard,
   Search,
@@ -53,6 +54,7 @@ import {
   mergeEmployeePersonnel,
   withoutPrivateEmployeeFields,
 } from "@/app/utils/employeePersonnel";
+import { workingTermsStatusForEmployee } from "@/app/utils/workingTermsRecords";
 
 function isEmployeeRecord(employee = {}) {
   const role = String(employee.role || "").trim().toLowerCase();
@@ -189,6 +191,8 @@ export default function EmployeeListPage() {
   const [employmentFilter, setEmploymentFilter] = useState("current");
   const [onboardingFilter, setOnboardingFilter] = useState("all");
   const [complianceFilter, setComplianceFilter] = useState("all");
+  const [workingTermsFilter, setWorkingTermsFilter] = useState("all");
+  const [workingTermsRecords, setWorkingTermsRecords] = useState(null);
   const [sortBy, setSortBy] = useState("name");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -205,10 +209,24 @@ export default function EmployeeListPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [employeeSnapshot, personnelSnapshot] = await Promise.all([
+      const [employeeSnapshot, personnelSnapshot, termsRecords] = await Promise.all([
         getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
         authAccess.isAdmin
           ? getDocs(tenantCollectionQuery(db, EMPLOYEE_PERSONNEL_COLLECTION, dataAccessState))
+          : Promise.resolve(null),
+        authAccess.isAdmin && authAccess.user?.getIdToken
+          ? authAccess.user.getIdToken().then(async (idToken) => {
+              const response = await fetch("/api/admin/working-terms", {
+                headers: { Authorization: `Bearer ${idToken}` },
+                cache: "no-store",
+              });
+              const payload = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(payload.error || "Working Terms records could not be loaded.");
+              return Array.isArray(payload.records) ? payload.records : [];
+            }).catch((error) => {
+              console.warn("[employees] working terms load error:", error);
+              return null;
+            })
           : Promise.resolve(null),
       ]);
       const personnelById = new Map(
@@ -222,6 +240,7 @@ export default function EmployeeListPage() {
             : withoutPrivateEmployeeFields(operational);
         })
         .filter(isEmployeeRecord));
+      setWorkingTermsRecords(termsRecords);
     } catch (error) {
       if (!handleFirestoreAccessError(error, { collectionName: "employees", operation: "read employees" })) {
         console.error("[employees] load error:", error);
@@ -230,7 +249,7 @@ export default function EmployeeListPage() {
     } finally {
       setLoading(false);
     }
-  }, [authAccess.isAdmin, dataAccessState]);
+  }, [authAccess.isAdmin, authAccess.user, dataAccessState]);
 
   useEffect(() => {
     loadEmployees();
@@ -273,12 +292,23 @@ export default function EmployeeListPage() {
     [employees]
   );
 
+  const workingTermsMetrics = useMemo(() => {
+    if (!Array.isArray(workingTermsRecords)) return { signed: 0, outdated: 0, unsigned: 0 };
+    return employees.reduce((summary, employee) => {
+      summary[workingTermsStatusForEmployee(employee, workingTermsRecords).key] += 1;
+      return summary;
+    }, { signed: 0, outdated: 0, unsigned: 0 });
+  }, [employees, workingTermsRecords]);
+
   const visibleEmployees = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const rows = employees.filter((employee) => {
       const status = getPersonnelStatus(employee);
       const onboarding = checklistProgress(deriveOnboardingChecklist(employee));
       const compliance = getPersonnelCompliance(employee);
+      const termsStatus = Array.isArray(workingTermsRecords)
+        ? workingTermsStatusForEmployee(employee, workingTermsRecords)
+        : null;
       const matchesQuery = !normalizedQuery || employeeSearchText(employee, authAccess.isAdmin).includes(normalizedQuery);
       const matchesReadiness =
         readiness === "all" ||
@@ -298,7 +328,9 @@ export default function EmployeeListPage() {
         (complianceFilter === "due" && compliance.dueWithin90Days > 0) ||
         (complianceFilter === "overdue" && compliance.overdue > 0) ||
         (complianceFilter === "current" && compliance.dueWithin90Days === 0);
-      return matchesQuery && matchesReadiness && matchesEmployment && matchesOnboarding && matchesCompliance;
+      const matchesWorkingTerms =
+        workingTermsFilter === "all" || termsStatus?.key === workingTermsFilter;
+      return matchesQuery && matchesReadiness && matchesEmployment && matchesOnboarding && matchesCompliance && matchesWorkingTerms;
     });
 
     return rows.sort((a, b) => {
@@ -310,9 +342,9 @@ export default function EmployeeListPage() {
       }
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
-  }, [authAccess.isAdmin, complianceFilter, employees, employmentFilter, onboardingFilter, query, readiness, sortBy]);
+  }, [authAccess.isAdmin, complianceFilter, employees, employmentFilter, onboardingFilter, query, readiness, sortBy, workingTermsFilter, workingTermsRecords]);
 
-  const hasActiveFilters = Boolean(query.trim()) || readiness !== "all" || employmentFilter !== "current" || onboardingFilter !== "all" || complianceFilter !== "all";
+  const hasActiveFilters = Boolean(query.trim()) || readiness !== "all" || employmentFilter !== "current" || onboardingFilter !== "all" || complianceFilter !== "all" || workingTermsFilter !== "all";
 
   return (
     <HeaderSidebarLayout>
@@ -359,6 +391,18 @@ export default function EmployeeListPage() {
             icon={<IdCard size={19} />}
             tone="info"
           />
+          {authAccess.isAdmin ? (
+            <MetricCard
+              label="Working Terms"
+              value={Array.isArray(workingTermsRecords) ? workingTermsMetrics.signed : "—"}
+              hint={Array.isArray(workingTermsRecords)
+                ? `${workingTermsMetrics.unsigned} unsigned · ${workingTermsMetrics.outdated} outdated`
+                : "Signature status unavailable"}
+              icon={<FileSignature size={19} />}
+              tone={workingTermsMetrics.unsigned || workingTermsMetrics.outdated ? "warning" : "success"}
+              onClick={() => setWorkingTermsFilter("signed")}
+            />
+          ) : null}
         </div>
 
         <section className={styles.register} aria-labelledby="employee-register-title">
@@ -403,6 +447,17 @@ export default function EmployeeListPage() {
                   <option value="ended">Former employees</option>
                 </Select>
               </label>
+              {authAccess.isAdmin ? (
+                <label>
+                  <span>Terms</span>
+                  <Select bare value={workingTermsFilter} onChange={(event) => setWorkingTermsFilter(event.target.value)}>
+                    <option value="all">All records</option>
+                    <option value="signed">Signed</option>
+                    <option value="unsigned">Not signed</option>
+                    <option value="outdated">Outdated</option>
+                  </Select>
+                </label>
+              ) : null}
               <label>
                 <span>Sort</span>
                 <Select bare value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
@@ -430,15 +485,18 @@ export default function EmployeeListPage() {
                   <th>Job title</th>
                   <th>Licence</th>
                   <th>Personnel file</th>
+                  {authAccess.isAdmin ? <th>Working Terms</th> : null}
                   <th><span className={styles.srOnly}>Action</span></th>
                 </tr>
               </thead>
               <tbody>
-                {loading ? <LoadingRows /> : null}
+                {loading ? <LoadingRows showWorkingTerms={authAccess.isAdmin} /> : null}
                 {!loading && visibleEmployees.map((employee) => (
                   <EmployeeRow
                     key={employee.id}
                     employee={employee}
+                    workingTermsRecords={workingTermsRecords}
+                    showWorkingTerms={authAccess.isAdmin}
                     onOpen={() => router.push(`/edit-employee/${employee.id}`)}
                   />
                 ))}
@@ -453,7 +511,7 @@ export default function EmployeeListPage() {
                 description={hasActiveFilters ? "Try a different search or clear the filters." : "Add the first employee to start their personnel file."}
                 action={
                   hasActiveFilters ? (
-                    <Button variant="secondary" size="sm" onClick={() => { setQuery(""); setReadiness("all"); setEmploymentFilter("current"); }}>
+                    <Button variant="secondary" size="sm" onClick={() => { setQuery(""); setReadiness("all"); setEmploymentFilter("current"); setWorkingTermsFilter("all"); }}>
                       Clear filters
                     </Button>
                   ) : (
@@ -483,8 +541,11 @@ export default function EmployeeListPage() {
   );
 }
 
-function EmployeeRow({ employee, onOpen }) {
+function EmployeeRow({ employee, onOpen, workingTermsRecords, showWorkingTerms = false }) {
   const personnel = getPersonnelStatus(employee);
+  const termsStatus = Array.isArray(workingTermsRecords)
+    ? workingTermsStatusForEmployee(employee, workingTermsRecords)
+    : null;
   const jobTitles = [...new Set(
     (Array.isArray(employee.jobTitle) ? employee.jobTitle : [employee.jobTitle])
       .map((job) => String(job || "").trim())
@@ -540,6 +601,16 @@ function EmployeeRow({ employee, onOpen }) {
           <small>{personnel.emergencyCount} emergency · {personnel.documentCount} documents</small>
         </div>
       </td>
+      {showWorkingTerms ? (
+        <td data-label="Working Terms">
+          {termsStatus ? (
+            <div className={styles.termsStatus}>
+              <Badge variant={termsStatus.tone}>{termsStatus.label}</Badge>
+              <small>{termsStatus.record ? `Version ${termsStatus.record.documentVersion || "unknown"}` : "No acceptance record"}</small>
+            </div>
+          ) : <span className={styles.muted}>Unavailable</span>}
+        </td>
+      ) : null}
       <td className={styles.actionCell}>
         <Button
           variant="secondary"
@@ -554,10 +625,12 @@ function EmployeeRow({ employee, onOpen }) {
   );
 }
 
-function LoadingRows() {
+function LoadingRows({ showWorkingTerms = false }) {
   return Array.from({ length: 5 }, (_, index) => (
     <tr className={styles.loadingRow} key={index} aria-hidden="true">
-      <td><span /></td><td><span /></td><td><span /></td><td><span /></td><td><span /></td><td><span /></td>
+      <td><span /></td><td><span /></td><td><span /></td><td><span /></td><td><span /></td>
+      {showWorkingTerms ? <td><span /></td> : null}
+      <td><span /></td>
     </tr>
   ));
 }

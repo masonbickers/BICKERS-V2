@@ -11,7 +11,7 @@ import { OperationsHeaderActions, OperationsPage, OperationsPageHeader } from "@
 import { Button, MetricCard as SharedMetricCard, NavigationCard } from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
-import { formatQuoteDate, getCompletedQuoteRows, money } from "@/app/utils/completedQuotes";
+import { getCompletedQuoteRows } from "@/app/utils/completedQuotes";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import {
   AlertTriangle,
@@ -122,11 +122,6 @@ const jobNumberRowShell = {
   gridTemplateColumns: "minmax(0, 1fr) minmax(130px, .7fr) 136px 110px",
 };
 
-const quoteRowShell = {
-  ...rowShell,
-  gridTemplateColumns: "minmax(0, 1fr) minmax(0, .9fr) 110px 120px",
-};
-
 const listShell = { width: "100%", minWidth: 0, border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "var(--color-surface)", boxSizing: "border-box" };
 
 const focusCss = `
@@ -143,7 +138,6 @@ const focusCss = `
     .job-home-top-grid,
     .job-home-stat-grid,
     .job-home-shortcut-grid,
-    .job-home-pipeline-grid,
     .job-home-groups-grid { grid-template-columns: 1fr !important; }
     .job-home-row { grid-template-columns: 1fr !important; }
     .job-home-row-status { justify-self: start !important; }
@@ -180,7 +174,6 @@ const normaliseDates = (job) => {
 };
 
 const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "-");
-const getJobPrefix = (job) => (job.jobNumber ? String(job.jobNumber).split("-")[0] : "No Job #");
 const getJobNumberGroup = (job) => {
   const digits = String(job.jobNumber ?? "").replace(/\D/g, "");
   return digits.length >= 2 ? digits.slice(0, 2) : "Other";
@@ -292,11 +285,6 @@ const isPaidFlag = (j) => {
   const inv = norm(j.invoiceStatus);
   return s === "paid" || s === "settled" || inv.includes("paid") || !!j?.finance?.paidAt;
 };
-const isInactiveJobStatus = (j) => {
-  const s = norm(j.status);
-  return s === "dnh" || s === "cancelled" || s === "canceled" || s === "postponed";
-};
-
 const hasWorkBeforeToday = (j, todayMidnight) => {
   const ds = normaliseDates(j).sort((a, b) => a - b);
   if (!ds.length) return false;
@@ -374,17 +362,6 @@ export default function JobHomePage() {
     return n;
   }, []);
 
-  const weekWindow = useMemo(() => {
-    const now = new Date(todayMidnight);
-    const day = now.getDay();
-    const monday = new Date(now);
-    const diff = (day === 0 ? -6 : 1) - day;
-    monday.setDate(now.getDate() + diff);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    return { monday, sunday };
-  }, [todayMidnight]);
-
   const grouped = useMemo(() => {
     const g = {
       Upcoming: 0,
@@ -407,9 +384,8 @@ export default function JobHomePage() {
   const reviewQueueCount = useMemo(() => {
     return jobs.filter((j) => {
       const s = norm(j.status);
-      const completeish = s === "confirmed" || s === "complete" || s === "completed";
       const past = hasWorkBeforeToday(j, todayMidnight);
-      return !isPaidFlag(j) && (readyToInvoiceFlag(j) || (completeish && past));
+      return s === "confirmed" && past && !readyToInvoiceFlag(j) && !isPaidFlag(j);
     }).length;
   }, [jobs, todayMidnight]);
 
@@ -424,66 +400,6 @@ export default function JobHomePage() {
   const paidCount = useMemo(() => jobs.filter(isPaidFlag).length, [jobs]);
 
   const completedQuoteRows = useMemo(() => getCompletedQuoteRows(jobs), [jobs]);
-  const completedQuotePreview = useMemo(() => completedQuoteRows.slice(0, 8), [completedQuoteRows]);
-
-  const upcomingThisWeek = useMemo(() => {
-    const inUpcomingWeek = (d) => d >= todayMidnight && d <= weekWindow.sunday;
-    const firstUpcomingDate = (job) =>
-      normaliseDates(job)
-        .filter(inUpcomingWeek)
-        .sort((x, y) => +x - +y)[0];
-
-    return jobs
-      .filter((j) => !isInactiveJobStatus(j) && normaliseDates(j).some(inUpcomingWeek))
-      .sort((a, b) => {
-        const fa = firstUpcomingDate(a)?.getTime() ?? Infinity;
-        const fb = firstUpcomingDate(b)?.getTime() ?? Infinity;
-        return fa - fb;
-      })
-      .slice(0, 8);
-  }, [jobs, todayMidnight, weekWindow]);
-
-  const reviewQueuePreview = useMemo(() => {
-    const previousMonday = new Date(weekWindow.monday);
-    previousMonday.setDate(weekWindow.monday.getDate() - 7);
-    const inReviewWindow = (job) =>
-      normaliseDates(job).some((date) => date >= previousMonday && date <= weekWindow.sunday);
-    const latestReviewDate = (job) =>
-      normaliseDates(job)
-        .filter((date) => date >= previousMonday && date <= weekWindow.sunday)
-        .sort((a, b) => +b - +a)[0];
-
-    return jobs
-      .filter((j) => {
-        const s = norm(j.status);
-        const completeish = s === "confirmed" || s === "complete" || s === "completed";
-        const past = hasWorkBeforeToday(j, todayMidnight);
-        return inReviewWindow(j) && !isInactiveJobStatus(j) && !isPaidFlag(j) && (readyToInvoiceFlag(j) || (completeish && past));
-      })
-      .sort((a, b) => {
-        const da = latestReviewDate(a)?.getTime() ?? 0;
-        const db = latestReviewDate(b)?.getTime() ?? 0;
-        return db - da;
-      })
-      .slice(0, 8);
-  }, [jobs, todayMidnight, weekWindow]);
-
-  const financeQueuePreview = useMemo(
-    () => jobs.filter((j) => readyToInvoiceFlag(j) && !isPaidFlag(j)).slice(0, 8),
-    [jobs]
-  );
-
-  const recent = useMemo(() => {
-    const withLast = jobs
-      .map((j) => {
-        const ds = normaliseDates(j).sort((a, b) => +a - +b);
-        return { j, last: ds[ds.length - 1] || null };
-      })
-      .sort((a, b) => (b.last?.getTime() || 0) - (a.last?.getTime() || 0))
-      .slice(0, 8)
-      .map((x) => x.j);
-    return withLast;
-  }, [jobs]);
 
   const jobNumberGroups = useMemo(() => {
     const map = new Map();
@@ -756,86 +672,6 @@ export default function JobHomePage() {
     );
   };
 
-  const jobRow = (j, rowIndex = 0, rowCount = 1) => {
-    const ds = normaliseDates(j).sort((a, b) => a.getTime() - b.getTime());
-    const first = ds[0] ?? null;
-    const last = ds[ds.length - 1] ?? null;
-    const prefix = getJobPrefix(j);
-    const label = first && last ? `${fmtShort(first)} to ${fmtShort(last)}` : first ? fmtShort(first) : "TBC";
-    const pretty = prettifyStatus(j.status || "");
-    return (
-      <Link key={j.id} href={`/job-numbers/${j.id}`} className="job-home-row" style={rowShell}>
-        <div className={layoutStyles.extracted9}>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              minWidth: 52,
-              fontWeight: 900,
-              color: UI.text,
-              whiteSpace: "nowrap",
-            }}
-          >
-            #{j.jobNumber || j.id}
-          </span>
-          <span className={layoutStyles.extracted10}>
-            {j.client || "-"}
-          </span>
-        </div>
-        <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
-          {j.location || "-"}
-        </div>
-        <div className={layoutStyles.extracted11}>{label}</div>
-        <div
-          className={`job-home-row-status ${layoutStyles.extracted12}`}
-
-        >
-          <StatusBadge value={pretty} rowIndex={rowIndex} rowCount={rowCount} />
-        </div>
-      </Link>
-    );
-  };
-
-  const quoteRow = (quote, rowIndex = 0, rowCount = 1) => {
-    const status = quote.status || "Draft";
-    const statusKind = status === "Accepted" ? "green" : status === "Sent" || status === "Revised" ? "amber" : "neutral";
-    return (
-      <Link
-        key={quote.id}
-        href={`/quote/${quote.bookingId}?quote=${encodeURIComponent(quote.quoteNumber || "")}`}
-        className="job-home-row"
-        style={quoteRowShell}
-      >
-        <div className={layoutStyles.extracted13}>
-          <span style={{ fontWeight: 900, minWidth: 0, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {quote.label || "-"}
-          </span>
-        </div>
-        <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
-          {quote.templateName || quote.location || "-"}
-        </div>
-        <div className={layoutStyles.extracted14}>£{money(quote.subtotal)}</div>
-        <div
-          className={`job-home-row-status ${layoutStyles.extracted15}`}
-
-        >
-          <span
-            style={{
-              ...chip(statusKind),
-              width: "100%",
-              minHeight: 26,
-              justifyContent: "center",
-              borderRadius: `0 ${rowIndex === 0 ? UI.radius : "0"} ${rowIndex === rowCount - 1 ? UI.radius : "0"} 0`,
-            }}
-            title={`Saved ${formatQuoteDate(quote.savedAt)}`}
-          >
-            {status}
-          </span>
-        </div>
-      </Link>
-    );
-  };
-
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
@@ -860,14 +696,6 @@ export default function JobHomePage() {
 
         <div className={`job-home-top-grid ${layoutStyles.overviewGrid}`}>
           <div className={layoutStyles.overviewMain}>
-            <div className={layoutStyles.overviewHeader}>
-              <div>
-                <h2 style={{ ...titleMd, fontSize: 18 }}>Home</h2>
-                <div style={cardHint}>Live workload, workflow queues and finance handoff in one place.</div>
-              </div>
-              <span style={chip()}>{loading ? "Loading…" : `${total} jobs`}</span>
-            </div>
-
             <div className="job-home-stat-grid" style={grid(4)}>
               <SharedMetricCard
                 label="Upcoming"
@@ -903,7 +731,7 @@ export default function JobHomePage() {
               />
             </div>
 
-            <section className={layoutStyles.workspacePanel} style={card}>
+            <section className={layoutStyles.workspacePanel}>
               <div className={layoutStyles.workspaceHeading}>
                 <div>
                   <h3 style={{ ...titleMd, fontSize: 15 }}>Job workspaces</h3>
@@ -921,37 +749,6 @@ export default function JobHomePage() {
             </section>
           </div>
 
-          <aside className={layoutStyles.overviewRail}>
-            <section style={{ ...card, padding: 10 }}>
-              <div className={layoutStyles.railHeader}>
-                <div>
-                  <h2 style={{ ...titleMd, fontSize: 15 }}>Job pipeline</h2>
-                  <div style={cardHint}>Active operational workload.</div>
-                </div>
-                <span style={chip("purple")}>Live</span>
-              </div>
-              <div className={layoutStyles.railLinks}>
-                <WorkflowLink href="/job-sheet?section=Upcoming" label="Upcoming" count={grouped.Upcoming ?? 0} />
-                <WorkflowLink href="/enquiry" label="Open Enquiries" count={grouped.Enquiries ?? 0} tone="amber" />
-                <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
-                <WorkflowLink href="/job-sheet?section=Needs%20Action" label="Needs Action" count={grouped["Needs Action"] ?? 0} />
-              </div>
-            </section>
-            <section style={{ ...card, padding: 10 }}>
-              <div className={layoutStyles.railHeader}>
-                <div>
-                  <h2 style={{ ...titleMd, fontSize: 15 }}>Finance handoff</h2>
-                  <div style={cardHint}>Progress from pricing to payment.</div>
-                </div>
-              </div>
-              <div className={layoutStyles.railLinks}>
-              <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
-              <WorkflowLink href="/finance-queue" label="Ready to Invoice" count={financeReadyCount} tone="green" />
-              <WorkflowLink href="/invoiced" label="Invoiced" count={invoicedCount} />
-              <WorkflowLink href="/paid" label="Paid" count={paidCount} tone="green" />
-              </div>
-            </section>
-          </aside>
         </div>
 
         <div style={{ ...card, padding: 0, overflow: "hidden", marginBottom: UI.gap }}>
@@ -1071,101 +868,8 @@ export default function JobHomePage() {
           </div>
         </div>
 
-        <div className="job-home-pipeline-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: UI.gap }}>
-          <PipelinePanel
-            title="Upcoming This Week"
-            hintText="Jobs scheduled within the current week window."
-            href="/job-sheet?section=Upcoming"
-            linkText="View all"
-            loading={loading}
-            emptyText="Nothing scheduled this week."
-            rows={upcomingThisWeek}
-            renderRow={jobRow}
-            icon={CalendarDays}
-          />
-          <PipelinePanel
-            title="Review Queue"
-            hintText="Jobs ready for review actions and completion checks."
-            href="/review-queue"
-            linkText="Open queue"
-            loading={loading}
-            emptyText="No jobs to review."
-            rows={reviewQueuePreview}
-            renderRow={jobRow}
-            icon={ClipboardList}
-            color={UI.purple}
-            bg={UI.purpleSoft}
-            border={UI.purpleBorder}
-          />
-          <PipelinePanel
-            title="Ready to Invoice"
-            hintText="Jobs prepared for pricing and invoice issue."
-            href="/finance-queue"
-            linkText="Open queue"
-            loading={loading}
-            emptyText="Nothing awaiting pricing."
-            rows={financeQueuePreview}
-            renderRow={jobRow}
-            icon={Receipt}
-            color={UI.green}
-            bg={UI.greenSoft}
-            border={UI.greenBorder}
-          />
-          <PipelinePanel
-            title="Completed Quotes"
-            hintText="Latest saved quotes across bookings."
-            href="/completed-quotes"
-            linkText="View all"
-            loading={loading}
-            emptyText="No completed quotes yet."
-            rows={completedQuotePreview}
-            renderRow={quoteRow}
-            icon={FileText}
-            color={UI.green}
-            bg={UI.greenSoft}
-            border={UI.greenBorder}
-          />
-          <PipelinePanel
-            title="Recent Jobs"
-            hintText="Latest booked and completed work in the system."
-            href="/job-sheet"
-            linkText="Job sheet"
-            loading={loading}
-            emptyText="No recent jobs."
-            rows={recent}
-            renderRow={jobRow}
-            icon={BriefcaseBusiness}
-          />
-        </div>
       </OperationsPage>
     </HeaderSidebarLayout>
-  );
-}
-
-function WorkflowLink({ href, label, count, tone = "neutral" }) {
-  return (
-    <Link
-      href={href}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) auto 14px",
-        gap: 6,
-        alignItems: "center",
-        minHeight: 32,
-        padding: "5px 8px",
-        borderRadius: UI.radiusSm,
-        border: UI.border,
-        background: "var(--color-surface-raised)",
-        color: UI.text,
-        textDecoration: "none",
-        fontSize: 12.5,
-        fontWeight: 800,
-      }}
-    >
-      <span className={layoutStyles.extracted32}>{label}</span>
-      <span style={chip(tone)}>{count}</span>
-      <ChevronRight size={14} color={UI.brand} />
-    </Link>
   );
 }
 

@@ -61,6 +61,7 @@ import {
   buildSchedulingConflicts,
   filterCalendarEvents,
 } from "./homeDashboard";
+import { getFixedJobStatusSurfaceStyle } from "@/app/utils/jobStatusColors";
 
 /* ────────────────────────────────────────────────────────────────────────────
    Date + normalisers
@@ -94,30 +95,13 @@ const asEvent = (b) => {
 /* ────────────────────────────────────────────────────────────────────────────
    Colours
 ──────────────────────────────────────────────────────────────────────────── */
-const getColorByStatus = (status = "") => {
-  const s = status.toLowerCase();
-  switch (s) {
-    case "confirmed":
-      return "var(--color-warning-border)";
-    case "second pencil":
-      return "var(--color-warning)";
-    case "first pencil":
-      return "var(--color-info-border)";
-    case "cancelled":
-      return "var(--shell-muted)";
-    case "maintenance":
-      return "var(--color-warning)";
-    case "holiday":
-      return "var(--color-border-strong)";
-    case "note":
-      return "var(--color-border)";
-    case "workshop":
-      return "var(--color-accent)";
-    case "complete":
-      return "var(--color-success-accent)";
-    default:
-      return "var(--shell-muted)";
-  }
+const getCalendarStatusStyle = (status = "") => {
+  const tone = getFixedJobStatusSurfaceStyle(status);
+  return {
+    backgroundColor: tone.bg,
+    borderColor: tone.border,
+    textColor: tone.text,
+  };
 };
 
 const asHolidayEvent = (docSnap) => {
@@ -425,7 +409,7 @@ export default function HomePage() {
         status: e.status,
         sourceType: "booking",
         sourceId: e.id,
-        backgroundColor: getColorByStatus(e.status),
+        ...getCalendarStatusStyle(e.status),
       })),
       ...holidays.map((h) => ({
         ...h,
@@ -433,7 +417,7 @@ export default function HomePage() {
         id: `holiday__${h.id}`,
         sourceType: "holiday",
         sourceId: h.id,
-        backgroundColor: getColorByStatus("holiday"),
+        ...getCalendarStatusStyle("holiday"),
       })),
       ...notes.map((n) => ({
         ...n,
@@ -441,7 +425,7 @@ export default function HomePage() {
         id: `note__${n.id}`,
         sourceType: "note",
         sourceId: n.id,
-        backgroundColor: getColorByStatus("note"),
+        ...getCalendarStatusStyle("note"),
       })),
       ...maintenanceCalendarEvents.map((m) => ({
         ...m,
@@ -449,7 +433,7 @@ export default function HomePage() {
         id: `maintenance__${m.id}`,
         sourceType: "maintenance",
         sourceId: m.id,
-        backgroundColor: getColorByStatus("maintenance"),
+        ...getCalendarStatusStyle("maintenance"),
       })),
     ],
     [events, holidays, maintenanceCalendarEvents, notes]
@@ -733,14 +717,11 @@ export default function HomePage() {
                     setSelectedBookingId(id);
                   }}
                   eventDidMount={(info) => {
-                    // keep readable on bright blocks
-                    info.el.style.color = "var(--color-text)";
                     const accessibleLabel = `${info.event.title}, ${moment(info.event.start).format("D MMM YYYY")}`;
                     info.el.setAttribute("aria-label", accessibleLabel);
                     info.el.setAttribute("title", accessibleLabel);
                     const titleEl = info.el.querySelector(".fc-event-title");
                     if (titleEl) {
-                      titleEl.style.color = "var(--color-text)";
                       titleEl.style.fontWeight = "700";
                     }
                   }}

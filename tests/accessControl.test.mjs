@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   getWorkspaceForPath,
+  hasFinanceAccess,
   inferAccessFromLegacyFields,
   isAdminPath,
-  isFinanceHandoffPath,
+  isFinancePath,
   isPathAllowedForAccess,
   isPersonalSettingsPath,
   normalizeAppAccess,
@@ -176,11 +177,23 @@ test("allows user-workspace accounts to open fleet hub pages", () => {
   });
 });
 
-test("identifies the operational quote-to-invoice handoff routes", () => {
-  assert.equal(isFinanceHandoffPath("/finance-queue"), true);
-  assert.equal(isFinanceHandoffPath("/invoice/booking-123"), true);
-  assert.equal(isFinanceHandoffPath("/invoice-view/booking-123"), true);
-  assert.equal(isFinanceHandoffPath("/invoiced"), true);
-  assert.equal(isFinanceHandoffPath("/paid"), true);
-  assert.equal(isFinanceHandoffPath("/finance-home"), false);
+test("identifies all restricted finance routes", () => {
+  assert.equal(isFinancePath("/finance-queue"), true);
+  assert.equal(isFinancePath("/finance-home"), true);
+  assert.equal(isFinancePath("/finance-dashboard"), true);
+  assert.equal(isFinancePath("/quote-insights"), true);
+  assert.equal(isFinancePath("/invoice/booking-123"), true);
+  assert.equal(isFinancePath("/invoice-view/booking-123"), true);
+  assert.equal(isFinancePath("/invoiced"), true);
+  assert.equal(isFinancePath("/paid"), true);
+  assert.equal(isFinancePath("/job-summary/booking-123"), false);
+});
+
+test("finance access is explicit for standard users and implicit for active admins", () => {
+  assert.equal(hasFinanceAccess({ role: "user", isEnabled: true }), false);
+  assert.equal(hasFinanceAccess({ role: "user", isEnabled: true, financeAccess: true }), true);
+  assert.equal(hasFinanceAccess({ role: "admin", isEnabled: true }), true);
+  assert.equal(hasFinanceAccess({ role: "platformAdmin", isEnabled: true }), true);
+  assert.equal(hasFinanceAccess({ role: "admin", isEnabled: false }), false);
+  assert.equal(hasFinanceAccess({ role: "user", financeAccess: true, archived: true }), false);
 });

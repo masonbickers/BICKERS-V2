@@ -661,6 +661,129 @@
   text-transform: uppercase;
 }
 
+.payAdviceHeader {
+  padding: 12px;
+  background: var(--color-surface-subtle);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.payAdviceBrandRow {
+  display: grid;
+  grid-template-columns: minmax(170px, 260px) 1fr;
+  min-height: 92px;
+  border: 1px solid var(--color-border-strong);
+}
+
+.payAdviceLogoBox,
+.payAdviceTitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+}
+
+.payAdviceLogoBox {
+  border-right: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.payAdviceLogo {
+  width: min(190px, 100%);
+  height: auto;
+  object-fit: contain;
+}
+
+.payAdviceTitle {
+  color: var(--color-text);
+  font-size: clamp(17px, 1.5vw, 25px);
+  line-height: 1.25;
+  text-align: center;
+}
+
+.payAdviceSheet {
+  min-width: 1320px;
+}
+
+.payAdviceTable {
+  min-width: 1296px;
+}
+
+.payAdviceGroupHeading,
+.payAdviceColumnHeading,
+.payAdviceSummaryCell {
+  border: 1px solid var(--color-border-strong);
+  padding: 6px 5px;
+  color: var(--color-text);
+  font-weight: 800;
+  text-align: center;
+}
+
+.payAdviceGroupHeading {
+  background: var(--color-border);
+}
+
+.payAdviceColumnHeading {
+  background: var(--color-canvas);
+  font-size: 10.5px;
+}
+
+.payAdviceSummaryCell {
+  background: var(--color-surface);
+}
+
+.payAdviceMoneyRow td {
+  background: var(--color-info-soft);
+}
+
+.payAdviceFooter {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  min-height: 96px;
+  border: 1px solid var(--color-border-strong);
+  border-top: 0;
+}
+
+.payAdviceNotes {
+  padding: 12px;
+  color: var(--color-text);
+  border-right: 1px solid var(--color-border-strong);
+}
+
+.payAdviceHoursSummary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: start;
+  color: var(--color-text);
+}
+
+.payAdviceHoursSummary > * {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.payAdviceHoursSummary strong {
+  text-align: right;
+}
+
+.payAdviceGrandTotalLabel,
+.payAdviceGrandTotal {
+  background: var(--color-info-soft);
+  border-bottom: 0;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+@media (max-width: 700px) {
+  .payAdviceBrandRow {
+    grid-template-columns: 140px 1fr;
+  }
+
+  .payAdviceTitle {
+    padding: 8px;
+    font-size: 15px;
+  }
+}
+
 .extracted101 {
   min-width: 140px;
 }

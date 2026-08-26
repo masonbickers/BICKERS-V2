@@ -5,7 +5,7 @@ import {
 import {
   canAccessCompany,
   jsonError,
-  requireActiveUserFromRequest,
+  requireFinanceFromRequest,
 } from "@/app/api/admin/_lib";
 import { buildSage50Reconciliation } from "@/app/utils/sage50Reconciliation";
 import { ensureIssuedInvoiceDocument } from "@/app/utils/issuedInvoiceDocumentService";
@@ -20,7 +20,7 @@ const text = (value) => String(value || "").trim();
 
 export async function POST(req, context) {
   try {
-    const auth = await requireActiveUserFromRequest(req, { module: "finance" });
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
     const { jobId: rawJobId } = await context.params;
     const jobId = text(rawJobId);

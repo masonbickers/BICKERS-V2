@@ -101,7 +101,7 @@ export default function FinancePage() {
         />
 
         <section className={styles.commandGrid}>
-          <div style={{ ...surface, padding: 12 }}>
+          <div>
             <div className={styles.sectionHeading}>
               <div>
                 <h2 className={styles.title}>Home</h2>

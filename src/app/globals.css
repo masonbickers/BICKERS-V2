@@ -9,6 +9,8 @@ button,input,select,textarea{font:inherit}
 input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea{color:var(--color-text);background-color:var(--color-surface);border-color:var(--color-border)}
 input::placeholder,textarea::placeholder{color:var(--color-text-subtle);opacity:1}
 select option{color:var(--color-text);background:var(--color-surface)}
+:root[data-color-mode=dark] input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),:root[data-color-mode=dark] select,:root[data-color-mode=dark] textarea{background-color:var(--color-surface-raised)}
+:root[data-color-mode=dark] select option{background:var(--color-surface-raised)}
 button:not(:disabled),[role=button]:not([aria-disabled=true]),select:not(:disabled){cursor:pointer}
 button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allowed;opacity:var(--control-disabled-opacity,.62)}
 :where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--color-brand);outline-offset:2px;box-shadow:var(--focus-ring)}

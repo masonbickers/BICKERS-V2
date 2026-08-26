@@ -2,10 +2,11 @@
 
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import LinkedBookingContinuationFields from "@/app/components/LinkedBookingContinuationFields";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
@@ -15,6 +16,8 @@ import {
   buildExistingJobDetailsLookup,
   contactIdFromEmail,
   employeesKey,
+  findMismatchedQuoteAttachments,
+  hasBookingContactDetails,
   mergeBookingContacts,
   normalizeJobNumberForLookup,
   normalizeVehicleKeysListForLookup,
@@ -56,7 +59,10 @@ import {
   isUCraneVehicle,
   normalizeUCraneArmFitted,
 } from "@/app/utils/uCraneBookingConfiguration";
-import { canAutoAssignVehicleAsSecondPencil } from "@/app/utils/bookingVehiclePriority";
+import {
+  canAutoAssignVehicleAsSecondPencil,
+  existingVehicleStatusesConflictWithRequested,
+} from "@/app/utils/bookingVehiclePriority";
 import {
   CalendarDays,
   ChevronDown,
@@ -74,6 +80,12 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { hasMeaningfulCreateBookingDraft } from "@/app/utils/createBookingDraft";
 import { buildBookingCallTimePayload } from "@/app/utils/bookingCallTimes";
+import {
+  buildLinkedContinuationPayload,
+  linkedContinuationAllowsResourceOverlap,
+  normaliseLinkedContinuation,
+  overlappingBookingDateKeys,
+} from "@/app/utils/linkedBookingContinuation";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 /* ────────────────────────────────────────────────────────────────────────────
@@ -90,7 +102,8 @@ const jobStatusBadgeStyle = (status) => {
 };
 
 const pageWrap = {
-  minHeight: "100vh",
+  minHeight: "100%",
+  boxSizing: "border-box",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
   background: UI.page,
   padding: `${SPACE.lg}px ${SPACE.lg}px ${SPACE.xl * 2}px`,
@@ -436,20 +449,13 @@ const VEHICLE_STATUSES = [
 
 const SECOND_PENCIL_STATUS = "Second Pencil";
 const BLOCKING_STATUSES = ["Confirmed", "First Pencil", SECOND_PENCIL_STATUS];
-const SECOND_PENCIL_BLOCKING_STATUSES = [SECOND_PENCIL_STATUS, "Maintenance"];
 const doesBlockBooking = (b) => BLOCKING_STATUSES.includes((b.status || "").trim());
 const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
 };
 const existingVehicleStatusConflictsWithRequested = (existingStatuses = [], requestedStatus = "") => {
-  const requested = (requestedStatus || "").trim();
-  const existing = existingStatuses.map((s) => (s || "").trim()).filter(Boolean);
-  if (!isVehicleBlockingStatus(requested)) return false;
-  if (requested === SECOND_PENCIL_STATUS) {
-    return existing.some((s) => SECOND_PENCIL_BLOCKING_STATUSES.includes(s));
-  }
-  return existing.some((s) => isVehicleBlockingStatus(s));
+  return existingVehicleStatusesConflictWithRequested(existingStatuses, requestedStatus);
 };
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
@@ -687,6 +693,7 @@ function CreateBookingForm({ initialStatus }) {
   const [customDates, setCustomDates] = useState([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [linkedContinuation, setLinkedContinuation] = useState(null);
 
   // Notes per day
   const [notesByDate, setNotesByDate] = useState({});
@@ -794,19 +801,27 @@ function CreateBookingForm({ initialStatus }) {
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
     : isBickersJob
-    ? Boolean((client || "").trim())
-    : Boolean((client || "").trim() && (location || "").trim());
+    ? Boolean((production || "").trim())
+    : Boolean((production || "").trim() && (location || "").trim());
+
+  const hasRequiredContact = hasBookingContactDetails(additionalContacts);
 
   const saveTooltip = isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
+      : !hasRequiredContact
+      ? "Add a contact name with an email or phone number"
       : ""
     : isBickersJob
     ? !coreFilled
-      ? "Fill Production Company to save"
+      ? "Fill Production to save"
+      : !hasRequiredContact
+      ? "Add a contact name with an email or phone number"
       : ""
     : !coreFilled
-    ? "Fill Production Company and Location to save"
+    ? "Fill Production and Location to save"
+    : !hasRequiredContact
+    ? "Add a contact name with an email or phone number"
     : "";
 
   const hotelTotal =
@@ -849,6 +864,7 @@ function CreateBookingForm({ initialStatus }) {
       customDates,
       startDate,
       endDate,
+      linkedContinuation,
       notesByDate,
       notes,
       callTime,
@@ -896,6 +912,7 @@ function CreateBookingForm({ initialStatus }) {
       customDates,
       startDate,
       endDate,
+      linkedContinuation,
       notesByDate,
       notes,
       callTime,
@@ -1170,6 +1187,7 @@ function CreateBookingForm({ initialStatus }) {
     setCustomDates(Array.isArray(saved.customDates) ? saved.customDates : []);
     setStartDate(saved.startDate || "");
     setEndDate(saved.endDate || "");
+    setLinkedContinuation(normaliseLinkedContinuation(saved.linkedContinuation));
     setNotesByDate(saved.notesByDate && typeof saved.notesByDate === "object" ? saved.notesByDate : {});
     setNotes(saved.notes || "");
     setCallTime(saved.callTime || "");
@@ -1278,6 +1296,18 @@ function CreateBookingForm({ initialStatus }) {
     return allBookings.filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, selectedDates]);
 
+  const allowsLinkedResourceOverlap = useCallback(
+    (booking, resourceType, resourceKey, dates = selectedDates) =>
+      linkedContinuationAllowsResourceOverlap({
+        currentContinuation: linkedContinuation,
+        otherBooking: booking,
+        overlapDates: overlappingBookingDateKeys(expandBookingDates(booking), dates),
+        resourceType,
+        resourceKey,
+      }),
+    [linkedContinuation, selectedDates]
+  );
+
   const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById, vehicleBlockingStatusesById } = useMemo(() => {
     const blockingById = {};
     const blockingStatusesById = {};
@@ -1289,6 +1319,7 @@ function CreateBookingForm({ initialStatus }) {
       const vmap = b.vehicleStatus || {};
 
       keys.forEach((vid) => {
+        if (allowsLinkedResourceOverlap(b, "vehicle", vid)) return;
         const itemStatus = (vmap[vid] ?? b.status) || "";
         if (!itemStatus) return;
 
@@ -1313,7 +1344,7 @@ function CreateBookingForm({ initialStatus }) {
       vehicleBlockingStatusById: blockingById,
       vehicleBlockingStatusesById: blockingStatusesById,
     };
-  }, [overlapping, vehicleLookup]);
+  }, [overlapping, vehicleLookup, allowsLinkedResourceOverlap]);
 
   const bookedEquipment = useMemo(() => {
     return overlapping
@@ -1336,11 +1367,16 @@ function CreateBookingForm({ initialStatus }) {
   const bookedEmployeeNames = useMemo(() => {
     return overlapping
       .filter(doesBlockBooking)
-      .flatMap((b) => (Array.isArray(b.employees) ? b.employees : []))
+      .flatMap((b) =>
+        (Array.isArray(b.employees) ? b.employees : []).filter((employee) => {
+          const name = typeof employee === "string" ? employee : employee?.name;
+          return !allowsLinkedResourceOverlap(b, "employee", name);
+        })
+      )
       .map((e) => (typeof e === "string" ? e : e?.name))
       .map((s) => String(s || "").trim())
       .filter(Boolean);
-  }, [overlapping]);
+  }, [overlapping, allowsLinkedResourceOverlap]);
 
   const heldEmployeeNames = useMemo(() => {
     return overlapping
@@ -1513,7 +1549,11 @@ function CreateBookingForm({ initialStatus }) {
   const isEmployeeUnavailableByNoteForDates = (employeeName, dates) =>
     Boolean(getEmployeeUnavailableNoteForDates(employeeName, dates));
 
-  const buildVehicleBlockingMapsFromBookings = (bookingRows = [], dates = selectedDates) => {
+  const buildVehicleBlockingMapsFromBookings = (
+    bookingRows = [],
+    dates = selectedDates,
+    continuation = linkedContinuation
+  ) => {
     const blockingById = {};
     const blockingStatusesById = {};
 
@@ -1524,6 +1564,14 @@ function CreateBookingForm({ initialStatus }) {
         const vmap = booking.vehicleStatus || {};
 
         keys.forEach((vid) => {
+          const overlapDates = overlappingBookingDateKeys(expandBookingDates(booking), dates);
+          if (linkedContinuationAllowsResourceOverlap({
+            currentContinuation: continuation,
+            otherBooking: booking,
+            overlapDates,
+            resourceType: "vehicle",
+            resourceKey: vid,
+          })) return;
           const itemStatus = (vmap[vid] ?? booking.status) || "";
           if (!isVehicleBlockingStatus(itemStatus)) return;
           if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
@@ -1776,9 +1824,34 @@ function CreateBookingForm({ initialStatus }) {
 
     if (!coreFilled) {
       const missing = [];
-      if (!isMaintenance && !(client || "").trim()) missing.push("Production Company");
+      if (!isMaintenance && !(production || "").trim()) missing.push("Production");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
       return systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
+    }
+
+    if (!hasRequiredContact) {
+      setContactsExpanded(true);
+      ensureSavedContactsLoaded();
+      return systemDialogs.showSystemNotification(
+        "Please add a contact name with either an email address or phone number."
+      );
+    }
+
+    const mismatchedQuoteAttachments = findMismatchedQuoteAttachments(jobNumber, [
+      ...(attachments || []),
+      ...(newFiles || []),
+    ]);
+    if (mismatchedQuoteAttachments.length) {
+      const quoteJobs = Array.from(
+        new Set(mismatchedQuoteAttachments.map(({ quoteJobNumber }) => quoteJobNumber))
+      ).join(", ");
+      return systemDialogs.showSystemNotification(
+        `${mismatchedQuoteAttachments.length} quote ${
+          mismatchedQuoteAttachments.length === 1 ? "file belongs" : "files belong"
+        } to another job (${quoteJobs}). Remove ${
+          mismatchedQuoteAttachments.length === 1 ? "it" : "them"
+        } or correct the job number before saving.`
+      );
     }
 
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
@@ -1824,8 +1897,37 @@ function CreateBookingForm({ initialStatus }) {
       }
     }
 
+    const previousBookingForSave = linkedContinuation
+      ? (availabilityForSave?.bookings || allBookings || []).find(
+          (booking) => booking?.id === linkedContinuation.fromBookingId
+        )
+      : null;
+    const linkedContinuationResult = buildLinkedContinuationPayload({
+      formValue: isMaintenance ? null : linkedContinuation,
+      previousBooking: previousBookingForSave
+        ? {
+            ...previousBookingForSave,
+            vehicles: normalizeVehicleKeysListForLookup(
+              previousBookingForSave.vehicles || [],
+              vehicleLookup
+            ),
+          }
+        : null,
+      bookingDates,
+      vehicles,
+      employees: cleanedEmployees,
+    });
+    if (linkedContinuationResult.error) {
+      return systemDialogs.showSystemNotification(linkedContinuationResult.error);
+    }
+    const linkedContinuationForSave = linkedContinuationResult.value;
+
     const freshVehicleBlocking = availabilityForSave
-      ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
+      ? buildVehicleBlockingMapsFromBookings(
+          availabilityForSave.bookings || [],
+          bookingDates,
+          linkedContinuationForSave
+        )
       : null;
 
     const vehicleConflicts = selectedVehicleConflictLabels(
@@ -2097,6 +2199,7 @@ function CreateBookingForm({ initialStatus }) {
       vehicleStatus: vehicleStatusForSave,
       uCraneArmFitted: uCraneArmFittedForSave,
       equipment,
+      linkedContinuation: linkedContinuationForSave,
 
       isSecondPencil,
       isCrewed: inactiveBooking ? false : Boolean(isCrewed),
@@ -2214,8 +2317,8 @@ function CreateBookingForm({ initialStatus }) {
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
-      <div style={pageWrap}>
-        <div style={mainWrap}>
+      <div className={layoutStyles.pageShell} style={pageWrap}>
+        <div className={layoutStyles.workspaceMain} style={mainWrap}>
           <div className={`${layoutStyles.extracted2} ${layoutStyles.compactPageHeader}`}>
             <div className={layoutStyles.compactTitleBlock}>
               <div className={layoutStyles.compactTitleLine}>
@@ -2228,6 +2331,7 @@ function CreateBookingForm({ initialStatus }) {
             </div>
             <button
               type="button"
+              className={layoutStyles.primaryAction}
               disabled={!coreFilled}
               title={saveTooltip || "Save booking and open quote page"}
               onClick={() => handleSubmit({ openQuote: true })}
@@ -2271,6 +2375,7 @@ function CreateBookingForm({ initialStatus }) {
           </div>
 
           <form
+            className={layoutStyles.workspaceForm}
             onSubmit={(e) => {
               e.preventDefault();
               handleSubmit();
@@ -2450,11 +2555,11 @@ function CreateBookingForm({ initialStatus }) {
                 <div className={`create-booking-two ${layoutStyles.extracted9}`}>
                   <div>
                     <label style={field.label}>Production Company</label>
-                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
+                    <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} />
                   </div>
                   <div>
                     <label style={field.label}>Production</label>
-                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} />
+                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} required={!isMaintenance} />
                   </div>
                 </div>
 
@@ -2486,6 +2591,12 @@ function CreateBookingForm({ initialStatus }) {
                       </button>
                     </div>
                   </div>
+
+                  {!hasRequiredContact ? (
+                    <p className={layoutStyles.contactReminder}>
+                      Required: add a contact name with either an email address or phone number.
+                    </p>
+                  ) : null}
 
                   {!contactsExpanded ? (
                     <button type="button" className={layoutStyles.contactSummary} onClick={() => setContactsExpanded(true)}>
@@ -2747,6 +2858,15 @@ function CreateBookingForm({ initialStatus }) {
                   <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: SPACE.md, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
                     No dates recorded yet.
                   </div>
+                )}
+
+                {!isMaintenance && dateEntryEnabled && (
+                  <LinkedBookingContinuationFields
+                    value={linkedContinuation}
+                    onChange={setLinkedContinuation}
+                    candidates={allBookings}
+                    selectedDates={selectedDates}
+                  />
                 )}
 
                 {selectedDates.length > 0 && (
@@ -3444,6 +3564,7 @@ function CreateBookingForm({ initialStatus }) {
                   <div className={layoutStyles.extracted65}>
                     <button
                       type="submit"
+                      className={layoutStyles.primaryAction}
                       disabled={!coreFilled}
                       title={saveTooltip}
                       style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
@@ -3493,7 +3614,7 @@ function CreateBookingForm({ initialStatus }) {
                   onClick={() => handleSubmit({ openQuote: true })}
                   style={{ ...btnPrimary, background: UI.green, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
                 ><FileText size={14} /> Save & Quote</button>
-                <button type="submit" disabled={!coreFilled} title={saveTooltip} style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}>
+                <button type="submit" className={layoutStyles.primaryAction} disabled={!coreFilled} title={saveTooltip} style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}>
                   <Save size={14} /> Save Booking
                 </button>
               </div>

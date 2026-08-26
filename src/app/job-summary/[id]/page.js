@@ -40,6 +40,8 @@ import {
 } from "@/app/utils/commercialPosition";
 import { Button, Checkbox, Input, Modal, Select, Textarea } from "@/app/components/ui";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import { useAuth } from "@/app/context/authContext";
+import { hasFinanceAccess } from "@/app/utils/accessControl";
 
 /* ───────────────────────────────────────────
    Mini design system (same look & feel)
@@ -485,6 +487,8 @@ export default function JobSummaryWithTimesheetsPage() {
   const router = useRouter();
   const jobId = params?.id;
   const dataAccessState = useDataAccessState();
+  const { userDoc } = useAuth() || {};
+  const canAccessInvoiceRecords = hasFinanceAccess(userDoc);
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [job, setJob] = useState(null);
@@ -504,7 +508,7 @@ export default function JobSummaryWithTimesheetsPage() {
 
   // live job
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId) return undefined;
     const unsub = onSnapshot(doc(db, "bookings", jobId), (snap) => {
       setJob(snap.exists() ? { id: snap.id, ...(snap.data() || {}) } : null);
       setLoading(false);
@@ -514,14 +518,17 @@ export default function JobSummaryWithTimesheetsPage() {
 
   // The authoritative draft/approval/issue stage is stored separately from the booking.
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId || !canAccessInvoiceRecords) {
+      setInvoiceRecord(null);
+      return undefined;
+    }
     const unsub = onSnapshot(
       doc(db, "invoiceQueue", jobId),
       (snap) => setInvoiceRecord(snap.exists() ? { id: snap.id, ...(snap.data() || {}) } : null),
       () => setInvoiceRecord(null)
     );
     return () => unsub?.();
-  }, [jobId]);
+  }, [canAccessInvoiceRecords, jobId]);
 
   // fetch + filter timesheets
   useEffect(() => {

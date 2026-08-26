@@ -1,4 +1,40 @@
 
+.primaryAction {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+
+:global(:root[data-color-mode="dark"]) .primaryAction {
+  border-color: var(--color-success-border) !important;
+  background: var(--color-success) !important;
+  color: var(--color-white) !important;
+}
+
+:global(:root[data-color-mode="dark"]) .primaryAction:disabled {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface-raised) !important;
+  color: var(--color-text-muted) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* The quotation is a print document, so its colours must not change with the
+   surrounding workspace theme. Keeping the palette local also preserves the
+   exact on-screen preview used for print/PDF output. */
+.quotePaper {
+  color-scheme: light;
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-subtle: #f8fafc;
+  --color-text: #111827;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-border: #d1d5db;
+  --color-border-strong: #9ca3af;
+  --shell-sidebar-bg: #17191c;
+  --shell-muted: #b4b4b4;
+}
+
 
 .extracted1 {
   border-left: 1px solid var(--color-border-strong);
@@ -115,6 +151,186 @@
   font-weight: 900;
 }
 
+.viewQuoteToolbar {
+  container: view-quote-toolbar / inline-size;
+}
+
+.viewQuoteHeader {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) minmax(0, auto);
+  gap: 12px;
+  align-items: center;
+}
+
+.viewQuoteBack {
+  white-space: nowrap;
+}
+
+.viewQuoteIdentity {
+  min-width: 0;
+}
+
+.viewQuoteReferenceRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.viewQuoteReferenceRow strong {
+  color: var(--color-text);
+  font-size: 16px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.viewQuoteStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-info-border);
+  border-radius: 999px;
+  background: var(--color-info-soft);
+  color: var(--color-brand);
+  font-size: 10.5px;
+  font-weight: 900;
+}
+
+.viewQuoteStatus[data-status="accepted"] {
+  border-color: var(--color-success-border);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.viewQuoteStatus[data-status="lost"] {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.viewQuoteName {
+  margin-top: 4px;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.viewQuoteControls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: end;
+}
+
+.viewQuoteSelector {
+  display: grid;
+  flex: 1 1 360px;
+  min-width: min(360px, 100%);
+  gap: 3px;
+}
+
+.viewQuoteSelector > span {
+  color: var(--color-text-muted);
+  font-size: 9.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.viewQuoteMore {
+  position: relative;
+}
+
+.viewQuoteMore > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 10px;
+  list-style: none;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.viewQuoteMore > summary::-webkit-details-marker {
+  display: none;
+}
+
+.viewQuoteMore > div {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 180px;
+  padding: 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.viewQuoteMore button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-danger);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.viewQuoteMore button:hover:not(:disabled) {
+  background: var(--color-danger-soft);
+}
+
+.viewQuoteMore button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+@container view-quote-toolbar (max-width: 1180px) {
+  .viewQuoteHeader {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .viewQuoteControls {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@container view-quote-toolbar (max-width: 680px) {
+  .viewQuoteHeader {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .viewQuoteControls {
+    grid-column: auto;
+  }
+
+  .viewQuoteSelector {
+    flex-basis: 100%;
+  }
+}
+
 .extracted11 {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -136,15 +352,16 @@
 }
 
 .extracted14 {
+  container-name: quote-toolbar;
+  container-type: inline-size;
   display: grid;
   gap: 10px;
+  width: 100%;
   max-width: 1680px;
-  margin: 0 auto 14px;
+  margin: 0 auto 8px;
   background: color-mix(in srgb, var(--color-surface) 94%, transparent);
-  border: 1px solid var(--color-border-strong);
-  border-radius: 10px;
-  box-shadow: 0 10px 26px rgba(15,23,42,0.08);
-  padding: 10px;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .extracted15 {
@@ -183,7 +400,7 @@
   display: grid;
   grid-column: 1 / span 2;
   grid-row: 2;
-  grid-template-columns: minmax(190px, 0.7fr) minmax(260px, 1fr) auto;
+  grid-template-columns: minmax(300px, 1fr) auto auto;
   min-width: 0;
   gap: 8px;
   align-items: center;
@@ -210,6 +427,56 @@
   gap: 8px;
   justify-content: flex-end;
   align-items: center;
+}
+
+.suggestedTemplateAction {
+  white-space: nowrap;
+}
+
+.quoteValidationHint {
+  flex: 1 1 260px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.extracted22 button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.builderMore > div {
+  gap: 2px;
+}
+
+.emptyQuoteState,
+.emptyQuoteDocument {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 18px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.emptyQuoteState strong,
+.emptyQuoteDocument strong {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.emptyQuoteState span,
+.emptyQuoteDocument span {
+  max-width: 560px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.emptyQuoteDocument {
+  min-height: 62px;
+  align-content: center;
+  padding: 10px;
 }
 
 @media (max-width: 1400px) {
@@ -239,7 +506,55 @@
   }
 }
 
+/* The app sidebar can make the quote area narrow while the browser viewport is
+   still wide, so respond to the toolbar's real available width as well. */
+@container quote-toolbar (max-width: 1400px) {
+  .extracted17 {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .extracted17 > input {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .extracted19 {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .extracted21 {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .extracted22 {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 760px) {
+  .extracted18,
+  .extracted22 {
+    flex-wrap: wrap;
+  }
+
+  .extracted19 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container quote-toolbar (max-width: 760px) {
+  .extracted15 {
+    grid-template-columns: 1fr;
+  }
+
+  .extracted15 > :last-child {
+    justify-self: start;
+  }
+
   .extracted18,
   .extracted22 {
     flex-wrap: wrap;
@@ -750,12 +1065,6 @@
   padding-right: 7px;
 }
 
-.extracted70 {
-  flex: 1 1 auto;
-  min-height: 0;
-  background: var(--color-surface);
-}
-
 .extracted71 {
   display: flex;
   gap: 0;
@@ -837,11 +1146,14 @@
   gap: 14px;
   align-items: center;
   padding: 0 30px 9px;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .extracted80 {
   font-size: 10.5px;
   line-height: 1.15;
+  color: var(--color-text-secondary);
 }
 
 .extracted81 {
@@ -868,6 +1180,8 @@
   font-weight: 900;
   font-size: 10.2px;
   padding: 0 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .extracted84 {
@@ -894,6 +1208,8 @@
   font-weight: 900;
   font-size: 10.2px;
   padding: 0 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .extracted87 {

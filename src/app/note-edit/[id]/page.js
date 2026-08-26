@@ -15,6 +15,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 export default function EditNoteForm() {
   const router = useRouter();
@@ -59,10 +60,9 @@ export default function EditNoteForm() {
     const fetchEmployees = async () => {
       try {
         const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-        }));
+        const data = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...(doc.data() || {}) }))
+          .filter(isCurrentEmployeeRecord);
         setEmployees(data);
       } catch (error) {
         console.error("Failed to fetch employees:", error);

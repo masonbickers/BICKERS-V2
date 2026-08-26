@@ -26,6 +26,7 @@ import {
   Table,
   TableContainer,
 } from "@/app/components/ui";
+import { isEmptyCreateBookingDraftEntry } from "@/app/utils/createBookingDraft";
 import styles from "./page.styles.module.css";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
@@ -67,6 +68,7 @@ export default function BookingDraftsPage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [draftPendingDelete, setDraftPendingDelete] = useState(null);
+  const [showEmptyDraftDelete, setShowEmptyDraftDelete] = useState(false);
 
   useEffect(() => {
     const refresh = () => {
@@ -101,6 +103,11 @@ export default function BookingDraftsPage() {
     });
   }, [drafts, searchQuery]);
 
+  const emptyDrafts = useMemo(
+    () => drafts.filter((draft) => isEmptyCreateBookingDraftEntry(draft)),
+    [drafts]
+  );
+
   const removeDraft = () => {
     const id = draftPendingDelete?.id;
     if (!id) return;
@@ -109,6 +116,15 @@ export default function BookingDraftsPage() {
     writeDrafts(next);
     setDraftMap(next);
     setDraftPendingDelete(null);
+  };
+
+  const removeEmptyDrafts = () => {
+    const next = Object.fromEntries(
+      Object.entries(draftMap || {}).filter(([, draft]) => !isEmptyCreateBookingDraftEntry(draft))
+    );
+    writeDrafts(next);
+    setDraftMap(next);
+    setShowEmptyDraftDelete(false);
   };
 
   const openDraft = (id) => {
@@ -123,6 +139,12 @@ export default function BookingDraftsPage() {
           subtitle="Continue unfinished bookings that were saved automatically on this device."
           actions={
             <OperationsHeaderActions>
+              {hasLoaded && emptyDrafts.length > 0 ? (
+                <Button variant="danger" type="button" onClick={() => setShowEmptyDraftDelete(true)}>
+                  <Trash2 size={14} />
+                  Delete Empty ({emptyDrafts.length})
+                </Button>
+              ) : null}
               <Button type="button" onClick={() => router.push("/create-booking")}>
                 <Plus size={14} />
                 New Booking
@@ -244,6 +266,25 @@ export default function BookingDraftsPage() {
               <Button variant="danger" type="button" onClick={removeDraft}>
                 <Trash2 size={14} />
                 Delete Draft
+              </Button>
+            </>
+          }
+        />
+
+        <Modal
+          open={showEmptyDraftDelete}
+          onClose={() => setShowEmptyDraftDelete(false)}
+          title="Delete empty booking drafts?"
+          description={`${emptyDrafts.length} ${emptyDrafts.length === 1 ? "draft has" : "drafts have"} no entered booking details and will be permanently removed from this device.`}
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" type="button" onClick={() => setShowEmptyDraftDelete(false)}>
+                Keep Drafts
+              </Button>
+              <Button variant="danger" type="button" onClick={removeEmptyDrafts}>
+                <Trash2 size={14} />
+                Delete {emptyDrafts.length} Empty {emptyDrafts.length === 1 ? "Draft" : "Drafts"}
               </Button>
             </>
           }

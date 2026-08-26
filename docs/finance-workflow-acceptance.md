@@ -152,6 +152,9 @@ captured on the actual Windows Sage server for:
 - configured company identity binding;
 - connector-selected adapter and safe blocker codes.
 
-After that evidence is reviewed, one exact version-specific read-only adapter
-must be built, tested and deployed. Production Sage posting remains unavailable
-until a later separately approved write adapter is implemented and verified.
+After that evidence is reviewed, exact version-specific read-only and
+invoice-write adapters must be built against the licensed SDK, allowlisted,
+tested and deployed. The repository now contains the gated contract-v2
+transport and service-invoice worker, but production Sage posting remains
+unavailable until the real adapters, test-company post and controlled live
+pilot are completed and recorded.

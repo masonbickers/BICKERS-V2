@@ -225,6 +225,9 @@ async function loadVerifier(payload) {
       hasServiceWorkspaceAccess: () => true,
       isAccountDisabled: () => false,
     }),
+    "@/app/utils/financeAccess": synthetic(ctx, {
+      financeAccessDecision: () => ({ allowed: true, status: 200, error: "" }),
+    }),
   };
   const sourceModule = new vm.SourceTextModule(verifierSource, { context: ctx, identifier: verifierPath.href });
   await sourceModule.link(async (specifier) => {

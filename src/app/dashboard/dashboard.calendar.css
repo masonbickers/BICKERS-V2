@@ -132,6 +132,40 @@
   display: flex;
   min-height: 176px;
 }
+.dashboard-page .dashboard-compact-calendar .rbc-event.work-diary-linked-from {
+  position: relative;
+  z-index: 2;
+  overflow: visible !important;
+  border-right: 2px dashed var(--color-brand) !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.dashboard-page .dashboard-compact-calendar .rbc-event.work-diary-linked-from::after {
+  content: "\2192";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 3;
+  color: #000;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.dashboard-page .dashboard-compact-calendar .rbc-event.work-diary-linked-to {
+  position: relative;
+  z-index: 1;
+  border-left: 0 !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+.dashboard-page .dashboard-compact-calendar .rbc-row-segment:has(> .rbc-event.work-diary-linked-from) {
+  padding-right: 0;
+}
+.dashboard-page .dashboard-compact-calendar .rbc-row-segment:has(> .rbc-event.work-diary-linked-to) {
+  padding-left: 0;
+}
 :root[data-color-mode="dark"] .dashboard-page .rbc-event.work-diary-job-card {
   outline: 1px solid color-mix(in srgb, var(--color-text) 42%, transparent);
   outline-offset: 1px;

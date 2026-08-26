@@ -18,6 +18,7 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 const UI = UI_TOKENS;
 
@@ -98,7 +99,7 @@ const btn = (kind = "primary") => {
     padding: "8px 10px",
     borderRadius: UI.radius,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    background: "var(--button-primary-background)",
     color: "var(--color-white)",
     fontWeight: 850,
     cursor: "pointer",
@@ -207,6 +208,7 @@ export default function TrainingPolicyPage() {
         const employeeSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const employeeList = employeeSnap.docs
           .map((employeeDoc) => ({ id: employeeDoc.id, ...employeeDoc.data() }))
+          .filter(isCurrentEmployeeRecord)
           .sort((a, b) => employeeDisplayName(a).localeCompare(employeeDisplayName(b)));
 
         setEmployees(employeeList);

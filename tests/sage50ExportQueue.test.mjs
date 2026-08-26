@@ -6,6 +6,7 @@ import {
   createLease,
   exportJobDocumentId,
   jobCanBeClaimed,
+  nextExportRetryAt,
   publicExportJobStatus,
   verifyLeaseToken,
 } from "../src/app/utils/sage50ExportQueue.js";
@@ -19,7 +20,7 @@ test("derives a deterministic export document ID from the idempotency key", () =
 test("creates a canonical queued record from the existing connector contract", () => {
   const record = createExportQueueRecord({
     contract: {
-      contractVersion: 1,
+      contractVersion: 2,
       product: "sage_50_accounts_uk",
       jobId: "invoice:company-1:booking-1:DRAFT-1",
       idempotencyKey: "key-1",
@@ -33,6 +34,15 @@ test("creates a canonical queued record from the existing connector contract", (
   assert.equal(record.status, "queued");
   assert.equal(record.attemptCount, 0);
   assert.equal(record.invoiceId, "booking-1");
+});
+
+test("retryable failures wait before a bounded retry", () => {
+  const now = new Date("2026-07-24T12:00:00.000Z");
+  const nextAttemptAt = nextExportRetryAt(1, now);
+  const job = { status: "retry_wait", attemptCount: 1, nextAttemptAt };
+  assert.equal(jobCanBeClaimed(job, now.getTime()), false);
+  assert.equal(jobCanBeClaimed(job, Date.parse(nextAttemptAt)), true);
+  assert.equal(jobCanBeClaimed({ ...job, attemptCount: 3 }, Date.parse(nextAttemptAt)), false);
 });
 
 test("lease tokens are secret and expired leases can be recovered", () => {
@@ -72,8 +82,19 @@ test("claim and callbacks use Firestore concurrency preconditions and never issu
     new URL("../src/app/api/integrations/sage50/export-jobs/[jobId]/succeeded/route.js", import.meta.url),
     "utf8"
   );
+  const queue = readFileSync(
+    new URL("../src/app/api/integrations/sage50/export-jobs/route.js", import.meta.url),
+    "utf8"
+  );
+  const failed = readFileSync(
+    new URL("../src/app/api/integrations/sage50/export-jobs/[jobId]/failed/route.js", import.meta.url),
+    "utf8"
+  );
   const rules = readFileSync(new URL("../firestore.rules", import.meta.url), "utf8");
   assert.match(claim, /updateJobWithPrecondition/);
+  assert.match(claim, /connectorReadyForInvoiceWrite/);
+  assert.match(queue, /connectorReadyForInvoiceWrite/);
+  assert.match(failed, /nextExportRetryAt/);
   assert.match(helper, /preconditionUpdateTime/);
   assert.equal(succeeded.includes('adminPatchDocument("invoiceQueue"'), false);
   assert.equal(succeeded.includes("invoiceLifecycleChanged: false"), true);

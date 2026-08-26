@@ -11,7 +11,9 @@ import {
   getRoleDefinition,
   getStoredActiveWorkspace,
   getWorkspaceForPath,
+  hasFinanceAccess,
   isAdminPath,
+  isFinancePath,
   isModuleEnabledForPath,
   normalizePlatformRole,
   selectLandingRoute,
@@ -106,6 +108,39 @@ const GLOBAL_SEARCH_PAGE_ITEMS = [
 const globalSearchText = (...values) =>
   values.flat(Infinity).filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
 const globalSearchDomId = (id) => `search-${String(id || "result").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+const countConfirmedIncompleteJobs = (bookings = [], now = new Date()) => {
+  const todayMidnight = new Date(now);
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  return bookings.filter((job) => {
+    if (!/^\d{4}(?:\.\d+)?$/.test(String(job?.jobNumber ?? "").trim())) return false;
+    if (String(job?.status || "").toLowerCase().trim() !== "confirmed") return false;
+    if (job?.readyToInvoice === true) return false;
+
+    const invoiceStatus = String(job?.invoiceStatus || "").toLowerCase().trim();
+    if (invoiceStatus.includes("paid") || job?.finance?.paidAt) return false;
+
+    const rawDates = Array.isArray(job?.bookingDates) && job.bookingDates.length
+      ? job.bookingDates
+      : job?.date
+        ? [job.date]
+        : [];
+    const dates = rawDates
+      .map((raw) => {
+        if (typeof raw?.toDate === "function") return raw.toDate();
+        const date = new Date(raw);
+        return Number.isNaN(date.getTime()) ? null : date;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    if (!dates.length) return false;
+
+    const lastWorkDate = new Date(dates[dates.length - 1]);
+    lastWorkDate.setHours(0, 0, 0, 0);
+    return lastWorkDate.getTime() < todayMidnight.getTime();
+  }).length;
+};
 
 const dedupeViewAsUsers = (rows = []) => {
   const byIdentity = new Map();
@@ -292,6 +327,7 @@ function HeaderSidebarLayoutInner({
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
   const [maintenanceAlertCount, setMaintenanceAlertCount] = useState(0);
+  const [reviewQueueCount, setReviewQueueCount] = useState(0);
   const [receiptQueryCount, setReceiptQueryCount] = useState(0);
 
   const unsubHrRef = useRef(null);
@@ -494,6 +530,29 @@ function HeaderSidebarLayoutInner({
 
   useEffect(() => {
     if (!user || !accessReady || !isEnabled) {
+      setReviewQueueCount(0);
+      return undefined;
+    }
+
+    const accessState = { user, userDoc, isEnabled, accessReady };
+    const gate = resolveDataAccess(accessState);
+    if (gate.checking || !gate.allowed) {
+      setReviewQueueCount(0);
+      return undefined;
+    }
+
+    return onSnapshot(
+      tenantCollectionQuery(db, "bookings", accessState),
+      (snapshot) => {
+        const bookings = snapshot.docs.map((document) => document.data() || {});
+        setReviewQueueCount(countConfirmedIncompleteJobs(bookings));
+      },
+      () => setReviewQueueCount(0)
+    );
+  }, [accessReady, isEnabled, user, userDoc]);
+
+  useEffect(() => {
+    if (!user || !accessReady || !isEnabled) {
       setReceiptQueryCount(0);
       return undefined;
     }
@@ -550,13 +609,10 @@ function HeaderSidebarLayoutInner({
   const featureVisible = (path) => {
     // Settings contains personal, device-local preferences and is available to every signed-in user.
     if (path === "/settings") return true;
+    if (isFinancePath(path) && !hasFinanceAccess(userDoc)) return false;
     if (canSeeAdmin) return true;
     return isModuleEnabledForPath(path, featureFlags);
   };
-
-  const userHeaderLinks = [
-    ...(canSeeAdmin ? [{ label: contentLabel("navigation.admin"), path: "/admin" }] : []),
-  ];
 
   const userSidebarGroups = [
     {
@@ -627,7 +683,6 @@ function HeaderSidebarLayoutInner({
     ...visibleSidebarGroups.flatMap((group) => group.items),
     { label: "Settings", path: "/settings", Icon: Settings },
   ];
-  const headerLinks = userHeaderLinks.filter((item) => featureVisible(item.path));
   const shouldLoadGlobalSearch = globalSearchLoadReady;
 
   useEffect(() => {
@@ -1355,6 +1410,7 @@ function HeaderSidebarLayoutInner({
                   const isHrItem = path === "/hr";
                   const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
                   const showMaintenanceBadge = path === "/maintenance-alerts" && maintenanceAlertCount > 0;
+                  const showReviewQueueBadge = path === "/review-queue" && reviewQueueCount > 0;
                   const showReceiptBadge = path === "/receipts" && receiptQueryCount > 0;
                   return (
                     <Button bare
@@ -1367,6 +1423,8 @@ function HeaderSidebarLayoutInner({
                           ? `${label}: ${hrNotif.requests} holiday request(s), ${hrNotif.deletes} delete request(s)`
                           : showMaintenanceBadge
                             ? `${label}: ${maintenanceAlertCount} open alert(s)`
+                          : showReviewQueueBadge
+                            ? `${label}: ${reviewQueueCount} confirmed job(s) awaiting completion`
                           : showReceiptBadge
                             ? `${label}: ${receiptQueryCount} receipt query or queries`
                           : label
@@ -1382,13 +1440,16 @@ function HeaderSidebarLayoutInner({
                           {showMaintenanceBadge && (
                             <span className={layoutStyles.navBadge}>{maintenanceAlertCount}</span>
                           )}
+                          {showReviewQueueBadge && (
+                            <span className={layoutStyles.navBadge}>{reviewQueueCount}</span>
+                          )}
                           {showReceiptBadge && (
                             <span className={layoutStyles.navBadge}>{receiptQueryCount}</span>
                           )}
                         </span>
                       ) : null}
 
-                      {sidebarCollapsed && (showHrBadge || showMaintenanceBadge || showReceiptBadge) ? (
+                      {sidebarCollapsed && (showHrBadge || showMaintenanceBadge || showReviewQueueBadge || showReceiptBadge) ? (
                         <span className={layoutStyles.navBadgeDot} />
                       ) : null}
                     </Button>
@@ -1510,33 +1571,19 @@ function HeaderSidebarLayoutInner({
           <nav
             className={layoutStyles.extracted21}
           >
-            <div className={layoutStyles.statusPill} data-complete={accountSetup.complete}
-              title={accountSetup.complete ? accountSetup.detail : `Missing: ${accountSetup.detail}`}
-            >
-              <span className={layoutStyles.statusDot} data-complete={accountSetup.complete} />
-              <div className={layoutStyles.extracted22}>
-                <span className={layoutStyles.extracted23}>
-                  {accountSetup.label}
-                </span>
-                {!accountSetup.complete && (
-                  <span className={layoutStyles.extracted24}>
-                    Missing: {accountSetup.detail}
-                  </span>
-                )}
-              </div>
-            </div>
-
             <div
               className={layoutStyles.extracted25}
-              title={[accountBadge.name, accountBadge.email, accountBadge.accessLabel]
+              data-complete={accountSetup.complete}
+              title={[accountBadge.name, accountBadge.email, accountBadge.accessLabel, accountSetup.detail]
                 .filter(Boolean)
                 .join(" - ")}
-              aria-label={`Signed in as ${accountBadge.name}, ${accountBadge.accessLabel}`}
+              aria-label={`Signed in as ${accountBadge.name}, ${accountBadge.accessLabel}. ${accountSetup.detail}`}
             >
               <span
                 className={layoutStyles.extracted26}
               >
                 {accountBadge.initials}
+                <span className={layoutStyles.accountStatusDot} aria-hidden="true" />
               </span>
               <span className={layoutStyles.extracted27}>
                 <span
@@ -1562,16 +1609,9 @@ function HeaderSidebarLayoutInner({
                 aria-label={`Testing view: ${adminViewMode === "user" ? "User" : "Admin"}`}
                 aria-pressed={adminViewMode === "user"}
               >
-                <span className={`${layoutStyles.viewLabel} ${adminViewMode === "user" ? layoutStyles.viewLabelActive : ""}`}>
-                  User
-                </span>
-                <span
-                  className={layoutStyles.extracted30}
-                >
-                  <span className={layoutStyles.switchKnob} data-mode={adminViewMode} />
-                </span>
-                <span className={`${layoutStyles.viewLabel} ${adminViewMode === "admin" ? layoutStyles.viewLabelActive : ""}`}>
-                  Admin
+                <span className={layoutStyles.viewLabel}>View</span>
+                <span className={layoutStyles.viewLabelActive}>
+                  {adminViewMode === "user" ? "User" : "Admin"}
                 </span>
               </Button>
             )}
@@ -1603,40 +1643,19 @@ function HeaderSidebarLayoutInner({
                     ? "Loading users..."
                     : viewAsError
                       ? "Could not load users - retry"
-                      : "View as current user"}
+                      : "Current user"}
                 </option>
                 {viewAsUsers.map((row) => {
                   const id = String(row?.uid || row?.id || "");
                   const label = row?.name || row?.email || id;
-                  const suffix = row?.email && row?.name ? ` - ${row.email}` : "";
                   return (
                     <option key={id} value={id} className={layoutStyles.extracted33}>
                       {label}
-                      {suffix}
                     </option>
                   );
                 })}
               </Select>
             )}
-
-            {headerLinks.map(({ label, path, icon }) => (
-              <Link
-                key={label}
-                href={path}
-                onClick={(event) => {
-                  event.preventDefault();
-                  attemptNavigation(() => router.push(path));
-                }}
-                className={`${layoutStyles.topLink} ${pathname === path ? layoutStyles.topLinkActive : ""}`}
-              >
-                {icon ? (
-                  <span className={`${layoutStyles.topLinkIcon} ${pathname === path ? layoutStyles.topLinkIconActive : ""}`}>
-                    {icon}
-                  </span>
-                ) : null}
-                {label}
-              </Link>
-            ))}
 
             <div className={layoutStyles.themeSelector} role="group" aria-label="Colour mode">
               {[

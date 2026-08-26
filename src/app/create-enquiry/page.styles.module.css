@@ -249,3 +249,389 @@
   justify-content: flex-end;
   flex-wrap: wrap;
 }
+
+/* Keep Enquiry's lighter workflow inside the same interaction shell as Create/Edit Booking. */
+.pageShell { display: flex; flex-direction: column; }
+.workspaceMain { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.workspaceForm { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.workspaceForm > .extracted7 { display: flex; flex: 1; flex-direction: column; }
+.compactPageHeader {
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.compactTitleBlock {
+  display: grid;
+  gap: 3px;
+}
+
+.compactTitleLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.jobReference {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.compactControlBar {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 5px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+}
+
+.compactControl {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 7px;
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.compactControl:hover {
+  background: var(--color-surface-subtle);
+}
+
+.compactControl:has(input:checked) {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.compactControl input {
+  margin: 0;
+}
+
+.controlDivider {
+  width: 1px;
+  height: 22px;
+  margin: 0 2px;
+  background: var(--color-border);
+}
+
+.compactControlHint {
+  min-width: 160px;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookingColumns {
+  grid-template-columns: minmax(300px, .88fr) minmax(390px, 1.08fr) minmax(390px, 1.04fr);
+  gap: 8px;
+  margin-top: 8px;
+  align-items: start;
+}
+
+.bookingColumns > * {
+  min-width: 0;
+}
+
+.enquiryColumns {
+  grid-template-columns: minmax(390px, .9fr) minmax(620px, 1.45fr);
+}
+
+:global(:root[data-color-mode="dark"]) .enquiryColumnPanel {
+  background: var(--color-canvas) !important;
+}
+
+.enquiryDetailsSection {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.jobFieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.contactActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contactSummary {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.contactSummary > span {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contactSummary small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.resourceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.resourceTabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-subtle);
+}
+
+.resourceTab,
+.resourceTabActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.resourceTab > span,
+.resourceTabActive > span {
+  min-width: 19px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 11px;
+  text-align: center;
+}
+
+.resourceTabActive {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .12);
+}
+
+.resourceSelectionSummary {
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.selectedResources {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.selectionChip {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 5px 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 11.5px;
+  font-weight: 750;
+}
+
+.selectionChip button {
+  display: inline-flex;
+  width: 19px;
+  height: 19px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.selectionChip button:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.stickyActionBar {
+  position: sticky;
+  z-index: 20;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: auto -4px -48px;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, .12);
+  backdrop-filter: blur(12px);
+}
+
+.compactReview {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+}
+
+.compactReview strong {
+  color: var(--color-text);
+  font-size: 12.5px;
+}
+
+.reviewStatus {
+  padding: 3px 7px;
+  border: 1px solid var(--job-status-enquiry-border, var(--color-border));
+  border-radius: 999px;
+  background: var(--job-status-enquiry, var(--color-surface-subtle));
+  color: var(--job-status-enquiry-text, var(--color-text));
+  font-weight: 850;
+}
+
+.stickyActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:global(:root[data-color-mode="dark"]) .primaryAction:disabled {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface-raised) !important;
+  color: var(--color-text-muted) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+@media (max-width: 1350px) {
+  .bookingColumns {
+    grid-template-columns: minmax(300px, .9fr) minmax(390px, 1.1fr);
+  }
+
+  .enquiryColumns {
+    grid-template-columns: minmax(340px, .9fr) minmax(500px, 1.25fr);
+  }
+
+  .bookingColumns:not(.enquiryColumns) .resourceCard {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .bookingColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .enquiryColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .resourceCard {
+    grid-column: auto;
+  }
+
+  .resourceHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stickyActionBar {
+    align-items: stretch;
+    flex-direction: column;
+    margin-bottom: -48px;
+  }
+
+  .stickyActions {
+    justify-content: flex-end;
+  }
+
+  .compactControlHint {
+    flex-basis: 100%;
+    padding: 0 8px 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .compactPageHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .controlDivider {
+    display: none;
+  }
+
+  .jobFieldGrid {
+    grid-template-columns: 1fr;
+  }
+}

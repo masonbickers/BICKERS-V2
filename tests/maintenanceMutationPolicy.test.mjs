@@ -25,17 +25,35 @@ test("schedule rules vary by maintenance type", () => {
   };
   assert.deepEqual(getMaintenanceScheduleRule({ ...common, type: "SERVICE" }), {
     outsideLegalWeek: true,
+    requiresAcknowledgement: false,
     requiresExceptionReason: false,
     blocked: false,
     state: "service_advisory",
   });
-  assert.equal(getMaintenanceScheduleRule({ ...common, type: "MOT" }).blocked, true);
+  assert.deepEqual(getMaintenanceScheduleRule({ ...common, type: "MOT" }), {
+    outsideLegalWeek: true,
+    requiresAcknowledgement: true,
+    requiresExceptionReason: false,
+    blocked: false,
+    state: "after_expiry",
+  });
   assert.equal(getMaintenanceScheduleRule({ ...common, type: "INSPECTION" }).requiresExceptionReason, true);
   assert.equal(getMaintenanceScheduleRule({
     ...common,
     type: "MOT",
     bookingDates: ["2026-08-06"],
   }).blocked, false);
+  assert.deepEqual(getMaintenanceScheduleRule({
+    ...common,
+    type: "INSPECTION",
+    bookingDates: ["2026-07-31"],
+  }), {
+    outsideLegalWeek: false,
+    requiresAcknowledgement: false,
+    requiresExceptionReason: false,
+    blocked: false,
+    state: "allowed",
+  });
 });
 
 test("terminal transitions cannot be manufactured through editing", () => {

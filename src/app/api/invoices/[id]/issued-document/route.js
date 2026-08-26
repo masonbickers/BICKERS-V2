@@ -5,7 +5,7 @@ import {
 import {
   canAccessCompany,
   jsonError,
-  requireActiveUserFromRequest,
+  requireFinanceFromRequest,
 } from "../../../admin/_lib.js";
 import { ensureIssuedInvoiceDocument } from "../../../../utils/issuedInvoiceDocumentService.js";
 
@@ -18,7 +18,7 @@ const safeId = (value) => {
 };
 
 async function authorisedInvoice(req, context) {
-  const auth = await requireActiveUserFromRequest(req);
+  const auth = await requireFinanceFromRequest(req);
   if (auth.error) return { response: auth.error };
   const { id: rawId } = await context.params;
   const invoiceId = safeId(rawId);

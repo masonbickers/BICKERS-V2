@@ -67,7 +67,7 @@ const btn = (kind = "primary") => {
     padding: "5px 8px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    background: "var(--button-primary-background)",
     color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
@@ -336,7 +336,7 @@ export default function EquipmentPage() {
             </div>
 
             <div className={layoutStyles.extracted4}>
-              <span style={chip("var(--color-white)", UI.text)}>{kpis.count} equipment</span>
+              <span style={chip("var(--color-surface-raised)", UI.text)}>{kpis.count} equipment</span>
               <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>Due soon: {kpis.soon}</span>
               <span style={chip("var(--color-danger-soft)", "var(--color-danger)")}>Overdue: {kpis.overdue}</span>
 
@@ -401,7 +401,7 @@ export default function EquipmentPage() {
 
                       {expandedCategories[category] &&
                         list.map((e, i) => {
-                          const zebra = i % 2 === 0 ? "var(--color-white)" : "var(--color-canvas)";
+                          const zebra = i % 2 === 0 ? "var(--color-surface)" : "var(--table-alternate-bg)";
                           const nextInspection = dateInfo(e.nextInspection);
                           const rowTd = {
                             padding: "4px 10px",

@@ -30,6 +30,7 @@ import {
   Users,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* Mini design system */
 const UI = UI_TOKENS;
@@ -132,7 +133,7 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    background: "var(--button-primary-background)",
     color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
@@ -226,6 +227,7 @@ export default function UploadContractPage() {
         const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
+          .filter(isCurrentEmployeeRecord)
           .sort((a, b) => safeStr(a.name).localeCompare(safeStr(b.name)));
         if (mounted) setEmployees(list);
       } catch (e) {

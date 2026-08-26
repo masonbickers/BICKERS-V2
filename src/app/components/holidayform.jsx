@@ -21,6 +21,7 @@ import {
 import { Check } from "lucide-react";
 import { Button, Modal } from "@/app/components/ui";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
@@ -268,12 +269,14 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             const data = d.data() || {};
             return {
               id: d.id,
+              ...data,
               name: data?.name,
               holidayAllowances: data?.holidayAllowances || {}, // { "2026": 20, ... }
               holidayAllowance:
                 typeof data?.holidayAllowance === "number" ? data.holidayAllowance : null, // legacy
             };
           })
+          .filter(isCurrentEmployeeRecord)
           .filter((x) => x.name);
         setEmployees(list);
       } catch (e) {
@@ -1243,7 +1246,7 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  background: "var(--button-primary-background)",
   color: "var(--color-white)",
   fontWeight: 800,
   fontSize: 13,

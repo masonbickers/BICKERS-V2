@@ -105,6 +105,7 @@ export default function EditMaintenanceBookingForm({
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [scheduleExceptionReason, setScheduleExceptionReason] = useState("");
+  const [motExpiryAcknowledged, setMotExpiryAcknowledged] = useState(false);
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [equipmentSearch, setEquipmentSearch] = useState("");
   const [equipmentSearchOpen, setEquipmentSearchOpen] = useState(false);
@@ -371,6 +372,7 @@ export default function EditMaintenanceBookingForm({
       setType(bType);
       setStatus(b.status || "Booked");
       setScheduleExceptionReason(String(b.scheduleExceptionReason || ""));
+      setMotExpiryAcknowledged(Boolean(b.motExpiryAcknowledged));
       setInspectionTypeIds(
         Array.isArray(b.maintenanceTypeIds) && b.maintenanceTypeIds.length
           ? b.maintenanceTypeIds.filter((item) => INSPECTION_WORK_IDS.has(item))
@@ -541,7 +543,7 @@ export default function EditMaintenanceBookingForm({
     }
 
     if (activeConflict?.blocking) return false;
-    if (scheduleRule.blocked) return false;
+    if (scheduleRule.requiresAcknowledgement && !motExpiryAcknowledged) return false;
     if (scheduleRule.requiresExceptionReason && !scheduleExceptionReason.trim()) return false;
     return true;
   }, [
@@ -561,6 +563,7 @@ export default function EditMaintenanceBookingForm({
     activeConflict,
     scheduleRule,
     scheduleExceptionReason,
+    motExpiryAcknowledged,
   ]);
 
   const handleClose = () => {
@@ -597,6 +600,7 @@ export default function EditMaintenanceBookingForm({
             endDateISO: bookingDates.keys.length > 1 ? bookingDates.keys.at(-1) : "",
           },
           reason: scheduleExceptionReason,
+          motExpiryAcknowledged,
         });
       }
       const savedBooking = await updateMaintenanceBooking({
@@ -623,6 +627,7 @@ export default function EditMaintenanceBookingForm({
         authState: dataAccessState,
         maintenanceTypeIds: safeType === "INSPECTION" ? inspectionTypeIds : [],
         scheduleExceptionReason,
+        motExpiryAcknowledged,
       });
 
       if (typeof onSaved === "function") onSaved(savedBooking);
@@ -828,11 +833,11 @@ export default function EditMaintenanceBookingForm({
               </div>
             </section>
 
-            {booking?.sourceDueIsoWeek && (outsideDueWeek || scheduleRule.blocked) ? (
+            {booking?.sourceDueIsoWeek && (outsideDueWeek || scheduleRule.requiresAcknowledgement) ? (
               <div className={layoutStyles.isoWarning}>
                 <strong>
                   {scheduleRule.state === "after_expiry"
-                    ? "MOT appointment is after the legal expiry date."
+                    ? "MOT will be expired on the appointment date."
                     : scheduleRule.state === "service_advisory"
                     ? "Service is outside its planned week — allowed."
                     : "Inspection is outside the legal due week."}
@@ -854,6 +859,16 @@ export default function EditMaintenanceBookingForm({
                       className={layoutStyles.extracted18}
                     />
                 </div> : null}
+                {scheduleRule.requiresAcknowledgement ? (
+                  <label className={layoutStyles.expiryAcknowledgement}>
+                    <input
+                      type="checkbox"
+                      checked={motExpiryAcknowledged}
+                      onChange={(event) => setMotExpiryAcknowledged(event.target.checked)}
+                    />
+                    <span>I acknowledge that the MOT will be expired on the appointment date.</span>
+                  </label>
+                ) : null}
               </div>
             ) : null}
 

@@ -1,6 +1,5 @@
-using System.Reflection;
-using System.Runtime.Loader;
 using BickersAction.Sage50Connector.Configuration;
+using BickersAction.Sage50Connector.Security;
 using Microsoft.Extensions.Options;
 
 namespace BickersAction.Sage50Connector.Sage;
@@ -8,6 +7,8 @@ namespace BickersAction.Sage50Connector.Sage;
 public sealed class SageAdapterCatalog(
     IOptions<ConnectorOptions> options,
     ISageInstallationDiscovery discovery,
+    TrustedAdapterLoader adapterLoader,
+    ISageCompanyCredentialStore sageCredentialStore,
     ILogger<SageAdapterCatalog> logger) : ISageAdapterCatalog
 {
     private readonly ConnectorOptions _options = options.Value;
@@ -26,14 +27,17 @@ public sealed class SageAdapterCatalog(
             return Report(installation, "error", "sdo_not_found",
                 "A compatible Sage Data Objects installation was not detected.");
         }
+        var compatibilityFailure = SageAdapterCompatibility.ValidateInstallation(_options, installation);
+        if (compatibilityFailure is not null)
+        {
+            return Report(
+                installation,
+                "degraded",
+                compatibilityFailure.Code,
+                compatibilityFailure.Message);
+        }
 
-        var adapters = LoadAdapters();
-        var requested = _options.SageAdapter.Trim();
-        var candidates = requested.Equals("auto", StringComparison.OrdinalIgnoreCase)
-            ? adapters
-            : adapters.Where(adapter =>
-                adapter.AdapterName.Equals(requested, StringComparison.OrdinalIgnoreCase));
-        var adapter = candidates.FirstOrDefault(item => item.CanHandle(installation));
+        var adapter = SelectAdapter(installation);
         if (adapter is null)
         {
             return Report(installation, "degraded", "unsupported_sage_sdo_version",
@@ -47,15 +51,53 @@ public sealed class SageAdapterCatalog(
 
         try
         {
-            var result = await adapter.TestConnectionAsync(
-                _options.CompanyDataPath,
-                cancellationToken);
+            if (!sageCredentialStore.Exists(SageCredentialPurpose.ReadOnly))
+            {
+                return Report(installation, "degraded", "sage_read_only_credential_missing",
+                    "The dedicated read-only Sage credential is not installed.");
+            }
+            var context = await ConnectionContextAsync(cancellationToken);
+            var result = await adapter.TestConnectionAsync(context, cancellationToken);
+            if (result.Connected && string.IsNullOrWhiteSpace(_options.ExpectedSageCompanyIdentifier))
+            {
+                return new SageCapabilityReport(
+                    "degraded",
+                    installation.SageVersion,
+                    installation.SdoVersion,
+                    installation.ProcessArchitecture,
+                    result.CompanyName,
+                    result.CompanyIdentifier,
+                    adapter.AdapterName,
+                    [],
+                    "sage_company_binding_required",
+                    "An expected Sage company identifier must be configured before the connector can become ready.");
+            }
+            if (result.Connected && !string.Equals(
+                result.CompanyIdentifier,
+                _options.ExpectedSageCompanyIdentifier.Trim(),
+                StringComparison.Ordinal))
+            {
+                return new SageCapabilityReport(
+                    "error",
+                    installation.SageVersion,
+                    installation.SdoVersion,
+                    installation.ProcessArchitecture,
+                    result.CompanyName,
+                    result.CompanyIdentifier,
+                    adapter.AdapterName,
+                    [],
+                    "sage_company_binding_mismatch",
+                    "The connected Sage company does not match the configured company binding.");
+            }
             return new SageCapabilityReport(
                 result.Connected ? "online" : "degraded",
                 installation.SageVersion,
                 installation.SdoVersion,
+                installation.ProcessArchitecture,
                 result.CompanyName,
                 result.CompanyIdentifier,
+                adapter.AdapterName,
+                result.Connected ? ["read_only_customer_lookup"] : [],
                 result.ErrorCode,
                 result.Connected
                     ? null
@@ -80,6 +122,11 @@ public sealed class SageAdapterCatalog(
         CancellationToken cancellationToken)
     {
         var installation = await discovery.DiscoverAsync(cancellationToken);
+        var compatibilityFailure = SageAdapterCompatibility.ValidateInstallation(_options, installation);
+        if (compatibilityFailure is not null)
+        {
+            throw new InvalidOperationException(compatibilityFailure.Message);
+        }
         var adapter = SelectAdapter(installation)
             ?? throw new InvalidOperationException(
                 "No configured read-only adapter supports the detected Sage 50 and SDO versions.");
@@ -87,57 +134,27 @@ public sealed class SageAdapterCatalog(
         {
             throw new InvalidOperationException("Unsafe Sage adapter rejected.");
         }
-        var connection = await adapter.TestConnectionAsync(
-            _options.CompanyDataPath,
-            cancellationToken);
-        if (!connection.Connected)
+        var context = await ConnectionContextAsync(cancellationToken);
+        var connection = await adapter.TestConnectionAsync(context, cancellationToken);
+        if (!connection.Connected ||
+            string.IsNullOrWhiteSpace(_options.ExpectedSageCompanyIdentifier) ||
+            !string.Equals(
+                connection.CompanyIdentifier,
+                _options.ExpectedSageCompanyIdentifier.Trim(),
+                StringComparison.Ordinal))
         {
-            throw new InvalidOperationException("Read-only Sage company connection is unavailable.");
+            throw new InvalidOperationException("Read-only Sage company binding is unavailable.");
         }
         var maxResults = Math.Clamp(query.MaxResults, 1, 25);
         var results = await adapter.SearchCustomersAsync(
-            _options.CompanyDataPath,
+            context,
             query with { MaxResults = maxResults },
             cancellationToken);
         return results.Take(maxResults).ToArray();
     }
 
     private IReadOnlyList<ISage50ReadOnlyAdapter> LoadAdapters()
-    {
-        var directory = _options.ResolveAdapterDirectory();
-        if (!Directory.Exists(directory))
-        {
-            logger.LogWarning("Sage adapter directory {AdapterDirectory} does not exist.", directory);
-            return [];
-        }
-        var adapters = new List<ISage50ReadOnlyAdapter>();
-        foreach (var path in Directory.EnumerateFiles(directory, "*.dll", SearchOption.TopDirectoryOnly))
-        {
-            try
-            {
-                var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));
-                foreach (var type in assembly.GetTypes().Where(type =>
-                    !type.IsAbstract &&
-                    typeof(ISage50ReadOnlyAdapter).IsAssignableFrom(type) &&
-                    type.GetConstructor(Type.EmptyTypes) is not null))
-                {
-                    if (Activator.CreateInstance(type) is ISage50ReadOnlyAdapter adapter)
-                    {
-                        adapters.Add(adapter);
-                    }
-                }
-            }
-            catch (Exception error) when (
-                error is BadImageFormatException or FileLoadException or ReflectionTypeLoadException)
-            {
-                logger.LogWarning(
-                    "Rejected Sage adapter assembly {AdapterAssembly} ({ErrorType}).",
-                    Path.GetFileName(path),
-                    error.GetType().Name);
-            }
-        }
-        return adapters;
-    }
+        => adapterLoader.Load<ISage50ReadOnlyAdapter>();
 
     private ISage50ReadOnlyAdapter? SelectAdapter(SageInstallationSnapshot installation)
     {
@@ -147,7 +164,26 @@ public sealed class SageAdapterCatalog(
                 ? adapters
                 : adapters.Where(adapter =>
                     adapter.AdapterName.Equals(requested, StringComparison.OrdinalIgnoreCase)))
-            .FirstOrDefault(item => item.CanHandle(installation));
+            .FirstOrDefault(item =>
+                SageAdapterCompatibility.MatchesAdapter(
+                    installation,
+                    item.SupportedSageVersion,
+                    item.SupportedSdoVersion,
+                    item.SupportedProcessArchitecture) &&
+                item.CanHandle(installation));
+    }
+
+    private async Task<SageConnectionContext> ConnectionContextAsync(
+        CancellationToken cancellationToken)
+    {
+        var credential = await sageCredentialStore.ReadAsync(
+            SageCredentialPurpose.ReadOnly,
+            cancellationToken);
+        return new SageConnectionContext(
+            _options.CompanyDataPath,
+            _options.ExpectedSageCompanyIdentifier.Trim(),
+            credential.Username,
+            credential.Password);
     }
 
     private static SageCapabilityReport Report(
@@ -159,8 +195,11 @@ public sealed class SageAdapterCatalog(
             status,
             installation.SageVersion,
             installation.SdoVersion,
+            installation.ProcessArchitecture,
             null,
             null,
+            null,
+            [],
             code,
             message);
 }

@@ -36,8 +36,12 @@ test("heartbeat matches the existing authenticated connector API", () => {
     "connectorVersion",
     "sageVersion",
     "sdoVersion",
+    "processArchitecture",
     "sageCompanyName",
     "sageCompanyIdentifier",
+    "adapterName",
+    "writeAdapterName",
+    "capabilities",
     "lastErrorCode",
     "lastErrorMessage",
   ]) {
@@ -55,27 +59,80 @@ test("version gate is configurable and adapters are strictly read-only", () => {
     read("Hosting/ConnectorWorker.cs"),
   ].join("\n");
   assert.match(catalog, /unsupported_sage_sdo_version/);
+  assert.match(catalog, /SageAdapterCompatibility\.MatchesAdapter/);
   assert.match(catalog, /CapabilityMode\.Equals\("read_only"/);
   assert.match(contract, /TestConnectionAsync/);
+  assert.match(contract, /SupportedSageVersion/);
+  assert.match(contract, /SupportedSdoVersion/);
+  assert.match(contract, /SupportedProcessArchitecture/);
   assert.doesNotMatch(projectSources, /GetTypeFromProgID|Sage\.\d+|SDOEngine\.\d+/);
 });
 
-test("host does not poll invoice export jobs or expose Sage write operations", () => {
-  const files = [
-    read("Program.cs"),
-    read("Hosting/ConnectorWorker.cs"),
-    read("Transport/ConnectorApiClient.cs"),
-    read("Sage/ISage50ReadOnlyAdapter.cs"),
-  ].join("\n");
-  assert.doesNotMatch(files, /export-jobs|create_sales_invoice/);
-  assert.doesNotMatch(files, /CreateInvoice|UpdateInvoice|DeleteInvoice|PostInvoice/);
+test("v33.1 commissioning binds exact Sage, SDO and process versions", () => {
+  const options = read("Configuration/ConnectorOptions.cs");
+  const compatibility = read("Sage/SageAdapterCompatibility.cs");
+  const settings = read("appsettings.json");
+  assert.match(options, /ExpectedSageVersion.*33\.1\.359\.0/);
+  assert.match(options, /ExpectedSdoVersion/);
+  assert.match(options, /ExpectedProcessArchitecture/);
+  assert.match(compatibility, /sage_version_mismatch/);
+  assert.match(compatibility, /sdo_version_binding_required/);
+  assert.match(compatibility, /process_architecture_binding_required/);
+  assert.match(settings, /"ExpectedSageVersion": "33\.1\.359\.0"/);
+  assert.match(settings, /"SageAdapter": "sage50-v33\.1\.359\.0-readonly"/);
+  assert.match(settings, /"SageWriteAdapter": "sage50-v33\.1\.359\.0-invoice-write"/);
+});
+
+test("dedicated Sage credentials are stored separately with DPAPI", () => {
+  const store = read("Security/DpapiSageCompanyCredentialStore.cs");
+  const bootstrapper = read("Security/CredentialBootstrapper.cs");
+  assert.match(store, /SageCredentialPurpose\.ReadOnly/);
+  assert.match(store, /DataProtectionScope\.LocalMachine/);
+  assert.match(store, /SetAccessRuleProtection/);
+  assert.match(bootstrapper, /--set-sage-read-credential/);
+  assert.match(bootstrapper, /--set-sage-write-credential/);
+  assert.doesNotMatch(read("appsettings.json"), /"Password"|"Username"/);
+});
+
+test("SDO calls have a serialised STA executor with an explicit timeout", () => {
+  const executor = read("Sage/SageStaExecutor.cs");
+  assert.match(executor, /ApartmentState\.STA/);
+  assert.match(executor, /SemaphoreSlim/);
+  assert.match(executor, /WaitAsync\(timeout, cancellationToken\)/);
+});
+
+test("invoice posting is isolated behind a separate adapter and local kill switch", () => {
+  const readOnly = read("Sage/ISage50ReadOnlyAdapter.cs");
+  const writeContract = read("Sage/ISage50InvoiceWriteAdapter.cs");
+  const writeWorker = read("Hosting/InvoiceExportWorker.cs");
+  const settings = read("appsettings.json");
+  assert.doesNotMatch(readOnly, /CreateServiceInvoiceAsync|invoice_write/);
+  assert.match(writeContract, /CapabilityMode/);
+  assert.match(writeContract, /TestConnectionAsync/);
+  assert.match(writeContract, /FindExistingServiceInvoiceAsync/);
+  assert.match(writeContract, /CreateServiceInvoiceAsync/);
+  assert.match(writeContract, /ExpectedSageCompanyIdentifier/);
+  assert.match(writeWorker, /EnableInvoicePosting/);
+  assert.match(writeWorker, /ContractVersion != 2/);
+  assert.match(writeWorker, /FindExistingServiceInvoiceAsync[\s\S]*CreateServiceInvoiceAsync/);
+  assert.match(settings, /"EnableInvoicePosting": false/);
+});
+
+test("adapter assemblies require an explicit SHA-256 trust allowlist", () => {
+  const loader = read("Sage/TrustedAdapterLoader.cs");
+  assert.match(loader, /SHA256\.HashData/);
+  assert.match(loader, /TrustedAdapterSha256/);
+  assert.match(loader, /Rejected untrusted Sage adapter assembly/);
 });
 
 test("worker uses cancellation and bounded backoff", () => {
   const worker = read("Hosting/ConnectorWorker.cs");
+  const program = read("Program.cs");
   assert.match(worker, /BackgroundService/);
   assert.match(worker, /stoppingToken/);
   assert.match(worker, /TimeSpan\.FromSeconds\(5\)/);
   assert.match(worker, /TimeSpan\.FromSeconds\(60\)/);
   assert.match(worker, /Task\.Delay\(retry, stoppingToken\)/);
+  assert.match(program, /ApiRequestTimeoutSeconds/);
+  assert.match(program, /client\.Timeout/);
 });

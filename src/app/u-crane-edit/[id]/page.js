@@ -25,6 +25,7 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* ───────────────────────────────────────────
    U-Crane roles (MUST match Create page + Crew Manager)
@@ -129,7 +130,7 @@ const buttonStyle = {
   marginRight: "10px",
   marginTop: "10px",
   padding: "8px 13px",
-  background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+  background: "var(--button-primary-background)",
   color: "var(--color-white)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,
@@ -353,7 +354,7 @@ export default function EditBookingPage() {
           id: d.id,
           __collection: "employees",
           ...d.data(),
-        }));
+        })).filter(isCurrentEmployeeRecord);
         const allFreelancers = freeSnap.docs.map((d) => ({
           id: d.id,
           __collection: "uCraneFreelancers",

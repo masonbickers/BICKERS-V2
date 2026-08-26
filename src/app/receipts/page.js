@@ -51,6 +51,7 @@ import {
 import { useAuth } from "@/app/context/authContext";
 import { getFirebaseStorageTools, db } from "@/app/utils/firebaseClient";
 import { SINGLE_COMPANY_ID } from "@/app/utils/firestoreAccess";
+import { hasFinanceAccess } from "@/app/utils/accessControl";
 import {
   buildReceiptCsv,
   canCloseReceiptGroup,
@@ -105,8 +106,7 @@ function groupTone(status) {
 
 export default function ReceiptsPage() {
   const { user, userDoc, isAdmin, accessReady, isEnabled } = useAuth() || {};
-  const rawRole = String(userDoc?.role || "").trim().toLowerCase();
-  const canReview = Boolean(isAdmin || userDoc?.financeAccess === true || ["finance", "financemanager", "finance manager"].includes(rawRole));
+  const canReview = Boolean(isAdmin || hasFinanceAccess(userDoc));
   const companyId = String(userDoc?.companyId || SINGLE_COMPANY_ID);
   const maxMonth = currentMonthKey();
   const [mode, setMode] = useState(canReview ? "finance" : "mine");

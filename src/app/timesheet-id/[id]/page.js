@@ -1,6 +1,7 @@
 "use client";
 
 import layoutStyles from "./page.styles.module.css";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -40,6 +41,17 @@ import {
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { shouldDeductYardLunch } from "@/app/utils/timesheetLunch";
+import {
+  computeOnSetBreakdown,
+} from "@/app/utils/timesheetOnSetHours";
+import { computeTimesheetDayBreakdown } from "@/app/utils/timesheetHours";
+import {
+  calculatePayAdviceRowTotal,
+  calculatePayAdviceTotals,
+  computePayAdvicePayrollRow,
+  normalisePayAdviceRates,
+  normalisePayAdviceRowOverride,
+} from "@/app/utils/timesheetPayAdvice";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -59,6 +71,48 @@ const DAYS = [
   "Friday",
   "Saturday",
   "Sunday",
+];
+
+const PAY_ADVICE_VALUE_COLUMNS = [
+  { field: "workshopHrs", label: "W/shop Hrs" },
+  { field: "overtimeHrs", label: "W/shop O/T Hrs" },
+  { field: "travelHrs", label: "Travel Hrs" },
+  { field: "sundayHrs", label: "Sunday Hrs" },
+  { field: "onSetHrs", label: "On Set Units" },
+  { field: "onSetOvertimeHrs", label: "Overtime Hrs" },
+  { field: "precisionDriverHrs", label: "Driver Units" },
+  { field: "precisionDriverOvertimeHrs", label: "Driver O/T Hrs" },
+  { field: "weekendSupplementUnits", label: "Sa/Su/NS/BH Units" },
+  { field: "overnightUnits", label: "Per Diem Units" },
+  { field: "travelMealUnits", label: "Meal Units" },
+];
+
+const PAY_ADVICE_RATE_COLUMNS = [
+  "workshopRate",
+  "overtimeRate",
+  "travelRate",
+  "sundayRate",
+  "onSetRate",
+  "onSetOvertimeRate",
+  "precisionDriverRate",
+  "precisionDriverOvertimeRate",
+  "weekendSupplementRate",
+  "overnightRate",
+  "travelMealRate",
+];
+
+const PAY_ADVICE_AMOUNT_COLUMNS = [
+  "workshopAmount",
+  "overtimeAmount",
+  "travelAmount",
+  "sundayAmount",
+  "onSetAmount",
+  "onSetOvertimeAmount",
+  "precisionDriverAmount",
+  "precisionDriverOvertimeAmount",
+  "weekendSupplementAmount",
+  "overnightAmount",
+  "travelMealAmount",
 ];
 
 const cleanIdentityValue = (value) => String(value || "").trim().toLowerCase();
@@ -173,7 +227,7 @@ const controlButton = (kind = "ghost", disabled = false) => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+      background: "var(--button-primary-background)",
       color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
@@ -516,82 +570,6 @@ function computeOfficeHours(entry) {
   return diffHours(entry.startTime, entry.endTime);
 }
 
-function computeWaitingAllowanceHours(entry) {
-  const arrive = entry?.arriveTime;
-  const call = entry?.callTime;
-  if (!arrive || !call) return 0;
-
-  const preCallHrs = getPrecallHours(entry);
-  const callMinutes = toMinutes(call);
-  const arriveMinutes = toMinutes(arrive);
-  if (callMinutes == null || arriveMinutes == null) return 0;
-
-  let targetMinutes = callMinutes - Math.round(preCallHrs * 60);
-  while (targetMinutes < 0) targetMinutes += 24 * 60;
-
-  let diffMinutes = targetMinutes - arriveMinutes;
-  if (diffMinutes < 0) diffMinutes += 24 * 60;
-
-  return Math.min(Math.max(0, diffMinutes / 60), 1);
-}
-
-function computeHotelTravelExemptionHours(entry) {
-  return entry?.overnight ? 0.5 : 0;
-}
-
-function getPrecallHours(entry) {
-  return getPrecallInfo(entry).hours;
-}
-
-function computeOnSetBreakdown(entry) {
-  const travelToHrs = computeTravelHours(entry);
-  const preCallHrs = getPrecallHours(entry);
-  const callToWrapHrs =
-    entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
-  const travelBackHrs =
-    entry?.wrapTime && entry?.arriveBack ? diffHours(entry.wrapTime, entry.arriveBack) : 0;
-
-  if (entry?.callTime) {
-    const callToFinishHrs = entry?.arriveBack
-      ? diffHours(entry.callTime, entry.arriveBack)
-      : entry?.wrapTime
-      ? diffHours(entry.callTime, entry.wrapTime)
-      : 0;
-
-    const onSetPaidHrs = 10;
-    const extraAfterTenHrs = Math.max(0, callToFinishHrs - onSetPaidHrs);
-
-    return {
-      travelToHrs,
-      preCallHrs,
-      onSetBlockHrs: callToWrapHrs,
-      onSetPaidHrs,
-      travelBackHrs,
-      extraAfterTenHrs,
-      totalHrs: travelToHrs + preCallHrs + onSetPaidHrs + extraAfterTenHrs,
-    };
-  }
-
-  const fallbackWindowHrs =
-    entry?.leaveTime && entry?.arriveBack ? diffHours(entry.leaveTime, entry.arriveBack) : 0;
-  const legacyOnSetHrs = callToWrapHrs || fallbackWindowHrs;
-
-  return {
-    travelToHrs,
-    preCallHrs,
-    onSetBlockHrs: legacyOnSetHrs,
-    onSetPaidHrs: legacyOnSetHrs,
-    travelBackHrs,
-    extraAfterTenHrs: travelBackHrs,
-    totalHrs: Math.max(0, legacyOnSetHrs + preCallHrs),
-  };
-}
-
-/* On-set hours (match mobile's intention: call->wrap (+precall) OR leave->arriveBack fallback) */
-function computeOnSetHours(entry) {
-  return computeOnSetBreakdown(entry).totalHrs;
-}
-
 function isCancellationDay(entry) {
   if (!entry) return false;
 
@@ -619,17 +597,6 @@ function isTurnaroundDay(entry) {
   return false;
 }
 
-/*  Turnaround hours: 0 unless user added yardSegments */
-function computeTurnaroundHours(entry) {
-  const segs = extractYardSegments(entry);
-  if (!segs || segs.length === 0) return 0;
-
-  // If they manually added blocks on a turnaround day, count them (and don’t force lunch deduction)
-  let total = 0;
-  segs.forEach((s) => (total += diffHours(s.start, s.end)));
-  return Math.max(0, total);
-}
-
 /* Determine day mode (mirror mobile: uses entry.mode + isTurnaround flag) */
 function detectMode(entry, isWeekend) {
   if (!entry) return isWeekend ? "off" : "missing";
@@ -647,6 +614,7 @@ function detectMode(entry, isWeekend) {
 
   if (rawMode === "travel") return "travel";
   if (rawMode === "onset") return "onset";
+  if (rawMode === "workshop") return "workshop";
   if (rawMode === "office") return "office";
   if (rawMode === "yard") return "yard";
 
@@ -765,16 +733,17 @@ function addAssignmentNameTokens(set, value) {
 
 function getTimesheetEmployeeTokens(timesheet = {}) {
   const tokens = new Set();
+  const row = timesheet || {};
   [
-    timesheet.employeeCode,
-    timesheet.userCode,
-    timesheet.code,
-    timesheet.staffCode,
-    timesheet.employeeName,
-    timesheet.name,
-    timesheet.fullName,
-    timesheet.employeeId,
-    timesheet.userId,
+    row.employeeCode,
+    row.userCode,
+    row.code,
+    row.staffCode,
+    row.employeeName,
+    row.name,
+    row.fullName,
+    row.employeeId,
+    row.userId,
   ].forEach((value) => {
     addAssignmentToken(tokens, value);
     addAssignmentNameTokens(tokens, value);
@@ -845,6 +814,26 @@ function bookingMatchesEmployeeOnDate(booking = {}, ymd, employeeTokens) {
     booking.crew,
   ].forEach((source) => collectAssignmentTokens(source, assignmentTokens));
   return Array.from(assignmentTokens).some((token) => employeeTokens.has(token));
+}
+
+function bookingEmployeeHasRoleOnDate(booking = {}, ymd, employeeTokens, expectedRole) {
+  if (!employeeTokens?.size) return false;
+  const datedAssignments = [
+    valueForDate(booking.employeesByDate, ymd),
+    valueForDate(booking.employeeAssignmentsByDate, ymd),
+  ].find((source) => Array.isArray(source) && source.length);
+  const assignments = datedAssignments || booking.employees || booking.crew || [];
+  const expected = String(expectedRole || "").trim().toLowerCase();
+
+  return (Array.isArray(assignments) ? assignments : [assignments]).some((assignment) => {
+    const role =
+      typeof assignment === "string"
+        ? ""
+        : String(assignment?.role || assignment?.title || "").trim().toLowerCase();
+    if (role !== expected) return false;
+    const assignmentTokens = collectAssignmentTokens(assignment);
+    return Array.from(assignmentTokens).some((token) => employeeTokens.has(token));
+  });
 }
 
 function jobFromBooking(booking = {}, ymd = "") {
@@ -1155,6 +1144,83 @@ function printElementById(elementId, title) {
             text-align: center;
             word-break: break-word;
           }
+          #pay-advice-print-root .${layoutStyles.payAdviceScreenControls} {
+            display: none !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceHeader} {
+            padding: 0 0 6px !important;
+            /* style-audit-allow light-control: printed pay advice paper */
+            background: #fff !important;
+            border: 0 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceBrandRow} {
+            display: grid !important;
+            grid-template-columns: 210px 1fr !important;
+            min-height: 76px !important;
+            border: 1px solid #111 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceLogoBox},
+          #pay-advice-print-root .${layoutStyles.payAdviceTitle} {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 6px 10px !important;
+            color: #111 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceLogoBox} {
+            border-right: 1px solid #111 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceLogo} {
+            width: 160px !important;
+            height: auto !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceTitle} {
+            font-size: 20px !important;
+            text-align: center !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceSheet},
+          #pay-advice-print-root .${layoutStyles.payAdviceTable} {
+            min-width: 0 !important;
+          }
+          #pay-advice-print-root input {
+            color: #111 !important;
+            background: transparent !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceGroupHeading} {
+            background: #e5e7eb !important;
+            color: #111 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceColumnHeading},
+          #pay-advice-print-root .${layoutStyles.payAdviceSummaryCell} {
+            /* style-audit-allow light-control: printed pay advice paper */
+            background: #fff !important;
+            color: #111 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceMoneyRow} td,
+          #pay-advice-print-root .${layoutStyles.payAdviceGrandTotalLabel},
+          #pay-advice-print-root .${layoutStyles.payAdviceGrandTotal} {
+            background: #bfdbfe !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceFooter} {
+            display: grid !important;
+            grid-template-columns: 1fr 230px !important;
+            min-height: 76px !important;
+            border: 1px solid #111 !important;
+            border-top: 0 !important;
+            color: #111 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceNotes} {
+            padding: 8px !important;
+            border-right: 1px solid #111 !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceHoursSummary} {
+            display: grid !important;
+            grid-template-columns: 1fr auto !important;
+          }
+          #pay-advice-print-root .${layoutStyles.payAdviceHoursSummary} > * {
+            padding: 3px 6px !important;
+            border-bottom: 1px solid #111 !important;
+          }
           @page {
             size: A4 landscape;
             margin: 8mm;
@@ -1368,6 +1434,7 @@ export default function TimesheetDetailPage() {
   const payAdviceLoadedRef = useRef(false);
   const payAdviceSaveTimerRef = useRef(null);
   const lastSavedPayAdviceRef = useRef("");
+  const payAdviceRowsRef = useRef([]);
 
   const needsPayAdvicePin = userEmail === PAY_ADVICE_PIN_EMAIL && !payAdvicePinUnlocked;
 
@@ -1867,10 +1934,31 @@ export default function TimesheetDetailPage() {
       updatedAt: new Date().toISOString(),
     };
 
+    if (mode === "turnaround") {
+      return {
+        ...base,
+        mode: "yard",
+        type: "yard",
+        isTurnaround: true,
+        turnaround: true,
+        turnaroundDay: true,
+        turnaroundJob: primaryJob
+          ? {
+              bookingId: primaryJob.bookingId || primaryJob.id || "",
+              jobNumber: primaryJob.jobNumber || "",
+              production: primaryJob.production || "",
+              location: primaryJob.location || "",
+            }
+          : null,
+        yardSegments: [],
+        managerLunchDeduct: false,
+      };
+    }
+
     if (mode === "yard" || mode === "workshop") {
       return {
         ...base,
-        mode: mode === "workshop" ? "yard" : "yard",
+        mode,
         type: mode,
         yardSegments: [
           {
@@ -2115,6 +2203,13 @@ export default function TimesheetDetailPage() {
   };
 
   const weekStartDate = useMemo(() => parseDateFlexible(timesheet?.weekStart), [timesheet?.weekStart]);
+  const weekEndDate = useMemo(() => {
+    if (!weekStartDate) return null;
+    const end = new Date(weekStartDate);
+    end.setDate(end.getDate() + 6);
+    end.setHours(0, 0, 0, 0);
+    return end;
+  }, [weekStartDate]);
 
   const dayMap = useMemo(() => normaliseDays(timesheet?.days), [timesheet?.days]);
 
@@ -2122,8 +2217,10 @@ export default function TimesheetDetailPage() {
   const { dayCards, weeklyTotal } = useMemo(() => {
     let total = 0;
 
-    const cards = DAYS.map((day) => {
+    const cards = DAYS.map((day, cardIndex) => {
       const entry = dayMap?.[day] ?? null;
+      const previousEntry = cardIndex > 0 ? dayMap?.[DAYS[cardIndex - 1]] ?? null : null;
+      const previousDayOvernight = previousEntry?.overnight ?? false;
       const isWeekend = day === "Saturday" || day === "Sunday";
 
       const rawJobs = jobsByDay?.[day] || [];
@@ -2202,14 +2299,14 @@ export default function TimesheetDetailPage() {
           )
         : 0;
       const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
+      const dayBreakdown = entryExists
+        ? computeTimesheetDayBreakdown(entry, day, { previousDayOvernight })
+        : null;
       if (entryExists) {
-        if (mode === "yard") dayHours = computeYardHours(entry, day);
-        if (mode === "travel") dayHours = computeTravelHours(entry);
-        if (mode === "onset") dayHours = computeOnSetHours(entry);
+        if (["yard", "travel", "onset", "workshop", "turnaround"].includes(mode)) {
+          dayHours = dayBreakdown.total / 60;
+        }
         if (mode === "office") dayHours = computeOfficeHours(entry);
-
-        //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
-        if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
 
         if (
           mode === "holiday" ||
@@ -2231,13 +2328,18 @@ export default function TimesheetDetailPage() {
 
       const dayTotalLabel = formatHoursLabel(dayHours);
       const precallLabel = entryExists ? formatPrecallMinutes(entry?.precallDuration) : "";
-      const onSetBreakdown = entryExists ? computeOnSetBreakdown(entry) : null;
+      const onSetBreakdown = entryExists
+        ? computeOnSetBreakdown(entry, { previousDayOvernight })
+        : null;
       const travelToHrs = onSetBreakdown?.travelToHrs || 0;
+      const paidEarlyArrivalHrs = onSetBreakdown?.paidEarlyArrivalHrs || 0;
       const preCallHrs = onSetBreakdown?.preCallHrs || 0;
       const onSetBlockHrs = onSetBreakdown?.onSetBlockHrs || 0;
       const onSetPaidHrs = onSetBreakdown?.onSetPaidHrs || 0;
+      const onSetOvertimeHrs = onSetBreakdown?.onSetOvertimeHrs || 0;
       const travelBackHrs = onSetBreakdown?.travelBackHrs || 0;
-      const extraAfterTenHrs = onSetBreakdown?.extraAfterTenHrs || 0;
+      const travelInsideTenHrs = onSetBreakdown?.travelInsideTenHrs || 0;
+      const travelAfterTenHrs = onSetBreakdown?.travelAfterTenHrs || 0;
 
       // Turnaround job (how mobile saves it)
       const turnaroundJob = entryExists ? entry?.turnaroundJob || null : null;
@@ -2247,11 +2349,13 @@ export default function TimesheetDetailPage() {
       const yardSegs = entryExists ? extractYardSegments(entry) : [];
 
       //  For UI label: whether lunch was deducted on yard day
-      const yardLunchDeducted =
-        entryExists && mode === "yard" && yardSegs.length > 0 && shouldDeductYardLunch(entry, day);
+      const lunchDeductionMinutes =
+        mode === "yard" || mode === "workshop" ? dayBreakdown?.breakDeduction || 0 : 0;
+      const yardLunchDeducted = lunchDeductionMinutes > 0;
 
       return {
         day,
+        previousDayOvernight,
         dayDateLabel,
         ymdForDay,
         entry,
@@ -2273,15 +2377,19 @@ export default function TimesheetDetailPage() {
         dayTotalLabel,
         precallLabel,
         travelToHrs,
+        paidEarlyArrivalHrs,
         preCallHrs,
         onSetBlockHrs,
         onSetPaidHrs,
+        onSetOvertimeHrs,
         travelBackHrs,
-        extraAfterTenHrs,
+        travelInsideTenHrs,
+        travelAfterTenHrs,
         yardSegs,
         turnaroundJob,
         hasTurnaroundJob,
         yardLunchDeducted,
+        lunchDeductionMinutes,
       };
     });
 
@@ -2289,6 +2397,8 @@ export default function TimesheetDetailPage() {
   }, [dayMap, jobsByDay, holidaysByDate, bankHolidaysByDate, weekStartDate, employeeYardAutofill]);
 
   const payAdvice = useMemo(() => {
+    const calculationVersion = Number(timesheet?.payAdviceOverrides?.calculationVersion || 0);
+    const isLegacyPayAdvice = calculationVersion < 3;
     const baseRates = {
       workshopRate: Number(employeePayrollRates?.workshopRate || 0),
       overtimeRate: Number(employeePayrollRates?.overtimeRate || 0),
@@ -2296,16 +2406,18 @@ export default function TimesheetDetailPage() {
       sundayRate: Number(employeePayrollRates?.sundayRate || 0),
       onSetRate: Number(employeePayrollRates?.onSetRate || 0),
       onSetOvertimeRate: Number(employeePayrollRates?.onSetOvertimeRate || 0),
+      precisionDriverRate: Number(employeePayrollRates?.precisionDriverRate || 400),
+      precisionDriverOvertimeRate: Number(
+        employeePayrollRates?.precisionDriverOvertimeRate || 60
+      ),
       weekendSupplementRate: Number(employeePayrollRates?.weekendSupplementRate || 0),
       overnightRate: Number((globalPayrollRates?.overnightRate ?? employeePayrollRates?.overnightRate) || 0),
       travelMealRate: Number((globalPayrollRates?.travelMealRate ?? employeePayrollRates?.travelMealRate) || 0),
     };
-    const rates = {
-      ...baseRates,
-      ...Object.fromEntries(
-        Object.entries(payAdviceRateEdits || {}).map(([key, value]) => [key, Number(value || 0)])
-      ),
-    };
+    const rates = normalisePayAdviceRates(baseRates, payAdviceRateEdits, {
+      legacyTrackingRate: isLegacyPayAdvice,
+    });
+    const employeeTokens = getTimesheetEmployeeTokens(timesheet);
 
     const rows = dayCards.map((card, index) => {
       const entry = card.entry || {};
@@ -2315,162 +2427,60 @@ export default function TimesheetDetailPage() {
       }
 
       const primaryJob = Array.isArray(card.jobsToday) && card.jobsToday.length ? card.jobsToday[0] : null;
-      const hasJobOnTravelDay = card.mode === "travel" && !!primaryJob;
-      const dayNoteType = String(primaryJob?.dayNoteType || "").toLowerCase();
-      const isTravelTimeNoteDay = hasJobOnTravelDay && dayNoteType === "travel time";
-      const isHalfDayTravelNoteDay =
-        hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
-      const workshopHrs =
-        card.mode === "yard"
-          ? computeYardHours(entry, card.day)
-          : card.isPaidHolidayDay
-          ? card.paidHolidayHoursToUse || card.paidHolidayHours
-          : 0;
-      const isTurnaroundPayDay = card.mode === "turnaround";
       const isCancellationPayDay = isCancellationDay(entry);
-      const actualTravelToHrs = card.travelToHrs || 0;
-      const preCallHrs = card.preCallHrs || 0;
-      const waitingAllowanceHrs = card.mode === "onset" ? computeWaitingAllowanceHours(entry) : 0;
-      const callElapsedToWrap =
-        entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
-      const callElapsedToBack =
-        entry?.callTime && entry?.arriveBack ? diffHours(entry.callTime, entry.arriveBack) : 0;
-      const wrapOvertimeHrs = card.mode === "onset" ? Math.max(0, callElapsedToWrap - 10) : 0;
-      const rawTravelAfterTenHrs =
-        card.mode === "onset" ? Math.max(0, callElapsedToBack - Math.max(10, callElapsedToWrap || 0)) : 0;
-      const travelAfterTenHrs =
-        card.mode === "onset"
-          ? Math.max(0, rawTravelAfterTenHrs - computeHotelTravelExemptionHours(entry))
-          : 0;
-      const travelHrs =
-        hasJobOnTravelDay
-          ? 0
-          : card.mode === "travel"
-          ? computeTravelHours(entry)
-          : card.mode === "onset"
-          ? actualTravelToHrs + waitingAllowanceHrs + travelAfterTenHrs
-          : 0;
-      const onSetHrs =
-        card.mode === "onset"
-          ? 10
-          : isHalfDayTravelNoteDay
-          ? 5
-          : isTravelTimeNoteDay
-          ? computeTravelHours(entry)
-          : hasJobOnTravelDay || isTurnaroundPayDay || isCancellationPayDay
-          ? 10
-          : 0;
-      const onSetOvertimeHrs = card.mode === "onset" ? wrapOvertimeHrs + preCallHrs : 0;
-      const payableDayTotalHrs =
-        card.mode === "onset"
-          ? actualTravelToHrs + waitingAllowanceHrs + preCallHrs + onSetHrs + wrapOvertimeHrs + travelAfterTenHrs
-          : isHalfDayTravelNoteDay
-          ? onSetHrs
-          : isTravelTimeNoteDay
-          ? onSetHrs
-          : hasJobOnTravelDay
-          ? onSetHrs
-          : isTurnaroundPayDay || isCancellationPayDay
-          ? onSetHrs
-          : workshopHrs + travelHrs;
-      const sundayHrs = card.day === "Sunday" && card.mode === "travel" && !hasJobOnTravelDay ? travelHrs : 0;
-      const overnightUnits = entry?.overnight ? 1 : 0;
-      const travelMealUnits =
-        ((card.mode === "travel" && !hasJobOnTravelDay && !isTravelTimeNoteDay) || isHalfDayTravelNoteDay) &&
-        (entry?.travelLunchSup || entry?.mealSup || isHalfDayTravelNoteDay)
-          ? 1
-          : 0;
-      const hasWorkedDay = payableDayTotalHrs > 0;
-      const wrapMinutes = toMinutes(entry?.wrapTime);
-      const hasLateWrapSupplement = wrapMinutes != null && wrapMinutes > 22 * 60;
-      const isPlainTravelDay =
-        card.mode === "travel" && !hasJobOnTravelDay && !isTravelTimeNoteDay && !isHalfDayTravelNoteDay;
-      const weekendSupplementUnits = hasWorkedDay
-        ? card.day === "Sunday"
-          ? 2
-          : card.day === "Saturday"
-          ? isPlainTravelDay
-            ? 0
-            : hasLateWrapSupplement
-            ? 1
-            : 0.5
-          : hasLateWrapSupplement
-          ? 1
-          : 0
-        : 0;
+      const ymd = dt ? toLocalYMD(dt) : "";
+      const isPrecisionDriver =
+        card.mode === "onset" &&
+        String(primaryJob?.dayNoteType || primaryJob?.dayNote || "")
+          .trim()
+          .toLowerCase()
+          .includes("night shoot") &&
+        bookingEmployeeHasRoleOnDate(
+          primaryJob?.booking,
+          ymd,
+          employeeTokens,
+          "precision driver"
+        );
+      const payrollRow = computePayAdvicePayrollRow({
+        card,
+        primaryJob,
+        isCancellationPayDay,
+        isPrecisionDriver,
+      });
 
       const baseRow = {
         day: card.day,
         dateLabel: dt ? formatShortDate(dt) : "-",
         jobName: getPayAdviceJobName(card, primaryJob),
-        workshopHrs,
-        overtimeHrs: card.mode === "yard" ? Math.max(0, workshopHrs - 8.5) : 0,
-        travelHrs,
-        sundayHrs,
-        onSetHrs,
-        onSetOvertimeHrs,
-        weekendSupplementUnits,
-        overnightUnits,
-        travelMealUnits,
-        preCallHrs: 0,
-        dailyTotalHrs: payableDayTotalHrs,
+        tachoUsed: "",
+        isPrecisionDriver,
+        payAdviceMode: card.mode,
+        ...payrollRow,
       };
 
-      const override = payAdviceEdits?.[card.day] || {};
+      const override = normalisePayAdviceRowOverride(payAdviceEdits?.[card.day] || {}, {
+        legacyTrackingUnits: isLegacyPayAdvice,
+        clearLegacyWeekendSupplement: isLegacyPayAdvice,
+        clearInapplicableTravelMeal: ["yard", "workshop"].includes(card.mode),
+        isPrecisionDriver,
+      });
       const mergedRow = {
         ...baseRow,
         ...override,
       };
 
-      const monetaryTotal =
-        (Number(mergedRow.workshopHrs) || 0) * rates.workshopRate +
-        (Number(mergedRow.overtimeHrs) || 0) * rates.overtimeRate +
-        (Number(mergedRow.travelHrs) || 0) * rates.travelRate +
-        (Number(mergedRow.sundayHrs) || 0) * rates.sundayRate +
-        (Number(mergedRow.onSetHrs) || 0) * rates.onSetRate +
-        (Number(mergedRow.onSetOvertimeHrs) || 0) * rates.onSetOvertimeRate +
-        (Number(mergedRow.weekendSupplementUnits) || 0) * rates.weekendSupplementRate +
-        (Number(mergedRow.overnightUnits) || 0) * rates.overnightRate +
-        (Number(mergedRow.travelMealUnits) || 0) * rates.travelMealRate;
-
       return {
         ...mergedRow,
-        totalMonetary: Number(monetaryTotal.toFixed(2)),
+        totalMonetary: calculatePayAdviceRowTotal(mergedRow, rates),
       };
     });
 
-    const totalFor = (key) => rows.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
-
     return {
       rows,
-      totals: {
-        workshopHrs: totalFor("workshopHrs"),
-        overtimeHrs: totalFor("overtimeHrs"),
-        travelHrs: totalFor("travelHrs"),
-        sundayHrs: totalFor("sundayHrs"),
-        onSetHrs: totalFor("onSetHrs"),
-        onSetOvertimeHrs: totalFor("onSetOvertimeHrs"),
-        weekendSupplementUnits: totalFor("weekendSupplementUnits"),
-        overnightUnits: totalFor("overnightUnits"),
-        travelMealUnits: totalFor("travelMealUnits"),
-        preCallHrs: 0,
-        dailyTotalHrs: totalFor("dailyTotalHrs"),
-        workshopAmount: Number((totalFor("workshopHrs") * rates.workshopRate).toFixed(2)),
-        overtimeAmount: Number((totalFor("overtimeHrs") * rates.overtimeRate).toFixed(2)),
-        travelAmount: Number((totalFor("travelHrs") * rates.travelRate).toFixed(2)),
-        sundayAmount: Number((totalFor("sundayHrs") * rates.sundayRate).toFixed(2)),
-        onSetAmount: Number((totalFor("onSetHrs") * rates.onSetRate).toFixed(2)),
-        onSetOvertimeAmount: Number((totalFor("onSetOvertimeHrs") * rates.onSetOvertimeRate).toFixed(2)),
-        weekendSupplementAmount: Number(
-          (totalFor("weekendSupplementUnits") * rates.weekendSupplementRate).toFixed(2)
-        ),
-        overnightAmount: Number((totalFor("overnightUnits") * rates.overnightRate).toFixed(2)),
-        travelMealAmount: Number((totalFor("travelMealUnits") * rates.travelMealRate).toFixed(2)),
-        totalMonetary: totalFor("totalMonetary"),
-      },
+      totals: calculatePayAdviceTotals(rows, rates),
       rates,
     };
-  }, [dayCards, weekStartDate, payAdviceEdits, employeePayrollRates, globalPayrollRates, payAdviceRateEdits]);
+  }, [dayCards, weekStartDate, payAdviceEdits, employeePayrollRates, globalPayrollRates, payAdviceRateEdits, timesheet]);
 
   const handlePayAdviceFieldChange = (day, field, value) => {
     setPayAdviceEdits((prev) => ({
@@ -2478,13 +2488,17 @@ export default function TimesheetDetailPage() {
       [day]: {
         ...(prev?.[day] || {}),
         [field]:
-          field === "jobName" || field === "dateLabel" || value === ""
+          field === "jobName" || field === "dateLabel" || field === "tachoUsed" || value === ""
             ? value
             : Number(value),
       },
     }));
     setPayAdviceMessage("");
   };
+
+  useEffect(() => {
+    payAdviceRowsRef.current = payAdvice.rows;
+  }, [payAdvice.rows]);
 
   const handlePayAdviceRateChange = (field, value) => {
     setPayAdviceRateEdits((prev) => ({
@@ -2498,9 +2512,30 @@ export default function TimesheetDetailPage() {
     if (!isAdmin || !timesheet?.id) return;
     setPayAdviceSaving(true);
     setPayAdviceMessage("");
+    const isLegacyPayAdvice = Number(timesheet?.payAdviceOverrides?.calculationVersion || 0) < 3;
+    const normalisedRows = Object.fromEntries(
+      Object.entries(rows || {}).map(([day, override]) => {
+        const displayedRow = payAdviceRowsRef.current.find((row) => row.day === day);
+        return [
+          day,
+          normalisePayAdviceRowOverride(override, {
+            legacyTrackingUnits: isLegacyPayAdvice,
+            clearLegacyWeekendSupplement: isLegacyPayAdvice,
+            clearInapplicableTravelMeal: ["yard", "workshop"].includes(
+              displayedRow?.payAdviceMode
+            ),
+            isPrecisionDriver: displayedRow?.isPrecisionDriver,
+          }),
+        ];
+      })
+    );
+    const normalisedRates = normalisePayAdviceRates({}, rates, {
+      legacyTrackingRate: isLegacyPayAdvice,
+    });
     const payload = {
-      rows: rows || {},
-      rates: rates || {},
+      rows: normalisedRows,
+      rates: normalisedRates,
+      calculationVersion: 3,
       updatedAt: new Date().toISOString(),
     };
     try {
@@ -2522,6 +2557,8 @@ export default function TimesheetDetailPage() {
             }
           : prev
       );
+      setPayAdviceEdits(normalisedRows);
+      setPayAdviceRateEdits(normalisedRates);
       setPayAdviceMessage(successMessage);
     } catch (err) {
       console.error("Error saving pay advice overrides:", err);
@@ -2529,7 +2566,7 @@ export default function TimesheetDetailPage() {
     } finally {
       setPayAdviceSaving(false);
     }
-  }, [dataAccessState, isAdmin, timesheet?.id]);
+  }, [dataAccessState, isAdmin, timesheet?.id, timesheet?.payAdviceOverrides?.calculationVersion]);
 
   const handleSavePayAdvice = async () => {
     await savePayAdviceState(payAdviceEdits, payAdviceRateEdits, "Pay advice saved.");
@@ -2796,15 +2833,19 @@ export default function TimesheetDetailPage() {
                 dayTotalLabel,
                 precallLabel,
                 travelToHrs,
+                paidEarlyArrivalHrs,
                 preCallHrs,
                 onSetBlockHrs,
                 onSetPaidHrs,
+                onSetOvertimeHrs,
                 travelBackHrs,
-                extraAfterTenHrs,
+                travelInsideTenHrs,
+                travelAfterTenHrs,
                 yardSegs,
                 turnaroundJob,
                 hasTurnaroundJob,
                 yardLunchDeducted,
+                lunchDeductionMinutes,
               } = card;
 
               const isHolidayCard = mode === "holiday" || mode === "bankholiday" || isHalfHolidayDay;
@@ -2938,9 +2979,11 @@ export default function TimesheetDetailPage() {
                             style={{ ...formControlStyle, fontSize: 12, padding: "6px 8px" }}
                           >
                             <option value="yard">Yard</option>
+                            <option value="workshop">Workshop</option>
                             <option value="office">Office</option>
                             <option value="travel">Travel</option>
                             <option value="onset">On Set</option>
+                            <option value="turnaround">Turnaround Day</option>
                             <option value="off">Off</option>
                             <option value="unpaid">Unpaid</option>
                           </select>
@@ -2999,7 +3042,7 @@ export default function TimesheetDetailPage() {
                             </div>
                           )}
 
-                          {["yard", "office"].includes(manualEntryDraft.mode) ? (
+                          {["yard", "workshop", "office"].includes(manualEntryDraft.mode) ? (
                             <div className={layoutStyles.extracted13}>
                               {[
                                 ["start", "Start"],
@@ -3051,9 +3094,10 @@ export default function TimesheetDetailPage() {
                             </div>
                           ) : null}
 
-                          {["yard", "travel", "onset"].includes(manualEntryDraft.mode) ? (
+                          {["yard", "workshop", "travel", "onset"].includes(manualEntryDraft.mode) ? (
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
-                              {manualEntryDraft.mode === "yard" && manualEntryDay !== "Saturday" ? (
+                              {["yard", "workshop"].includes(manualEntryDraft.mode) &&
+                              manualEntryDay !== "Saturday" ? (
                                 <label className={layoutStyles.extracted16}>
                                   <input
                                     type="checkbox"
@@ -3217,7 +3261,9 @@ export default function TimesheetDetailPage() {
                             className={layoutStyles.extracted26}
                           >
                             <span>
-                              {paidHolidayLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
+                              {paidHolidayLunchDeducted
+                                ? "Lunch deduction: -30 mins"
+                                : "Lunch deduction: None"}
                             </span>
                             <label
                               style={{
@@ -3303,10 +3349,16 @@ export default function TimesheetDetailPage() {
                   )}
 
                   {/* Yard blocks (hide for turnaround UNLESS blocks exist) */}
-                  {entryExists && (mode === "yard" || (mode === "turnaround" && hasTimeBlocks)) && (
+                  {entryExists &&
+                    (["yard", "workshop"].includes(mode) ||
+                      (mode === "turnaround" && hasTimeBlocks)) && (
                     <div className={layoutStyles.extracted37}>
                       <div className={layoutStyles.extracted38}>
-                        {mode === "turnaround" ? "Time blocks (optional):" : "Yard:"}
+                        {mode === "turnaround"
+                          ? "Time blocks (optional):"
+                          : mode === "workshop"
+                          ? "Workshop time:"
+                          : "Yard:"}
                       </div>
                       {yardSegs.map((seg, i) => {
                         const blockNote = getBlockNote(seg);
@@ -3337,12 +3389,14 @@ export default function TimesheetDetailPage() {
                         </div>
                       ) : null}
                       {entry?.overnight ? <div className={layoutStyles.extracted39}>- Overnight</div> : null}
-                      {mode === "yard" && (
+                      {["yard", "workshop"].includes(mode) && (
                         <div className={layoutStyles.extracted40}>
-                          {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
+                          {lunchDeductionMinutes > 0
+                            ? `Lunch deduction: -${lunchDeductionMinutes} mins`
+                            : "Lunch deduction: None"}
                         </div>
                       )}
-                      {mode === "yard" && day !== "Saturday" && (
+                      {["yard", "workshop"].includes(mode) && day !== "Saturday" && (
                         <label
                           style={{
                             display: "inline-flex",
@@ -3409,17 +3463,31 @@ export default function TimesheetDetailPage() {
                       <div className={layoutStyles.extracted49}>
                         <div className={layoutStyles.extracted50}>Breakdown:</div>
                         <div className={layoutStyles.extracted51}>Travel to: {formatHoursLabel(travelToHrs)}</div>
+                        {paidEarlyArrivalHrs > 0 ? (
+                          <div>Paid early arrival: {formatHoursLabel(paidEarlyArrivalHrs)}</div>
+                        ) : null}
                         <div className={layoutStyles.extracted52}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
                         <div className={layoutStyles.extracted53}>
                           On set{entry.callTime ? " (10-hour block)" : ""}: {formatHoursLabel(onSetPaidHrs)}
                         </div>
-                        {entry.callTime ? (
+                        {entry.callTime && onSetOvertimeHrs > 0 ? (
                           <div className={layoutStyles.extracted54}>
-                            Extra after 10 hours: {formatHoursLabel(extraAfterTenHrs)}
+                            On-set overtime: {formatHoursLabel(onSetOvertimeHrs)}
                           </div>
-                        ) : (
+                        ) : null}
+                        {travelBackHrs > 0 ? (
                           <div className={layoutStyles.extracted55}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
-                        )}
+                        ) : null}
+                        {travelInsideTenHrs > 0 ? (
+                          <div style={{ fontSize: 12, color: UI.muted }}>
+                            Travel included within 10-hour block: {formatHoursLabel(travelInsideTenHrs)}
+                          </div>
+                        ) : null}
+                        {travelAfterTenHrs > 0 && travelAfterTenHrs !== travelBackHrs ? (
+                          <div style={{ fontSize: 12, color: UI.muted }}>
+                            Paid travel after 10-hour block: {formatHoursLabel(travelAfterTenHrs)}
+                          </div>
+                        ) : null}
                         {entry.callTime && entry.wrapTime ? (
                           <div style={{ fontSize: 12, color: UI.muted }}>
                             Actual on-set window: {formatHoursLabel(onSetBlockHrs)}
@@ -3502,24 +3570,23 @@ export default function TimesheetDetailPage() {
             overflow: "hidden",
           }}
         >
-          <div
-            style={{
-              padding: "12px 12px 10px",
-              background: "var(--color-surface-subtle)",
-              borderBottom: UI.border,
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, color: UI.brand, letterSpacing: 0.4 }}>
-              Weekly Pay Advice
-            </div>
-            <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: UI.ink }}>
-              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatShortDate(timesheet.weekStart)}
-            </div>
-            <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
-              Auto-filled from the current timesheet. Finance can use this as the first-pass pay advice view.
+          <div className={layoutStyles.payAdviceHeader}>
+            <div className={layoutStyles.payAdviceBrandRow}>
+              <div className={layoutStyles.payAdviceLogoBox}>
+                <Image
+                  src="/bickers-action-logo.png"
+                  alt="Bickers Action"
+                  width={190}
+                  height={82}
+                  className={layoutStyles.payAdviceLogo}
+                />
+              </div>
+              <div className={layoutStyles.payAdviceTitle}>
+                Weekly Pay Advice Spread Sheet - W/E {formatShortDate(weekEndDate)}
+              </div>
             </div>
             {!needsPayAdvicePin ? (
-            <div className={layoutStyles.extracted60}>
+            <div className={`${layoutStyles.extracted60} ${layoutStyles.payAdviceScreenControls}`}>
               <button
                 type="button"
                 onClick={handleSavePayAdvice}
@@ -3575,96 +3642,44 @@ export default function TimesheetDetailPage() {
             ) : null}
           </form>
           ) : (
-          <div className={layoutStyles.extracted63}>
-            <table className={layoutStyles.extracted64}>
+          <div className={`${layoutStyles.extracted63} ${layoutStyles.payAdviceSheet}`}>
+            <table className={`${layoutStyles.extracted64} ${layoutStyles.payAdviceTable}`}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col style={{ width: 175 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 88 }} />
+                {PAY_ADVICE_VALUE_COLUMNS.map(({ field }) => (
+                  <col key={`width-${field}`} style={{ width: 80 }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr className={layoutStyles.extracted65}>
-                  <th
-                    colSpan={3}
-                    style={{
-                      border: "1px solid var(--shell-muted)",
-                      padding: "6px 5px",
-                      color: UI.ink,
-                      fontWeight: 800,
-                      textAlign: "center",
-                    }}
-                  >
+                  <th colSpan={3} className={layoutStyles.payAdviceGroupHeading}>
                     {timesheet.employeeName || timesheet.employeeCode}
                   </th>
-                  <th
-                    colSpan={2}
-                    style={{
-                      border: "1px solid var(--shell-muted)",
-                      padding: "6px 5px",
-                      color: UI.ink,
-                      fontWeight: 800,
-                      textAlign: "center",
-                    }}
-                  >
-                    Workshop
-                  </th>
-                  <th
-                    colSpan={2}
-                    style={{
-                      border: "1px solid var(--shell-muted)",
-                      padding: "6px 5px",
-                      color: UI.ink,
-                      fontWeight: 800,
-                      textAlign: "center",
-                    }}
-                  >
-                    Travel
-                  </th>
-                  <th
-                    colSpan={2}
-                    style={{
-                      border: "1px solid var(--shell-muted)",
-                      padding: "6px 5px",
-                      color: UI.ink,
-                      fontWeight: 800,
-                      textAlign: "center",
-                    }}
-                  >
-                    On Set
-                  </th>
-                  <th
-                    colSpan={3}
-                    style={{
-                      border: "1px solid var(--shell-muted)",
-                      padding: "6px 5px",
-                      color: UI.ink,
-                      fontWeight: 800,
-                      textAlign: "center",
-                    }}
-                  >
-                    Extra Supplements
-                  </th>
+                  <th className={layoutStyles.payAdviceGroupHeading}>Week Days</th>
+                  {[
+                    ["Workshop", 2],
+                    ["Travel", 2],
+                    ["Tracking", 2],
+                    ["Precision Driver", 2],
+                    ["Extra Supplements", 3],
+                  ].map(([heading, colSpan]) => (
+                    <th key={heading} colSpan={colSpan} className={layoutStyles.payAdviceGroupHeading}>
+                      {heading}
+                    </th>
+                  ))}
                 </tr>
                 <tr className={layoutStyles.extracted66}>
                   {[
                     "Date",
                     "Job Name",
+                    "Tacho Used",
                     "Week Day",
-                    "W/shop Hrs",
-                    "O/Time Hrs",
-                    "Travel Hrs",
-                    "Sunday Hrs",
-                    "On Set Hrs",
-                    "On Set O/T",
-                    "Sa/Su Units",
-                    "O/N Units",
-                    "Travel Meal",
+                    ...PAY_ADVICE_VALUE_COLUMNS.map((column) => column.label),
                   ].map((heading) => (
-                    <th
-                      key={heading}
-                      style={{
-                        border: "1px solid var(--color-border-strong)",
-                        padding: "7px 6px",
-                        color: UI.ink,
-                        fontWeight: 800,
-                        textAlign: "center",
-                      }}
-                    >
+                    <th key={heading} className={layoutStyles.payAdviceColumnHeading}>
                       {heading}
                     </th>
                   ))}
@@ -3689,18 +3704,16 @@ export default function TimesheetDetailPage() {
                         disabled={isApproved}
                       />
                     </td>
+                    <td className={layoutStyles.extracted67}>
+                      <input
+                        value={row.tachoUsed || ""}
+                        onChange={(e) => handlePayAdviceFieldChange(row.day, "tachoUsed", e.target.value)}
+                        className={layoutStyles.extracted68}
+                        disabled={isApproved}
+                      />
+                    </td>
                     <td className={layoutStyles.extracted71}>{row.day}</td>
-                    {[
-                      "workshopHrs",
-                      "overtimeHrs",
-                      "travelHrs",
-                      "sundayHrs",
-                      "onSetHrs",
-                      "onSetOvertimeHrs",
-                      "weekendSupplementUnits",
-                      "overnightUnits",
-                      "travelMealUnits",
-                    ].map((field) => (
+                    {PAY_ADVICE_VALUE_COLUMNS.map(({ field }) => (
                       <td key={`${row.day}-${field}`} style={{ ...payAdviceCell, fontWeight: field === "dailyTotalHrs" ? 800 : 400 }}>
                         <input
                           type="number"
@@ -3711,7 +3724,7 @@ export default function TimesheetDetailPage() {
                                 ? "0.1"
                                 : "0.25"
                           }
-                          value={Number(row[field] || 0)}
+                          value={Number(row[field] || 0) === 0 ? "" : Number(row[field])}
                           onChange={(e) => handlePayAdviceFieldChange(row.day, field, e.target.value)}
                           className={layoutStyles.extracted72}
                           disabled={isApproved}
@@ -3720,36 +3733,22 @@ export default function TimesheetDetailPage() {
                     ))}
                   </tr>
                 ))}
-                <tr className={layoutStyles.extracted73}>
-                  <td className={layoutStyles.extracted74} colSpan={3}>
-                    Totals
-                  </td>
-                  <td className={layoutStyles.extracted75}>{payAdvice.totals.workshopHrs.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted76}>{payAdvice.totals.overtimeHrs.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted77}>{payAdvice.totals.travelHrs.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted78}>{payAdvice.totals.sundayHrs.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted79}>{payAdvice.totals.onSetHrs.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted80}>{payAdvice.totals.onSetOvertimeHrs.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted81}>{payAdvice.totals.weekendSupplementUnits.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted82}>{payAdvice.totals.overnightUnits.toFixed(2)}</td>
-                  <td className={layoutStyles.extracted83}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
-                </tr>
+                {["Hrs Paid", "Hrs WTD"].map((label) => (
+                  <tr key={label} className={layoutStyles.extracted73}>
+                    <td className={layoutStyles.extracted74} colSpan={4}>{label}</td>
+                    {PAY_ADVICE_VALUE_COLUMNS.map(({ field }) => (
+                      <td key={`${label}-${field}`} className={layoutStyles.payAdviceSummaryCell}>
+                        {Number(payAdvice.totals[field] || 0).toFixed(2)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
                 {isAdmin ? (
                   <tr className={layoutStyles.extracted84}>
-                    <td className={layoutStyles.extracted85} colSpan={3}>
-                      Rates
+                    <td className={layoutStyles.extracted85} colSpan={4}>
+                      Hourly Rate
                     </td>
-                    {[
-                      "workshopRate",
-                      "overtimeRate",
-                      "travelRate",
-                      "sundayRate",
-                      "onSetRate",
-                      "onSetOvertimeRate",
-                      "weekendSupplementRate",
-                      "overnightRate",
-                      "travelMealRate",
-                    ].map((field) => (
+                    {PAY_ADVICE_RATE_COLUMNS.map((field) => (
                       <td key={field} className={layoutStyles.extracted86}>
                         <input
                           type="number"
@@ -3770,55 +3769,33 @@ export default function TimesheetDetailPage() {
                   </tr>
                 ) : null}
                 {isAdmin ? (
-                  <tr className={layoutStyles.extracted88}>
-                    <td className={layoutStyles.extracted89} colSpan={3}>
-                      Total Monetary
+                  <tr className={`${layoutStyles.extracted88} ${layoutStyles.payAdviceMoneyRow}`}>
+                    <td className={layoutStyles.extracted89} colSpan={4}>
+                      Total £
                     </td>
-                    <td className={layoutStyles.extracted90}>{toMoney(payAdvice.totals.workshopAmount)}</td>
-                    <td className={layoutStyles.extracted91}>{toMoney(payAdvice.totals.overtimeAmount)}</td>
-                    <td className={layoutStyles.extracted92}>{toMoney(payAdvice.totals.travelAmount)}</td>
-                    <td className={layoutStyles.extracted93}>{toMoney(payAdvice.totals.sundayAmount)}</td>
-                    <td className={layoutStyles.extracted94}>{toMoney(payAdvice.totals.onSetAmount)}</td>
-                    <td className={layoutStyles.extracted95}>{toMoney(payAdvice.totals.onSetOvertimeAmount)}</td>
-                    <td className={layoutStyles.extracted96}>{toMoney(payAdvice.totals.weekendSupplementAmount)}</td>
-                    <td className={layoutStyles.extracted97}>{toMoney(payAdvice.totals.overnightAmount)}</td>
-                    <td className={layoutStyles.extracted98}>{toMoney(payAdvice.totals.travelMealAmount)}</td>
+                    {PAY_ADVICE_AMOUNT_COLUMNS.map((field) => (
+                      <td key={field} className={layoutStyles.payAdviceSummaryCell}>
+                        {toMoney(payAdvice.totals[field])}
+                      </td>
+                    ))}
                   </tr>
                 ) : null}
               </tbody>
             </table>
             {isAdmin ? (
-              <div
-                className={layoutStyles.extracted99}
-              >
-                <div
-                  style={{
-                    minWidth: 180,
-                    display: "grid",
-                    gap: 3,
-                    padding: "10px 12px",
-                    borderRadius: UI.radius,
-                    border: "1px solid var(--color-info-border)",
-                    background: "var(--color-info-soft)",
-                    boxShadow: UI.shadowSm,
-                    textAlign: "right",
-                  }}
-                >
-                  <span
-                    className={layoutStyles.extracted100}
-                  >
-                    Grand Total
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 18,
-                      lineHeight: 1.1,
-                      fontWeight: 900,
-                      color: UI.ink,
-                    }}
-                  >
+              <div className={layoutStyles.payAdviceFooter}>
+                <div className={layoutStyles.payAdviceNotes}>
+                  <strong>Other Notes:</strong>
+                </div>
+                <div className={layoutStyles.payAdviceHoursSummary}>
+                  <div>Hrs Paid</div>
+                  <strong>{payAdvice.totals.hoursPaid.toFixed(2)}</strong>
+                  <div>Hrs WTD</div>
+                  <strong>{payAdvice.totals.hoursWtd.toFixed(2)}</strong>
+                  <div className={layoutStyles.payAdviceGrandTotalLabel}>Grand Total</div>
+                  <strong className={layoutStyles.payAdviceGrandTotal}>
                     {toMoney(payAdvice.totals.totalMonetary)}
-                  </span>
+                  </strong>
                 </div>
               </div>
             ) : null}

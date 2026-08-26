@@ -23,6 +23,8 @@ import {
   ChevronDown,
   Circle,
   Clock3,
+  ExternalLink,
+  FileSignature,
   History,
   ListChecks,
   PauseCircle,
@@ -81,6 +83,10 @@ import {
   pickPrivateEmployeeFields,
   withoutPrivateEmployeeFields,
 } from "@/app/utils/employeePersonnel";
+import {
+  formatWorkingTermsDate,
+  workingTermsStatusForEmployee,
+} from "@/app/utils/workingTermsRecords";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -108,6 +114,8 @@ const EMPTY_PAYROLL_RATES = {
   sundayRate: "",
   onSetRate: "",
   onSetOvertimeRate: "",
+  precisionDriverRate: "",
+  precisionDriverOvertimeRate: "",
   weekendSupplementRate: "",
   overnightRate: "",
   travelMealRate: "",
@@ -125,6 +133,8 @@ const INDIVIDUAL_PAYROLL_RATE_FIELDS = [
   "sundayRate",
   "onSetRate",
   "onSetOvertimeRate",
+  "precisionDriverRate",
+  "precisionDriverOvertimeRate",
   "weekendSupplementRate",
 ];
 
@@ -215,7 +225,7 @@ const btn = (kind = "primary") => {
   return {
     ...base,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)",
+    background: "var(--button-primary-background)",
     color: "var(--color-white)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
   };
@@ -406,6 +416,7 @@ export default function EditEmployeePage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
+  const [financeAccessBusy, setFinanceAccessBusy] = useState(false);
   const [passportFile, setPassportFile] = useState(null);
   const [drivingLicenceFile, setDrivingLicenceFile] = useState(null);
   const [documentFiles, setDocumentFiles] = useState({});
@@ -425,6 +436,8 @@ export default function EditEmployeePage() {
   const [rateChangeDraft, setRateChangeDraft] = useState({ effectiveDate: todayInput(), reason: "" });
   const rateChangeApprovalRef = useRef(null);
   const [absenceData, setAbsenceData] = useState({ holidays: [], sickLeave: [], bankHolidayDates: new Set() });
+  const [workingTermsRecords, setWorkingTermsRecords] = useState(null);
+  const [workingTermsError, setWorkingTermsError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -437,6 +450,7 @@ export default function EditEmployeePage() {
     isService: false,
     appAccess: { user: true, service: false },
     defaultWorkspace: "user",
+    financeAccess: false,
     payrollRates: EMPTY_PAYROLL_RATES,
     employeeCode: "",
     userCode: "",
@@ -512,11 +526,25 @@ export default function EditEmployeePage() {
         const docRef = doc(db, "employees", employeeId);
         const personnelRef = doc(db, EMPLOYEE_PERSONNEL_COLLECTION, employeeId);
         const settingsRef = doc(db, "settings", "payrollRates");
-        const [docSnap, settingsSnap, privateSnap] = await Promise.all([
+        const termsRequest = authAccess.user?.getIdToken
+          ? authAccess.user.getIdToken().then(async (idToken) => {
+              const response = await fetch(`/api/admin/working-terms?employeeId=${encodeURIComponent(employeeId)}`, {
+                headers: { Authorization: `Bearer ${idToken}` },
+                cache: "no-store",
+              });
+              const payload = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(payload.error || "Working Terms records could not be loaded.");
+              return { records: Array.isArray(payload.records) ? payload.records : [], error: "" };
+            }).catch((error) => ({ records: null, error: error.message || "Working Terms records could not be loaded." }))
+          : Promise.resolve({ records: null, error: "Working Terms records could not be loaded." });
+        const [docSnap, settingsSnap, privateSnap, termsResult] = await Promise.all([
           getDoc(docRef),
           getDoc(settingsRef),
           getDoc(personnelRef).catch(() => null),
+          termsRequest,
         ]);
+        setWorkingTermsRecords(termsResult.records);
+        setWorkingTermsError(termsResult.error);
 
         if (!docSnap.exists()) {
           systemDialogs.showSystemNotification("Employee not found");
@@ -673,6 +701,7 @@ export default function EditEmployeePage() {
           isService: data.isService === true,
           appAccess: loadedAccess,
           defaultWorkspace: resolveDefaultWorkspace(data, loadedAccess),
+          financeAccess: data.financeAccess === true,
           employeeCode: asStr(data.employeeCode || data.userCode || data.code || ""),
           userCode: asStr(data.userCode || data.employeeCode || data.code || ""),
           code: asStr(data.code || data.userCode || data.employeeCode || ""),
@@ -987,6 +1016,35 @@ export default function EditEmployeePage() {
     }));
   };
 
+  const handleFinanceAccessToggle = async () => {
+    const linkedUserId = String(formData.authUid || formData.uid || "").trim();
+    if (!linkedUserId || financeAccessBusy) {
+      setSaveError("Link this employee to a user account before granting finance access.");
+      return;
+    }
+    setFinanceAccessBusy(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Sign in again before changing finance access.");
+      const nextFinanceAccess = formData.financeAccess !== true;
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(linkedUserId)}/finance-access`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ financeAccess: nextFinanceAccess, employeeId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Finance access could not be updated.");
+      setFormData((current) => ({ ...current, financeAccess: body.financeAccess === true }));
+      setSaveMessage(body.financeAccess ? "Finance access granted." : "Finance access revoked.");
+    } catch (error) {
+      setSaveError(error?.message || "Finance access could not be updated.");
+    } finally {
+      setFinanceAccessBusy(false);
+    }
+  };
+
   const handlePayrollRateChange = (field, value) => {
     setSaveMessage("");
     setSaveError("");
@@ -1024,6 +1082,12 @@ export default function EditEmployeePage() {
   const onboardingProgress = useMemo(() => checklistProgress(onboardingChecklist), [onboardingChecklist]);
   const offboardingProgress = useMemo(() => checklistProgress(offboardingChecklist), [offboardingChecklist]);
   const complianceSummary = useMemo(() => getPersonnelCompliance(formData), [formData]);
+  const workingTermsStatus = useMemo(
+    () => Array.isArray(workingTermsRecords)
+      ? workingTermsStatusForEmployee({ ...formData, id: employeeId }, workingTermsRecords)
+      : null,
+    [employeeId, formData, workingTermsRecords]
+  );
   const absenceSummary = useMemo(
     () =>
       getEmployeeAbsenceSummary({
@@ -1322,7 +1386,9 @@ export default function EditEmployeePage() {
         updatedBy,
       };
       const operationalRecord = withoutPrivateEmployeeFields({
-        ...formData,
+        ...Object.fromEntries(
+          Object.entries(formData).filter(([field]) => field !== "financeAccess")
+        ),
         ...employeeAccessPatch,
         name: employeeName,
         fullName: employeeName,
@@ -1347,8 +1413,22 @@ export default function EditEmployeePage() {
       const legacyPrivateDeletes = Object.fromEntries(
         PRIVATE_EMPLOYEE_FIELDS.map((field) => [field, deleteField()])
       );
+      const currentUser = auth.currentUser;
+      const idToken = await currentUser?.getIdToken();
+      if (!idToken) throw new Error("Sign in again before saving this employee.");
+      const personnelResponse = await fetch(
+        `/api/admin/employees/${encodeURIComponent(employeeId)}/personnel`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ privateRecord }),
+        }
+      );
+      const personnelResult = await personnelResponse.json().catch(() => ({}));
+      if (!personnelResponse.ok) {
+        throw new Error(personnelResult.error || "Private employee details could not be saved.");
+      }
       const batch = writeBatch(db);
-      batch.set(personnelRef, privateRecord, { merge: true });
       batch.set(docRef, { ...operationalRecord, ...legacyPrivateDeletes }, { merge: true });
       if (userRef) {
         batch.set(
@@ -1384,9 +1464,7 @@ export default function EditEmployeePage() {
       setGlobalPayrollRateHistory(nextGlobalRateHistory);
       setFormData((current) => ({ ...current, payrollRateHistory: nextEmployeeRateHistory }));
       try {
-        const currentUser = auth.currentUser;
         if (currentUser) {
-          const idToken = await currentUser.getIdToken();
           await fetch("/api/admin/activity-tracking/settings", {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
@@ -1819,6 +1897,7 @@ export default function EditEmployeePage() {
           <a href="#profile">Profile</a>
           <a href="#employment">Employment</a>
           <a href="#checklist">Checklist</a>
+          <a href="#working-terms">Working Terms</a>
           <a href="#compliance">Compliance</a>
           <a href="#passport">Right to work</a>
           <a href="#licence">Licence</a>
@@ -2146,6 +2225,51 @@ export default function EditEmployeePage() {
                       </button>
                     ))}
                   </div>
+                </section>
+
+                <section id="working-terms" className={layoutStyles.formSection}>
+                  <div className={layoutStyles.sectionHeading}>
+                    <span><FileSignature size={18} /></span>
+                    <div>
+                      <h2>Working Terms</h2>
+                      <p>Read-only acceptance evidence captured by the Bickers app.</p>
+                    </div>
+                    {workingTermsStatus ? <Badge variant={workingTermsStatus.tone}>{workingTermsStatus.label}</Badge> : null}
+                  </div>
+
+                  {workingTermsError ? <Alert variant="warning">{workingTermsError}</Alert> : null}
+                  {!workingTermsError && !workingTermsStatus ? (
+                    <div className={layoutStyles.termsLoading}>Loading signature record…</div>
+                  ) : null}
+                  {workingTermsStatus?.key === "unsigned" ? (
+                    <Alert variant="warning">No Working Terms acceptance record is linked to this employee.</Alert>
+                  ) : null}
+                  {workingTermsStatus?.record ? (
+                    <div className={layoutStyles.termsRecord}>
+                      <dl className={layoutStyles.termsFacts}>
+                        <div><dt>Signed by</dt><dd>{workingTermsStatus.record.fullName || "Not recorded"}</dd></div>
+                        <div><dt>Signed</dt><dd>{formatWorkingTermsDate(workingTermsStatus.record.acceptedAt)}</dd></div>
+                        <div><dt>Document</dt><dd>{workingTermsStatus.record.documentTitle || "Bickers Action Working Terms"}</dd></div>
+                        <div><dt>Version</dt><dd>{workingTermsStatus.record.documentVersion || "Not recorded"}</dd></div>
+                        <div><dt>Effective date</dt><dd>{workingTermsStatus.record.documentEffectiveDate || "Not recorded"}</dd></div>
+                        <div><dt>Account email</dt><dd>{workingTermsStatus.record.email || "Not recorded"}</dd></div>
+                        <div><dt>App version</dt><dd>{workingTermsStatus.record.signedFromAppVersion || "Not recorded"}</dd></div>
+                        <div><dt>Platform</dt><dd>{workingTermsStatus.record.signedFromPlatform || "Not recorded"}</dd></div>
+                      </dl>
+                      <div className={layoutStyles.signatureRecord}>
+                        <span>Captured signature</span>
+                        <svg viewBox="0 0 390 180" role="img" aria-label={`Signature captured for ${workingTermsStatus.record.fullName || "employee"}`}>
+                          <path d={workingTermsStatus.record.signatureSvgPath || ""} />
+                        </svg>
+                      </div>
+                      <div className={layoutStyles.termsActions}>
+                        <Button as="a" href="bickersapp://working-terms" variant="secondary">
+                          <ExternalLink size={15} /> View Working Terms in app
+                        </Button>
+                        <small>This acceptance is immutable and cannot be edited from the personnel file.</small>
+                      </div>
+                    </div>
+                  ) : null}
                 </section>
 
                 <section id="compliance" className={layoutStyles.formSection}>
@@ -2685,6 +2809,21 @@ export default function EditEmployeePage() {
                       <span>Service app access</span>
                       <span>{formData.appAccess.service ? "On" : "Off"}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handleFinanceAccessToggle}
+                      disabled={financeAccessBusy || !(formData.authUid || formData.uid)}
+                      style={{
+                        ...btn(formData.financeAccess ? "primary" : "ghost"),
+                        justifyContent: "space-between",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>Finance access</span>
+                      <span>{financeAccessBusy ? "Saving…" : formData.financeAccess ? "On" : "Off"}</span>
+                    </button>
                   </div>
 
                   {accessErrors.appAccess && <div style={inlineNotice("error")}>{accessErrors.appAccess}</div>}
@@ -2763,9 +2902,11 @@ export default function EditEmployeePage() {
                         ["overtimeRate", "Overtime rate"],
                         ["travelRate", "Travel rate (Universal)"],
                         ["sundayRate", "Sunday rate"],
-                        ["onSetRate", "On set rate"],
-                        ["onSetOvertimeRate", "On set O/T rate"],
-                        ["weekendSupplementRate", "Sa/Su unit rate"],
+                        ["onSetRate", "Tracking on set (10-hour unit)"],
+                        ["onSetOvertimeRate", "Tracking O/T rate"],
+                        ["precisionDriverRate", "Precision driver day rate"],
+                        ["precisionDriverOvertimeRate", "Precision driver O/T rate"],
+                        ["weekendSupplementRate", "Sa/Su/NS/BH unit rate"],
                         ["overnightRate", "Overnight rate (Universal)"],
                         ["travelMealRate", "Travel meal rate (Universal)"],
                       ].map(([field, label]) => (
@@ -2897,6 +3038,8 @@ export default function EditEmployeePage() {
                           ["Sunday", formData.payrollRates?.sundayRate],
                           ["On set", formData.payrollRates?.onSetRate],
                           ["On set O/T", formData.payrollRates?.onSetOvertimeRate],
+                          ["Precision driver", formData.payrollRates?.precisionDriverRate],
+                          ["Precision driver O/T", formData.payrollRates?.precisionDriverOvertimeRate],
                           ["Sa/Su unit", formData.payrollRates?.weekendSupplementRate],
                           ["Overnight", globalPayrollRates?.overnightRate],
                           ["Travel meal", globalPayrollRates?.travelMealRate],

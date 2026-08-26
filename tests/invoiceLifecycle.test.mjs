@@ -6,13 +6,17 @@ import {
   createDraftReference,
   createInvoiceDraftFromQuote,
   createSageSyncState,
+  duplicateInvoiceLineForEditing,
+  excludeInvoiceLineForEditing,
   getInvoiceIdentityDisplay,
+  getInvoiceApprovalReadiness,
   getSageReadiness,
   hydrateInvoiceDraftForEditing,
   isLegacyLocalInvoiceNumber,
   normaliseInvoiceIdentity,
   parseInvoiceRecord,
   resolveAcceptedQuote,
+  restoreInvoiceLineFromQuote,
   serialiseInvoiceForPersistence,
   transitionInvoice,
   validateInvoice,
@@ -82,6 +86,7 @@ test("creates an editable invoice draft while preserving the quote snapshot", ()
   assert.equal(draft.sourceQuote.quoteNumber, "1234-Q1-R2");
   assert.equal(draft.sourceQuote.snapshot.lineItems.length, 2);
   assert.equal(draft.lines.length, 2);
+  assert.equal(draft.internalFinanceNotes, "");
   assert.deepEqual(draft.totals, { net: 1000, tax: 200, gross: 1200 });
   draft.lines[0].unitPrice = 550;
   assert.equal(draft.sourceQuote.snapshot.lineItems[0].unitPrice, "500");
@@ -166,6 +171,29 @@ test("reports missing nominal and tax mappings as Sage readiness blockers", () =
   );
 });
 
+test("approval readiness is separate from post-approval Sage readiness", () => {
+  const draft = createInvoiceDraftFromQuote({
+    booking,
+    quote: resolveAcceptedQuote(booking),
+  });
+  const readyDraft = {
+    ...draft,
+    customer: {
+      ...draft.customer,
+      contactId: "contact-1",
+      billingCountry: "GB",
+      sageCustomerId: "SAGE-CUSTOMER-1",
+      sageCustomerMappingStatus: "mapped",
+      poRequirement: "optional",
+    },
+    lines: draft.lines.map((line) => ({ ...line, nominalCode: "4000", taxCode: "T1" })),
+  };
+
+  assert.equal(getInvoiceApprovalReadiness(readyDraft).ready, true);
+  assert.equal(getSageReadiness(readyDraft).ready, false);
+  assert.equal(getSageReadiness(readyDraft).blockers[0].code, "invoice_not_approved");
+});
+
 test("parses old invoice records with safe Sage defaults", () => {
   const draft = createInvoiceDraftFromQuote({
     booking,
@@ -175,6 +203,7 @@ test("parses old invoice records with safe Sage defaults", () => {
   const parsed = parseInvoiceRecord(draft, booking);
   assert.equal(parsed.sageSync.status, "not_ready");
   assert.equal(parsed.sageSync.sageInvoiceId, null);
+  assert.equal(parsed.internalFinanceNotes, "");
 });
 
 test("ordinary persistence cannot overwrite integration-owned Sage transport state", () => {
@@ -283,9 +312,35 @@ test("describes a numberless preview as a draft and keeps identities separate", 
 test("calculates VAT per line and totals", () => {
   const totals = calculateInvoiceTotals([
     { description: "A", quantity: 2, unitPrice: 10, taxRate: 20 },
-    { description: "B", quantity: 1, unitPrice: 5, taxRate: 0 },
+    { description: "B", quantity: 1, unitPrice: 5, taxRate: 5 },
+    { description: "C", quantity: 1, unitPrice: 5, taxRate: 0 },
+    { description: "D", quantity: 1, unitPrice: 5, taxRate: 12.5 },
   ]);
-  assert.deepEqual({ net: totals.net, tax: totals.tax, gross: totals.gross }, { net: 25, tax: 4, gross: 29 });
+  assert.deepEqual({ net: totals.net, tax: totals.tax, gross: totals.gross }, { net: 35, tax: 4.88, gross: 39.88 });
+});
+
+test("duplicates, excludes and restores quote lines without changing the quote identity", () => {
+  const lines = [{
+    id: "quoted-line",
+    sourceLineId: "quoted-line",
+    section: "Travel",
+    description: "Mileage",
+    quantity: 180,
+    unitPrice: 1.55,
+    taxRate: 20,
+  }];
+  const duplicated = duplicateInvoiceLineForEditing(lines, 0, "manual-copy");
+  assert.equal(duplicated.length, 2);
+  assert.equal(duplicated[1].id, "manual-copy");
+  assert.equal(duplicated[1].sourceLineId, "");
+  assert.equal(lines.length, 1);
+
+  const excluded = excludeInvoiceLineForEditing(lines, 0);
+  assert.equal(excluded[0].quantity, 0);
+  assert.equal(lines[0].quantity, 180);
+
+  const restored = restoreInvoiceLineFromQuote(excluded, 0, [{ id: "quoted-line", qty: 180 }]);
+  assert.equal(restored[0].quantity, 180);
 });
 
 test("requires Sage to assign a number before an approved invoice can be issued", () => {

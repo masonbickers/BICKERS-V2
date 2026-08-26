@@ -1,7 +1,10 @@
 import {
   adminPatchDocument,
 } from "../../../../_firebaseAdminRest.js";
-import { sanitiseHeartbeat } from "../../../../../utils/sage50ConnectorIdentity.js";
+import {
+  applyHeartbeatCompanyBinding,
+  sanitiseHeartbeat,
+} from "../../../../../utils/sage50ConnectorIdentity.js";
 import {
   authenticateConnector,
   CONNECTOR_COLLECTION,
@@ -19,7 +22,10 @@ export async function POST(req) {
     const connectorId = connector.connectorId;
 
     const body = await req.json().catch(() => ({}));
-    const heartbeat = sanitiseHeartbeat(body);
+    const heartbeat = applyHeartbeatCompanyBinding(
+      connector,
+      sanitiseHeartbeat(body)
+    );
     const now = new Date().toISOString();
     const next = {
       ...connector,

@@ -1,8 +1,8 @@
 import "server-only";
 
 import crypto from "node:crypto";
-import { buildFirestoreCommitWrites } from "@/app/utils/firestoreCommitPlanning";
-import { flattenFirestoreArrayValues } from "@/app/utils/firestoreValueEncoding";
+import { buildFirestoreCommitWrites } from "../utils/firestoreCommitPlanning.js";
+import { flattenFirestoreArrayValues } from "../utils/firestoreValueEncoding.js";
 
 const FIREBASE_PROJECT_ID =
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
@@ -408,6 +408,39 @@ export async function adminListDocuments(collection, options = {}) {
   } while (pageToken && docs.length < maxDocuments);
 
   return docs.slice(0, maxDocuments);
+}
+
+export async function adminListCollectionGroupDocuments(collectionId, options = {}) {
+  const token = await getFirebaseAdminAccessToken();
+  const maxDocuments = Number.isFinite(options.maxDocuments)
+    ? Math.max(1, Math.floor(options.maxDocuments))
+    : 3000;
+  const res = await fetch(`${FIRESTORE_BASE_URL}:runQuery`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: String(collectionId), allDescendants: true }],
+        limit: maxDocuments,
+      },
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Admin Firestore collection-group query failed: ${res.status} ${await res.text()}`);
+  const rows = await res.json();
+  return rows.flatMap((row) => {
+    const document = row.document;
+    if (!document?.name) return [];
+    const segments = String(document.name).split("/");
+    return [{
+      id: segments.at(-1) || "",
+      parentId: segments.at(-3) || "",
+      path: segments.slice(5).join("/"),
+      data: firestoreFieldsToJs(document.fields || {}),
+      createTime: document.createTime || null,
+      updateTime: document.updateTime || null,
+    }];
+  });
 }
 
 function storageObjectUrl(objectPath, suffix = "") {

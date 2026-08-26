@@ -14,6 +14,7 @@ import {
   maintenanceRequirementKey,
   normalizeMaintenanceRecord,
 } from "./maintenanceRecord.js";
+import { getMaintenanceScheduleRule } from "./maintenanceMutationPolicy.js";
 
 const INACTIVE_MAINTENANCE_BOOKING_STATUSES = new Set([
   "archived",
@@ -247,22 +248,43 @@ export const isMaintenanceCalendarEventDraggable = (event = {}) => {
   return false;
 };
 
-export const isMaintenanceMoveOutsideDueWeek = (event = {}, targetDate) => {
-  const targetWeek = getIsoWeekLabel(toYmdDate(targetDate));
-  if (!targetWeek) return false;
-  const legalWeeks = new Set(
-    [
-      event.legalDueIsoWeek,
-      event.sourceDueIsoWeek,
-      ...(Array.isArray(event.canonicalItems)
-        ? event.canonicalItems.map((item) => item?.legalDueIsoWeek)
-        : []),
-    ]
-      .map((value) => String(value || "").trim())
-      .filter(Boolean)
-  );
-  return legalWeeks.size > 0 && !legalWeeks.has(targetWeek);
+export const getMaintenanceEventScheduleRule = (event = {}, targetDate) => {
+  const targetDateISO = toYmdDate(targetDate);
+  const targetWeek = getIsoWeekLabel(targetDateISO);
+  const legalDueDate = [
+    event.legalDueDateISO,
+    event.sourceDueDateISO,
+    event.sourceDueDate,
+    event.dueDate,
+    ...(Array.isArray(event.canonicalItems)
+      ? event.canonicalItems.map((item) => item?.legalDueDateISO || item?.sourceDueDateISO)
+      : []),
+  ]
+    .map(toYmdDate)
+    .filter(Boolean)
+    .sort()[0] || "";
+  const legalWeeks = [
+    event.legalDueIsoWeek,
+    event.sourceDueIsoWeek,
+    ...(Array.isArray(event.canonicalItems)
+      ? event.canonicalItems.map((item) => item?.legalDueIsoWeek)
+      : []),
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  const kind = String(event.kind || "").trim().toUpperCase();
+  const type = String(event.type || "").trim().toUpperCase() ||
+    (kind.includes("MOT") ? "MOT" : kind.includes("SERVICE") ? "SERVICE" : "INSPECTION");
+  return getMaintenanceScheduleRule({
+    type,
+    legalDueDate,
+    legalDueWeeks: legalWeeks,
+    bookingDates: targetDateISO && targetWeek ? [targetDateISO] : [],
+  });
 };
+
+export const isMaintenanceMoveOutsideDueWeek = (event = {}, targetDate) =>
+  getMaintenanceEventScheduleRule(event, targetDate).outsideLegalWeek;
 
 export const buildMaintenanceBookingDraftFromDueEvent = (event = {}, targetDate) => {
   const vehicleId = String(event.vehicleId || "").trim();

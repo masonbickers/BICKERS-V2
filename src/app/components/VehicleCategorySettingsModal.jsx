@@ -50,7 +50,7 @@ const btn = (kind = "ghost") => {
     background: danger
       ? UI.danger
       : primary
-      ? "linear-gradient(180deg, var(--color-brand-hover) 0%, var(--color-brand) 100%)"
+      ? "var(--button-primary-background)"
       : "linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%)",
     color: danger || primary ? "var(--color-white)" : UI.text,
     fontWeight: 850,

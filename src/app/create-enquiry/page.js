@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { addDoc, collection, doc, getDocs, setDoc } from "firebase/firestore";
 import {
   CalendarDays,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -16,10 +15,17 @@ import {
   Save,
   Search,
   Truck,
+  X,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { auth, db } from "@/app/utils/firebaseClient";
-import { contactIdFromEmail } from "@/app/utils/bookingFormShared";
+import {
+  buildExistingJobDetailsLookup,
+  contactIdFromEmail,
+  mergeBookingContacts,
+  normalizeJobNumberForLookup,
+} from "@/app/utils/bookingFormShared";
 import {
   loadBookingFormReferenceData,
   loadSavedContacts,
@@ -43,9 +49,10 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 const UI = UI_TOKENS;
 
 const pageWrap = {
-  minHeight: "100vh",
+  minHeight: "100%",
+  boxSizing: "border-box",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
-  background: UI.bg,
+  background: UI.page,
   padding: "16px 16px 32px",
 };
 
@@ -85,38 +92,6 @@ const pageSub = {
   lineHeight: 1.45,
 };
 
-const headerChecks = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: 10,
-  marginBottom: 12,
-};
-
-const headerChecksBox = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 10,
-  flexWrap: "wrap",
-  padding: "10px 12px",
-  border: UI.border,
-  borderRadius: UI.radius,
-  background: UI.card,
-  boxShadow: UI.shadow,
-};
-
-const sectionGrid = {
-  display: "grid",
-  gridTemplateColumns: "minmax(280px, 0.78fr) minmax(360px, 1.1fr) minmax(360px, 1.12fr)",
-  gap: 12,
-  marginTop: 10,
-};
-
-const formShell = {
-  display: "grid",
-  gap: 12,
-};
-
 const label = {
   display: "block",
   color: UI.muted,
@@ -124,15 +99,6 @@ const label = {
   fontWeight: 900,
   textTransform: "uppercase",
   marginBottom: 5,
-};
-
-const checkboxRow = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  fontWeight: 700,
-  fontSize: 13,
-  marginBottom: 8,
 };
 
 const accordionBtn = {
@@ -176,9 +142,9 @@ const btn = (kind = "ghost") => ({
   gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radius,
-  border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "var(--color-surface)",
-  color: kind === "primary" ? "var(--color-white)" : UI.text,
+  border: kind === "primary" ? "1px solid var(--button-primary-border)" : `1px solid ${UI.brandBorder}`,
+  background: kind === "primary" ? "var(--button-primary-background)" : "var(--color-surface)",
+  color: kind === "primary" ? "var(--button-primary-text)" : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -213,7 +179,6 @@ const pill = {
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "var(--color-border)", margin: "12px 0" };
 const FILM_DEPARTMENTS = [
   "Production",
   "Director",
@@ -245,27 +210,6 @@ const focusCss = `
   }
 `;
 
-const parseYMDUTC = (ymd) => {
-  const [y, m, d] = String(ymd || "").split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(Date.UTC(y, m - 1, d));
-};
-
-const formatYMDUTC = (date) => date.toISOString().slice(0, 10);
-
-const enumerateDays = (startYMD, endYMD) => {
-  const start = parseYMDUTC(startYMD);
-  const end = parseYMDUTC(endYMD);
-  if (!start || !end || end < start) return [];
-  const out = [];
-  const cur = new Date(start);
-  while (cur <= end) {
-    out.push(formatYMDUTC(cur));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return out;
-};
-
 const nextJobNumberFromSnapshot = (snap) => {
   const max = (snap?.docs || []).reduce((currentMax, docSnap) => {
     const raw = docSnap.data()?.jobNumber;
@@ -292,17 +236,11 @@ export default function CreateEnquiryPage() {
   const [invoiceContactEmail, setInvoiceContactEmail] = useState("");
   const [invoiceContactPhone, setInvoiceContactPhone] = useState("");
   const [shootType, setShootType] = useState("Day");
-  const [dateKnown, setDateKnown] = useState(false);
-  const [isRange, setIsRange] = useState(false);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [additionalContacts, setAdditionalContacts] = useState([
-    { department: "", departmentOther: "", name: "", email: "", phone: "" },
-  ]);
+  const [additionalContacts, setAdditionalContacts] = useState([]);
+  const [contactsExpanded, setContactsExpanded] = useState(false);
   const [savedContacts, setSavedContacts] = useState([]);
   const [savedContactsLoaded, setSavedContactsLoaded] = useState(false);
   const [savedContactsLoading, setSavedContactsLoading] = useState(false);
-  const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
   const [savedContactSearch, setSavedContactSearch] = useState("");
   const [referenceDataLoading, setReferenceDataLoading] = useState(true);
   const [vehicleGroups, setVehicleGroups] = useState({});
@@ -313,15 +251,14 @@ export default function CreateEnquiryPage() {
   const [vehicleStatus, setVehicleStatus] = useState({});
   const [equipment, setEquipment] = useState([]);
   const [assetSearch, setAssetSearch] = useState("");
+  const [resourceTab, setResourceTab] = useState("vehicles");
   const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState("");
+  const [existingJobDetailsByNumber, setExistingJobDetailsByNumber] = useState({});
+  const [dismissedExistingJobNumber, setDismissedExistingJobNumber] = useState("");
 
   useEffect(() => {
     const loadNextNumber = async () => {
-      if (prefillJobNumber) {
-        setJobNumber(prefillJobNumber);
-        return;
-      }
       const gate = resolveDataAccess(dataAccessState);
       if (gate.checking) return;
       if (!gate.allowed) {
@@ -329,7 +266,10 @@ export default function CreateEnquiryPage() {
         return;
       }
       const snap = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
-      setJobNumber(nextJobNumberFromSnapshot(snap));
+      setExistingJobDetailsByNumber(
+        buildExistingJobDetailsLookup((snap?.docs || []).map((docSnap) => docSnap.data()))
+      );
+      setJobNumber(prefillJobNumber || nextJobNumberFromSnapshot(snap));
     };
     loadNextNumber().catch((err) => console.error("Failed loading next enquiry job number:", err));
   }, [accessKey, dataAccessState, prefillJobNumber]);
@@ -363,13 +303,19 @@ export default function CreateEnquiryPage() {
     loadReferenceData();
   }, [accessKey, dataAccessState]);
 
-  const bookingDates = useMemo(() => {
-    if (!dateKnown || !startDate) return [];
-    if (isRange) return enumerateDays(startDate, endDate || startDate);
-    return [startDate];
-  }, [dateKnown, endDate, isRange, startDate]);
+  const bookingDates = useMemo(() => [], []);
 
+  const saving = Boolean(savingAction);
   const canSave = Boolean(jobNumber.trim() && client.trim()) && !saving;
+  const normalizedJobNumber = normalizeJobNumberForLookup(jobNumber);
+  const existingJobDetails = existingJobDetailsByNumber[normalizedJobNumber] || null;
+  const shouldOfferExistingJobDetails = Boolean(
+    existingJobDetails &&
+      dismissedExistingJobNumber !== normalizedJobNumber &&
+      (client.trim() !== existingJobDetails.client ||
+        production.trim() !== existingJobDetails.production ||
+        (existingJobDetails.additionalContacts.length > 0 && additionalContacts.length === 0))
+  );
 
   const normalizedAssetSearch = assetSearch.trim().toLowerCase();
 
@@ -396,6 +342,16 @@ export default function CreateEnquiryPage() {
       ])
       .filter(([, items]) => items.length);
   }, [equipmentGroups, normalizedAssetSearch]);
+
+  const selectedVehicleDetails = useMemo(() => {
+    const byId = new Map(
+      Object.values(vehicleGroups)
+        .flat()
+        .filter(Boolean)
+        .map((vehicle) => [vehicle.id, vehicle])
+    );
+    return vehicles.map((vehicleId) => byId.get(vehicleId)).filter(Boolean);
+  }, [vehicleGroups, vehicles]);
 
   const sortedSavedContacts = useMemo(() => {
     return [...savedContacts].sort((a, b) => {
@@ -489,13 +445,8 @@ export default function CreateEnquiryPage() {
     });
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async ({ openQuote = false } = {}) => {
     if (!canSave) return;
-    if (dateKnown && isRange && endDate && endDate < startDate) {
-      systemDialogs.showSystemNotification("End date must be after the start date.");
-      return;
-    }
 
     const gate = resolveDataAccess(dataAccessState);
     if (!gate.allowed) {
@@ -586,7 +537,7 @@ export default function CreateEnquiryPage() {
       ],
     };
 
-    setSaving(true);
+    setSavingAction(openQuote ? "quote" : "enquiry");
     try {
       const created = await addDoc(collection(db, "bookings"), tenantPayload(dataAccessState, payload));
       for (const contact of additionalContactsToSave) {
@@ -605,125 +556,169 @@ export default function CreateEnquiryPage() {
           { merge: true }
         );
       }
-      router.push(`/job-numbers/${created.id}`);
+      router.push(openQuote ? `/quote/${created.id}` : `/job-numbers/${created.id}`);
     } catch (err) {
       console.error("Failed saving enquiry:", err);
       systemDialogs.showSystemNotification(`Failed to save enquiry\n\n${err.message}`);
     } finally {
-      setSaving(false);
+      setSavingAction("");
     }
   };
 
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
-      <div style={pageWrap}>
-        <div style={mainWrap}>
-          <div className={layoutStyles.extracted1}>
-            <div>
-              <h1 style={h1Style}>Create Enquiry</h1>
-              <div style={pageSub}>Capture the early job details now. Dates and crew can be added later if they are not known yet.</div>
-            </div>
-            <div style={{ ...pill, alignSelf: "flex-start", padding: "6px 10px" }}>
-              <ClipboardList size={14} />
-              Job {jobNumber || "Draft"}
-            </div>
-          </div>
-
-          <div className={layoutStyles.extracted2}>
-            <div style={headerChecksBox}>
-              <span style={iconBox(dateKnown ? UI.green : UI.brand, dateKnown ? UI.greenSoft : UI.brandSoft, dateKnown ? UI.greenBorder : UI.brandBorder)}>
-                <CalendarDays size={17} />
-              </span>
-              <div className={layoutStyles.extracted3}>
-                <label className={layoutStyles.extracted4}>
-                  <input type="checkbox" checked={dateKnown} onChange={(e) => setDateKnown(e.target.checked)} />
-                  Dates available
-                </label>
-                <div style={{ fontSize: 12, color: UI.muted }}>
-                  Leave unticked when production has not supplied dates yet.
-                </div>
+      <div className={layoutStyles.pageShell} style={pageWrap}>
+        <div className={layoutStyles.workspaceMain} style={mainWrap}>
+          <div className={`${layoutStyles.extracted1} ${layoutStyles.compactPageHeader}`}>
+            <div className={layoutStyles.compactTitleBlock}>
+              <div className={layoutStyles.compactTitleLine}>
+                <h1 style={h1Style}>Create Enquiry</h1>
+                <span className={layoutStyles.jobReference}><ClipboardList size={13} /> Job {jobNumber || "Draft"}</span>
+              </div>
+              <div style={pageSub}>
+                {client || "Production company"} · {production || "Production"} · Early-stage enquiry
               </div>
             </div>
-
-            <div style={headerChecksBox}>
-              <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
-                <CheckCircle2 size={17} />
-              </span>
-              <div className={layoutStyles.extracted5}>
-                <div className={layoutStyles.extracted6}>Enquiry workflow</div>
-                <div style={{ fontSize: 12, color: UI.muted }}>
-                  Saved as an enquiry and excluded from asset availability checks.
-                </div>
-              </div>
-            </div>
+            <button
+              type="button"
+              className={layoutStyles.primaryAction}
+              disabled={!canSave}
+              title="Save enquiry and open quote page"
+              onClick={() => handleSubmit({ openQuote: true })}
+              style={{
+                ...btn("primary"),
+                opacity: canSave ? 1 : 0.55,
+                cursor: canSave ? "pointer" : "not-allowed",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <FileText size={14} /> {savingAction === "quote" ? "Saving..." : "Create Quote"}
+            </button>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <div className={layoutStyles.compactControlBar}>
+            <span className={layoutStyles.compactControl}>
+              <CalendarDays size={14} /> No dates required
+            </span>
+            <span className={layoutStyles.controlDivider} aria-hidden="true" />
+            <span className={layoutStyles.compactControlHint}>
+              Dates and crew are added later when the enquiry becomes a booking; selected assets are notes only and are not reserved.
+            </span>
+          </div>
+
+          <form
+            className={layoutStyles.workspaceForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSubmit();
+            }}
+          >
             <div className={layoutStyles.extracted7}>
-              <div className={`create-booking-grid ${layoutStyles.extracted8}`} >
-                <div style={card}>
+              <div className={`create-booking-grid ${layoutStyles.extracted8} ${layoutStyles.bookingColumns} ${layoutStyles.enquiryColumns}`} >
+                <div className={layoutStyles.enquiryColumnPanel} style={card}>
                   <div className={layoutStyles.extracted9}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Job Info</h3>
                   </div>
 
-                  <label style={label}>Job Number</label>
-                  <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={input} />
+                  <div className={layoutStyles.jobFieldGrid}>
+                    <div>
+                      <label style={label}>Job Number</label>
+                      <input
+                        value={jobNumber}
+                        onChange={(e) => {
+                          setJobNumber(e.target.value);
+                          setDismissedExistingJobNumber("");
+                        }}
+                        required
+                        style={input}
+                      />
+                    </div>
+                    <div>
+                      <label style={label}>Status</label>
+                      <input value="Enquiry" readOnly style={{ ...input, background: "var(--color-surface-subtle)", color: UI.muted }} />
+                    </div>
+                    <div>
+                      <label style={label}>Shoot Type</label>
+                      <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={input}>
+                        <option>Day</option>
+                        <option>Night</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={label}>Location</label>
+                      <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} placeholder="Optional at enquiry stage" />
+                    </div>
+                  </div>
 
-                  <label style={label}>Status</label>
-                  <input value="Enquiry" readOnly style={{ ...input, background: "var(--color-surface-subtle)", color: UI.muted }} />
+                  {shouldOfferExistingJobDetails && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        marginTop: 8,
+                        padding: 10,
+                        borderRadius: UI.radius,
+                        border: `1px solid ${UI.brandBorder}`,
+                        background: UI.brandSoft,
+                        color: UI.text,
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 800 }}>
+                        Job {jobNumber.trim()} already has {existingJobDetails.bookingCount}{" "}
+                        {existingJobDetails.bookingCount === 1 ? "booking" : "bookings"}.
+                      </div>
+                      <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
+                        Use Production Company: {existingJobDetails.client || "Not set"} · Production:{" "}
+                        {existingJobDetails.production || "Not set"}
+                        {existingJobDetails.additionalContacts.length > 0
+                          ? ` · ${existingJobDetails.additionalContacts.length} ${
+                              existingJobDetails.additionalContacts.length === 1 ? "contact" : "contacts"
+                            }`
+                          : ""}
+                        ?
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (existingJobDetails.client) setClient(existingJobDetails.client);
+                            if (existingJobDetails.production) setProduction(existingJobDetails.production);
+                            if (existingJobDetails.additionalContacts.length) {
+                              setAdditionalContacts((current) =>
+                                mergeBookingContacts(existingJobDetails.additionalContacts, current)
+                              );
+                            }
+                            setDismissedExistingJobNumber(normalizedJobNumber);
+                          }}
+                          style={{ ...btn("primary"), padding: "6px 10px", fontSize: 12 }}
+                        >
+                          Use details & contacts
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDismissedExistingJobNumber(normalizedJobNumber)}
+                          style={{ ...btn(), padding: "6px 10px", fontSize: 12 }}
+                        >
+                          Keep my details
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className={layoutStyles.extracted10} />
 
-                  <label style={label}>Shoot Type</label>
-                  <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={input}>
-                    <option>Day</option>
-                    <option>Night</option>
-                    <option>Travel</option>
-                    <option>Prep</option>
-                    <option>Other</option>
-                  </select>
-
-                  <label style={label}>Production Company</label>
-                  <input value={client} onChange={(e) => setClient(e.target.value)} style={input} required />
-
-                  <label style={label}>Production</label>
-                  <input value={production} onChange={(e) => setProduction(e.target.value)} style={input} />
-
-                  <label style={label}>Location</label>
-                  <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} placeholder="Optional at enquiry stage" />
-
-                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--color-surface-subtle)" }}>
-                    <label className={layoutStyles.extracted11}>
-                      <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
-                      Add invoicing details
-                    </label>
-                    {showInvoicingDetails && (
-                      <div className={layoutStyles.extracted12}>
-                        <div>
-                          <label style={{ ...label, marginTop: 0 }}>Purchase Order (PO)</label>
-                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="PO reference for invoicing" />
-                        </div>
-                        <div className={layoutStyles.extracted13}>
-                          <div>
-                            <label style={{ ...label, marginTop: 0 }}>Invoicing contact</label>
-                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="Name" />
-                          </div>
-                          <div>
-                            <label style={{ ...label, marginTop: 0 }}>Email</label>
-                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="accounts@example.com" />
-                          </div>
-                        </div>
-                        <div>
-                          <label style={{ ...label, marginTop: 0 }}>Phone</label>
-                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="Optional phone number" />
-                        </div>
-                      </div>
-                    )}
+                  <div className={layoutStyles.jobFieldGrid}>
+                    <div>
+                      <label style={label}>Production Company</label>
+                      <input value={client} onChange={(e) => setClient(e.target.value)} style={input} required />
+                    </div>
+                    <div>
+                      <label style={label}>Production</label>
+                      <input value={production} onChange={(e) => setProduction(e.target.value)} style={input} />
+                    </div>
                   </div>
-
-                  <div className={layoutStyles.extracted14} />
 
                   <div
                     style={{
@@ -736,11 +731,46 @@ export default function CreateEnquiryPage() {
                   >
                     <div className={layoutStyles.extracted15}>
                       <span className={layoutStyles.extracted16}>Contacts</span>
-                      <button type="button" onClick={handleAddContactRow} style={{ ...btn(), padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
-                        + Add contact
-                      </button>
+                      <div className={layoutStyles.contactActions}>
+                        {contactsExpanded && (
+                          <button type="button" onClick={handleAddContactRow} style={{ ...btn(), padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>+ Add contact</button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!contactsExpanded) ensureSavedContactsLoaded();
+                            setContactsExpanded((open) => !open);
+                          }}
+                          style={{ ...btn(), padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
+                        >
+                          {contactsExpanded ? "Done" : additionalContacts.length ? "Edit" : "+ Add contact"}
+                        </button>
+                      </div>
                     </div>
 
+                    {!contactsExpanded ? (
+                      <button
+                        type="button"
+                        className={layoutStyles.contactSummary}
+                        onClick={() => {
+                          ensureSavedContactsLoaded();
+                          setContactsExpanded(true);
+                        }}
+                      >
+                        {additionalContacts.length ? (
+                          additionalContacts.map((contact, index) => (
+                            <span key={`${contact.name || contact.email || "contact"}-${index}`}>
+                              <strong>{contact.name || contact.email || "Unnamed contact"}</strong>
+                              <small>{contact.department === "Other" ? contact.departmentOther : contact.department || "No department"}</small>
+                            </span>
+                          ))
+                        ) : (
+                          <span><strong>No contacts added</strong><small>Add a production contact</small></span>
+                        )}
+                        <ChevronRight size={16} />
+                      </button>
+                    ) : (
+                      <>
                     {additionalContacts.map((row, idx) => (
                       <div
                         key={idx}
@@ -811,107 +841,109 @@ export default function CreateEnquiryPage() {
                       </div>
                     ))}
 
-                    <div className={layoutStyles.extracted20}>
-                      <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>
-                        Quick add from saved contacts
-                      </label>
-                      {!savedContactsLoaded ? (
-                        <button
-                          type="button"
-                          onClick={ensureSavedContactsLoaded}
-                          disabled={savedContactsLoading}
-                          style={{ ...btn(), width: "100%", justifyContent: "center" }}
-                        >
-                          {savedContactsLoading ? "Loading saved contacts..." : "Load saved contacts"}
-                        </button>
-                      ) : (
-                        <>
-                          <input
-                            type="text"
-                            value={savedContactSearch}
-                            onChange={(e) => setSavedContactSearch(e.target.value)}
-                            placeholder="Search saved contacts..."
-                            style={{ ...input, marginBottom: 6 }}
-                          />
-                          <select
-                            value={selectedSavedContactId}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setSelectedSavedContactId(val);
-                              if (val) {
-                                handleQuickAddSavedContact(val);
-                                setSelectedSavedContactId("");
-                              }
-                            }}
-                            style={input}
-                          >
-                            <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
-                            {filteredSavedContacts.map((c) => {
-                              const labelBase = c.name || c.email || "Unnamed";
-                              const deptLabel = c.department ? ` - ${c.department}` : "";
-                              return (
-                                <option key={c.id} value={c.id}>
-                                  {labelBase}
-                                  {deptLabel}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={card}>
-                  <div className={layoutStyles.extracted21}>
-                    <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><CalendarDays size={17} /></span>
-                    <h3 style={cardTitle}>Dates</h3>
+                    <SavedContactPicker
+                      contacts={filteredSavedContacts}
+                      existingContacts={additionalContacts}
+                      loaded={savedContactsLoaded}
+                      loading={savedContactsLoading}
+                      query={savedContactSearch}
+                      onQueryChange={setSavedContactSearch}
+                      onLoad={ensureSavedContactsLoaded}
+                      onSelect={handleQuickAddSavedContact}
+                    />
+                      </>
+                    )}
                   </div>
 
-                  <label className={layoutStyles.extracted22}>
-                    <input type="checkbox" checked={dateKnown} onChange={(e) => setDateKnown(e.target.checked)} />
-                    Date is available
-                  </label>
+                  <div style={{ marginTop: 12, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--color-surface-subtle)" }}>
+                    <label className={layoutStyles.extracted11}>
+                      <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
+                      Add invoicing details
+                    </label>
+                    {showInvoicingDetails && (
+                      <div className={layoutStyles.extracted12}>
+                        <div>
+                          <label style={{ ...label, marginTop: 0 }}>Purchase Order (PO)</label>
+                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="PO reference for invoicing" />
+                        </div>
+                        <div className={layoutStyles.extracted13}>
+                          <div>
+                            <label style={{ ...label, marginTop: 0 }}>Invoicing contact</label>
+                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="Name" />
+                          </div>
+                          <div>
+                            <label style={{ ...label, marginTop: 0 }}>Email</label>
+                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="accounts@example.com" />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ ...label, marginTop: 0 }}>Phone</label>
+                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "var(--color-surface)" }} placeholder="Optional phone number" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-                  {dateKnown ? (
-                    <>
-                      <label style={label}>Start Date</label>
-                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={input} />
-
-                      <label className={layoutStyles.extracted23}>
-                        <input type="checkbox" checked={isRange} onChange={(e) => setIsRange(e.target.checked)} />
-                        Multi-day enquiry
-                      </label>
-
-                      <label style={label}>End Date</label>
-                      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!isRange} style={{ ...input, opacity: isRange ? 1 : 0.55 }} />
-                    </>
-                  ) : (
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
-                      No dates recorded yet.
-                    </div>
-                  )}
-
-                  <div className={layoutStyles.extracted24} />
-
+                  <div className={layoutStyles.enquiryDetailsSection}>
                   <div className={layoutStyles.extracted25}>
                     <span style={iconBox()}><FileText size={17} /></span>
-                    <h3 style={cardTitle}>Notes</h3>
+                    <h3 style={cardTitle}>Enquiry Details</h3>
                   </div>
                   <label style={{ ...label, marginTop: 0, marginBottom: 3 }}>Additional Notes</label>
                   <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...textarea, minHeight: 92 }} placeholder="Anything known at enquiry stage..." />
+                  </div>
                 </div>
 
-                <div style={card}>
+                <div className={`${layoutStyles.resourceCard} ${layoutStyles.enquiryColumnPanel}`} style={card}>
                   <div className={layoutStyles.extracted26}>
                     <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
-                    <h3 style={cardTitle}>Vehicles</h3>
+                    <h3 style={cardTitle}>Vehicles &amp; Resources</h3>
                   </div>
 
                   {referenceDataLoading && (
                     <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13, marginBottom: 10 }}>
                       Loading vehicles and equipment...
+                    </div>
+                  )}
+
+                  <div className={layoutStyles.resourceHeader}>
+                    <div className={layoutStyles.resourceTabs} role="tablist" aria-label="Enquiry resources">
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={resourceTab === "vehicles"}
+                        className={resourceTab === "vehicles" ? layoutStyles.resourceTabActive : layoutStyles.resourceTab}
+                        onClick={() => setResourceTab("vehicles")}
+                      >
+                        <Truck size={15} /> Vehicles <span>{vehicles.length}</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={resourceTab === "equipment"}
+                        className={resourceTab === "equipment" ? layoutStyles.resourceTabActive : layoutStyles.resourceTab}
+                        onClick={() => setResourceTab("equipment")}
+                      >
+                        <Package size={15} /> Equipment <span>{equipment.length}</span>
+                      </button>
+                    </div>
+                    <small className={layoutStyles.resourceSelectionSummary}>{vehicles.length + equipment.length} selected</small>
+                  </div>
+
+                  {(selectedVehicleDetails.length > 0 || equipment.length > 0) && (
+                    <div className={layoutStyles.selectedResources} aria-label="Selected resources">
+                      {selectedVehicleDetails.map((vehicle) => (
+                        <span className={layoutStyles.selectionChip} key={vehicle.id}>
+                          <Truck size={13} /> {vehicle.name}{vehicle.registration ? ` · ${vehicle.registration}` : ""}
+                          <button type="button" aria-label={`Remove ${vehicle.name}`} onClick={() => toggleVehicle(vehicle.id, false)}><X size={12} /></button>
+                        </span>
+                      ))}
+                      {equipment.map((name) => (
+                        <span className={layoutStyles.selectionChip} key={name}>
+                          <Package size={13} /> {name}
+                          <button type="button" aria-label={`Remove ${name}`} onClick={() => setEquipment((current) => current.filter((item) => item !== name))}><X size={12} /></button>
+                        </span>
+                      ))}
                     </div>
                   )}
 
@@ -921,11 +953,12 @@ export default function CreateEnquiryPage() {
                       type="text"
                       value={assetSearch}
                       onChange={(e) => setAssetSearch(e.target.value)}
-                      placeholder="Search vehicles and equipment..."
+                      placeholder={resourceTab === "vehicles" ? "Search vehicles..." : "Search equipment..."}
                       style={{ ...input, paddingLeft: 34 }}
                     />
                   </div>
 
+                  {resourceTab === "vehicles" && <>
                   <div className={`create-enquiry-two ${layoutStyles.extracted28}`} >
                     {filteredVehicleGroups.map(([group, items]) => {
                       const isOpen = openGroups[group] || false;
@@ -963,14 +996,9 @@ export default function CreateEnquiryPage() {
                   {filteredVehicleGroups.length === 0 && (
                     <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
                   )}
+                  </>}
 
-                  <div className={layoutStyles.extracted33} />
-
-                  <div className={layoutStyles.extracted34}>
-                    <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><Package size={17} /></span>
-                    <h3 style={cardTitle}>Equipment</h3>
-                  </div>
-
+                  {resourceTab === "equipment" && <>
                   <div className={`create-enquiry-two ${layoutStyles.extracted35}`} >
                     {filteredEquipmentGroups.map(([group, items]) => {
                       const isOpen = openEquipGroups[group] || false;
@@ -1012,17 +1040,38 @@ export default function CreateEnquiryPage() {
                   {filteredEquipmentGroups.length === 0 && (
                     <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
                   )}
+                  </>}
                 </div>
               </div>
 
-              <div className={layoutStyles.extracted39}>
-                <button type="submit" disabled={!canSave} style={{ ...btn("primary"), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "not-allowed" }}>
-                  <Save size={14} />
-                  {saving ? "Saving..." : "Save Enquiry"}
-                </button>
-                <button type="button" onClick={() => router.push("/job-home")} style={btn()}>
-                  Cancel
-                </button>
+              <div className={layoutStyles.stickyActionBar}>
+                <div className={layoutStyles.compactReview} aria-label="Enquiry review">
+                  <span><strong>Job</strong> {jobNumber || "Draft"}</span>
+                  <span className={layoutStyles.reviewStatus}>Enquiry</span>
+                  <span>No dates required</span>
+                  <span>{location || "No location"}</span>
+                  <span>{vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} · {equipment.length} equipment</span>
+                </div>
+                <div className={layoutStyles.stickyActions}>
+                  <button type="button" onClick={() => router.push("/job-home")} style={btn()}>Cancel</button>
+                  <button
+                    type="button"
+                    disabled={!canSave}
+                    title="Save enquiry and open quote page"
+                    onClick={() => handleSubmit({ openQuote: true })}
+                    style={{
+                      ...btn("primary"),
+                      background: UI.green,
+                      opacity: canSave ? 1 : 0.55,
+                      cursor: canSave ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    <FileText size={14} /> {savingAction === "quote" ? "Saving..." : "Save & Quote"}
+                  </button>
+                  <button type="submit" className={layoutStyles.primaryAction} disabled={!canSave} style={{ ...btn("primary"), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "not-allowed" }}>
+                    <Save size={14} /> {savingAction === "enquiry" ? "Saving..." : "Save Enquiry"}
+                  </button>
+                </div>
               </div>
             </div>
           </form>

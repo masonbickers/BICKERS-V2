@@ -30,6 +30,11 @@ import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
+import {
+  buildReopenBookingPayload,
+  isLockedJobStatus as isLockedStatus,
+  lockedBookingMessage,
+} from "@/app/utils/jobNumberDetail";
 
 /* ────────────────────────────────────────────────────────────
    Design tokens + layout
@@ -251,13 +256,13 @@ const getContactLabels = (job) => {
     .filter(Boolean);
 };
 
-const buildConnectedBookingSummary = (jobs, statusByJob = {}) => {
-  const activeJobs = (jobs || []).filter((job) => !isLockedStatus(statusByJob[job.id] || job.status));
+const buildConnectedBookingSummary = (jobs) => {
+  const connectedJobs = jobs || [];
   return {
-    contacts: uniqueCleanList((jobs || []).flatMap(getContactLabels)),
-    vehicles: uniqueCleanList(activeJobs.flatMap(getVehicleLabels)),
-    crew: uniqueCleanList(activeJobs.flatMap(getCrewLabels)),
-    locations: uniqueCleanList(activeJobs.flatMap(getLocationLabels)),
+    contacts: uniqueCleanList(connectedJobs.flatMap(getContactLabels)),
+    vehicles: uniqueCleanList(connectedJobs.flatMap(getVehicleLabels)),
+    crew: uniqueCleanList(connectedJobs.flatMap(getCrewLabels)),
+    locations: uniqueCleanList(connectedJobs.flatMap(getLocationLabels)),
   };
 };
 
@@ -647,21 +652,17 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
 /* ────────────────────────────────────────────────────────────
    NEW: Non-editable status rule (view-only)
 ─────────────────────────────────────────────────────────────*/
-const isLockedStatus = (status = "") => {
-  const s = String(status || "").toLowerCase().trim();
-  return s === "cancelled" || s === "canceled" || s === "dnh" || s === "postponed" || s === "lost";
-};
-
 const isCompleteStatus = (status = "") => {
   const s = String(status || "").toLowerCase().trim();
   return s === "complete" || s === "completed";
 };
 
-const DisabledOverlayNote = ({ reason }) => (
+const LockedBookingNote = ({ status }) => (
   <div
     className={layoutStyles.extracted14}
+    role="status"
   >
-    Locked This job is locked ({reason}). Editing is disabled.
+    <strong>View-only booking.</strong> {lockedBookingMessage(status)}
   </div>
 );
 
@@ -722,6 +723,100 @@ const SectionTitle = ({ title, right }) => (
     {right}
   </div>
 );
+
+const FilesSection = ({
+  id,
+  job,
+  locked,
+  currentPdfUrl,
+  fileSelected,
+  uploading,
+  progress,
+  uploadError,
+  onFileSelect,
+  onUpload,
+}) => {
+  const attachments = Array.isArray(job?.attachments) ? job.attachments : [];
+
+  return (
+    <Card id={id} tone="white" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
+      <SectionTitle
+        title="Files"
+        right={
+          attachments.length ? (
+            <span className={layoutStyles.fileCount}>
+              {attachments.length} file{attachments.length === 1 ? "" : "s"}
+            </span>
+          ) : null
+        }
+      />
+
+      {currentPdfUrl && (
+        <a
+          href={currentPdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={layoutStyles.currentFileLink}
+        >
+          View current PDF
+        </a>
+      )}
+
+      {attachments.length ? (
+        <ul className={layoutStyles.fileList}>
+          {attachments.map((attachment, index) => (
+            <li key={`${attachment?.url || attachment?.name || "file"}-${index}`} className={layoutStyles.fileRow}>
+              <a
+                href={attachment?.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={layoutStyles.fileLink}
+              >
+                {attachment?.name || `Attachment ${index + 1}`}
+              </a>
+              {Number.isFinite(Number(attachment?.size)) && Number(attachment.size) > 0 ? (
+                <span className={layoutStyles.fileMeta}>
+                  {(Number(attachment.size) / 1024 / 1024).toFixed(2)} MB
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : !currentPdfUrl ? (
+        <div className={layoutStyles.emptyFiles}>No files attached to this booking.</div>
+      ) : null}
+
+      {!locked && (
+        <div className={layoutStyles.fileUpload}>
+          <label className={layoutStyles.fileUploadLabel} htmlFor={`${id}-input`}>
+            Add PDF
+          </label>
+          <input
+            id={`${id}-input`}
+            type="file"
+            accept="application/pdf"
+            onChange={(event) => onFileSelect(event.target.files?.[0])}
+            className={layoutStyles.fileInput}
+          />
+          <Btn
+            variant="dark"
+            disabled={uploading || !fileSelected}
+            onClick={onUpload}
+          >
+            {uploading
+              ? `Uploading… ${progress ?? 0}%`
+              : fileSelected
+              ? currentPdfUrl
+                ? "Replace / add PDF"
+                : "Upload PDF"
+              : "Select a PDF"}
+          </Btn>
+          {uploadError && <p className={layoutStyles.extracted60}>{uploadError}</p>}
+        </div>
+      )}
+    </Card>
+  );
+};
 
 const norm = (s) => String(s || "").toLowerCase().trim();
 const matchText = (job, term) => {
@@ -854,6 +949,7 @@ export default function JobInfoPage() {
   const [uploadingByJob, setUploadingByJob] = useState({});
   const [progressByJob, setProgressByJob] = useState({});
   const [errorByJob, setErrorByJob] = useState({});
+  const [reopeningByJob, setReopeningByJob] = useState({});
 
   // NEW: search + filter + collapse
   const sessionKey = `job-numbers:${jobId || "unknown"}`;
@@ -1042,6 +1138,47 @@ export default function JobInfoPage() {
     }
   };
 
+  const reopenBooking = async (job) => {
+    if (!job?.id || reopeningByJob[job.id]) return;
+
+    const confirmed = await systemDialogs.confirmSystem(
+      "Reopen this booking as Enquiry? Crew and vehicle allocations must be reviewed before it is confirmed again."
+    );
+    if (!confirmed) return;
+
+    setReopeningByJob((current) => ({ ...current, [job.id]: true }));
+    try {
+      const currentJob = {
+        ...job,
+        status: statusByJob[job.id] || job.status,
+      };
+      const updates = buildReopenBookingPayload(currentJob, {
+        timestamp: new Date().toISOString(),
+        actor: {
+          email: dataAccessState.userDoc?.email || dataAccessState.user?.email || "Unknown",
+          uid: dataAccessState.user?.uid || dataAccessState.userDoc?.uid || "",
+        },
+      });
+
+      await updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, updates));
+      setRelatedJobs((current) =>
+        current.map((item) => (item.id === job.id ? { ...item, ...updates } : item))
+      );
+      setStatusByJob((current) => ({ ...current, [job.id]: updates.status }));
+      setSelectedStatusByJob((current) => ({ ...current, [job.id]: updates.status }));
+      systemDialogs.showSystemNotification("Booking reopened as Enquiry. Review its allocations before confirming it.");
+      router.push(
+        `/edit-booking/${job.id}?reopened=1&returnTo=${encodeURIComponent(
+          `/job-numbers/${encodeURIComponent(jobId)}`
+        )}`
+      );
+    } catch (error) {
+      console.error("Failed to reopen booking:", error);
+      systemDialogs.showSystemNotification("Failed to reopen booking. No changes were made.");
+      setReopeningByJob((current) => ({ ...current, [job.id]: false }));
+    }
+  };
+
   const deleteJob = async (id) => {
     if (!await systemDialogs.confirmSystem("Delete this job? This cannot be undone.")) return;
     try {
@@ -1219,13 +1356,6 @@ export default function JobInfoPage() {
 
   const mainJob = allJobs.find((j) => j.id === jobId) || allJobs[0] || relatedJobs[0];
   const prefix = splitJobNumber(mainJob.jobNumber).prefix;
-  const groupDates = allJobs.flatMap(getSortedJobDates).sort((a, b) => a.getTime() - b.getTime());
-  const groupDateLabel =
-    groupDates.length > 1
-      ? `${formatShortDate(groupDates[0])} - ${formatShortDate(groupDates.at(-1))}`
-      : groupDates.length
-      ? formatShortDate(groupDates[0])
-      : "No dates";
   const statusCounts = countByStatus(allJobs, statusByJob);
   const statusSummary = Object.entries(statusCounts)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -1236,14 +1366,8 @@ export default function JobInfoPage() {
     if (isLockedStatus(status) || isCompleteStatus(status)) return total;
     return total + (getInvoiceReadiness(job, timesheetsByJob[job.id] || [], status).ready ? 0 : 1);
   }, 0);
-  const parentVehicle = renderVehicleNames(mainJob.vehicles);
-  const parentSubtitle = [
-    mainJob.location,
-    `${allJobs.length} booking${allJobs.length === 1 ? "" : "s"}`,
-    groupDateLabel,
-    parentVehicle,
-  ].filter(Boolean).join(" - ");
-  const connectedSummary = buildConnectedBookingSummary(allJobs, statusByJob);
+  const connectedSummary = buildConnectedBookingSummary(allJobs);
+  const isGroupedJobNumber = allJobs.length > 1;
 
   const toggleAll = (open) => {
     const next = {};
@@ -1294,19 +1418,21 @@ export default function JobInfoPage() {
                 </div>
               </div>
 
-              <div className={layoutStyles.extracted22}>
-                <Btn variant="base" onClick={() => toggleAll(true)} title="Expand all">
-                  Expand all
-                </Btn>
-                <Btn variant="base" onClick={() => toggleAll(false)} title="Collapse all (keeps current open)">
-                  Collapse all
-                </Btn>
-              </div>
+              {isGroupedJobNumber && (
+                <div className={layoutStyles.extracted22}>
+                  <Btn variant="base" onClick={() => toggleAll(true)} title="Expand all">
+                    Expand all
+                  </Btn>
+                  <Btn variant="base" onClick={() => toggleAll(false)} title="Collapse all (keeps current open)">
+                    Collapse all
+                  </Btn>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Search Row */}
-          <div
+          {isGroupedJobNumber && <div
             style={{
               width: "100%",
               margin: "0 auto",
@@ -1390,7 +1516,7 @@ export default function JobInfoPage() {
             >
               {filteredJobs.length} shown
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Page content */}
@@ -1403,7 +1529,7 @@ export default function JobInfoPage() {
             minWidth: 0,
           }}
         >
-          <div
+          {isGroupedJobNumber && <div
             style={{
               border: `1px solid ${UI.brandBorder}`,
               background: "var(--color-surface)",
@@ -1426,15 +1552,15 @@ export default function JobInfoPage() {
               >
                 {[
                   ["Contacts", connectedSummary.contacts],
-                  ["Vehicles Used", connectedSummary.vehicles],
-                  ["Crew Used", connectedSummary.crew],
-                  ["Previous Locations", connectedSummary.locations],
+                  ["Vehicles assigned", connectedSummary.vehicles],
+                  ["Crew allocated", connectedSummary.crew],
+                  ["Locations", connectedSummary.locations],
                 ].map(([title, values]) => (
                   <div
                     key={title}
                     style={{
                       padding: "4px 10px 4px 0",
-                      borderRight: title === "Previous Locations" ? "none" : "1px solid var(--color-brand-soft)",
+                      borderRight: title === "Locations" ? "none" : "1px solid var(--color-brand-soft)",
                       minWidth: 0,
                     }}
                   >
@@ -1487,7 +1613,7 @@ export default function JobInfoPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
 
           {!filteredJobs.length ? (
             <div
@@ -1511,7 +1637,6 @@ export default function JobInfoPage() {
               const locked = isLockedStatus(currentDbStatus);
               const complete = isCompleteStatus(currentDbStatus);
               const suppressMissingWarnings = locked || isCompleteStatus(currentDbStatus);
-              const lockReason = currentDbStatus || "Locked";
 
               const isExpanded = expandedById[job.id] ?? (job.id === jobId); // default current open
 
@@ -1544,7 +1669,7 @@ export default function JobInfoPage() {
               const dateSummary = formatCompactDateRange(job);
               const invoiceReadiness = getInvoiceReadiness(job, timesheets, currentDbStatus);
               const invoiceBadge = locked
-                ? { label: "Not applicable", ready: false, missing: [] }
+                ? { label: "", ready: false, missing: [] }
                 : complete
                 ? { label: "", ready: true, missing: [] }
                 : suppressMissingWarnings
@@ -1576,12 +1701,6 @@ export default function JobInfoPage() {
                       {quoteRevisionLabel}
                     </span>
                   )}
-                  <Btn title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
-                    Open quote
-                  </Btn>
-                  <Btn title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
-                    PDF
-                  </Btn>
                 </div>
               );
               const overviewRows = [
@@ -1593,10 +1712,10 @@ export default function JobInfoPage() {
                 ["Location", job.location],
                 ["Dates", renderDateBlock(job)],
                 ["Call Time", job.callTime || renderNames(Object.values(job.callTimesByDate || {}))],
-                ["Crew", renderCrewNames(job)],
-                ["Crew Count", `${job.allocatedCrewCount ?? (Array.isArray(job.employees) ? job.employees.length : 0)} / ${job.requiredCrewCount || 0}`],
-                ["Vehicles", vehicleSummary],
-                ["Equipment", renderNames(job.equipment, ["name", "equipmentName"])],
+                ["Crew allocated", renderCrewNames(job)],
+                ["Crew requirement", `${job.allocatedCrewCount ?? (Array.isArray(job.employees) ? job.employees.length : 0)} / ${job.requiredCrewCount || 0}`],
+                ["Vehicles assigned", vehicleSummary],
+                ["Equipment assigned", renderNames(job.equipment, ["name", "equipmentName"])],
                 ["Contacts", renderJobContacts(job)],
                 ["PO", job.po],
                 ["Hotel", job.hasHotel ? `${yesNo(job.hasHotel)}${job.hotelNights ? ` - ${job.hotelNights} nights` : ""}${job.hotelPaidBy ? ` - ${job.hotelPaidBy}` : ""}` : "No"],
@@ -1615,8 +1734,6 @@ export default function JobInfoPage() {
                     background: locked ? "var(--color-surface-subtle)" : job.id === jobId ? "var(--color-surface-subtle)" : "var(--color-surface)",
                     minWidth: 0,
                     scrollMarginTop: LAYOUT.HEADER_H + 80, // extra for search row
-                    opacity: locked ? 0.82 : 1,
-                    filter: locked ? "grayscale(0.35)" : "none",
                   }}
                 >
                   {/* Collapsible header */}
@@ -1635,7 +1752,15 @@ export default function JobInfoPage() {
                     }}
                     title={isExpanded ? "Collapse" : "Expand"}
                   >
-                    <div
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setExpandedById((current) => ({ ...current, [job.id]: !isExpanded }));
+                      }}
+                      aria-expanded={isExpanded}
+                      aria-controls={`${JOB_SECTION_ID}-body`}
+                      aria-label={isExpanded ? "Collapse booking details" : "Expand booking details"}
                       style={{
                         width: 26,
                         height: 26,
@@ -1646,10 +1771,11 @@ export default function JobInfoPage() {
                         placeItems: "center",
                         fontWeight: 900,
                         color: UI.muted,
+                        cursor: "pointer",
                       }}
                     >
                       {isExpanded ? "–" : "+"}
-                    </div>
+                    </button>
 
                     <span
                       style={{
@@ -1692,15 +1818,6 @@ export default function JobInfoPage() {
                             }
                           />
                         )}
-                        {locked && (
-                          <Badge
-                            text="Locked"
-                            bg="var(--color-border)"
-                            fg="var(--color-text-muted)"
-                            border="var(--color-border-strong)"
-                            title="Cancelled/DNH/Postponed/Lost jobs are view-only"
-                          />
-                        )}
                       </div>
 
                       <div
@@ -1732,28 +1849,42 @@ export default function JobInfoPage() {
                       onClick={(e) => e.stopPropagation()}
                       className={layoutStyles.extracted37}
                     >
-                      <Btn disabled={!quoteNumberRaw} title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
-                        Open quote
-                      </Btn>
-                      <Btn disabled={!quoteNumberRaw} title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
-                        PDF
-                      </Btn>
-                      <Btn
-                        variant="primary"
-                        disabled={locked}
-                        title={locked ? `Editing disabled: ${lockReason}` : "Edit booking"}
-                        onClick={() =>
-                          router.push(
-                            `/edit-booking/${job.id}?returnTo=${encodeURIComponent(
-                              `/job-numbers/${encodeURIComponent(jobId)}`
-                            )}`
-                          )
-                        }
-                      >
-                        Edit
-                      </Btn>
+                      {quoteNumberRaw && (
+                        <>
+                          <Btn title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
+                            Open quote
+                          </Btn>
+                          <Btn title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
+                            PDF
+                          </Btn>
+                        </>
+                      )}
+                      {locked ? (
+                        <Btn
+                          variant="primary"
+                          disabled={reopeningByJob[job.id]}
+                          title="Reopen this booking as Enquiry"
+                          onClick={() => reopenBooking(job)}
+                        >
+                          {reopeningByJob[job.id] ? "Reopening…" : "Reopen booking"}
+                        </Btn>
+                      ) : (
+                        <Btn
+                          variant="primary"
+                          title="Edit booking"
+                          onClick={() =>
+                            router.push(
+                              `/edit-booking/${job.id}?returnTo=${encodeURIComponent(
+                                `/job-numbers/${encodeURIComponent(jobId)}`
+                              )}`
+                            )
+                          }
+                        >
+                          Edit
+                        </Btn>
+                      )}
 
-                      <details className={layoutStyles.extracted38}>
+                      {!locked && <details className={layoutStyles.extracted38}>
                         <summary
                           style={{
                             listStyle: "none",
@@ -1770,7 +1901,7 @@ export default function JobInfoPage() {
                           }}
                           title="More actions"
                         >
-                          ...
+                          More
                         </summary>
                         <div
                           style={{
@@ -1788,35 +1919,35 @@ export default function JobInfoPage() {
                         >
                           <button
                             type="button"
-                            disabled={locked}
                             onClick={() => deleteJob(job.id)}
                             style={{
                               width: "100%",
                               border: "none",
                               background: "transparent",
-                              color: locked ? UI.muted : "var(--color-danger)",
+                              color: "var(--color-danger)",
                               textAlign: "left",
                               padding: "8px 10px",
                               borderRadius: 6,
                               fontWeight: 900,
-                              cursor: locked ? "not-allowed" : "pointer",
+                              cursor: "pointer",
                             }}
                           >
                             Delete booking
                           </button>
                         </div>
-                      </details>
+                      </details>}
                     </div>
                   </div>
 
-                  {locked && isExpanded && <DisabledOverlayNote reason={lockReason} />}
+                  {locked && isExpanded && <LockedBookingNote status={currentDbStatus} />}
 
                   {/* Collapsed body */}
                   {!isExpanded ? null : (
-                    <div className={layoutStyles.extracted39}>
+                    <div id={`${JOB_SECTION_ID}-body`} className={layoutStyles.extracted39}>
                       {/* Two-column layout */}
                       <div
                         className={layoutStyles.extracted40}
+                        data-locked={locked ? "true" : undefined}
                       >
                         {/* LEFT */}
                         <div className={layoutStyles.extracted41}>
@@ -1895,7 +2026,7 @@ export default function JobInfoPage() {
                           </Card>
 
                           {/* Timesheets */}
-                          <Card id={TIMESHEETS_ID} tone="plain" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
+                          {(!locked || cards.length > 0) && <Card id={TIMESHEETS_ID} tone="plain" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
                             <SectionTitle
                               title="Linked Timesheets"
                               right={
@@ -1920,11 +2051,24 @@ export default function JobInfoPage() {
                                 No timesheet days found for this job yet.
                               </div>
                             )}
-                          </Card>
+                          </Card>}
+
+                          <FilesSection
+                            id={ATTACHMENTS_ID}
+                            job={job}
+                            locked={locked}
+                            currentPdfUrl={currentPdfUrl}
+                            fileSelected={fileSelected}
+                            uploading={uploadingByJob[job.id]}
+                            progress={progressByJob[job.id]}
+                            uploadError={uploadError}
+                            onFileSelect={(file) => onPdfSelect(job.id, file)}
+                            onUpload={() => uploadPdfForJob(job.id)}
+                          />
                         </div>
 
                         {/* RIGHT: Actions (sticky) */}
-                        <div
+                        {!locked && <div
                           style={{
                             display: "grid",
                             gap: 10,
@@ -1948,7 +2092,7 @@ export default function JobInfoPage() {
                               {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
                                 const active = selected === opt;
                                 const color = statusColor(opt);
-                                const disabled = isPaid || locked;
+                                const disabled = isPaid;
 
                                 return (
                                   <button
@@ -1970,7 +2114,7 @@ export default function JobInfoPage() {
                                       fontSize: 11.5,
                                       whiteSpace: "nowrap",
                                     }}
-                                    title={locked ? `Locked: ${lockReason}` : isPaid ? "Paid jobs are locked" : ""}
+                                    title={isPaid ? "Paid jobs are locked" : ""}
                                   >
                                     {opt}
                                   </button>
@@ -1980,8 +2124,8 @@ export default function JobInfoPage() {
 
                             <Btn
                               variant="dark"
-                              disabled={locked || isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus}
-                              title={locked ? `Locked: ${lockReason}` : isPaid ? "Paid jobs are locked" : "Save status"}
+                              disabled={isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus}
+                              title={isPaid ? "Paid jobs are locked" : "Save status"}
                               onClick={() => {
                                 const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
                                 if (chosen !== currentDbStatus) saveJobStatus(job.id, chosen);
@@ -2002,7 +2146,7 @@ export default function JobInfoPage() {
                               <div className={layoutStyles.extracted49}>
                                 <div className={layoutStyles.extracted50}>Invoice checklist</div>
                                 <Badge
-                                  text={locked ? "Not applicable" : suppressMissingWarnings ? "Complete" : invoiceReadiness.label}
+                                  text={suppressMissingWarnings ? "Complete" : invoiceReadiness.label}
                                   bg={suppressMissingWarnings ? "var(--color-surface-hover)" : invoiceReadiness.ready ? "var(--color-success-soft)" : "var(--color-accent-soft)"}
                                   fg={suppressMissingWarnings ? "var(--color-text-muted)" : invoiceReadiness.ready ? "var(--color-success)" : "var(--color-warning)"}
                                   border={suppressMissingWarnings ? "var(--color-border-strong)" : invoiceReadiness.ready ? "var(--color-success-border)" : "var(--color-warning-border)"}
@@ -2010,9 +2154,7 @@ export default function JobInfoPage() {
                               </div>
                               {suppressMissingWarnings ? (
                                 <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
-                                  {locked
-                                    ? "This job did not happen, so invoice checks are not required."
-                                    : "This job is complete, so missing-item warnings are hidden."}
+                                  This job is complete, so missing-item warnings are hidden.
                                 </div>
                               ) : (
                                 [
@@ -2057,8 +2199,7 @@ export default function JobInfoPage() {
                                   [job.id]: { ...(prev?.[job.id] || {}), general: e.target.value },
                                 }))
                               }
-                              disabled={locked}
-                              placeholder={locked ? "Locked job (view-only)" : "Add general summary…"}
+                              placeholder="Add general summary…"
                               style={{
                                 width: "100%",
                                 border: UI.border,
@@ -2066,13 +2207,12 @@ export default function JobInfoPage() {
                                 padding: "6px 8px",
                                 fontSize: 12,
                                 resize: "vertical",
-                                background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
+                                background: "var(--color-surface)",
                                 marginBottom: 7,
-                                opacity: locked ? 0.8 : 1,
                               }}
                             />
 
-                            <Btn variant="base" disabled={locked} title={locked ? `Locked: ${lockReason}` : "Save summary"} onClick={() => saveJobSummary(job.id)}>
+                            <Btn variant="base" title="Save summary" onClick={() => saveJobSummary(job.id)}>
                               Save Summary
                             </Btn>
 
@@ -2083,20 +2223,17 @@ export default function JobInfoPage() {
                               <input
                                 type="text"
                                 defaultValue={job.po || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { po: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Enter PO reference…"}
+                                placeholder="Enter PO reference…"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                 }}
                               />
                             </div>
@@ -2107,141 +2244,58 @@ export default function JobInfoPage() {
                               <input
                                 type="text"
                                 defaultValue={job.invoiceContactName || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactName: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Accounts contact name"}
+                                placeholder="Accounts contact name"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                   marginBottom: 6,
                                 }}
                               />
                               <input
                                 type="email"
                                 defaultValue={job.invoiceContactEmail || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactEmail: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Accounts email"}
+                                placeholder="Accounts email"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                   marginBottom: 6,
                                 }}
                               />
                               <input
                                 type="tel"
                                 defaultValue={job.invoiceContactPhone || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactPhone: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Accounts phone (optional)"}
+                                placeholder="Accounts phone (optional)"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                 }}
                               />
                             </div>
                             </div>
 
-                            <div
-                              id={ATTACHMENTS_ID}
-                              style={{
-                                marginTop: 8,
-                                paddingTop: 8,
-                                borderTop: "1px solid var(--color-brand-soft)",
-                                scrollMarginTop: LAYOUT.HEADER_H + 80,
-                              }}
-                            >
-                              <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 11, color: UI.muted, textTransform: "uppercase" }}>
-                                {currentPdfUrl ? "Job Attachment (PDF)" : "Upload Job Attachment"}
-                              </div>
-
-                            {currentPdfUrl && (
-                              <div className={layoutStyles.extracted54}>
-                                <a
-                                  href={currentPdfUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{ color: UI.brand, textDecoration: "underline", fontSize: 14, fontWeight: 900 }}
-                                >
-                                  View Current PDF
-                                </a>
-                              </div>
-                            )}
-
-                            {Array.isArray(job.attachments) && job.attachments.length > 0 && (
-                              <div className={layoutStyles.extracted55}>
-                                <div className={layoutStyles.extracted56}>Attachments</div>
-                                <ul className={layoutStyles.extracted57}>
-                                  {job.attachments.map((att, i) => (
-                                    <li key={i} className={layoutStyles.extracted58}>
-                                      <a href={att.url} target="_blank" rel="noopener noreferrer" className={layoutStyles.extracted59}>
-                                        {att.name}
-                                      </a>
-                                      <span style={{ color: UI.muted }}> • {(att.size / 1024 / 1024).toFixed(2)} MB</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            <input
-                              type="file"
-                              accept="application/pdf"
-                              disabled={locked}
-                              onChange={(e) => onPdfSelect(job.id, e.target.files?.[0])}
-                              style={{
-                                marginBottom: 5,
-                                fontSize: 12,
-                                width: "100%",
-                                opacity: locked ? 0.6 : 1,
-                                cursor: locked ? "not-allowed" : "pointer",
-                              }}
-                              title={locked ? `Locked: ${lockReason}` : "Select a PDF"}
-                            />
-
-                            <Btn
-                              variant="dark"
-                              disabled={locked || uploadingByJob[job.id] || !fileSelected}
-                              title={locked ? `Locked: ${lockReason}` : ""}
-                              onClick={() => uploadPdfForJob(job.id)}
-                            >
-                              {uploadingByJob[job.id]
-                                ? `Uploading… ${progressByJob[job.id] ?? 0}%`
-                                : fileSelected
-                                ? currentPdfUrl
-                                  ? "Replace / Add PDF"
-                                  : "Upload PDF"
-                                : "Select file"}
-                            </Btn>
-
-                            {uploadError && <p className={layoutStyles.extracted60}>{uploadError}</p>}
-                            </div>
                           </Card>
-                        </div>
+                        </div>}
                       </div>
                     </div>
                   )}

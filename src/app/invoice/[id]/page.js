@@ -2,8 +2,21 @@
 
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { Fragment, useCallback, useEffect, useState, useMemo } from "react";
+import { Fragment, useCallback, useEffect, useState, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
+import {
+  Check,
+  CircleMinus,
+  Copy,
+  FileText,
+  MoreHorizontal,
+  RotateCcw,
+  Search,
+  Settings2,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   doc, getDoc,
   collection, getDocs
@@ -14,6 +27,7 @@ import {
   dataAccessKey,
   reportDataAccessBlocked,
   resolveDataAccess,
+  SINGLE_COMPANY_ID,
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
@@ -22,11 +36,14 @@ import {
   INVOICE_STATUSES,
   calculateInvoiceTotals,
   createInvoiceDraftFromQuote,
-  getSageReadiness,
+  duplicateInvoiceLineForEditing,
+  excludeInvoiceLineForEditing,
+  getInvoiceApprovalReadiness,
   getInvoiceIdentityDisplay,
   hydrateInvoiceDraftForEditing,
   invoiceLinesWithQuantity,
   parseInvoiceRecord,
+  restoreInvoiceLineFromQuote,
   resolveAcceptedQuote,
   validateInvoice,
 } from "../../utils/invoiceLifecycle";
@@ -36,7 +53,11 @@ import {
 } from "../../utils/accountingMappings";
 import { formatVehicleList } from "@/app/utils/vehicleDisplay";
 import { useVehicleLookup } from "@/app/utils/useVehicleLookup";
-import { invoiceTimesheetRows } from "@/app/utils/timesheetBookingLink";
+import {
+  formatTimesheetHours,
+  invoiceTimesheetRows,
+} from "@/app/utils/timesheetBookingLink";
+import { mergeContactFinanceProfile } from "@/app/utils/contactFinanceProfiles";
 
 /* ───────────────────────────────────────────
    Mini design system
@@ -198,6 +219,65 @@ function collectTimesheetDocs(ts) {
   return out.filter((d) => (seen.has(d.url) ? false : seen.add(d.url)));
 }
 
+const invoiceDraftSignature = (invoice = {}) => JSON.stringify({
+  currency: invoice.currency || "GBP",
+  customer: invoice.customer || {},
+  purchaseOrderNumber: invoice.purchaseOrderNumber || "",
+  paymentTermsDays: Number(invoice.paymentTermsDays ?? 30),
+  lines: Array.isArray(invoice.lines) ? invoice.lines : [],
+  notes: invoice.notes || "",
+  internalFinanceNotes: invoice.internalFinanceNotes || "",
+});
+
+const billingAddressLines = (customer = {}) => {
+  if (typeof customer.address === "string") return [customer.address].filter(Boolean);
+  return [
+    customer.address?.line1,
+    customer.address?.line2,
+    customer.address?.city,
+    customer.address?.county,
+    customer.address?.postcode,
+    customer.billingCountry,
+  ].filter(Boolean);
+};
+
+function InvoiceDrawer({ title, eyebrow, open, onClose, children, wide = false }) {
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+  return createPortal(
+    <div className={layoutStyles.drawerLayer} role="presentation">
+      <button className={layoutStyles.drawerBackdrop} type="button" aria-label={`Dismiss ${title}`} onClick={onClose} />
+      <section className={`${layoutStyles.drawer} ${wide ? layoutStyles.drawerWide : ""}`} role="dialog" aria-modal="true" aria-labelledby="invoice-drawer-title">
+        <header className={layoutStyles.drawerHeader}>
+          <div>
+            {eyebrow ? <span>{eyebrow}</span> : null}
+            <h2 id="invoice-drawer-title">{title}</h2>
+          </div>
+          <button ref={closeButtonRef} type="button" aria-label={`Close ${title}`} onClick={onClose}><X size={18} aria-hidden="true" /></button>
+        </header>
+        <div className={layoutStyles.drawerBody}>{children}</div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 /* ───────────────────────────────────────────
    Page
 ─────────────────────────────────────────── */
@@ -214,6 +294,15 @@ export default function InvoiceJobPage() {
   const [saving, setSaving] = useState(false);
   const [exportJob, setExportJob] = useState(null);
   const [billingCustomers, setBillingCustomers] = useState([]);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [activeDrawer, setActiveDrawer] = useState("");
+  const [accountingFocusIndex, setAccountingFocusIndex] = useState(null);
+  const [savedDraftSignature, setSavedDraftSignature] = useState("");
+  const customerSelectRef = useRef(null);
+  const poInputRef = useRef(null);
+  const lineInputRefs = useRef(new Map());
+  const lineDescriptionRefs = useRef(new Map());
+  const drawerTriggerRef = useRef(null);
 
   const [timesheets, setTimesheets] = useState([]);
   const [tsLoading, setTsLoading] = useState(true);
@@ -231,19 +320,21 @@ export default function InvoiceJobPage() {
           const invoiceSnap = await getDoc(doc(db, "invoiceQueue", id));
           if (invoiceSnap.exists() && invoiceSnap.data()?.schemaVersion) {
             const savedInvoice = invoiceSnap.data();
-            setInvoice(
-              hydrateInvoiceDraftForEditing(
-                parseInvoiceRecord(
-                  { id: invoiceSnap.id, ...savedInvoice },
-                  loadedJob
-                )
+            const loadedInvoice = hydrateInvoiceDraftForEditing(
+              parseInvoiceRecord(
+                { id: invoiceSnap.id, ...savedInvoice },
+                loadedJob
               )
             );
+            setInvoice(loadedInvoice);
+            setSavedDraftSignature(invoiceDraftSignature(loadedInvoice));
           } else {
             const acceptedQuote = resolveAcceptedQuote(loadedJob);
             if (acceptedQuote) {
               try {
-                setInvoice(createInvoiceDraftFromQuote({ booking: loadedJob, quote: acceptedQuote }));
+                const draft = createInvoiceDraftFromQuote({ booking: loadedJob, quote: acceptedQuote });
+                setInvoice(draft);
+                setSavedDraftSignature("");
                 setInvoiceLoadError("");
               } catch (error) {
                 setInvoice(null);
@@ -269,11 +360,33 @@ export default function InvoiceJobPage() {
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking || !gate.allowed) return;
-    getDocs(tenantCollectionQuery(db, "contacts", dataAccessState))
-      .then((snapshot) =>
-        setBillingCustomers(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() || {}) })))
-      )
-      .catch(() => setBillingCustomers([]));
+    const loadBillingCustomers = async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Finance session unavailable.");
+        const [snapshot, profileResponse] = await Promise.all([
+          getDocs(tenantCollectionQuery(db, "contacts", dataAccessState)),
+          fetch(`/api/finance/contact-profiles?companyId=${encodeURIComponent(gate.companyId || SINGLE_COMPANY_ID)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          }),
+        ]);
+        if (!profileResponse.ok) throw new Error("Customer finance profiles could not be loaded.");
+        const body = await profileResponse.json();
+        const profiles = new Map((body.profiles || []).map((profile) => [profile.contactId || profile.id, profile]));
+        setBillingCustomers(snapshot.docs.map((item) => {
+          const contact = { id: item.id, ...(item.data() || {}) };
+          return mergeContactFinanceProfile(contact, profiles.get(item.id));
+        }).sort((a, b) => {
+          const aName = a.financeProfile?.billingLegalName || a.name || a.id;
+          const bName = b.financeProfile?.billingLegalName || b.name || b.id;
+          return String(aName).localeCompare(String(bName), "en-GB");
+        }));
+      } catch {
+        setBillingCustomers([]);
+      }
+    };
+    loadBillingCustomers();
   }, [accessKey, dataAccessState]);
 
   const loadExportJobStatus = useCallback(async () => {
@@ -410,7 +523,10 @@ export default function InvoiceJobPage() {
 
   const selectBillingCustomer = (contactId) => {
     const contact = billingCustomers.find((item) => item.id === contactId);
-    if (!contact) return;
+    if (!contact) {
+      setInvoice((current) => ({ ...current, customer: { ...current.customer, contactId: null } }));
+      return;
+    }
     const customer = createInvoiceCustomerSnapshot(contact, invoice.customer);
     setInvoice((current) => ({
       ...current,
@@ -451,6 +567,54 @@ export default function InvoiceJobPage() {
     });
   };
 
+  const excludeInvoiceLine = (index) => {
+    setInvoice((current) => {
+      const lines = excludeInvoiceLineForEditing(current.lines, index);
+      const totals = calculateInvoiceTotals(lines);
+      return { ...current, lines: totals.lines, totals: { net: totals.net, tax: totals.tax, gross: totals.gross } };
+    });
+  };
+
+  const duplicateInvoiceLine = (index) => {
+    setInvoice((current) => {
+      const lines = duplicateInvoiceLineForEditing(current.lines, index);
+      const totals = calculateInvoiceTotals(lines);
+      return { ...current, lines: totals.lines, totals: { net: totals.net, tax: totals.tax, gross: totals.gross } };
+    });
+  };
+
+  const restoreInvoiceLine = (index) => {
+    setInvoice((current) => {
+      const lines = restoreInvoiceLineFromQuote(
+        current.lines,
+        index,
+        current.sourceQuote?.snapshot?.lineItems || []
+      );
+      const totals = calculateInvoiceTotals(lines);
+      return { ...current, lines: totals.lines, totals: { net: totals.net, tax: totals.tax, gross: totals.gross } };
+    });
+  };
+
+  const openDrawer = (name, trigger = null) => {
+    drawerTriggerRef.current = trigger || document.activeElement;
+    setActiveDrawer(name);
+  };
+
+  const closeDrawer = useCallback(() => {
+    setActiveDrawer("");
+    setAccountingFocusIndex(null);
+    requestAnimationFrame(() => drawerTriggerRef.current?.focus?.());
+  }, []);
+
+  useEffect(() => {
+    if (activeDrawer !== "accounting" || accountingFocusIndex == null) return;
+    requestAnimationFrame(() => {
+      const nominal = lineInputRefs.current.get(`${accountingFocusIndex}:nominalCode`);
+      const tax = lineInputRefs.current.get(`${accountingFocusIndex}:taxCode`);
+      (nominal && !nominal.value ? nominal : tax || nominal)?.focus();
+    });
+  }, [accountingFocusIndex, activeDrawer]);
+
   const persistInvoice = async (nextInvoice, successMessage) => {
     const errors = validateInvoice(nextInvoice);
     if (errors.length) {
@@ -488,6 +652,7 @@ export default function InvoiceJobPage() {
         parseInvoiceRecord(data.invoice, job)
       );
       setInvoice(payload);
+      setSavedDraftSignature(invoiceDraftSignature(payload));
       if (successMessage) systemDialogs.showSystemNotification(successMessage);
       return payload;
     } catch (e) {
@@ -701,520 +866,299 @@ export default function InvoiceJobPage() {
   }
 
   const invoiceIdentity = getInvoiceIdentityDisplay(invoice);
-  const sageReadiness = getSageReadiness(invoice);
   const accountingReadiness = getAccountingMappingReadiness(invoice);
-
-  const employees = listToString(job.employees, (e) =>
-    typeof e === "string" ? e : e?.name || e?.displayName || e?.email
+  const approvalReadiness = getInvoiceApprovalReadiness(invoice);
+  const isDraft = invoice.status === INVOICE_STATUSES.DRAFT;
+  const isDirty = isDraft && invoiceDraftSignature(invoice) !== savedDraftSignature;
+  const indexedInvoiceLines = invoice.lines.map((line, index) => ({ line, index }));
+  const activeLines = indexedInvoiceLines.filter(({ line }) => Number(line.quantity || 0) > 0 || !line.sourceLineId);
+  const excludedLines = indexedInvoiceLines.filter(({ line }) => Boolean(line.sourceLineId) && Number(line.quantity || 0) <= 0);
+  const jobDocs = collectJobDocuments(job);
+  const employees = listToString(job.employees, (employee) =>
+    typeof employee === "string" ? employee : employee?.name || employee?.displayName || employee?.email
   );
   const vehicles = formatVehicleList(job.vehicles, vehicleLookup) || "—";
-  const equipment = listToString(job.equipment, (x) =>
-    typeof x === "string" ? x : x?.name || x?.serial || x?.assetNumber
+  const equipment = listToString(job.equipment, (item) =>
+    typeof item === "string" ? item : item?.name || item?.serial || item?.assetNumber
   );
-  const statusPretty = prettifyStatus(job.status || "");
-  const jobDocs = collectJobDocuments(job);
+  const customerBlockerCodes = new Set([
+    "customer_contact_missing",
+    "sage_customer_missing",
+    "sage_customer_mapping_unconfirmed",
+    "billing_legal_name_missing",
+    "billing_country_missing",
+  ]);
+  const customerBlockers = approvalReadiness.blockers.filter((blocker) => customerBlockerCodes.has(blocker.code));
+  const poBlocker = approvalReadiness.blockers.find((blocker) => blocker.code === "purchase_order_missing");
+  const accountingBlockers = approvalReadiness.blockers.filter((blocker) => ["nominal_code_missing", "tax_code_missing"].includes(blocker.code));
+  const activeLineIndexesMissingAccounting = [...new Set(accountingBlockers.map((blocker) => blocker.line - 1))];
+  const lineValidationBlocker = approvalReadiness.blockers.find((blocker) =>
+    blocker.code === "invoice_lines_missing" ||
+    (!["nominal_code_missing", "tax_code_missing"].includes(blocker.code) && /line \d+/i.test(blocker.message))
+  );
+  const filteredBillingCustomers = billingCustomers.filter((contact) => {
+    const query = customerSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [
+      contact.financeProfile?.billingLegalName,
+      contact.financeProfile?.billingTradingName,
+      contact.name,
+      contact.email,
+      contact.id,
+    ].some((value) => String(value || "").toLowerCase().includes(query));
+  });
+  const addressLines = billingAddressLines(invoice.customer);
+  const quoteLines = Array.isArray(invoice.sourceQuote?.snapshot?.lineItems)
+    ? invoice.sourceQuote.snapshot.lineItems
+    : [];
 
-  /* Timesheet table helpers */
-  const tsEmployee = (ts) =>
-    ts.employeeName ||
-    (typeof ts.employee === "string"
-      ? ts.employee
-      : ts.employee?.name || ts.employee?.displayName || ts.employee?.email) ||
-    initialsFromName(ts.employee) ||
+  const focusReadinessBlocker = (blocker) => {
+    if (!blocker) return;
+    if (blocker.code === "purchase_order_missing") {
+      poInputRef.current?.focus();
+      return;
+    }
+    if (customerBlockerCodes.has(blocker.code)) {
+      customerSelectRef.current?.focus();
+      return;
+    }
+    if (["nominal_code_missing", "tax_code_missing"].includes(blocker.code)) {
+      setAccountingFocusIndex(blocker.line - 1);
+      openDrawer("accounting");
+      return;
+    }
+    const lineMatch = blocker.message?.match(/Line (\d+)/i);
+    if (lineMatch) {
+      lineDescriptionRefs.current.get(Number(lineMatch[1]) - 1)?.focus();
+    }
+  };
+
+  const tsEmployee = (timesheet) =>
+    timesheet.employeeName ||
+    (typeof timesheet.employee === "string"
+      ? timesheet.employee
+      : timesheet.employee?.name || timesheet.employee?.displayName || timesheet.employee?.email) ||
+    initialsFromName(timesheet.employee) ||
     "—";
-
-  const tsHours = (ts) => {
-    const base = Number(ts.hours || ts.totalHours || 0) || 0;
-    const ot   = Number(ts.overtimeHours || ts.otHours || 0) || 0;
-    return { base, ot };
-  };
-
-  const tsTotalMoney = (ts) => {
-    // Try explicit total first; otherwise compute (if we have rates)
-    if (ts.total != null) return money(ts.total);
-    const r  = Number(ts.rate || ts.dayRate || ts.hourlyRate || 0) || 0;
-    const ro = Number(ts.overtimeRate || ts.otRate || 0) || 0;
-    const { base, ot } = tsHours(ts);
-    if (r || ro) return money(base * r + ot * ro);
-    return "—";
-  };
-
-  const tsDate = (ts) => fmtLong(parseDate(ts.date || ts.workDate));
+  const tsHours = (timesheet) => ({
+    base: formatTimesheetHours(timesheet.hours ?? timesheet.totalHours ?? 0),
+    ot: formatTimesheetHours(timesheet.overtimeHours ?? timesheet.otHours ?? 0),
+  });
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        {/* Authoritative invoice */}
+      <div className={layoutStyles.pageWrap}>
         <section className={layoutStyles.invoiceWorkspace}>
-          <div className={layoutStyles.invoiceSectionHeader}>
+          <header className={layoutStyles.builderToolbar}>
             <div className={layoutStyles.invoiceBuilderIdentity}>
-              <button type="button" onClick={() => router.push(`/job-summary/${id}`)}>← Job</button>
+              <button type="button" onClick={() => router.push(`/job-summary/${id}`)}>← Finance</button>
               <div>
-                <div className={layoutStyles.invoiceWorkspaceEyebrow}>Invoice builder</div>
-                <div className={layoutStyles.invoiceWorkspaceTitle}>Job #{job.jobNumber || job.id} · {job.client || "Customer"}</div>
+                <span className={layoutStyles.invoiceWorkspaceEyebrow}>Invoice builder</span>
+                <h1 className={layoutStyles.invoiceWorkspaceTitle}>{invoiceIdentity.draftReference} · Job #{job.jobNumber || job.id}</h1>
+                <p>{invoice.customer?.name || job.client || "Customer"}</p>
               </div>
             </div>
             <div className={layoutStyles.invoiceHeaderActions}>
-              <span className={layoutStyles.builderDate}>{fmtLong(new Date())}</span>
-              <span className={layoutStyles.extracted33}>{prettifyStatus(invoice.status)}</span>
-              <button onClick={() => openInvoiceDocument("view")} disabled={saving}>Print / preview</button>
-              <button onClick={() => openInvoiceDocument("download")} disabled={saving}>Save PDF</button>
-              {invoice.status === INVOICE_STATUSES.DRAFT ? (
+              <span className={`${layoutStyles.saveState} ${isDirty ? layoutStyles.unsavedState : ""}`}>
+                {saving ? "Saving…" : isDirty ? "Unsaved changes" : invoice.updatedAt ? `Saved ${fmtLong(parseDate(invoice.updatedAt))}` : "Not saved"}
+              </span>
+              <span className={layoutStyles.statusChip}>{prettifyStatus(invoice.status)}</span>
+              <button type="button" onClick={() => openInvoiceDocument("view")} disabled={saving}>Preview invoice</button>
+              {isDraft ? (
                 <>
-                  <button onClick={saveDraft} disabled={saving}>{saving ? "Saving..." : "Save draft"}</button>
-                  <button onClick={() => runLifecycleAction("approve")} disabled={saving}>Approve invoice</button>
-                  <button onClick={() => runLifecycleAction("void")} disabled={saving}>Void invoice</button>
+                  <button type="button" onClick={saveDraft} disabled={saving || !isDirty}>{saving ? "Saving…" : "Save draft"}</button>
+                  <button
+                    type="button"
+                    className={layoutStyles.primaryAction}
+                    onClick={() => runLifecycleAction("approve")}
+                    disabled={saving || !approvalReadiness.ready}
+                    title={approvalReadiness.ready ? "Approve invoice" : approvalReadiness.blockers.map((blocker) => blocker.message).join("\n")}
+                  >Approve invoice</button>
+                  <details className={layoutStyles.moreActions}>
+                    <summary>More actions</summary>
+                    <div>
+                      <button type="button" onClick={() => openInvoiceDocument("download")} disabled={saving}>Save PDF</button>
+                      <button type="button" className={layoutStyles.dangerAction} onClick={() => runLifecycleAction("void")} disabled={saving}>Void invoice</button>
+                    </div>
+                  </details>
                 </>
               ) : null}
               {invoice.status === INVOICE_STATUSES.APPROVED ? (
                 <>
-                  <button onClick={() => runLifecycleAction("return_to_draft")} disabled={saving}>Return to draft</button>
-                  <button onClick={() => runLifecycleAction("prepare_for_export")} disabled={saving || invoice.sageSync?.status === "pending"}>Prepare for export</button>
+                  <button type="button" onClick={() => runLifecycleAction("return_to_draft")} disabled={saving}>Return to draft</button>
+                  <button type="button" className={layoutStyles.primaryAction} onClick={() => runLifecycleAction("prepare_for_export")} disabled={saving || invoice.sageSync?.status === "pending"}>Prepare for export</button>
                   {invoice.sageSync?.status === "pending" ? (
-                    <button onClick={queueSage50Export} disabled={saving || ["claimed", "processing", "succeeded"].includes(exportJob?.status)}>
+                    <button type="button" onClick={queueSage50Export} disabled={saving || ["claimed", "processing", "succeeded"].includes(exportJob?.status)}>
                       {exportJob ? `Sage queue: ${exportJob.status}` : "Queue for Sage 50"}
                     </button>
                   ) : null}
-                  {exportJob?.status === "succeeded" && !exportJob.invoiceReconciled ? (
-                    <button onClick={reconcileSage50Export} disabled={saving}>
-                      Reconcile Sage result
-                    </button>
-                  ) : null}
-                  <button onClick={() => runLifecycleAction("void")} disabled={saving}>Void invoice</button>
+                  {exportJob?.status === "succeeded" && !exportJob.invoiceReconciled ? <button type="button" onClick={reconcileSage50Export} disabled={saving}>Reconcile Sage result</button> : null}
+                  <details className={layoutStyles.moreActions}>
+                    <summary>More actions</summary>
+                    <div>
+                      <button type="button" onClick={() => openInvoiceDocument("download")} disabled={saving}>Save PDF</button>
+                      <button type="button" className={layoutStyles.dangerAction} onClick={() => runLifecycleAction("void")} disabled={saving}>Void invoice</button>
+                    </div>
+                  </details>
                 </>
               ) : null}
               {invoice.status === INVOICE_STATUSES.ISSUED ? (
-                <button
-                  onClick={sendIssuedInvoice}
-                  disabled={saving || ["sending", "sent"].includes(invoice.delivery?.status)}
-                >
-                  {invoice.delivery?.status === "sent"
-                    ? "Invoice sent"
-                    : invoice.delivery?.status === "sending"
-                    ? "Sending..."
-                    : invoice.delivery?.status === "failed"
-                    ? "Retry sending invoice"
-                    : "Send invoice"}
+                <button type="button" className={layoutStyles.primaryAction} onClick={sendIssuedInvoice} disabled={saving || ["sending", "sent"].includes(invoice.delivery?.status)}>
+                  {invoice.delivery?.status === "sent" ? "Invoice sent" : invoice.delivery?.status === "sending" ? "Sending…" : invoice.delivery?.status === "failed" ? "Retry sending invoice" : "Send invoice"}
                 </button>
               ) : null}
             </div>
-          </div>
+          </header>
 
-          <div className={layoutStyles.invoiceBuilderGrid}>
-            <aside className={layoutStyles.invoiceBuilderSidebar}>
-              <div className={layoutStyles.sidebarHeading}>
-                <div><span>Invoice summary</span><strong>{invoiceIdentity.draftReference}</strong></div>
-                <span className={layoutStyles.sidebarStatus}>{prettifyStatus(invoice.status)}</span>
-              </div>
-              <div className={layoutStyles.sidebarPanel}>
-                <h3>Invoice details</h3>
-                <dl>
-                  <div><dt>Job</dt><dd>#{job.jobNumber || job.id}</dd></div>
-                  <div><dt>Draft reference</dt><dd>{invoiceIdentity.draftReference}</dd></div>
-                  <div><dt>Official invoice number</dt><dd>{invoiceIdentity.officialNumber === "Pending" ? "Pending accounting issue" : invoiceIdentity.officialNumber}</dd></div>
-                  <div><dt>Sage sync</dt><dd>{String(invoice.sageSync?.status || "not_ready").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}</dd></div>
-                  <div>
-                    <dt>Sage readiness</dt>
-                    <dd title={sageReadiness.blockers.map((blocker) => blocker.message).join("\n")}>
-                      {sageReadiness.ready ? "Ready" : `${sageReadiness.blockers.length} requirement${sageReadiness.blockers.length === 1 ? "" : "s"} outstanding`}
-                    </dd>
-                  </div>
-                  <div><dt>Quote</dt><dd>{invoice.sourceQuote?.quoteNumber || "—"}</dd></div>
-                  <div><dt>PO number</dt><dd>{invoice.purchaseOrderNumber || "—"}</dd></div>
-                  <div><dt>Terms</dt><dd>{invoice.paymentTermsDays ?? 30} days</dd></div>
-                  <div>
-                    <dt>Delivery</dt>
-                    <dd>{prettifyStatus(invoice.delivery?.status || "not_sent")}</dd>
-                  </div>
-                  {invoice.delivery?.recipient ? (
-                    <div><dt>Sent to</dt><dd>{invoice.delivery.recipient}</dd></div>
-                  ) : null}
-                  {invoice.delivery?.sentAt ? (
-                    <div><dt>Delivered</dt><dd>{fmtLong(parseDate(invoice.delivery.sentAt))}</dd></div>
-                  ) : null}
-                  {invoice.delivery?.error?.message ? (
-                    <div><dt>Delivery error</dt><dd title={invoice.delivery.error.message}>{invoice.delivery.error.message}</dd></div>
-                  ) : null}
-                  <div><dt>Saved</dt><dd>{invoice.updatedAt ? fmtLong(parseDate(invoice.updatedAt)) : "Not yet"}</dd></div>
-                </dl>
-              </div>
-              <div className={layoutStyles.sidebarPanel}>
-                <h3>Invoice totals</h3>
-                <dl>
-                  <div><dt>Net</dt><dd>{money(invoice.totals?.net)}</dd></div>
-                  <div><dt>VAT</dt><dd>{money(invoice.totals?.tax)}</dd></div>
-                  <div><dt>Total</dt><dd><strong>{money(invoice.totals?.gross)}</strong></dd></div>
-                </dl>
-              </div>
-              <div className={layoutStyles.sidebarPanel}>
-                <h3>Accounting mapping</h3>
-                <label>
-                  <span style={k}>Billing customer</span>
-                  <select
-                    value={invoice.customer?.contactId || ""}
-                    disabled={invoice.status !== "draft"}
-                    onChange={(event) => selectBillingCustomer(event.target.value)}
-                  >
-                    <option value="">Select saved customer…</option>
-                    {billingCustomers.map((contact) => (
-                      <option key={contact.id} value={contact.id}>
-                        {contact.financeProfile?.billingLegalName || contact.name || contact.id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <dl>
-                  <div><dt>Sage customer</dt><dd>{invoice.customer?.sageCustomerId || "Not mapped"}</dd></div>
-                  <div><dt>Export job</dt><dd>{exportJob?.invoiceReconciled ? "Reconciled" : exportJob?.status ? prettifyStatus(exportJob.status) : "Not queued"}</dd></div>
-                  {exportJob?.result?.invoiceNumber ? <div><dt>Sage invoice</dt><dd>{exportJob.result.invoiceNumber}</dd></div> : null}
-                  {invoice.status === "issued" ? <div><dt>Issued</dt><dd>{fmtLong(parseDate(invoice.issueDate || invoice.issuedAt))}</dd></div> : null}
-                  <div><dt>Mapping</dt><dd>{accountingReadiness.ready ? "Complete" : `${accountingReadiness.blockers.length} outstanding`}</dd></div>
-                </dl>
-                {!accountingReadiness.ready ? (
-                  <ul>
-                    {accountingReadiness.blockers.map((blocker, index) => (
-                      <li key={`${blocker.code}-${blocker.line || index}`}>{blocker.message}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            </aside>
-
-          <div className={layoutStyles.invoiceDocument}>
-            <div className={layoutStyles.invoiceDocumentHeader}>
-              <div className={layoutStyles.invoiceBrand}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/bickers-action-logo.png" alt="Bickers Action" />
-              </div>
-              <div className={layoutStyles.invoiceIdentity}>
-                <span>{invoiceIdentity.documentLabel.toUpperCase()}</span>
-                <strong>{invoiceIdentity.draftReference}</strong>
-              </div>
+          {invoice.delivery?.status === "failed" ? (
+            <div className={layoutStyles.deliveryError} role="alert">
+              <strong>Delivery error</strong>
+              <span>{invoice.delivery?.error?.message || "Invoice delivery failed. Retry when ready."}</span>
             </div>
+          ) : null}
 
-            <div className={layoutStyles.invoiceParties}>
-              <div className={layoutStyles.billTo}>
-                <span className={layoutStyles.documentLabel}>Bill to</span>
-                <label>
-                  <input value={invoice.customer?.name || ""} aria-label="Customer" disabled={invoice.status !== "draft"} onChange={(e) => setInvoice((current) => ({ ...current, customer: { ...current.customer, name: e.target.value } }))} />
-                </label>
-                <span>{job.location || "Address not recorded"}</span>
-              </div>
-              <div className={layoutStyles.invoiceMetaGrid}>
-                <div>
-                  <div style={k}>Draft reference</div>
-                  <strong>{invoiceIdentity.draftReference}</strong>
+          <div className={layoutStyles.builderGrid}>
+            <main className={layoutStyles.builderMain}>
+              <section className={layoutStyles.formCard} aria-labelledby="invoice-details-heading">
+                <div className={layoutStyles.cardHeader}>
+                  <div><span>Billing</span><h2 id="invoice-details-heading">Invoice details</h2></div>
+                  <span className={layoutStyles.sourceBadge}>From quote {invoice.sourceQuote?.quoteNumber || "—"}</span>
                 </div>
-                <div>
-                  <div style={k}>Official invoice number</div>
-                  <strong>{invoiceIdentity.officialNumber === "Pending" ? "Pending accounting issue" : invoiceIdentity.officialNumber}</strong>
+                <div className={layoutStyles.customerGrid}>
+                  <div className={layoutStyles.customerSelector}>
+                    <label htmlFor="billing-customer-search">Billing customer</label>
+                    <div className={layoutStyles.searchField}><Search size={15} aria-hidden="true" /><input id="billing-customer-search" value={customerSearch} disabled={!isDraft} placeholder="Search saved customers…" onChange={(event) => setCustomerSearch(event.target.value)} /></div>
+                    <select ref={customerSelectRef} aria-label="Billing customer" value={invoice.customer?.contactId || ""} disabled={!isDraft} onChange={(event) => selectBillingCustomer(event.target.value)}>
+                      <option value="">Select saved customer…</option>
+                      {filteredBillingCustomers.map((contact) => <option key={contact.id} value={contact.id}>{contact.financeProfile?.billingLegalName || contact.name || contact.id}</option>)}
+                    </select>
+                  </div>
+                  <div className={layoutStyles.billingSnapshot}>
+                    <span>Billing snapshot</span>
+                    <strong>{invoice.customer?.name || "No billing customer selected"}</strong>
+                    {invoice.customer?.contactName ? <p>{invoice.customer.contactName}</p> : null}
+                    {addressLines.length ? <p>{addressLines.join(" · ")}</p> : <p>Billing address not recorded</p>}
+                    {invoice.customer?.email ? <p>{invoice.customer.email}</p> : null}
+                    <div className={layoutStyles.snapshotMeta}><span>Sage: {invoice.customer?.sageCustomerId || "Not mapped"}</span><span>PO: {invoice.customer?.poRequirement === "required" ? "Required" : "Optional"}</span></div>
+                  </div>
                 </div>
-                <label><div style={k}>PO Number</div><input value={invoice.purchaseOrderNumber || ""} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceField("purchaseOrderNumber", e.target.value)} /></label>
-                <label><div style={k}>Payment terms</div><div className={layoutStyles.termsInput}><input type="number" min="0" value={invoice.paymentTermsDays ?? 30} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceField("paymentTermsDays", Number(e.target.value))} /><span>days</span></div></label>
-                <div><div style={k}>Job reference</div><strong>#{job.jobNumber || job.id}</strong></div>
-              </div>
-            </div>
+                <div className={layoutStyles.detailFields}>
+                  <label><span>PO number {invoice.customer?.poRequirement === "required" ? "*" : ""}</span><input ref={poInputRef} value={invoice.purchaseOrderNumber || ""} disabled={!isDraft} placeholder={invoice.customer?.poRequirement === "required" ? "Required by customer" : "Optional"} onChange={(event) => updateInvoiceField("purchaseOrderNumber", event.target.value)} /></label>
+                  <label><span>Payment terms</span><div className={layoutStyles.termsInput}><input type="number" min="0" value={invoice.paymentTermsDays ?? 30} disabled={!isDraft} onChange={(event) => updateInvoiceField("paymentTermsDays", Number(event.target.value))} /><span>days</span></div></label>
+                  <div className={layoutStyles.readOnlyField}><span>Invoice date</span><strong>{invoice.issueDate ? fmtLong(parseDate(invoice.issueDate)) : "Assigned when issued by Sage"}</strong></div>
+                  <div className={layoutStyles.readOnlyField}><span>Official number</span><strong>{invoiceIdentity.officialNumber === "Pending" ? "Assigned by Sage" : invoiceIdentity.officialNumber}</strong></div>
+                </div>
+              </section>
 
-            <div className={layoutStyles.invoiceSource}>
-              Approved job quote <strong>{invoice.sourceQuote?.quoteNumber}</strong>
-              <span>Invoice edits do not change the approved quote.</span>
-            </div>
+              <section className={layoutStyles.formCard} aria-labelledby="invoice-lines-heading">
+                <div className={layoutStyles.cardHeader}>
+                  <div><span>Charges</span><h2 id="invoice-lines-heading">Invoice lines</h2></div>
+                  <div className={layoutStyles.cardHeaderActions}>
+                    <button type="button" onClick={(event) => openDrawer("accounting", event.currentTarget)}><Settings2 size={15} aria-hidden="true" /> Accounting details</button>
+                    {excludedLines.length ? <button type="button" onClick={(event) => openDrawer("excluded", event.currentTarget)}>Excluded items ({excludedLines.length})</button> : null}
+                  </div>
+                </div>
+                <div className={layoutStyles.simpleTableWrap}>
+                  <table className={layoutStyles.simpleInvoiceTable}>
+                    <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>VAT</th><th>Total</th><th><span className={layoutStyles.srOnly}>Actions</span></th></tr></thead>
+                    <tbody>
+                      {activeLines.map(({ line, index }, activeIndex) => {
+                        const sectionName = String(line.section || "").trim();
+                        const previousSection = activeIndex > 0 ? String(activeLines[activeIndex - 1].line.section || "").trim() : "";
+                        const presetTax = [0, 5, 20].includes(Number(line.taxRate)) ? String(Number(line.taxRate)) : "custom";
+                        return (
+                          <Fragment key={line.id}>
+                            {sectionName && sectionName !== previousSection ? <tr className={layoutStyles.invoiceSectionRow}><td colSpan={6}>{sectionName}</td></tr> : null}
+                            <tr className={layoutStyles.invoiceLineRow}>
+                              <td data-label="Description"><input ref={(node) => node ? lineDescriptionRefs.current.set(index, node) : lineDescriptionRefs.current.delete(index)} className={layoutStyles.descriptionInput} aria-label={`Line ${index + 1} description`} value={line.description} disabled={!isDraft} onChange={(event) => updateInvoiceLine(index, "description", event.target.value)} />{line.notes ? <small>{line.notes}</small> : null}</td>
+                              <td data-label="Qty"><input className={layoutStyles.numberInput} aria-label={`Line ${index + 1} quantity`} type="number" min="0" step="0.01" value={line.quantity} disabled={!isDraft} onChange={(event) => updateInvoiceLine(index, "quantity", event.target.value)} /></td>
+                              <td data-label="Unit price"><input className={layoutStyles.numberInput} type="number" step="0.01" value={line.unitPrice} aria-label={`Line ${index + 1} unit price in pounds`} disabled={!isDraft} onChange={(event) => updateInvoiceLine(index, "unitPrice", event.target.value)} /></td>
+                              <td data-label="VAT"><div className={layoutStyles.vatControl}><select aria-label={`Line ${index + 1} VAT rate`} value={presetTax} disabled={!isDraft} onChange={(event) => event.target.value !== "custom" && updateInvoiceLine(index, "taxRate", Number(event.target.value))}><option value="20">20%</option><option value="5">5%</option><option value="0">0%</option><option value="custom">Custom</option></select>{presetTax === "custom" ? <input className={layoutStyles.numberInput} aria-label={`Line ${index + 1} custom VAT rate`} type="number" min="0" step="0.01" value={line.taxRate} disabled={!isDraft} onChange={(event) => updateInvoiceLine(index, "taxRate", event.target.value)} /> : null}</div></td>
+                              <td data-label="Total" className={layoutStyles.grossCell}>{money(line.gross)}</td>
+                              <td className={layoutStyles.actionCell}>
+                                <details className={layoutStyles.rowActions}><summary aria-label={`Actions for line ${index + 1}`}><MoreHorizontal size={18} aria-hidden="true" /></summary><div>
+                                  <button type="button" disabled={!isDraft} onClick={() => duplicateInvoiceLine(index)}><Copy size={14} aria-hidden="true" /> Duplicate</button>
+                                  <button type="button" onClick={(event) => { setAccountingFocusIndex(index); openDrawer("accounting", event.currentTarget); }}><Settings2 size={14} aria-hidden="true" /> Accounting</button>
+                                  {line.sourceLineId ? <button type="button" disabled={!isDraft} onClick={() => excludeInvoiceLine(index)}><CircleMinus size={14} aria-hidden="true" /> Exclude</button> : <button type="button" disabled={!isDraft || activeLines.length === 1} onClick={() => removeInvoiceLine(index)}><Trash2 size={14} aria-hidden="true" /> Delete</button>}
+                                </div></details>
+                              </td>
+                            </tr>
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className={layoutStyles.linesFooter}>{isDraft ? <button type="button" className={layoutStyles.addLineButton} onClick={addInvoiceLine}>+ Add invoice line</button> : <span>Invoice lines are locked.</span>}<span>{activeLines.length} active line{activeLines.length === 1 ? "" : "s"}</span></div>
+              </section>
 
-            <div className={layoutStyles.invoiceTableWrap}>
-              <table className={layoutStyles.invoiceTable}>
-              <colgroup>
-                <col className={layoutStyles.descriptionCol} />
-                <col className={layoutStyles.qtyCol} />
-                <col className={layoutStyles.priceCol} />
-                <col className={layoutStyles.vatRateCol} />
-                <col className={layoutStyles.mappingCol} />
-                <col className={layoutStyles.mappingCol} />
-                <col className={layoutStyles.moneyCol} />
-                <col className={layoutStyles.moneyCol} />
-                <col className={layoutStyles.grossCol} />
-                <col className={layoutStyles.actionCol} />
-              </colgroup>
-              <thead>
-                <tr>
-                  {["Description", "Qty", "Unit price", "VAT %", "Nominal", "Sage tax", "Net", "VAT", "Gross", ""].map((heading) => (
-                    <th key={heading} className={heading === "Description" ? layoutStyles.textHeading : layoutStyles.numberHeading}>{heading}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.lines.map((line, index) => {
-                  const section = String(line.section || "").trim();
-                  const previousSection =
-                    index > 0
-                      ? String(invoice.lines[index - 1]?.section || "").trim()
-                      : "";
-                  return (
-                    <Fragment key={line.id}>
-                      {section && section !== previousSection ? (
-                        <tr className={layoutStyles.invoiceSectionRow}>
-                          <td colSpan={10}>{section}</td>
-                        </tr>
-                      ) : null}
-                      <tr>
-                        <td><input className={layoutStyles.descriptionInput} value={line.description} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "description", e.target.value)} /></td>
-                        <td><input className={layoutStyles.numberInput} type="number" step="0.01" value={line.quantity} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "quantity", e.target.value)} /></td>
-                        <td><input className={layoutStyles.numberInput} type="number" step="0.01" value={line.unitPrice} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "unitPrice", e.target.value)} /></td>
-                        <td><input className={layoutStyles.numberInput} type="number" step="0.01" value={line.taxRate} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "taxRate", e.target.value)} /></td>
-                        <td><input className={layoutStyles.numberInput} aria-label={`Line ${index + 1} nominal code`} value={line.nominalCode || ""} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "nominalCode", e.target.value)} /></td>
-                        <td><input className={layoutStyles.numberInput} aria-label={`Line ${index + 1} Sage tax code`} value={line.taxCode || ""} disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceLine(index, "taxCode", e.target.value)} /></td>
-                        <td className={layoutStyles.moneyCell}>{money(line.net)}</td>
-                        <td className={layoutStyles.moneyCell}>{money(line.tax)}</td>
-                        <td className={layoutStyles.grossCell}>{money(line.gross)}</td>
-                        <td className={layoutStyles.actionCell}><button className={layoutStyles.removeButton} disabled={invoice.status !== "draft" || invoice.lines.length === 1} onClick={() => removeInvoiceLine(index)}>Remove</button></td>
-                      </tr>
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-              </table>
-            </div>
-            <div className={layoutStyles.invoiceDocumentFooter}>
-              <div>
-                {invoice.status === "draft" ? <button className={layoutStyles.addLineButton} onClick={addInvoiceLine}>+ Add invoice line</button> : null}
-                <label className={layoutStyles.invoiceNotes}>
-                  <div style={k}>Invoice notes</div>
-                  <textarea value={invoice.notes || ""} placeholder="Payment details or invoice notes…" disabled={invoice.status !== "draft"} onChange={(e) => updateInvoiceField("notes", e.target.value)} />
-                </label>
-              </div>
-              <div className={layoutStyles.invoiceTotalsPanel}>
-                <div><span>Subtotal</span><strong>{money(invoice.totals?.net)}</strong></div>
-                <div><span>VAT</span><strong>{money(invoice.totals?.tax)}</strong></div>
-                <div><span>Total due</span><strong>{money(invoice.totals?.gross)}</strong></div>
-              </div>
-            </div>
-          </div>
+              <section className={layoutStyles.formCard} aria-labelledby="invoice-notes-heading">
+                <div className={layoutStyles.cardHeader}><div><span>Notes</span><h2 id="invoice-notes-heading">Invoice notes</h2></div></div>
+                <div className={layoutStyles.notesGrid}>
+                  <label><span>Customer-facing invoice note</span><small>Shown on the invoice preview and issued PDF.</small><textarea value={invoice.notes || ""} disabled={!isDraft} placeholder="Payment details or invoice notes…" onChange={(event) => updateInvoiceField("notes", event.target.value)} /></label>
+                  <label><span>Internal finance note</span><small>Visible to finance staff only. Never included on the customer invoice.</small><textarea value={invoice.internalFinanceNotes || ""} disabled={!isDraft} placeholder="Internal approval or accounting context…" onChange={(event) => updateInvoiceField("internalFinanceNotes", event.target.value)} /></label>
+                </div>
+              </section>
 
-            <aside className={layoutStyles.invoiceBuilderSidebar}>
-              <div className={layoutStyles.sidebarHeading}>
-                <div><span>Booking summary</span><strong>#{job.jobNumber || job.id}</strong></div>
-                <span className={layoutStyles.sidebarStatus}>{statusPretty}</span>
-              </div>
-              <div className={layoutStyles.sidebarPanel}>
-                <h3>Job details</h3>
-                <dl>
-                  <div><dt>Customer</dt><dd>{job.client || "—"}</dd></div>
-                  <div><dt>Location</dt><dd>{job.location || "—"}</dd></div>
-                  <div><dt>Dates</dt><dd>{dateRangeLabel(job)}</dd></div>
-                  <div><dt>Crew</dt><dd>{employees}</dd></div>
-                  <div><dt>Vehicles</dt><dd>{vehicles}</dd></div>
-                  <div><dt>Equipment</dt><dd>{equipment === "—" ? "None recorded" : equipment}</dd></div>
-                </dl>
-              </div>
-              <div className={layoutStyles.sidebarPanel}>
-                <h3>Day notes</h3>
-                {job?.notesByDate && typeof job.notesByDate === "object" ? (
-                  <ul className={layoutStyles.builderDayNotes}>
-                    {Object.entries(job.notesByDate)
-                      .filter(([date]) => /^\d{4}-\d{2}-\d{2}$/.test(date))
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([date, note]) => <li key={date}><strong>{formatNotesDateKey(date)}</strong><span>{String(note || "No note")}</span></li>)}
-                  </ul>
-                ) : <p>No day notes recorded.</p>}
-              </div>
+              <section className={layoutStyles.evidenceBar} aria-label="Supporting evidence">
+                <div><span>Supporting evidence</span><strong>Review without leaving the invoice</strong></div>
+                <div>
+                  <button type="button" onClick={(event) => openDrawer("quote", event.currentTarget)}><FileText size={15} aria-hidden="true" /> Accepted quote</button>
+                  <button type="button" onClick={(event) => openDrawer("timesheets", event.currentTarget)}>Timesheets ({tsLoading ? "…" : timesheets.length})</button>
+                  <button type="button" onClick={(event) => openDrawer("documents", event.currentTarget)}>Job documents ({jobDocs.length})</button>
+                </div>
+              </section>
+            </main>
+
+            <aside className={layoutStyles.reviewSidebar} aria-label="Invoice review">
+              <section className={layoutStyles.reviewCard}>
+                <span className={layoutStyles.reviewEyebrow}>Invoice summary</span>
+                <div className={layoutStyles.reviewTotals}><div><span>Net</span><strong>{money(invoice.totals?.net)}</strong></div><div><span>VAT</span><strong>{money(invoice.totals?.tax)}</strong></div><div><span>Total due</span><strong>{money(invoice.totals?.gross)}</strong></div></div>
+                <p className={layoutStyles.dueHint}>{invoice.issueDate ? `Due ${fmtLong(new Date(parseDate(invoice.issueDate).getTime() + Number(invoice.paymentTermsDays || 30) * 86400000))}` : `Due ${Number(invoice.paymentTermsDays || 30)} days after Sage issues the invoice.`}</p>
+              </section>
+              <section className={layoutStyles.reviewCard}>
+                <div className={layoutStyles.readinessHeader}><div><span className={layoutStyles.reviewEyebrow}>Approval</span><h2>{approvalReadiness.ready ? "Ready to approve" : "Action needed"}</h2></div><span className={`${layoutStyles.readinessCount} ${approvalReadiness.ready ? layoutStyles.readyCount : ""}`}>{approvalReadiness.ready ? "Ready" : `${approvalReadiness.blockers.length} outstanding`}</span></div>
+                <div className={layoutStyles.checklist}>
+                  <button type="button" className={!customerBlockers.length ? layoutStyles.checkComplete : ""} onClick={() => customerBlockers.length && focusReadinessBlocker(customerBlockers[0])}><span>{!customerBlockers.length ? <Check size={14} /> : "!"}</span><div><strong>Billing customer</strong><small>{!customerBlockers.length ? "Customer and Sage mapping complete" : customerBlockers[0].message}</small></div></button>
+                  <button type="button" className={!poBlocker ? layoutStyles.checkComplete : ""} onClick={() => poBlocker && focusReadinessBlocker(poBlocker)}><span>{!poBlocker ? <Check size={14} /> : "!"}</span><div><strong>Purchase order</strong><small>{poBlocker ? poBlocker.message : invoice.purchaseOrderNumber ? `PO ${invoice.purchaseOrderNumber}` : "Optional for this customer"}</small></div></button>
+                  <button type="button" className={!lineValidationBlocker ? layoutStyles.checkComplete : ""} onClick={() => lineValidationBlocker && focusReadinessBlocker(lineValidationBlocker)}><span>{!lineValidationBlocker ? <Check size={14} /> : "!"}</span><div><strong>Invoice lines</strong><small>{lineValidationBlocker?.message || `${activeLines.length} active line${activeLines.length === 1 ? "" : "s"}`}</small></div></button>
+                  <button type="button" className={!accountingBlockers.length ? layoutStyles.checkComplete : ""} onClick={(event) => { setAccountingFocusIndex(activeLineIndexesMissingAccounting[0] ?? null); openDrawer("accounting", event.currentTarget); }}><span>{!accountingBlockers.length ? <Check size={14} /> : "!"}</span><div><strong>Accounting mapping</strong><small>{accountingBlockers.length ? `${activeLineIndexesMissingAccounting.length} line${activeLineIndexesMissingAccounting.length === 1 ? "" : "s"} need codes` : "All active lines mapped"}</small></div></button>
+                </div>
+              </section>
+              <section className={layoutStyles.reviewCard}>
+                <button type="button" className={layoutStyles.accountingButton} onClick={(event) => openDrawer("accounting", event.currentTarget)}><Settings2 size={16} aria-hidden="true" /><span><strong>Accounting details</strong><small>{accountingReadiness.ready ? "Mappings complete" : `${accountingReadiness.blockers.length} fields outstanding`}</small></span><span>›</span></button>
+              </section>
+              <details className={layoutStyles.jobReference}>
+                <summary><span>Job reference</span><strong>#{job.jobNumber || job.id}</strong></summary>
+                <dl><div><dt>Status</dt><dd>{prettifyStatus(job.status)}</dd></div><div><dt>Location</dt><dd>{job.location || "—"}</dd></div><div><dt>Dates</dt><dd>{dateRangeLabel(job)}</dd></div><div><dt>Crew</dt><dd>{employees}</dd></div><div><dt>Vehicles</dt><dd>{vehicles}</dd></div><div><dt>Equipment</dt><dd>{equipment === "—" ? "None recorded" : equipment}</dd></div></dl>
+                {job?.notesByDate && typeof job.notesByDate === "object" ? <ul className={layoutStyles.builderDayNotes}>{Object.entries(job.notesByDate).filter(([date]) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort(([a], [b]) => a.localeCompare(b)).map(([date, note]) => <li key={date}><strong>{formatNotesDateKey(date)}</strong><span>{String(note || "No note")}</span></li>)}</ul> : null}
+              </details>
             </aside>
           </div>
         </section>
 
-        {/* Timesheets */}
-        <div style={section}>
-          <div style={sectionTitle}>Timesheets</div>
+        <InvoiceDrawer title="Accounting details" eyebrow="Active invoice lines" open={activeDrawer === "accounting"} onClose={closeDrawer} wide>
+          <p className={layoutStyles.drawerIntro}>Nominal and Sage tax codes are required for every active invoice line before approval.</p>
+          <div className={layoutStyles.accountingList}>{activeLines.map(({ line, index }) => <section key={line.id} className={layoutStyles.accountingRow}><div><span>Line {index + 1}{line.section ? ` · ${line.section}` : ""}</span><strong>{line.description || "Untitled invoice line"}</strong><small>{money(line.net)} net · VAT {Number(line.taxRate)}%</small></div><label><span>Nominal code</span><input ref={(node) => node ? lineInputRefs.current.set(`${index}:nominalCode`, node) : lineInputRefs.current.delete(`${index}:nominalCode`)} value={line.nominalCode || ""} disabled={!isDraft} placeholder="e.g. 4000" onChange={(event) => updateInvoiceLine(index, "nominalCode", event.target.value)} /></label><label><span>Sage tax code</span><input ref={(node) => node ? lineInputRefs.current.set(`${index}:taxCode`, node) : lineInputRefs.current.delete(`${index}:taxCode`)} value={line.taxCode || ""} disabled={!isDraft} placeholder="e.g. T1" onChange={(event) => updateInvoiceLine(index, "taxCode", event.target.value)} /></label></section>)}</div>
+        </InvoiceDrawer>
 
-          {tsLoading ? (
-            <div style={{ color: UI.muted }}>Loading timesheets…</div>
-          ) : timesheets.length === 0 ? (
-            <div style={{ color: UI.muted }}>No timesheets found for this job.</div>
-          ) : (
-            <div className={layoutStyles.extracted16}>
-              {timesheets.map((ts) => {
-                const docs = collectTimesheetDocs(ts);
-                const first = docs[0];
-                const { base, ot } = tsHours(ts);
+        <InvoiceDrawer title={`Excluded items (${excludedLines.length})`} eyebrow="Accepted quote" open={activeDrawer === "excluded"} onClose={closeDrawer}>
+          {excludedLines.length ? <div className={layoutStyles.drawerList}>{excludedLines.map(({ line, index }) => <div key={line.id} className={layoutStyles.drawerListItem}><div><span>{line.section || "Quoted item"}</span><strong>{line.description}</strong></div><button type="button" disabled={!isDraft} onClick={() => restoreInvoiceLine(index)}><RotateCcw size={14} aria-hidden="true" /> Restore</button></div>)}</div> : <p className={layoutStyles.emptyState}>No quoted lines are excluded.</p>}
+        </InvoiceDrawer>
 
-                return (
-                  <div key={ts.id} style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
-                    <div className={layoutStyles.extracted17}>
-                      <div>
-                        <div style={k}>Employee</div>
-                        <div style={v}>{tsEmployee(ts)}</div>
-                        <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
-                          {ts.employeeId ? `ID: ${ts.employeeId}` : ""}
-                        </div>
-                      </div>
+        <InvoiceDrawer title="Accepted quote" eyebrow={invoice.sourceQuote?.quoteNumber || "Quote snapshot"} open={activeDrawer === "quote"} onClose={closeDrawer} wide>
+          <div className={layoutStyles.quoteSummary}><div><span>Quote number</span><strong>{invoice.sourceQuote?.quoteNumber || "—"}</strong></div><div><span>Accepted</span><strong>{fmtLong(parseDate(invoice.sourceQuote?.acceptedAt))}</strong></div><div><span>Saved</span><strong>{fmtLong(parseDate(invoice.sourceQuote?.savedAt))}</strong></div><div><span>Quoted subtotal</span><strong>{money(invoice.sourceQuote?.snapshot?.subtotal)}</strong></div></div>
+          {invoice.sourceQuote?.snapshot?.notes ? <div className={layoutStyles.quoteNotes}><span>Quote notes</span><p>{invoice.sourceQuote.snapshot.notes}</p></div> : null}
+          <div className={layoutStyles.drawerTableWrap}><table className={layoutStyles.drawerTable}><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th></tr></thead><tbody>{quoteLines.map((line, index) => <tr key={line.id || index}><td>{line.description || "—"}</td><td>{line.qty ?? line.quantity ?? "—"}</td><td>{money(line.unitPrice)}</td></tr>)}</tbody></table></div>
+        </InvoiceDrawer>
 
-                      <div>
-                        <div style={k}>Date</div>
-                        <div style={v}>{tsDate(ts)}</div>
-                        {ts.startTime || ts.endTime ? (
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
-                            {ts.startTime || "—"} – {ts.endTime || "—"} {ts.breakMins ? `(Break ${ts.breakMins}m)` : ""}
-                          </div>
-                        ) : null}
-                      </div>
+        <InvoiceDrawer title={`Timesheets (${timesheets.length})`} eyebrow={`Job #${job.jobNumber || job.id}`} open={activeDrawer === "timesheets"} onClose={closeDrawer} wide>
+          {tsLoading ? <p className={layoutStyles.emptyState}>Loading timesheets…</p> : timesheets.length ? <div className={layoutStyles.timesheetList}>{timesheets.map((timesheet) => { const hours = tsHours(timesheet); const docs = collectTimesheetDocs(timesheet); return <section key={timesheet.id} className={layoutStyles.timesheetCard}><div><span>{fmtLong(parseDate(timesheet.date || timesheet.workDate))}</span><strong>{tsEmployee(timesheet)}</strong><small>{prettifyStatus(timesheet.status || timesheet.approvalStatus || "—")}</small></div><dl><div><dt>Hours</dt><dd>{hours.base}</dd></div><div><dt>OT</dt><dd>{hours.ot}</dd></div></dl>{timesheet.notes ? <p>{timesheet.notes}</p> : null}{docs.length ? <div className={layoutStyles.fileLinks}>{docs.map((document) => <a key={document.url} href={document.url} target="_blank" rel="noreferrer">{document.name}</a>)}</div> : <small>No attachments</small>}</section>; })}</div> : <p className={layoutStyles.emptyState}>No timesheets found for this job.</p>}
+        </InvoiceDrawer>
 
-                      <div>
-                        <div style={k}>Hours</div>
-                        <div style={v}>{base}</div>
-                      </div>
-
-                      <div>
-                        <div style={k}>OT</div>
-                        <div style={v}>{ot}</div>
-                      </div>
-
-                      <div>
-                        <div style={k}>Total</div>
-                        <div style={v}>{tsTotalMoney(ts)}</div>
-                        {ts.rate || ts.overtimeRate ? (
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
-                            {ts.rate ? `Rate ${money(ts.rate)}` : ""} {ts.overtimeRate ? ` • OT ${money(ts.overtimeRate)}` : ""}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div>
-                        <div style={k}>Status</div>
-                        <div style={v}>{prettifyStatus(ts.status || ts.approvalStatus || "—")}</div>
-                        {ts.notes ? (
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 6, whiteSpace: "pre-wrap" }}>
-                            {ts.notes}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {/* Attachments */}
-                    <div className={layoutStyles.extracted18}>
-                      <div style={k}>Attachments</div>
-                      {!docs.length ? (
-                        <div style={{ fontSize: 13, color: UI.muted }}>No files</div>
-                      ) : (
-                        <div className={layoutStyles.extracted19}>
-                          {/* Inline preview of the first file */}
-                          {first && (
-                            <div style={{ ...surface, border: UI.border, borderRadius: 10, overflow: "hidden" }}>
-                              <div className={layoutStyles.extracted20}>
-                                <strong className={layoutStyles.extracted21}>{first.name}</strong>
-                                <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none", fontSize: 13 }}>
-                                  Open
-                                </a>
-                              </div>
-                              <div className={layoutStyles.extracted22}>
-                                {first.kind === "pdf" ? (
-                                  <iframe src={first.url} title={first.name} className={layoutStyles.extracted23} />
-                                ) : first.kind === "image" ? (
-                                  // Uploaded attachment URLs can come from Firebase Storage and are not constrained to a Next image domain.
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={first.url} alt={first.name} className={layoutStyles.extracted24} loading="lazy" />
-                                ) : (
-                                  <div style={{ fontSize: 13, color: UI.muted }}>
-                                    File cannot be previewed.{" "}
-                                    <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none" }}>
-                                      Download / Open
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* List other files */}
-                          <div style={{ ...surface, padding: 8, borderRadius: 10 }}>
-                            <ul className={layoutStyles.extracted25}>
-                              {docs.map((d, i) => (
-                                <li key={d.url + i} className={layoutStyles.extracted26}>
-                                  <a href={d.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 700, textDecoration: "none" }}>
-                                    {d.name}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Job Documents */}
-        <div style={section}>
-          <div style={sectionTitle}>Job Documents</div>
-          {!jobDocs.length ? (
-            <div style={{ color: UI.muted, fontSize: 14 }}>No documents found on this job.</div>
-          ) : (
-            <div style={grid(3)}>
-              {jobDocs.map((d, i) => (
-                <div
-                  key={d.url + i}
-                  style={{ ...surface, border: UI.border, borderRadius: UI.radiusSm, overflow: "hidden" }}
-                >
-                  <div
-                    className={layoutStyles.extracted27}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 800,
-                        fontSize: 13.5,
-                        color: UI.text,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={d.name}
-                    >
-                      {d.name}
-                    </div>
-                    <a
-                      href={d.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontWeight: 800, color: UI.brand, textDecoration: "none", fontSize: 13 }}
-                    >
-                      Open
-                    </a>
-                  </div>
-
-                  <div className={layoutStyles.extracted28}>
-                    {d.kind === "pdf" ? (
-                      <div className={layoutStyles.extracted29}>
-                        <iframe src={d.url} title={d.name} className={layoutStyles.extracted30} />
-                      </div>
-                    ) : d.kind === "image" ? (
-                      <div
-                        className={layoutStyles.extracted31}
-                      >
-                        {/* Uploaded attachment URLs can come from Firebase Storage and are not constrained to a Next image domain. */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={d.url}
-                          alt={d.name}
-                          className={layoutStyles.extracted32}
-                          loading="lazy"
-                        />
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 13, color: UI.muted }}>
-                        File cannot be previewed.&nbsp;
-                        <a href={d.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none" }}>
-                          Download / Open
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+        <InvoiceDrawer title={`Job documents (${jobDocs.length})`} eyebrow={`Job #${job.jobNumber || job.id}`} open={activeDrawer === "documents"} onClose={closeDrawer}>
+          {jobDocs.length ? <div className={layoutStyles.drawerList}>{jobDocs.map((document) => <div key={document.url} className={layoutStyles.drawerListItem}><div><span>{prettifyStatus(document.kind)}</span><strong>{document.name}</strong></div><a href={document.url} target="_blank" rel="noreferrer">Open</a></div>)}</div> : <p className={layoutStyles.emptyState}>No documents found on this job.</p>}
+        </InvoiceDrawer>
       </div>
     </HeaderSidebarLayout>
   );

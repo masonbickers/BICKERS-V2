@@ -408,6 +408,10 @@
 }
 
 /* Compact create workspace — mirrors Edit Booking. */
+.pageShell { display: flex; flex-direction: column; }
+.workspaceMain { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.workspaceForm { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.workspaceForm > .extracted6 { display: flex; flex: 1; flex-direction: column; }
 .compactPageHeader { align-items: center; margin-bottom: 7px; }
 .compactTitleBlock { display: grid; gap: 3px; }
 .compactTitleLine { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
@@ -452,6 +456,14 @@
 
 .contactActions,
 .stickyActions { display: flex; align-items: center; gap: 6px; }
+.contactReminder { margin: -2px 0 8px; color: var(--color-warning); font-size: 11.5px; font-weight: 750; line-height: 1.35; }
+:global(:root[data-color-mode="dark"]) .primaryAction:disabled {
+  border-color: var(--color-border) !important;
+  background: var(--color-surface-raised) !important;
+  color: var(--color-text-muted) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
 .contactSummary { display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 12.5px; font-weight: 700; text-align: left; cursor: pointer; }
 .contactSummary > span { display: grid; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contactSummary small { color: var(--color-text-muted); font-size: 11px; font-weight: 600; }
@@ -490,7 +502,7 @@
 .crewVisibilityStatus { justify-self: end; padding: 4px 8px; border: 1px solid var(--color-warning-border); border-radius: 999px; background: var(--color-warning-soft); color: var(--color-warning); font-size: 10.5px; font-weight: 850; white-space: nowrap; }
 .crewVisibilityStatusActive { border-color: var(--color-success-border); background: var(--color-success-soft); color: var(--color-success); }
 
-.stickyActionBar { position: sticky; z-index: 20; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px -4px -32px; padding: 9px 12px; border: 1px solid var(--color-border); border-bottom: 0; border-radius: 12px 12px 0 0; background: color-mix(in srgb, var(--color-surface) 94%, transparent); box-shadow: 0 -8px 24px rgba(15, 23, 42, .12); backdrop-filter: blur(12px); }
+.stickyActionBar { position: sticky; z-index: 20; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: auto -4px -48px; padding: 9px 12px; border: 1px solid var(--color-border); border-bottom: 0; border-radius: 12px 12px 0 0; background: color-mix(in srgb, var(--color-surface) 94%, transparent); box-shadow: 0 -8px 24px rgba(15, 23, 42, .12); backdrop-filter: blur(12px); }
 .compactReview { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 6px 12px; color: var(--color-text-muted); font-size: 11.5px; }
 .compactReview strong { color: var(--color-text); font-size: 12.5px; }
 .reviewStatus { padding: 3px 7px; border: 1px solid var(--color-success-border); border-radius: 999px; background: var(--color-success-soft); color: var(--color-success); font-weight: 850; }
@@ -508,7 +520,7 @@
   .bookingColumns { grid-template-columns: 1fr; }
   .resourceCard { grid-column: auto; }
   .resourceHeader { align-items: flex-start; flex-direction: column; }
-  .stickyActionBar { align-items: stretch; flex-direction: column; margin-bottom: -32px; }
+  .stickyActionBar { align-items: stretch; flex-direction: column; margin-bottom: -48px; }
   .stickyActions { justify-content: flex-end; }
   .compactControlHint { flex-basis: 100%; padding: 0 8px 4px; }
 }

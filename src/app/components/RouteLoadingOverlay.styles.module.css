@@ -28,6 +28,13 @@
   box-shadow: 0 16px 40px rgba(15,23,42,0.2);
 }
 
+@media (min-width: 1101px) {
+  :global(html[data-interface-scale="compact"]) .extracted1 {
+    /* Clear the desktop shell's 26px status footer. */
+    bottom: calc(26px + 18px);
+  }
+}
+
 .extracted2 {
   width: min(390px, 92vw);
   background: var(--color-surface);

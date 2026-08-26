@@ -5,13 +5,13 @@ import {
 import {
   canAccessCompany,
   jsonError,
-  requireActiveUserFromRequest,
+  requireFinanceFromRequest,
 } from "../../../admin/_lib.js";
 import {
   createCustomerLookupRecord,
   publicCustomerLookup,
 } from "../../../../utils/sage50CustomerLookup.js";
-import { publicConnectorStatus } from "../../../../utils/sage50ConnectorIdentity.js";
+import { connectorReadyForReadOnly } from "../../../../utils/sage50ConnectorIdentity.js";
 import { findTenantConnector } from "../connectors/_lib.js";
 import {
   CUSTOMER_LOOKUP_COLLECTION,
@@ -27,7 +27,7 @@ const safeId = (value) => {
 
 export async function GET(req) {
   try {
-    const auth = await requireActiveUserFromRequest(req, { module: "finance" });
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
     const lookupJobId = safeId(new URL(req.url).searchParams.get("lookupJobId"));
     if (!lookupJobId) return jsonError("Valid customer lookup job ID is required.", 400);
@@ -44,7 +44,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const auth = await requireActiveUserFromRequest(req, { module: "finance" });
+    const auth = await requireFinanceFromRequest(req);
     if (auth.error) return auth.error;
     const body = await req.json().catch(() => ({}));
     const contactId = safeId(body.contactId);
@@ -56,14 +56,7 @@ export async function POST(req) {
       return jsonError("Customer company access denied.", 403);
     }
     const connectorRow = await findTenantConnector(tenantId);
-    const connectorStatus = connectorRow ? publicConnectorStatus(connectorRow.data) : null;
-    if (
-      !connectorRow ||
-      connectorStatus.status !== "online" ||
-      !connectorStatus.connectorVersion ||
-      !connectorStatus.sageVersion ||
-      !connectorStatus.sdoVersion
-    ) {
+    if (!connectorRow || !connectorReadyForReadOnly(connectorRow.data)) {
       return jsonError("An online, read-only-capable Sage 50 connector is required.", 409);
     }
     const now = new Date();

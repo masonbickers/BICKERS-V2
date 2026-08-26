@@ -1272,7 +1272,7 @@ export default function HealthSafetyPage() {
         ) : null}
 
         <section className={`hs-command-grid ${layoutStyles.extracted16}`} >
-          <div style={{ ...surface, padding: 12 }}>
+          <div>
             <div className={layoutStyles.extracted17}>
               <div>
                 <h2 style={titleMd}>Home</h2>

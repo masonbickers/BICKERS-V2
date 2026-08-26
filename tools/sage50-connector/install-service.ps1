@@ -22,11 +22,15 @@ Copy-Item -Path (Join-Path $source "*") -Destination $InstallDirectory -Recurse 
 
 Write-Host "Configure appsettings.json, then install the one-time machine credential:"
 & $executable --set-credential
+Write-Host "Install the dedicated read-only Sage credential:"
+& $executable --set-sage-read-credential
+Write-Host "Install the dedicated invoice-write Sage credential:"
+& $executable --set-sage-write-credential
 
 sc.exe create $ServiceName binPath= "`"$executable`"" start= auto `
     DisplayName= "Bickers Action Sage 50 Connector" | Out-Null
 sc.exe description $ServiceName `
-    "Read-only Sage 50 Accounts UK capability and connector heartbeat service." | Out-Null
+    "Gated Sage 50 Accounts UK customer lookup and service-invoice connector." | Out-Null
 sc.exe failure $ServiceName reset= 86400 actions= restart/60000/restart/120000/""/0 | Out-Null
 Start-Service -Name $ServiceName
-Write-Host "Service installed and started. No export-job polling or Sage writes are enabled."
+Write-Host "Service installed and started. Invoice posting follows the local and server-side kill switches."
