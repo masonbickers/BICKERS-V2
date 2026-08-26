@@ -230,6 +230,15 @@ service firebase.storage {
         && isSafeMimeType('image/.*');
     }
 
+    /* Photos uploaded by the dedicated multi-location Recce form. */
+    match /recces/{jobId}/{dateISO}/{uid}/{allPaths=**} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && request.auth.uid == uid
+        && isSafeFileSize(20 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
     /* Shared technical-library documents used by the employee mobile app. */
     match /insurance/{allPaths=**} {
       allow read: if hasUserAccess();

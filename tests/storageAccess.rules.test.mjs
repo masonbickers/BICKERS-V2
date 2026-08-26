@@ -92,6 +92,27 @@ test("platform admins can upload their own receipt images for a company", async 
   await assertSucceeds(uploadBytes(ref(env.authenticatedContext("platform").storage(), path), png, { contentType: "image/png" }));
 });
 
+test("Recce photos support current location folders and the legacy path", async () => {
+  await seedUsers();
+  const userStorage = env.authenticatedContext("user-a").storage();
+  const currentPath = "recces/booking-a/2026-08-26/user-a/location-1/photo.jpg";
+  const legacyPath = "recces/booking-a/2026-08-26/user-a/photo.jpg";
+
+  await assertSucceeds(uploadBytes(ref(userStorage, currentPath), png, { contentType: "image/jpeg" }));
+  await assertSucceeds(uploadBytes(ref(userStorage, legacyPath), png, { contentType: "image/jpeg" }));
+  await assertSucceeds(getBytes(ref(userStorage, currentPath)));
+  await assertFails(uploadBytes(
+    ref(env.authenticatedContext("admin-a").storage(), "recces/booking-a/2026-08-26/user-a/location-1/admin.jpg"),
+    png,
+    { contentType: "image/jpeg" },
+  ));
+  await assertFails(uploadBytes(
+    ref(userStorage, "recces/booking-a/2026-08-26/user-a/location-1/not-an-image.pdf"),
+    pdf,
+    { contentType: "application/pdf" },
+  ));
+});
+
 test("technical library files are readable by user-workspace accounts only", async () => {
   await seedUsers();
   await env.withSecurityRulesDisabled(async (context) => {
