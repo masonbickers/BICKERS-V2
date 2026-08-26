@@ -91,6 +91,10 @@ import MaintenanceCalendarPanel from "../components/MaintenanceCalendarPanel";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import QuotePdfViewer from "../components/QuotePdfViewer";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
+import {
+  alignLinkedContinuationCalendarEvents,
+  linkedJobNumberLabel,
+} from "@/app/utils/linkedBookingContinuation";
 import { isAdminEmail } from "@/app/utils/adminAccess";
 import {
   dataAccessKey,
@@ -173,6 +177,10 @@ const getWorkDiaryBorder = (status, fallback) =>
 const getVehicleStatusPillStyle = (status) => {
   const normalizedStatus = normalizeStatusLabel(status);
   const tone = getStatusStyle(normalizedStatus);
+
+  if (normalizedStatus === "Confirmed") {
+    return getFixedJobStatusSurfaceStyle(normalizedStatus);
+  }
 
   if (normalizedStatus === "Bickers") {
     return {
@@ -1111,8 +1119,9 @@ function CalendarEvent({ event, onViewQuote }) {
               <span
                 className={layoutStyles.jobNumber}
                 data-shoot={String(event.shootType || "").toLowerCase()}
+                title={event.linkedContinuation?.fromJobNumber ? "Linked job continuation" : undefined}
               >
-                {event.jobNumber}
+                {linkedJobNumberLabel(event)}
               </span>
               {canViewQuote ? (
                 <Button bare
@@ -2930,7 +2939,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, [allEvents, showDeletedInView, showInactiveInView]);
 
   const workCalendarEvents = useMemo(
-    () => [...bankHolidays, ...workDiaryEvents],
+    () => alignLinkedContinuationCalendarEvents([...bankHolidays, ...workDiaryEvents]),
     [bankHolidays, workDiaryEvents]
   );
 
@@ -3625,7 +3634,12 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               const isJobCard = !["bank holiday", "holiday", "note"].includes(
                 String(event.status || "").trim().toLowerCase()
               );
-              const jobCardClassName = isJobCard ? "work-diary-job-card" : "";
+              const linkedRoleClass = event.__linkedContinuationRole
+                ? `work-diary-linked-${event.__linkedContinuationRole}`
+                : "";
+              const jobCardClassName = isJobCard
+                ? `work-diary-job-card ${linkedRoleClass}`.trim()
+                : "";
               const tone = getFixedJobStatusSurfaceStyle(status);
               let bg = tone.bg;
               let text = tone.text;

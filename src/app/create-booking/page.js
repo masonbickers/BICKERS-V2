@@ -2,10 +2,11 @@
 
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import LinkedBookingContinuationFields from "@/app/components/LinkedBookingContinuationFields";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
@@ -79,6 +80,12 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { hasMeaningfulCreateBookingDraft } from "@/app/utils/createBookingDraft";
 import { buildBookingCallTimePayload } from "@/app/utils/bookingCallTimes";
+import {
+  buildLinkedContinuationPayload,
+  linkedContinuationAllowsResourceOverlap,
+  normaliseLinkedContinuation,
+  overlappingBookingDateKeys,
+} from "@/app/utils/linkedBookingContinuation";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 /* ────────────────────────────────────────────────────────────────────────────
@@ -686,6 +693,7 @@ function CreateBookingForm({ initialStatus }) {
   const [customDates, setCustomDates] = useState([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [linkedContinuation, setLinkedContinuation] = useState(null);
 
   // Notes per day
   const [notesByDate, setNotesByDate] = useState({});
@@ -856,6 +864,7 @@ function CreateBookingForm({ initialStatus }) {
       customDates,
       startDate,
       endDate,
+      linkedContinuation,
       notesByDate,
       notes,
       callTime,
@@ -903,6 +912,7 @@ function CreateBookingForm({ initialStatus }) {
       customDates,
       startDate,
       endDate,
+      linkedContinuation,
       notesByDate,
       notes,
       callTime,
@@ -1177,6 +1187,7 @@ function CreateBookingForm({ initialStatus }) {
     setCustomDates(Array.isArray(saved.customDates) ? saved.customDates : []);
     setStartDate(saved.startDate || "");
     setEndDate(saved.endDate || "");
+    setLinkedContinuation(normaliseLinkedContinuation(saved.linkedContinuation));
     setNotesByDate(saved.notesByDate && typeof saved.notesByDate === "object" ? saved.notesByDate : {});
     setNotes(saved.notes || "");
     setCallTime(saved.callTime || "");
@@ -1285,6 +1296,18 @@ function CreateBookingForm({ initialStatus }) {
     return allBookings.filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, selectedDates]);
 
+  const allowsLinkedResourceOverlap = useCallback(
+    (booking, resourceType, resourceKey, dates = selectedDates) =>
+      linkedContinuationAllowsResourceOverlap({
+        currentContinuation: linkedContinuation,
+        otherBooking: booking,
+        overlapDates: overlappingBookingDateKeys(expandBookingDates(booking), dates),
+        resourceType,
+        resourceKey,
+      }),
+    [linkedContinuation, selectedDates]
+  );
+
   const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById, vehicleBlockingStatusesById } = useMemo(() => {
     const blockingById = {};
     const blockingStatusesById = {};
@@ -1296,6 +1319,7 @@ function CreateBookingForm({ initialStatus }) {
       const vmap = b.vehicleStatus || {};
 
       keys.forEach((vid) => {
+        if (allowsLinkedResourceOverlap(b, "vehicle", vid)) return;
         const itemStatus = (vmap[vid] ?? b.status) || "";
         if (!itemStatus) return;
 
@@ -1320,7 +1344,7 @@ function CreateBookingForm({ initialStatus }) {
       vehicleBlockingStatusById: blockingById,
       vehicleBlockingStatusesById: blockingStatusesById,
     };
-  }, [overlapping, vehicleLookup]);
+  }, [overlapping, vehicleLookup, allowsLinkedResourceOverlap]);
 
   const bookedEquipment = useMemo(() => {
     return overlapping
@@ -1343,11 +1367,16 @@ function CreateBookingForm({ initialStatus }) {
   const bookedEmployeeNames = useMemo(() => {
     return overlapping
       .filter(doesBlockBooking)
-      .flatMap((b) => (Array.isArray(b.employees) ? b.employees : []))
+      .flatMap((b) =>
+        (Array.isArray(b.employees) ? b.employees : []).filter((employee) => {
+          const name = typeof employee === "string" ? employee : employee?.name;
+          return !allowsLinkedResourceOverlap(b, "employee", name);
+        })
+      )
       .map((e) => (typeof e === "string" ? e : e?.name))
       .map((s) => String(s || "").trim())
       .filter(Boolean);
-  }, [overlapping]);
+  }, [overlapping, allowsLinkedResourceOverlap]);
 
   const heldEmployeeNames = useMemo(() => {
     return overlapping
@@ -1520,7 +1549,11 @@ function CreateBookingForm({ initialStatus }) {
   const isEmployeeUnavailableByNoteForDates = (employeeName, dates) =>
     Boolean(getEmployeeUnavailableNoteForDates(employeeName, dates));
 
-  const buildVehicleBlockingMapsFromBookings = (bookingRows = [], dates = selectedDates) => {
+  const buildVehicleBlockingMapsFromBookings = (
+    bookingRows = [],
+    dates = selectedDates,
+    continuation = linkedContinuation
+  ) => {
     const blockingById = {};
     const blockingStatusesById = {};
 
@@ -1531,6 +1564,14 @@ function CreateBookingForm({ initialStatus }) {
         const vmap = booking.vehicleStatus || {};
 
         keys.forEach((vid) => {
+          const overlapDates = overlappingBookingDateKeys(expandBookingDates(booking), dates);
+          if (linkedContinuationAllowsResourceOverlap({
+            currentContinuation: continuation,
+            otherBooking: booking,
+            overlapDates,
+            resourceType: "vehicle",
+            resourceKey: vid,
+          })) return;
           const itemStatus = (vmap[vid] ?? booking.status) || "";
           if (!isVehicleBlockingStatus(itemStatus)) return;
           if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
@@ -1856,8 +1897,37 @@ function CreateBookingForm({ initialStatus }) {
       }
     }
 
+    const previousBookingForSave = linkedContinuation
+      ? (availabilityForSave?.bookings || allBookings || []).find(
+          (booking) => booking?.id === linkedContinuation.fromBookingId
+        )
+      : null;
+    const linkedContinuationResult = buildLinkedContinuationPayload({
+      formValue: isMaintenance ? null : linkedContinuation,
+      previousBooking: previousBookingForSave
+        ? {
+            ...previousBookingForSave,
+            vehicles: normalizeVehicleKeysListForLookup(
+              previousBookingForSave.vehicles || [],
+              vehicleLookup
+            ),
+          }
+        : null,
+      bookingDates,
+      vehicles,
+      employees: cleanedEmployees,
+    });
+    if (linkedContinuationResult.error) {
+      return systemDialogs.showSystemNotification(linkedContinuationResult.error);
+    }
+    const linkedContinuationForSave = linkedContinuationResult.value;
+
     const freshVehicleBlocking = availabilityForSave
-      ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
+      ? buildVehicleBlockingMapsFromBookings(
+          availabilityForSave.bookings || [],
+          bookingDates,
+          linkedContinuationForSave
+        )
       : null;
 
     const vehicleConflicts = selectedVehicleConflictLabels(
@@ -2129,6 +2199,7 @@ function CreateBookingForm({ initialStatus }) {
       vehicleStatus: vehicleStatusForSave,
       uCraneArmFitted: uCraneArmFittedForSave,
       equipment,
+      linkedContinuation: linkedContinuationForSave,
 
       isSecondPencil,
       isCrewed: inactiveBooking ? false : Boolean(isCrewed),
@@ -2787,6 +2858,15 @@ function CreateBookingForm({ initialStatus }) {
                   <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: SPACE.md, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
                     No dates recorded yet.
                   </div>
+                )}
+
+                {!isMaintenance && dateEntryEnabled && (
+                  <LinkedBookingContinuationFields
+                    value={linkedContinuation}
+                    onChange={setLinkedContinuation}
+                    candidates={allBookings}
+                    selectedDates={selectedDates}
+                  />
                 )}
 
                 {selectedDates.length > 0 && (
