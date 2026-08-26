@@ -918,6 +918,44 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /workingTermsAcceptances/{uid}/versions/{versionId} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if activeUserDocExists()
+        && request.auth.uid == uid
+        && versionId == "1.1"
+        && request.resource.data.keys().hasOnly([
+          "accepted",
+          "acceptedAt",
+          "companyId",
+          "documentEffectiveDate",
+          "documentTitle",
+          "documentVersion",
+          "employeeId",
+          "email",
+          "fullName",
+          "signatureSvgPath",
+          "signedFromAppVersion",
+          "signedFromPlatform",
+          "userId"
+        ])
+        && request.resource.data.accepted == true
+        && request.resource.data.acceptedAt == request.time
+        && request.resource.data.companyId == currentUserCompanyId()
+        && request.resource.data.documentEffectiveDate == "19/08/2026"
+        && request.resource.data.documentTitle == "Bickers Action Working Terms"
+        && request.resource.data.documentVersion == versionId
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() >= 2
+        && request.resource.data.fullName.size() <= 160
+        && request.resource.data.signatureSvgPath is string
+        && request.resource.data.signatureSvgPath.size() >= 20
+        && request.resource.data.signatureSvgPath.size() <= 12000
+        && request.resource.data.signedFromAppVersion is string
+        && request.resource.data.signedFromPlatform in ["android", "ios", "web"];
+      allow update, delete: if false;
+    }
+
     match /{collection}/{document=**} {
       allow read: if isPlatformAdmin()
         && !(collection in [

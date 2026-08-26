@@ -2,7 +2,7 @@ import test, { after, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
-import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 
 const projectId = "demo-bickers-service-access-rules";
 let env;
@@ -80,6 +80,34 @@ test("signed-out, missing-user and disabled-user reads are denied", async () => 
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "bookings", "booking-a")));
   await assertFails(getDoc(doc(env.authenticatedContext("missing").firestore(), "bookings", "booking-a")));
   await assertFails(getDoc(doc(env.authenticatedContext("disabled-a").firestore(), "bookings", "booking-a")));
+});
+
+test("working terms acceptance is signed once and remains readable", async () => {
+  await seed();
+  const userDb = env.authenticatedContext("user-a").firestore();
+  const acceptanceRef = doc(userDb, "workingTermsAcceptances", "user-a", "versions", "1.1");
+  const acceptance = {
+    accepted: true,
+    acceptedAt: serverTimestamp(),
+    companyId: "company-a",
+    documentEffectiveDate: "19/08/2026",
+    documentTitle: "Bickers Action Working Terms",
+    documentVersion: "1.1",
+    employeeId: "employee-a",
+    email: "employee@example.com",
+    fullName: "Employee A",
+    signatureSvgPath: "M 10 10 L 20 20 L 30 10",
+    signedFromAppVersion: "5.0.7",
+    signedFromPlatform: "ios",
+    userId: "user-a",
+  };
+
+  await assertSucceeds(setDoc(acceptanceRef, acceptance));
+  await assertSucceeds(getDoc(acceptanceRef));
+  await assertFails(setDoc(acceptanceRef, acceptance));
+  await assertFails(deleteDoc(acceptanceRef));
+  await assertFails(getDoc(doc(env.authenticatedContext("service-a").firestore(), "workingTermsAcceptances", "user-a", "versions", "1.1")));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext("admin-a").firestore(), "workingTermsAcceptances", "user-a", "versions", "1.1")));
 });
 
 test("single-company users can read legacy and company-stamped booking records", async () => {
