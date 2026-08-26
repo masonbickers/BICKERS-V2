@@ -223,20 +223,33 @@ export const alignLinkedContinuationCalendarEvents = (events = []) => {
       return (
         !Number.isNaN(start.getTime()) &&
         !Number.isNaN(end.getTime()) &&
-        start < handover &&
+        start <= handover &&
         end > handover
       );
     });
     if (!sourceEvent) return;
 
     const pairId = `${link.fromBookingId}:${eventBookingId(targetEvent)}:${link.handoverDate}`;
+    const sourceStart = sourceEvent.start instanceof Date
+      ? sourceEvent.start
+      : new Date(sourceEvent.start);
+    const targetEnd = targetEvent.end instanceof Date
+      ? targetEvent.end
+      : new Date(targetEvent.end);
+    const handoverDayEnd = new Date(handover);
+    handoverDayEnd.setDate(handoverDayEnd.getDate() + 1);
+    const sourceOwnsHandoverColumn = sourceStart.getTime() === handover.getTime();
+
     sourceUpdates.set(sourceEvent, {
-      end: handover,
+      ...(sourceOwnsHandoverColumn ? {} : { end: handover }),
       __linkedContinuationRole: "from",
       __linkedContinuationPairId: pairId,
       __linkedContinuationToJobNumber: text(targetEvent.jobNumber),
     });
     targetUpdates.set(targetEvent, {
+      ...(sourceOwnsHandoverColumn && targetEnd > handoverDayEnd
+        ? { start: handoverDayEnd }
+        : {}),
       __linkedContinuationRole: "to",
       __linkedContinuationPairId: pairId,
     });

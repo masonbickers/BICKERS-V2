@@ -132,6 +132,10 @@
   display: flex;
   min-height: 176px;
 }
+.dashboard-page .dashboard-compact-calendar .rbc-event.work-diary-linked-from,
+.dashboard-page .dashboard-compact-calendar .rbc-event.work-diary-linked-to {
+  height: calc(100% - 2px);
+}
 .dashboard-page .dashboard-compact-calendar .rbc-event.work-diary-linked-from {
   position: relative;
   z-index: 2;

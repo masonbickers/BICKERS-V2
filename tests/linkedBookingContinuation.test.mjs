@@ -140,3 +140,36 @@ test("aligns linked diary cards on one lane without changing saved booking dates
   assert.equal(alignedTarget.__linkedContinuationRole, "to");
   assert.equal(alignedTarget.start.getTime(), target.start.getTime());
 });
+
+test("aligns a one-day previous job with a multi-day continuation", () => {
+  const source = {
+    id: "booking-9282__date_group__0",
+    __bookingId: "booking-9282",
+    jobNumber: "9282",
+    start: new Date(2026, 7, 25),
+    end: new Date(2026, 7, 26),
+    bookingDates: ["2026-08-25"],
+  };
+  const target = {
+    id: "booking-9301__date_group__0",
+    __bookingId: "booking-9301",
+    jobNumber: "9301",
+    start: new Date(2026, 7, 25),
+    end: new Date(2026, 7, 28),
+    bookingDates: ["2026-08-25", "2026-08-26", "2026-08-27"],
+    linkedContinuation: {
+      fromBookingId: "booking-9282",
+      fromJobNumber: "9282",
+      handoverDate: "2026-08-25",
+    },
+  };
+
+  const [alignedSource, alignedTarget] = alignLinkedContinuationCalendarEvents([source, target]);
+
+  assert.equal(alignedSource.start.getTime(), source.start.getTime());
+  assert.equal(alignedSource.end.getTime(), source.end.getTime());
+  assert.equal(alignedTarget.start.getTime(), new Date(2026, 7, 26).getTime());
+  assert.deepEqual(alignedTarget.bookingDates, target.bookingDates);
+  assert.equal(alignedSource.__linkedContinuationRole, "from");
+  assert.equal(alignedTarget.__linkedContinuationRole, "to");
+});
