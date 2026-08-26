@@ -1,10 +1,11 @@
 "use client";
 
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import LinkedBookingContinuationFields from "@/app/components/LinkedBookingContinuationFields";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
@@ -90,6 +91,12 @@ import {
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { buildBookingCallTimePayload } from "@/app/utils/bookingCallTimes";
+import {
+  buildLinkedContinuationPayload,
+  linkedContinuationAllowsResourceOverlap,
+  normaliseLinkedContinuation,
+  overlappingBookingDateKeys,
+} from "@/app/utils/linkedBookingContinuation";
 
 const DatePicker = dynamic(() => import("react-multi-date-picker"), {
   ssr: false,
@@ -828,6 +835,7 @@ const buildEditBookingPrefillState = (bookingData) => {
     statusReasonOther: booking.statusReasonOther || "",
     enquiryDatesEnabled: booking.enquiryDatesEnabled ?? (booking.status !== "Enquiry" || dateStateHasDates),
     ...dateState,
+    linkedContinuation: normaliseLinkedContinuation(booking.linkedContinuation),
     notesByDate: booking.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate : {},
     notes: booking.notes || "",
     callTime: booking.callTime || "",
@@ -926,6 +934,7 @@ const AUDIT_FIELDS = [
   "date",
   "startDate",
   "endDate",
+  "linkedContinuation",
   "callTime",
   "callTimesByDate",
   "employees",
@@ -966,6 +975,7 @@ const AUDIT_LABELS = {
   date: "Single date",
   startDate: "Start date",
   endDate: "End date",
+  linkedContinuation: "Linked job continuation",
   callTime: "Call time",
   callTimesByDate: "Call times by day",
   employees: "Employees",
@@ -1271,6 +1281,7 @@ export default function EditBookingPage() {
   const [customDates, setCustomDates] = useState(prefill.customDates);
   const [startDate, setStartDate] = useState(prefill.startDate);
   const [endDate, setEndDate] = useState(prefill.endDate);
+  const [linkedContinuation, setLinkedContinuation] = useState(prefill.linkedContinuation);
 
   // Notes per day
   const [notesByDate, setNotesByDate] = useState(prefill.notesByDate);
@@ -1648,6 +1659,7 @@ export default function EditBookingPage() {
         Array.isArray(bookingData.statusReasons) ? bookingData.statusReasons : []
       );
       setStatusReasonOther(bookingData.statusReasonOther || "");
+      setLinkedContinuation(normaliseLinkedContinuation(bookingData.linkedContinuation));
 
       // flags
       setIsSecondPencil(Boolean(bookingData.isSecondPencil));
@@ -1991,6 +2003,19 @@ export default function EditBookingPage() {
       .filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, selectedDates, bookingId]);
 
+  const allowsLinkedResourceOverlap = useCallback(
+    (booking, resourceType, resourceKey, dates = selectedDates) =>
+      linkedContinuationAllowsResourceOverlap({
+        currentBookingId: bookingId,
+        currentContinuation: linkedContinuation,
+        otherBooking: booking,
+        overlapDates: overlappingBookingDateKeys(expandBookingDates(booking), dates),
+        resourceType,
+        resourceKey,
+      }),
+    [bookingId, linkedContinuation, selectedDates]
+  );
+
   const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById, vehicleBlockingStatusesById } = useMemo(() => {
     const blockingById = {};
     const blockingStatusesById = {};
@@ -2002,6 +2027,7 @@ export default function EditBookingPage() {
       const vmap = b.vehicleStatus || {};
 
       keys.forEach((vid) => {
+        if (allowsLinkedResourceOverlap(b, "vehicle", vid)) return;
         const itemStatus = (vmap[vid] ?? b.status) || "";
         if (!itemStatus) return;
 
@@ -2026,7 +2052,7 @@ export default function EditBookingPage() {
       vehicleBlockingStatusById: blockingById,
       vehicleBlockingStatusesById: blockingStatusesById,
     };
-  }, [overlapping, vehicleLookup]);
+  }, [overlapping, vehicleLookup, allowsLinkedResourceOverlap]);
 
   const bookedEquipment = useMemo(() => {
     return overlapping
@@ -2049,11 +2075,16 @@ export default function EditBookingPage() {
   const bookedEmployeeNames = useMemo(() => {
     return overlapping
       .filter(doesBlockBooking)
-      .flatMap((b) => (Array.isArray(b.employees) ? b.employees : []))
+      .flatMap((b) =>
+        (Array.isArray(b.employees) ? b.employees : []).filter((employee) => {
+          const name = typeof employee === "string" ? employee : employee?.name;
+          return !allowsLinkedResourceOverlap(b, "employee", name);
+        })
+      )
       .map((e) => (typeof e === "string" ? e : e?.name))
       .map((s) => String(s || "").trim())
       .filter(Boolean);
-  }, [overlapping]);
+  }, [overlapping, allowsLinkedResourceOverlap]);
 
   const heldEmployeeNames = useMemo(() => {
     return overlapping
@@ -2226,7 +2257,11 @@ export default function EditBookingPage() {
   const isEmployeeUnavailableByNoteForDates = (employeeName, dates) =>
     Boolean(getEmployeeUnavailableNoteForDates(employeeName, dates));
 
-  const buildVehicleBlockingMapsFromBookings = (bookingRows = [], dates = selectedDates) => {
+  const buildVehicleBlockingMapsFromBookings = (
+    bookingRows = [],
+    dates = selectedDates,
+    continuation = linkedContinuation
+  ) => {
     const blockingById = {};
     const blockingStatusesById = {};
 
@@ -2237,6 +2272,15 @@ export default function EditBookingPage() {
         const vmap = booking.vehicleStatus || {};
 
         keys.forEach((vid) => {
+          const overlapDates = overlappingBookingDateKeys(expandBookingDates(booking), dates);
+          if (linkedContinuationAllowsResourceOverlap({
+            currentBookingId: bookingId,
+            currentContinuation: continuation,
+            otherBooking: booking,
+            overlapDates,
+            resourceType: "vehicle",
+            resourceKey: vid,
+          })) return;
           const itemStatus = (vmap[vid] ?? booking.status) || "";
           if (!isVehicleBlockingStatus(itemStatus)) return;
           if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
@@ -2522,8 +2566,37 @@ export default function EditBookingPage() {
       }
     }
 
+    const previousBookingForSave = linkedContinuation
+      ? (availabilityForSave?.bookings || allBookings || []).find(
+          (booking) => booking?.id === linkedContinuation.fromBookingId
+        )
+      : null;
+    const linkedContinuationResult = buildLinkedContinuationPayload({
+      formValue: isMaintenance ? null : linkedContinuation,
+      previousBooking: previousBookingForSave
+        ? {
+            ...previousBookingForSave,
+            vehicles: normalizeVehicleKeysListForLookup(
+              previousBookingForSave.vehicles || [],
+              vehicleLookup
+            ),
+          }
+        : null,
+      bookingDates,
+      vehicles,
+      employees: cleanedEmployees,
+    });
+    if (linkedContinuationResult.error) {
+      return systemDialogs.showSystemNotification(linkedContinuationResult.error);
+    }
+    const linkedContinuationForSave = linkedContinuationResult.value;
+
     const freshVehicleBlocking = availabilityForSave
-      ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
+      ? buildVehicleBlockingMapsFromBookings(
+          availabilityForSave.bookings || [],
+          bookingDates,
+          linkedContinuationForSave
+        )
       : null;
 
     const vehicleConflicts = selectedVehicleConflictLabels(
@@ -2825,6 +2898,7 @@ export default function EditBookingPage() {
       vehicleStatus: vehicleStatusForSave,
       uCraneArmFitted: uCraneArmFittedForSave,
       equipment,
+      linkedContinuation: linkedContinuationForSave,
 
       isSecondPencil,
       isCrewed: manualCrewed,
@@ -3254,9 +3328,12 @@ export default function EditBookingPage() {
                       value={status}
                       onChange={(e) => {
                         const next = e.target.value;
+                        const reasonRequiredStatuses = ["Lost", "Postponed", "Cancelled"];
+                        const enteringNewReasonRequiredStatus =
+                          reasonRequiredStatuses.includes(next) && next !== status;
                         setStatus(next);
                         setEnquiryDatesEnabled(next !== "Enquiry");
-                        if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
+                        if (!reasonRequiredStatuses.includes(next) || enteringNewReasonRequiredStatus) {
                           setStatusReasons([]);
                           setStatusReasonOther("");
                         }
@@ -3810,6 +3887,16 @@ export default function EditBookingPage() {
                     <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: SPACE.md, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: 13 }}>
                     No dates recorded yet.
                   </div>
+                )}
+
+                {!isMaintenance && dateEntryEnabled && (
+                  <LinkedBookingContinuationFields
+                    value={linkedContinuation}
+                    onChange={setLinkedContinuation}
+                    candidates={allBookings}
+                    selectedDates={selectedDates}
+                    currentBookingId={bookingId}
+                  />
                 )}
 
                 {selectedDates.length > 0 && (
