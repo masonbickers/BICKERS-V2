@@ -1,0 +1,298 @@
+.printRoot {
+  display: none;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@media print {
+  .printRoot,
+  .printRoot * {
+    visibility: visible !important;
+    color: #000 !important;
+  }
+
+  .printRoot {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+}
+
+.sheet {
+  width: 526pt;
+  margin-left: 14.17pt;
+  padding-top: 15.55pt;
+  box-sizing: border-box;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11pt;
+  line-height: 1.05;
+}
+
+.sheet h1 {
+  margin: 0 0 9.1pt 5.5pt;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 35pt;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.topGrid {
+  display: grid;
+  grid-template-columns: 134.56fr 120.55fr 85.05fr 99.27fr 75.05fr;
+  width: 520.48pt;
+  min-height: 94.52pt;
+  margin-left: 5.5pt;
+  box-sizing: border-box;
+  border: 3pt solid #000;
+  break-inside: avoid;
+}
+
+.topGrid > div {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 1.8pt 4pt;
+  border-right: 3pt solid #000;
+}
+
+.topGrid > div:last-child {
+  border-right: 0;
+}
+
+.topGrid strong,
+.productionGrid strong,
+.descriptionSection h2 {
+  display: block;
+  font-size: 11pt;
+  font-weight: 700;
+}
+
+.productionTypes {
+  display: flex;
+  flex-direction: column;
+}
+
+.productionType {
+  display: block;
+  min-height: 12.55pt;
+  padding-left: 15.75pt;
+  font-weight: 700;
+}
+
+.topCell {
+  display: flex;
+  flex-direction: column;
+  gap: 5.5pt;
+}
+
+.hsCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: 700;
+}
+
+.hsCell > strong {
+  text-align: center;
+}
+
+.hsCell > span:first-of-type {
+  margin-top: 29pt;
+}
+
+.hsCell > span:last-child {
+  margin-top: auto;
+}
+
+.value {
+  display: block;
+  min-height: 14pt;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.productionGrid {
+  display: grid;
+  grid-template-columns: 255.11fr 259.37fr;
+  width: 520.48pt;
+  height: 86.03pt;
+  margin-left: 5.5pt;
+  box-sizing: border-box;
+  border: 3pt solid #000;
+  border-top: 0;
+  break-inside: avoid;
+}
+
+.productionGrid > div {
+  padding: 1.8pt 5pt;
+  text-align: center;
+}
+
+.productionGrid > div:first-child {
+  border-right: 3pt solid #000;
+}
+
+.productionGrid .value {
+  margin-top: 9pt;
+  font-size: 12pt;
+  font-weight: 700;
+}
+
+.contacts {
+  width: 520.48pt;
+  margin-left: 5.5pt;
+  box-sizing: border-box;
+  border: 3pt solid #000;
+  border-top: 0;
+}
+
+.contactBlock {
+  break-inside: avoid;
+}
+
+.contactBlock + .contactBlock {
+  border-top: 3pt solid #000;
+}
+
+.contactNumber {
+  padding: 3pt 5pt;
+  border-bottom: 0.5pt solid #000;
+  font-weight: 700;
+}
+
+.contactRow {
+  display: grid;
+  grid-template-columns: 65pt 1fr;
+  padding: 4pt 5pt;
+  box-sizing: border-box;
+  border-bottom: 0.5pt solid #000;
+}
+
+.contactRowShort {
+  height: 26.34pt;
+}
+
+.contactRowMobile {
+  height: 35.5pt;
+}
+
+.contactRowEmail {
+  height: 31.52pt;
+}
+
+.contactRow:last-child {
+  border-bottom: 0;
+}
+
+.contactRow strong {
+  font-weight: 700;
+}
+
+.contactRow .value {
+  min-height: 0;
+}
+
+.descriptionSection {
+  width: 520.48pt;
+  min-height: 352.11pt;
+  margin-left: 5.5pt;
+  box-sizing: border-box;
+  border: 3pt solid #000;
+  border-top: 0;
+  break-inside: auto;
+}
+
+.descriptionSection h2 {
+  height: 21.25pt;
+  margin: 0;
+  padding: 4pt 5pt;
+  box-sizing: border-box;
+  border-bottom: 0.5pt solid #000;
+}
+
+.linedContent {
+  height: 327.86pt;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.detailsContent {
+  flex: 0 0 auto;
+  min-height: 32pt;
+  padding: 4pt 5pt;
+  box-sizing: border-box;
+  border-bottom: 0.5pt solid #000;
+}
+
+.detailsContent p {
+  margin: 0 0 4pt;
+  min-height: 0;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.detailsContent > p:last-child {
+  margin-bottom: 0;
+}
+
+.jobMeta {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr 1fr;
+  gap: 8pt;
+  margin-bottom: 5pt;
+}
+
+.jobMeta p {
+  margin: 0;
+}
+
+.detailsContent .notes {
+  white-space: pre-wrap;
+}
+
+.writingLines {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(9, minmax(0, 1fr));
+}
+
+.writingLines span {
+  display: block;
+  box-sizing: border-box;
+  border-bottom: 0.5pt solid #000;
+}
+
+.writingLines span:last-child {
+  border-bottom: 0;
+}
+
+.sheet footer {
+  display: flex;
+  justify-content: center;
+  width: 520.48pt;
+  margin-left: 5.5pt;
+  padding-top: 4.8pt;
+  font-size: 11pt;
+  break-inside: avoid;
+}
+
+@media print {
+  .topGrid,
+  .productionGrid,
+  .contacts,
+  .descriptionSection {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

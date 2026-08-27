@@ -123,3 +123,20 @@ img,svg{max-width:100%}
 }
 @media(max-width:600px){html[data-interface-scale] .app-shell-root{zoom:1;width:100vw;height:100dvh;min-height:100dvh}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+@media print {
+  body.printing-enquiry-action-sheet * {
+    visibility: hidden !important;
+  }
+
+  html:has(body.printing-enquiry-action-sheet),
+  body.printing-enquiry-action-sheet {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body.printing-enquiry-action-sheet .enquiry-action-sheet-print-root,
+  body.printing-enquiry-action-sheet .enquiry-action-sheet-print-root * {
+    visibility: visible !important;
+  }
+}
