@@ -718,7 +718,7 @@ export default function StuntPrepPage() {
   const totalReady = visibleSections.filter((s) => !!prepRecordsByKey?.[s.sectionKey]?.ready).length;
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style jsx global>{`
         .prep-vehicle-grid {
           display: grid;

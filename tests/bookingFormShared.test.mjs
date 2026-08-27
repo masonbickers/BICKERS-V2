@@ -2,12 +2,50 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  canSaveEnquiryWithoutContact,
+  canSaveEnquiryWithoutProductionCompany,
   buildExistingJobDetailsLookup,
   findMismatchedQuoteAttachments,
+  getExistingJobDetailMismatches,
   hasBookingContactDetails,
+  hasBookingProductionIdentity,
   mergeBookingContacts,
   normalizeJobNumberForLookup,
 } from "../src/app/utils/bookingFormShared.js";
+
+test("only Mason can save an enquiry without contact details", () => {
+  assert.equal(
+    canSaveEnquiryWithoutContact({ status: "Enquiry", userEmail: "mason@bickers.co.uk" }),
+    true
+  );
+  assert.equal(
+    canSaveEnquiryWithoutContact({ status: " enquiry ", userEmail: " Mason@Bickers.co.uk " }),
+    true
+  );
+  assert.equal(
+    canSaveEnquiryWithoutContact({ status: "Enquiry", userEmail: "other@bickers.co.uk" }),
+    false
+  );
+  assert.equal(
+    canSaveEnquiryWithoutContact({ status: "Confirmed", userEmail: "mason@bickers.co.uk" }),
+    false
+  );
+});
+
+test("only Mason can save an enquiry without a production company", () => {
+  assert.equal(
+    canSaveEnquiryWithoutProductionCompany({ status: "Enquiry", userEmail: "mason@bickers.co.uk" }),
+    true
+  );
+  assert.equal(
+    canSaveEnquiryWithoutProductionCompany({ status: "Enquiry", userEmail: "other@bickers.co.uk" }),
+    false
+  );
+  assert.equal(
+    canSaveEnquiryWithoutProductionCompany({ status: "Confirmed", userEmail: "mason@bickers.co.uk" }),
+    false
+  );
+});
 
 test("finds quote files that belong to another job", () => {
   const mismatches = findMismatchedQuoteAttachments("9312", [
@@ -46,6 +84,14 @@ test("requires meaningful booking contact details", () => {
   assert.equal(hasBookingContactDetails([{ number: "07700 900123" }]), false);
   assert.equal(hasBookingContactDetails([{ name: "Alex Smith", email: "contact@example.com" }]), true);
   assert.equal(hasBookingContactDetails([{ name: "Alex Smith", number: "07700 900123" }]), true);
+});
+
+test("accepts either production or production company as the booking identity", () => {
+  assert.equal(hasBookingProductionIdentity(), false);
+  assert.equal(hasBookingProductionIdentity({ client: "", production: "" }), false);
+  assert.equal(hasBookingProductionIdentity({ client: "MJZ", production: "" }), true);
+  assert.equal(hasBookingProductionIdentity({ client: "", production: "Shoot Day" }), true);
+  assert.equal(hasBookingProductionIdentity({ client: "   ", production: "  " }), false);
 });
 
 test("builds reusable production details from bookings with the same job number", () => {
@@ -135,4 +181,35 @@ test("merges existing job contacts without deleting or duplicating entered conta
   assert.equal(merged.length, 2);
   assert.equal(merged[0].name, "Alex Smith");
   assert.equal(merged[1].name, "Jamie Jones");
+});
+
+test("identifies production and contact differences for an existing job number", () => {
+  const existing = {
+    client: "BBC",
+    production: "Applecross",
+    additionalContacts: [{ name: "Carlene", email: "carlene@example.com" }],
+  };
+
+  assert.deepEqual(
+    getExistingJobDetailMismatches(
+      {
+        client: "Different Company",
+        production: "Different Production",
+        additionalContacts: [{ name: "Someone Else", email: "other@example.com" }],
+      },
+      existing
+    ),
+    ["client", "production", "contacts"]
+  );
+  assert.deepEqual(
+    getExistingJobDetailMismatches(
+      {
+        client: " bbc ",
+        production: "APPLECROSS",
+        additionalContacts: [{ name: "Carlene", email: "CARLENE@example.com" }],
+      },
+      existing
+    ),
+    []
+  );
 });

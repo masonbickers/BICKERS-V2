@@ -387,7 +387,7 @@ export default function Page() {
   const totalDays = useMemo(() => totalsByEmployee.reduce((sum, r) => sum + (r.days || 0), 0), [totalsByEmployee]);
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap}>
         <div className={layoutStyles.extracted1}>
           <div>

@@ -818,7 +818,7 @@ export default function PrepListPage() {
   const totalReady = visibleSections.filter((s) => !!prepRecordsByKey?.[s.sectionKey]?.ready).length;
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style jsx global>{`
         .prep-vehicle-grid {
           display: grid;

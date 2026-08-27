@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
-import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   getIsoWeekLabel,
   normalizeVehicleOperatingStatus,
@@ -963,7 +963,7 @@ export default function AddVehiclePage() {
     }
   };
 
-  const handleCancel = () => router.push("/vehicles");
+  const handleCancel = () => requestGuardedNavigation(() => router.push("/vehicles"));
 
   useUnsavedChangesGuard({
     enabled: true,
@@ -973,7 +973,7 @@ export default function AddVehiclePage() {
 
   if (isNumberPlateMode) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div style={shell}>
           <main className={layoutStyles.extracted1}>
             <div className={layoutStyles.extracted2}>
@@ -1101,7 +1101,7 @@ export default function AddVehiclePage() {
   }
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={shell}>
         <main className={layoutStyles.extracted9}>
           <div className={layoutStyles.extracted10}>

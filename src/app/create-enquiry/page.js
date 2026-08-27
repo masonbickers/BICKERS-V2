@@ -2,7 +2,7 @@
 
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { addDoc, collection, doc, getDocs, setDoc } from "firebase/firestore";
 import {
@@ -22,6 +22,7 @@ import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
   buildExistingJobDetailsLookup,
+  canSaveEnquiryWithoutProductionCompany,
   contactIdFromEmail,
   mergeBookingContacts,
   normalizeJobNumberForLookup,
@@ -45,6 +46,10 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import {
+  requestGuardedNavigation,
+  useUnsavedChangesGuard,
+} from "@/app/utils/unsavedChanges";
 
 const UI = UI_TOKENS;
 
@@ -219,6 +224,23 @@ const nextJobNumberFromSnapshot = (snap) => {
   return String(max + 1).padStart(4, "0");
 };
 
+const enquiryDraftSignature = (draft = {}) => JSON.stringify({
+  jobNumber: String(draft.jobNumber || "").trim(),
+  client: String(draft.client || "").trim(),
+  production: String(draft.production || "").trim(),
+  location: String(draft.location || "").trim(),
+  po: String(draft.po || "").trim(),
+  invoiceContactName: String(draft.invoiceContactName || "").trim(),
+  invoiceContactEmail: String(draft.invoiceContactEmail || "").trim(),
+  invoiceContactPhone: String(draft.invoiceContactPhone || "").trim(),
+  shootType: draft.shootType || "Day",
+  additionalContacts: draft.additionalContacts || [],
+  vehicles: draft.vehicles || [],
+  vehicleStatus: draft.vehicleStatus || {},
+  equipment: draft.equipment || [],
+  notes: String(draft.notes || ""),
+});
+
 export default function CreateEnquiryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -256,6 +278,7 @@ export default function CreateEnquiryPage() {
   const [savingAction, setSavingAction] = useState("");
   const [existingJobDetailsByNumber, setExistingJobDetailsByNumber] = useState({});
   const [dismissedExistingJobNumber, setDismissedExistingJobNumber] = useState("");
+  const savedEnquirySignatureRef = useRef("");
 
   useEffect(() => {
     const loadNextNumber = async () => {
@@ -269,7 +292,11 @@ export default function CreateEnquiryPage() {
       setExistingJobDetailsByNumber(
         buildExistingJobDetailsLookup((snap?.docs || []).map((docSnap) => docSnap.data()))
       );
-      setJobNumber(prefillJobNumber || nextJobNumberFromSnapshot(snap));
+      const nextJobNumber = prefillJobNumber || nextJobNumberFromSnapshot(snap);
+      setJobNumber(nextJobNumber);
+      if (!savedEnquirySignatureRef.current) {
+        savedEnquirySignatureRef.current = enquiryDraftSignature({ jobNumber: nextJobNumber });
+      }
     };
     loadNextNumber().catch((err) => console.error("Failed loading next enquiry job number:", err));
   }, [accessKey, dataAccessState, prefillJobNumber]);
@@ -306,7 +333,45 @@ export default function CreateEnquiryPage() {
   const bookingDates = useMemo(() => [], []);
 
   const saving = Boolean(savingAction);
-  const canSave = Boolean(jobNumber.trim() && client.trim()) && !saving;
+  const canOmitProductionCompany = canSaveEnquiryWithoutProductionCompany({
+    status: "Enquiry",
+    userEmail: dataAccessState.user?.email,
+  });
+  const hasSaveFields = Boolean(jobNumber.trim() && (client.trim() || canOmitProductionCompany));
+  const hasQuoteFields = Boolean(jobNumber.trim() && client.trim());
+  const canSaveEnquiry = hasSaveFields && !saving;
+  const canCreateQuote = hasQuoteFields && !saving;
+  const enquirySignature = useMemo(() => enquiryDraftSignature({
+    jobNumber,
+    client,
+    production,
+    location,
+    po,
+    invoiceContactName,
+    invoiceContactEmail,
+    invoiceContactPhone,
+    shootType,
+    additionalContacts,
+    vehicles,
+    vehicleStatus,
+    equipment,
+    notes,
+  }), [
+    additionalContacts,
+    client,
+    equipment,
+    invoiceContactEmail,
+    invoiceContactName,
+    invoiceContactPhone,
+    jobNumber,
+    location,
+    notes,
+    po,
+    production,
+    shootType,
+    vehicleStatus,
+    vehicles,
+  ]);
   const normalizedJobNumber = normalizeJobNumberForLookup(jobNumber);
   const existingJobDetails = existingJobDetailsByNumber[normalizedJobNumber] || null;
   const shouldOfferExistingJobDetails = Boolean(
@@ -445,14 +510,14 @@ export default function CreateEnquiryPage() {
     });
   };
 
-  const handleSubmit = async ({ openQuote = false } = {}) => {
-    if (!canSave) return;
+  const handleSubmit = async ({ openQuote = false, navigateOnSuccess = true } = {}) => {
+    if (openQuote ? !canCreateQuote : !canSaveEnquiry) return false;
 
     const gate = resolveDataAccess(dataAccessState);
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "create enquiry" });
       systemDialogs.showSystemNotification(gate.reason || "You do not have access to create enquiries.");
-      return;
+      return false;
     }
 
     const user = auth.currentUser;
@@ -556,14 +621,26 @@ export default function CreateEnquiryPage() {
           { merge: true }
         );
       }
-      router.push(openQuote ? `/quote/${created.id}` : `/job-numbers/${created.id}`);
+      savedEnquirySignatureRef.current = enquirySignature;
+      if (navigateOnSuccess) {
+        router.push(openQuote ? `/quote/${created.id}` : `/job-numbers/${created.id}`);
+      }
+      return true;
     } catch (err) {
       console.error("Failed saving enquiry:", err);
       systemDialogs.showSystemNotification(`Failed to save enquiry\n\n${err.message}`);
+      return false;
     } finally {
       setSavingAction("");
     }
   };
+
+  useUnsavedChangesGuard({
+    isDirty: Boolean(savedEnquirySignatureRef.current && enquirySignature !== savedEnquirySignatureRef.current && !saving),
+    message: "You have unsaved enquiry details.",
+    saveLabel: "Save Enquiry & Leave",
+    onSave: () => handleSubmit({ navigateOnSuccess: false }),
+  });
 
   return (
     <HeaderSidebarLayout>
@@ -583,13 +660,13 @@ export default function CreateEnquiryPage() {
             <button
               type="button"
               className={layoutStyles.primaryAction}
-              disabled={!canSave}
-              title="Save enquiry and open quote page"
+              disabled={!canCreateQuote}
+              title={hasQuoteFields ? "Save enquiry and open quote page" : "Add a production company to create a quote"}
               onClick={() => handleSubmit({ openQuote: true })}
               style={{
                 ...btn("primary"),
-                opacity: canSave ? 1 : 0.55,
-                cursor: canSave ? "pointer" : "not-allowed",
+                opacity: canCreateQuote ? 1 : 0.55,
+                cursor: canCreateQuote ? "pointer" : "not-allowed",
                 whiteSpace: "nowrap",
               }}
             >
@@ -712,7 +789,7 @@ export default function CreateEnquiryPage() {
                   <div className={layoutStyles.jobFieldGrid}>
                     <div>
                       <label style={label}>Production Company</label>
-                      <input value={client} onChange={(e) => setClient(e.target.value)} style={input} required />
+                      <input value={client} onChange={(e) => setClient(e.target.value)} style={input} required={!canOmitProductionCompany} />
                     </div>
                     <div>
                       <label style={label}>Production</label>
@@ -1053,22 +1130,22 @@ export default function CreateEnquiryPage() {
                   <span>{vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} · {equipment.length} equipment</span>
                 </div>
                 <div className={layoutStyles.stickyActions}>
-                  <button type="button" onClick={() => router.push("/job-home")} style={btn()}>Cancel</button>
+                  <button type="button" onClick={() => requestGuardedNavigation(() => router.push("/job-home"))} style={btn()}>Cancel</button>
                   <button
                     type="button"
-                    disabled={!canSave}
-                    title="Save enquiry and open quote page"
+                    disabled={!canCreateQuote}
+                    title={hasQuoteFields ? "Save enquiry and open quote page" : "Add a production company to create a quote"}
                     onClick={() => handleSubmit({ openQuote: true })}
                     style={{
                       ...btn("primary"),
                       background: UI.green,
-                      opacity: canSave ? 1 : 0.55,
-                      cursor: canSave ? "pointer" : "not-allowed",
+                      opacity: canCreateQuote ? 1 : 0.55,
+                      cursor: canCreateQuote ? "pointer" : "not-allowed",
                     }}
                   >
                     <FileText size={14} /> {savingAction === "quote" ? "Saving..." : "Save & Quote"}
                   </button>
-                  <button type="submit" className={layoutStyles.primaryAction} disabled={!canSave} style={{ ...btn("primary"), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "not-allowed" }}>
+                  <button type="submit" className={layoutStyles.primaryAction} disabled={!canSaveEnquiry} style={{ ...btn("primary"), opacity: canSaveEnquiry ? 1 : 0.55, cursor: canSaveEnquiry ? "pointer" : "not-allowed" }}>
                     <Save size={14} /> {savingAction === "enquiry" ? "Saving..." : "Save Enquiry"}
                   </button>
                 </div>

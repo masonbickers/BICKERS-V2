@@ -48,6 +48,7 @@ test("dark booking events use muted area fills while compact status colours rema
   assert.match(theme, /--job-status-confirmed-surface:\s*color-mix\(in srgb, var\(--job-status-confirmed\) 20%, var\(--color-surface-raised\)\)/);
   assert.match(theme, /--job-status-night-surface:\s*color-mix\(in srgb, var\(--job-status-night\) 20%, var\(--color-surface-raised\)\)/);
   assert.match(dashboard, /getFixedJobStatusSurfaceStyle\(status\)/);
+  assert.match(dashboard, /getVehicleStatusPillStyle[\s\S]*?normalizedStatus === "Confirmed"[\s\S]*?getFixedJobStatusSurfaceStyle\(normalizedStatus\)/);
   assert.match(dashboard, /borderLeft:\s*`6px solid \$\{border\}`/);
   assert.match(dashboard, /let border = getWorkDiaryBorder\(status, tone\.border\)/);
   assert.match(dashboardCalendar, /:root\[data-color-mode="dark"\][^{]*\.rbc-event\.work-diary-job-card\s*\{[^}]*outline:\s*1px solid color-mix/);
@@ -59,11 +60,14 @@ test("primary actions use the shared dark-safe button surface", () => {
   const theme = read("../src/app/theme.css");
   const sharedUi = read("../src/app/components/ui/ui.module.css");
   const healthAndSafety = read("../src/app/h-and-s/[id]/page.js");
+  const enquiryQueue = read("../src/app/enquiry/page.js");
 
   assert.match(theme, /:root\[data-color-mode="dark"\][\s\S]*--button-primary-background:\s*color-mix/);
   assert.match(sharedUi, /\.primary\{[^}]*background:var\(--button-primary-background\)/);
   assert.match(healthAndSafety, /background:\s*"var\(--button-primary-background\)"/);
   assert.doesNotMatch(healthAndSafety, /background:\s*"linear-gradient\(180deg, var\(--color-brand-hover\)/);
+  assert.match(enquiryQueue, /background:\s*kind === "primary" \? "var\(--button-primary-background\)"/);
+  assert.match(enquiryQueue, /color:\s*kind === "primary" \? "var\(--button-primary-text\)"/);
 });
 
 test("create enquiry columns merge with the dark canvas", () => {
@@ -72,6 +76,75 @@ test("create enquiry columns merge with the dark canvas", () => {
 
   assert.equal((enquiryPage.match(/layoutStyles\.enquiryColumnPanel/g) || []).length, 2);
   assert.match(enquiryStyles, /:global\(:root\[data-color-mode="dark"\]\) \.enquiryColumnPanel\s*\{[^}]*background:\s*var\(--color-canvas\) !important/);
+});
+
+test("job number actions use semantic dark-mode control surfaces", () => {
+  const jobNumberPage = read("../src/app/job-numbers/[id]/page.js");
+  const jobNumberStyles = read("../src/app/job-numbers/[id]/page.styles.module.css");
+
+  assert.match(jobNumberPage, /background:\s*"var\(--button-primary-background\)"/);
+  assert.match(jobNumberPage, /width:\s*"100%",\s*minHeight:\s*"100%",\s*backgroundColor:\s*UI\.bg/);
+  assert.doesNotMatch(jobNumberPage, /minHeight:\s*"100vh",\s*backgroundColor:\s*UI\.bg/);
+  assert.match(jobNumberPage, /color:\s*"var\(--button-primary-text\)"/);
+  assert.match(jobNumberPage, /background:\s*"var\(--color-surface-raised\)"/);
+  assert.match(jobNumberPage, /borderTop:\s*isExpanded \? UI\.border : "none"/);
+  assert.match(jobNumberPage, /borderRight:\s*isExpanded \? UI\.border : "none"/);
+  assert.doesNotMatch(jobNumberPage, /border:\s*isExpanded \? UI\.border : "none"/);
+  assert.match(jobNumberPage, /background:\s*"transparent",\s*\n\s*border:\s*"none"/);
+  assert.doesNotMatch(jobNumberPage, /title="Job prefix"/);
+  assert.doesNotMatch(jobNumberPage, /invoiceBadge/);
+  assert.match(jobNumberPage, /className=\{layoutStyles\.bookingMetaText\}/);
+  assert.match(jobNumberPage, /aria-label="More actions"[\s\S]*?•••/);
+  assert.match(jobNumberPage, /crewCount\.required > 0 && crewCount\.allocated < crewCount\.required/);
+  assert.match(jobNumberPage, /className=\{layoutStyles\.bookingWarningSummary\}/);
+  assert.match(jobNumberPage, /rowWarnings\.join\(" · "\)/);
+  assert.match(jobNumberPage, /invoiceStage \? "Invoice readiness" : "Booking readiness"/);
+  assert.match(jobNumberPage, /showPoWarning && !String\(job\.po/);
+  assert.match(jobNumberPage, /invoiceStage && timesheets\.length === 0/);
+  assert.match(jobNumberPage, /isLockedStatus\(status\) \|\| !isInvoiceStageStatus\(status\)/);
+  assert.match(jobNumberPage, /className=\{layoutStyles\.financeDetails\} open=\{invoiceStage\}/);
+  assert.match(jobNumberStyles, /\.bookingMetaText\s*\{[^}]*text-overflow:\s*ellipsis/);
+  assert.match(jobNumberStyles, /\.bookingWarningDot\s*\{[^}]*background:\s*var\(--color-warning\)/);
+  assert.match(jobNumberStyles, /\.compactEmptyState\s*\{[^}]*padding:\s*3px 0 5px/);
+  assert.match(jobNumberStyles, /\.bookingSection:not\(\[data-expanded="true"\]\):hover\s*\{[^}]*background:\s*var\(--color-surface-hover\) !important/);
+});
+
+test("job number workspace uses a compact list-first summary", () => {
+  const jobNumberPage = read("../src/app/job-numbers/[id]/page.js");
+  const jobNumberStyles = read("../src/app/job-numbers/[id]/page.styles.module.css");
+
+  assert.match(jobNumberPage, /const isGroupedJobNumber = allJobs\.length > 1/);
+  assert.match(jobNumberPage, /const currentJobRecordId = allJobs\.find\(\(job\) => job\.id === jobId\)\?\.id \|\| allJobs\[0\]\?\.id \|\| jobId/);
+  assert.match(jobNumberPage, /if \(currentJobRecordId\) next\[currentJobRecordId\] = true/);
+  assert.match(jobNumberPage, /data-current=\{job\.id === currentJobRecordId \? "true" : undefined\}/);
+  assert.match(jobNumberPage, /className=\{layoutStyles\.workspaceListTools\}/);
+  assert.match(jobNumberPage, /aria-label="Search bookings"/);
+  assert.match(jobNumberPage, /aria-label="Filter bookings by status"/);
+  assert.match(jobNumberPage, /aria-live="polite"[\s\S]*?\{filteredJobs\.length\} of \{allJobs\.length\}/);
+  assert.match(jobNumberPage, /title="Expand all bookings"/);
+  assert.match(jobNumberPage, /title="Collapse all bookings except the current booking"/);
+  assert.match(jobNumberPage, /<details className=\{layoutStyles\.sharedSummary\}>/);
+  assert.match(jobNumberPage, /View shared details/);
+  assert.match(jobNumberPage, /Hide shared details/);
+  assert.match(jobNumberPage, /getPrimaryContactName\(allJobs\)/);
+  assert.match(jobNumberPage, /connectedSummary\.vehicles\.length/);
+  assert.doesNotMatch(jobNumberPage, /\{filteredJobs\.length\} shown/);
+  assert.doesNotMatch(jobNumberPage, />Bookings<\/div>/);
+
+  assert.match(jobNumberStyles, /\.workspaceFrame\s*\{[^}]*max-width:\s*1800px/);
+  assert.match(jobNumberStyles, /\.sharedSummary\s*\{[^}]*background:\s*var\(--color-surface\)/);
+  assert.match(jobNumberStyles, /\.sharedSummaryDetails\s*\{[^}]*background:\s*var\(--color-surface-subtle\)/);
+  assert.match(jobNumberStyles, /@media \(max-width: 820px\)[\s\S]*?\.sharedSummaryDetails\s*\{[^}]*repeat\(2/);
+  assert.match(jobNumberStyles, /@media \(max-width: 560px\)[\s\S]*?\.sharedSummaryDetails\s*\{[^}]*minmax\(0, 1fr\)/);
+});
+
+test("global dark cards flatten while interactive hierarchy stays raised", () => {
+  const globalTheme = read("../src/app/utils/globalTheme.js");
+  const sharedUi = read("../src/app/components/ui/ui.module.css");
+
+  assert.match(globalTheme, /const baseSurface = useDark \? theme\.canvasColor : theme\.surfaceColor/);
+  assert.match(globalTheme, /"--color-canvas": theme\.canvasColor, "--color-surface": baseSurface/);
+  assert.match(sharedUi, /:global\(:root\[data-color-mode="dark"\]\) \.cardInteractive,[\s\S]*\.statCard,[\s\S]*\.emptyState,[\s\S]*\.modal\s*\{[^}]*background:\s*var\(--color-surface-raised\)/);
 });
 
 test("quote footer keeps print-paper contrast in dark mode", () => {

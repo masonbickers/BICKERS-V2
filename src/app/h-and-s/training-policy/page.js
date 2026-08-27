@@ -376,7 +376,7 @@ export default function TrainingPolicyPage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <main style={pageWrap}>
         <div className={layoutStyles.extracted1}>
           <div>

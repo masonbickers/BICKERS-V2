@@ -3,7 +3,7 @@
 import layoutStyles from "./HeaderSidebarLayout.styles.module.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useState, useEffect, useRef, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { BUILD_INFO } from "@/app/generated/buildInfo";
 import { getDocs, limit, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/app/utils/firebaseClient";
@@ -68,18 +68,20 @@ import {
 } from "lucide-react";
 import {
   UNSAVED_CHANGES_EVENT,
+  UNSAVED_NAVIGATION_REQUEST_EVENT,
   bypassUnsavedChangesOnce,
   getUnsavedChangesState,
   shouldBypassUnsavedChanges,
 } from "@/app/utils/unsavedChanges";
 import { getHolidayApprovalQueueCounts } from "@/app/utils/holidayApprovalQueue";
+import { shouldShowShellBackButton } from "@/app/utils/shellNavigation";
 
 const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
   : BUILD_INFO.version;
 const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
 const SIDEBAR_PREFERENCE_KEY = "bickers-sidebar:v1";
-const PersistentShellContext = createContext(false);
+const PersistentShellContext = createContext(null);
 
 const GLOBAL_SEARCH_PAGE_ITEMS = [
   { label: "Create Booking", path: "/create-booking", Icon: CalendarDays, keywords: "add new booking job" },
@@ -229,13 +231,23 @@ function resolvePageAccessStatus({
 }
 
 export default function HeaderSidebarLayout(props) {
-  const shellAlreadyMounted = useContext(PersistentShellContext);
+  const persistentShell = useContext(PersistentShellContext);
 
-  if (shellAlreadyMounted) {
-    return <>{props.children}</>;
+  if (persistentShell) {
+    return <NestedShellPreferences persistentShell={persistentShell} {...props} />;
   }
 
   return <HeaderSidebarLayoutInner {...props} />;
+}
+
+function NestedShellPreferences({ children, showBackButton, persistentShell }) {
+  useLayoutEffect(() => {
+    if (typeof showBackButton !== "boolean") return undefined;
+    persistentShell.setNestedBackButtonOverride(showBackButton);
+    return () => persistentShell.setNestedBackButtonOverride(undefined);
+  }, [persistentShell, showBackButton]);
+
+  return <>{children}</>;
 }
 
 function HeaderSidebarLayoutInner({
@@ -247,6 +259,8 @@ function HeaderSidebarLayoutInner({
   const pathname = usePathname();
   const router = useRouter();
   const appearance = useAppearance();
+  const [nestedBackButtonOverride, setNestedBackButtonOverride] = useState(undefined);
+  const persistentShell = useMemo(() => ({ setNestedBackButtonOverride }), []);
   const { label: contentLabel } = useContentLabels();
   const {
     user,
@@ -961,6 +975,20 @@ function HeaderSidebarLayoutInner({
     });
   };
 
+  const attemptNavigationRef = useRef(attemptNavigation);
+  attemptNavigationRef.current = attemptNavigation;
+
+  useEffect(() => {
+    const handleNavigationRequest = (event) => {
+      const action = event?.detail?.action;
+      if (typeof action !== "function") return;
+      event.preventDefault();
+      attemptNavigationRef.current(action);
+    };
+    window.addEventListener(UNSAVED_NAVIGATION_REQUEST_EVENT, handleNavigationRequest);
+    return () => window.removeEventListener(UNSAVED_NAVIGATION_REQUEST_EVENT, handleNavigationRequest);
+  }, []);
+
   const openSearchResult = (result) => {
     if (!result?.path) return;
     const recent = {
@@ -1123,10 +1151,15 @@ function HeaderSidebarLayoutInner({
   }, [pathname]);
 
   const shouldShowBackButton = useMemo(() => {
-    if (typeof showBackButton === "boolean") return showBackButton;
-    if (!pathname) return false;
-    return pathname !== landingRoute;
-  }, [showBackButton, pathname, landingRoute]);
+    return shouldShowShellBackButton({
+      override: typeof nestedBackButtonOverride === "boolean"
+        ? nestedBackButtonOverride
+        : showBackButton,
+      pathname,
+      landingRoute,
+      hasPrimaryNavigationMatch: Boolean(currentNavItem),
+    });
+  }, [nestedBackButtonOverride, showBackButton, pathname, landingRoute, currentNavItem]);
 
   const handleBack = () => {
     if (backHref) {
@@ -1226,7 +1259,7 @@ function HeaderSidebarLayoutInner({
   }, [scrollRestoreKey]);
 
   return (
-    <PersistentShellContext.Provider value={true}>
+    <PersistentShellContext.Provider value={persistentShell}>
       <div className={`${layoutStyles.shellRoot} app-shell-root`}>
       {mobileNavOpen ? (
         <button

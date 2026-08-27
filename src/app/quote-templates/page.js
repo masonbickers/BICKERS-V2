@@ -19,7 +19,7 @@ import {
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
 import { mergeQuoteTemplatesWithDefaults, sanitizeQuoteTemplateData } from "@/app/utils/quoteTemplateDefaults";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
-import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import { LEGACY_QUOTE_DOCUMENT_DEFAULTS, normalizeQuoteDocumentDefaults } from "@/app/utils/quoteDocumentDefaults";
 import {
   SHARED_RATE_GROUPS,
@@ -1304,7 +1304,7 @@ export default function QuoteTemplatesPage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap} className={layoutStyles.page}>
         <div className={layoutStyles.pageHeader}>
           <div>
@@ -1312,7 +1312,15 @@ export default function QuoteTemplatesPage() {
             <p>Manage quote lines, shared prices and defaults used by new quotes.</p>
           </div>
           <div className={layoutStyles.headerActions}>
-            <Button as={Link} href="/completed-quotes" variant="secondary">
+            <Button
+              as={Link}
+              href="/completed-quotes"
+              variant="secondary"
+              onClick={(event) => {
+                event.preventDefault();
+                requestGuardedNavigation(() => window.location.assign("/completed-quotes"));
+              }}
+            >
               <ArrowLeft size={14} />
               Completed Quotes
             </Button>

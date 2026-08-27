@@ -315,7 +315,7 @@ export default function DeclinedDefectsPage() {
   const declinedCount = total;
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style>{`
         input:focus, button:focus, select:focus, textarea:focus {
           outline: none;

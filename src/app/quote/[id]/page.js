@@ -1237,12 +1237,12 @@ export default function QuotePage() {
 
   if (loading) {
     const loadingContent = <div style={pageWrap}>Loading quote...</div>;
-    return isEmbedded ? loadingContent : <HeaderSidebarLayout>{loadingContent}</HeaderSidebarLayout>;
+    return isEmbedded ? loadingContent : <HeaderSidebarLayout showBackButton={false}>{loadingContent}</HeaderSidebarLayout>;
   }
 
   if (!booking) {
     const notFoundContent = <div style={pageWrap}>Booking not found.</div>;
-    return isEmbedded ? notFoundContent : <HeaderSidebarLayout>{notFoundContent}</HeaderSidebarLayout>;
+    return isEmbedded ? notFoundContent : <HeaderSidebarLayout showBackButton={false}>{notFoundContent}</HeaderSidebarLayout>;
   }
 
   const discountSections = new Set(
@@ -2448,7 +2448,7 @@ export default function QuotePage() {
       </div>
   );
 
-  return isEmbedded ? quotePageContent : <HeaderSidebarLayout>{quotePageContent}</HeaderSidebarLayout>;
+  return isEmbedded ? quotePageContent : <HeaderSidebarLayout showBackButton={false}>{quotePageContent}</HeaderSidebarLayout>;
 }
 
 const pageWrap = {

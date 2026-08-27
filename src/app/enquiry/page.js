@@ -11,6 +11,7 @@ import { OperationsHeaderActions, OperationsPage, OperationsPageHeader } from "@
 import { Button, Input, Modal, Select } from "@/app/components/ui";
 import ViewBookingModal from "../components/ViewBookingModal";
 import { loadBookingFormReferenceData } from "@/app/utils/bookingFormReferenceData";
+import { formatProductionIdentity } from "@/app/utils/jobNumberDetail";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -47,9 +48,9 @@ const btn = (kind = "ghost") => ({
   gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radius,
-  border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "var(--color-surface)",
-  color: kind === "primary" ? "var(--color-white)" : UI.text,
+  border: kind === "primary" ? "1px solid var(--button-primary-border)" : `1px solid ${UI.brandBorder}`,
+  background: kind === "primary" ? "var(--button-primary-background)" : "var(--color-surface)",
+  color: kind === "primary" ? "var(--button-primary-text)" : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -460,13 +461,14 @@ export default function EnquiryPage() {
           <tbody>
             {rows.map((booking) => {
               const needsChase = enquiryNeedsChase(booking);
+              const productionIdentity = formatProductionIdentity(booking, "No production");
               return (
                 <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "var(--color-surface)" }}>
                   <td className={layoutStyles.extracted17}>{booking.jobNumber || "No Job #"}</td>
-                  <td className={layoutStyles.extracted18} title={booking.client || ""}>
+                  <td className={layoutStyles.extracted18} title={productionIdentity}>
                     <div className={layoutStyles.extracted19}>
                       <span className={layoutStyles.productionIcon}><FileText size={15} /></span>
-                      <span className={layoutStyles.extracted20}>{booking.client || "No production"}</span>
+                      <span className={layoutStyles.extracted20}>{productionIdentity}</span>
                     </div>
                   </td>
                   <td className={layoutStyles.extracted21} title={booking.location || ""}>{booking.location || "No location"}</td>

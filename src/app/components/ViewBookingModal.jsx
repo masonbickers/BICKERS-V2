@@ -855,6 +855,14 @@ export default function ViewBookingModal({
                 }
               />
             </div>
+
+            {booking.notes && (
+              <div className={layoutStyles.notesBelowPeopleAndKit}>
+                <Section title="Notes">
+                  <div className={layoutStyles.extracted51}>{booking.notes}</div>
+                </Section>
+              </div>
+            )}
           </div>
         </div>
 
@@ -939,12 +947,6 @@ export default function ViewBookingModal({
                   );
                 })}
               </div>
-            </Section>
-          )}
-
-          {booking.notes && (
-            <Section title="Notes">
-              <div className={layoutStyles.extracted51}>{booking.notes}</div>
             </Section>
           )}
 

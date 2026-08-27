@@ -265,7 +265,7 @@ export default function EquipmentPage() {
   }, [filteredList]);
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style jsx global>{`
         input:focus, select:focus, button:focus {
           outline: none;

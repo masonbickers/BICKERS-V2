@@ -13,6 +13,17 @@ export const hasBookingContactDetails = (contacts) =>
     return hasName && hasEmailOrPhone;
   });
 
+export const hasBookingProductionIdentity = ({ client, production } = {}) =>
+  [client, production].some((value) => Boolean(String(value || "").trim()));
+
+export const canSaveEnquiryWithoutContact = ({ status, userEmail } = {}) =>
+  String(status || "").trim().toLowerCase() === "enquiry" &&
+  String(userEmail || "").trim().toLowerCase() === "mason@bickers.co.uk";
+
+export const canSaveEnquiryWithoutProductionCompany = ({ status, userEmail } = {}) =>
+  String(status || "").trim().toLowerCase() === "enquiry" &&
+  String(userEmail || "").trim().toLowerCase() === "mason@bickers.co.uk";
+
 const attachmentName = (attachment) => {
   if (attachment && typeof attachment === "object") {
     return String(attachment.name || attachment.label || "").trim();
@@ -83,6 +94,48 @@ export const mergeBookingContacts = (...contactLists) => {
   });
 
   return merged;
+};
+
+const normalizedComparisonValue = (value) =>
+  String(value || "").trim().toLowerCase();
+
+const bookingContactsSignature = (contacts) =>
+  mergeBookingContacts(contacts)
+    .map((contact) =>
+      [contact.department, contact.departmentOther, contact.name, contact.email, contact.phone]
+        .map(normalizedComparisonValue)
+        .join("::")
+    )
+    .sort()
+    .join("||");
+
+export const getExistingJobDetailMismatches = (currentDetails = {}, existingDetails = {}) => {
+  const mismatches = [];
+  const existingClient = String(existingDetails.client || "").trim();
+  const existingProduction = String(existingDetails.production || "").trim();
+  const existingContacts = mergeBookingContacts(existingDetails.additionalContacts || []);
+
+  if (
+    existingClient &&
+    normalizedComparisonValue(currentDetails.client) !== normalizedComparisonValue(existingClient)
+  ) {
+    mismatches.push("client");
+  }
+  if (
+    existingProduction &&
+    normalizedComparisonValue(currentDetails.production) !== normalizedComparisonValue(existingProduction)
+  ) {
+    mismatches.push("production");
+  }
+  if (
+    existingContacts.length &&
+    bookingContactsSignature(currentDetails.additionalContacts) !==
+      bookingContactsSignature(existingContacts)
+  ) {
+    mismatches.push("contacts");
+  }
+
+  return mismatches;
 };
 
 export const buildExistingJobDetailsLookup = (bookings) => {

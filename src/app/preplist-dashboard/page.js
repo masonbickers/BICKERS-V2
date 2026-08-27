@@ -615,7 +615,7 @@ export default function PrepListDashboardPage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap}>
         <div
           style={{

@@ -1790,7 +1790,7 @@ export default function EditEmployeePage() {
   }[lifecycleAction];
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <PeopleFleetPage className={layoutStyles.page}>
         <div className={layoutStyles.extracted1}>
         <PeopleFleetPageHeader

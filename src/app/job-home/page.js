@@ -194,6 +194,14 @@ const getBaseJobNumber = (job) => {
   return match ? match[0] : String(job?.jobNumber ?? job?.id ?? "No Job #");
 };
 const isFourDigitJob = (job) => /^\d{4}(?:\.\d+)?$/.test(String(job.jobNumber ?? "").trim());
+const companyAndProductionLabel = (client, production) => {
+  const values = [client, production]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return values.filter((value, index) =>
+    values.findIndex((candidate) => candidate.toLowerCase() === value.toLowerCase()) === index
+  ).join(" · ") || "-";
+};
 
 const prettifyStatus = (raw) => {
   const s = (raw || "").toLowerCase().trim();
@@ -614,7 +622,8 @@ export default function JobHomePage() {
           id: jobNumber,
           jobNumber,
           href: `/job-numbers/${encodeURIComponent(jobNumber)}`,
-          client: primary?.client || "-",
+          client: sortedJobs.find((job) => String(job?.client || "").trim())?.client || "",
+          production: sortedJobs.find((job) => String(job?.production || "").trim())?.production || "",
           location: primary?.location || "-",
           dates: allDates,
           status: completeOrInactiveOnly ? "Complete" : statuses.length === 1 ? statuses[0] : `${groupedJobs.length} bookings`,
@@ -634,6 +643,7 @@ export default function JobHomePage() {
           id: `missing-${jobNumber}`,
           jobNumber,
           client: "",
+          production: "",
           location: "",
           dates: [],
           status: "Missing",
@@ -711,6 +721,7 @@ export default function JobHomePage() {
     const last = ds[ds.length - 1] ?? null;
     const label = first && last ? `${fmtShort(first)} to ${fmtShort(last)}` : first ? fmtShort(first) : "TBC";
     const pretty = prettifyStatus(j.status || "");
+    const companyProduction = companyAndProductionLabel(j.client, j.production);
     return (
       <Link key={j.id} href={j.href || `/job-numbers/${j.id}`} className="job-home-row" style={jobNumberRowShell}>
         <div className={layoutStyles.extracted5}>
@@ -726,8 +737,8 @@ export default function JobHomePage() {
           >
             #{j.jobNumber || j.id}
           </span>
-          <span className={layoutStyles.extracted6}>
-            {j.client || "-"}
+          <span className={layoutStyles.extracted6} title={companyProduction}>
+            {companyProduction}
             {j.count > 1 ? <span style={{ color: UI.muted, fontWeight: 900 }}> ({j.count})</span> : null}
           </span>
         </div>
