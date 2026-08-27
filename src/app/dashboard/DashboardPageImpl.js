@@ -1829,24 +1829,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  useEffect(() => {
-    if (!authReady) return undefined;
-    return onSnapshot(
-      doc(db, "appState", "preplistShared"),
-      (snapshot) => {
-        const records = snapshot.data()?.prepRecordsByKey;
-        setSharedPrepRecordsByKey(
-          records && typeof records === "object" && !Array.isArray(records) ? records : {}
-        );
-      },
-      (error) => {
-        if (!handleFirestoreAccessError(error, { collectionName: "appState", operation: "listen diary vehicle prep state" })) {
-          console.error("[diary-prep] Shared prep listener failed:", error);
-        }
-        setSharedPrepRecordsByKey({});
-      }
-    );
-  }, [accessKey, authReady]);
   //  Holiday modal
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
 
@@ -1979,6 +1961,25 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const userEmail = authEmail || null;
   const userUid = authAccess.user?.uid || null;
   const adminDashboardFallbackRef = useRef({ inFlight: false, loaded: false });
+
+  useEffect(() => {
+    if (!authReady) return undefined;
+    return onSnapshot(
+      doc(db, "appState", "preplistShared"),
+      (snapshot) => {
+        const records = snapshot.data()?.prepRecordsByKey;
+        setSharedPrepRecordsByKey(
+          records && typeof records === "object" && !Array.isArray(records) ? records : {}
+        );
+      },
+      (error) => {
+        if (!handleFirestoreAccessError(error, { collectionName: "appState", operation: "listen diary vehicle prep state" })) {
+          console.error("[diary-prep] Shared prep listener failed:", error);
+        }
+        setSharedPrepRecordsByKey({});
+      }
+    );
+  }, [accessKey, authReady]);
 
   useEffect(() => {
     const nextDate = parseLocalDate(initialDate);
