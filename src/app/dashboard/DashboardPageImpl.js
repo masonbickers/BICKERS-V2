@@ -55,6 +55,11 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  PREP_STORAGE_KEYS,
+  isVehiclePrepped,
+  mergePrepRecordSources,
+} from "./dashboardVehiclePrep";
 
 import ViewBookingModal from "../components/ViewBookingModal";
 import ViewUCraneBooking from "../components/ViewUCraneBooking";
@@ -1210,11 +1215,25 @@ function CalendarEvent({ event, onViewQuote }) {
                 isInactiveBookingStatus(bookingStatusLabel) ||
                 bookingStatusLabel === "Complete";
 
+              const prepped = isVehiclePrepped(event.prepRecordsByKey, event, i);
+              const preppedBadge = prepped ? (
+                <span
+                  className={layoutStyles.vehiclePreppedBadge}
+                  title="Vehicle is clean, loaded and ready to leave for this job"
+                  aria-label="Vehicle prepped: clean, loaded and ready to leave"
+                >
+                  <Check size={11} strokeWidth={3} /> PREPPED
+                </span>
+              ) : null;
+
               if (shouldUseJobStatusForVehicle) {
                 return (
-                  <span key={i}>
-                    {name}
-                    {plate ? ` - ${plate}` : ""}
+                  <span key={i} className={layoutStyles.vehicleLine}>
+                    <span>
+                      {name}
+                      {plate ? ` - ${plate}` : ""}
+                    </span>
+                    {preppedBadge}
                   </span>
                 );
               }
@@ -1234,13 +1253,15 @@ function CalendarEvent({ event, onViewQuote }) {
                 ((isSornOrUntaxed && !offRoadTrackingApplies) || isUninsured)
               ) {
                 return (
-                  <span
-                    key={i}
-                    className={layoutStyles.extracted20}
-                    title="Vehicle non-compliant (SORN or not insured) - current or future confirmed job"
-                  >
-                    {name}
-                    {plate ? ` - ${plate}` : ""}
+                  <span key={i} className={layoutStyles.vehicleLine}>
+                    <span
+                      className={layoutStyles.extracted20}
+                      title="Vehicle non-compliant (SORN or not insured) - current or future confirmed job"
+                    >
+                      {name}
+                      {plate ? ` - ${plate}` : ""}
+                    </span>
+                    {preppedBadge}
                   </span>
                 );
               }
@@ -1277,19 +1298,25 @@ function CalendarEvent({ event, onViewQuote }) {
 
                 // style-audit-allow runtime: booking status palette
                 return (
-                  <span key={i} className={layoutStyles.vehiclePill} style={{ "--pill-background": style.bg, "--pill-text": style.text }}
-                    title={`Vehicle status: ${itemStatus}`}
-                  >
-                    {name}
-                    {plate ? ` - ${plate}` : ""}
+                  <span key={i} className={layoutStyles.vehicleLine}>
+                    <span className={layoutStyles.vehiclePill} style={{ "--pill-background": style.bg, "--pill-text": style.text }}
+                      title={`Vehicle status: ${itemStatus}`}
+                    >
+                      {name}
+                      {plate ? ` - ${plate}` : ""}
+                    </span>
+                    {preppedBadge}
                   </span>
                 );
               }
 
               return (
-                <span key={i}>
-                  {name}
-                  {plate ? ` - ${plate}` : ""}
+                <span key={i} className={layoutStyles.vehicleLine}>
+                  <span>
+                    {name}
+                    {plate ? ` - ${plate}` : ""}
+                  </span>
+                  {preppedBadge}
                 </span>
               );
             })}
@@ -1729,6 +1756,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [allMaintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [allVehiclesData, setVehiclesData] = useState([]);
+  const [localPrepRecordsByKey, setLocalPrepRecordsByKey] = useState({});
+  const [sharedPrepRecordsByKey, setSharedPrepRecordsByKey] = useState({});
   const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
   const [pendingMaintenanceDrop, setPendingMaintenanceDrop] = useState(null);
@@ -1753,6 +1782,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     () => isUCraneMode ? allVehiclesData.filter(isUCraneVehicle) : allVehiclesData,
     [allVehiclesData, isUCraneMode]
   );
+  const prepRecordsByKey = useMemo(
+    () => mergePrepRecordSources(localPrepRecordsByKey, sharedPrepRecordsByKey),
+    [localPrepRecordsByKey, sharedPrepRecordsByKey]
+  );
   const bookings = useMemo(
     () => isUCraneMode
       ? allBookings.filter((booking) => isUCraneBooking(booking, allVehiclesData))
@@ -1771,6 +1804,31 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       : allMaintenanceBookings,
     [allMaintenanceBookings, isUCraneMode, uCraneVehicleKeys]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const readLocalPrepRecords = () => {
+      const sources = PREP_STORAGE_KEYS.map((storageKey) => {
+        try {
+          const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+          return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch (error) {
+          console.warn(`[diary-prep] Failed reading ${storageKey}:`, error);
+          return {};
+        }
+      });
+      setLocalPrepRecordsByKey(mergePrepRecordSources(...sources));
+    };
+
+    readLocalPrepRecords();
+    const handleStorage = (event) => {
+      if (PREP_STORAGE_KEYS.includes(event.key)) readLocalPrepRecords();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   //  Holiday modal
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
 
@@ -1903,6 +1961,25 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const userEmail = authEmail || null;
   const userUid = authAccess.user?.uid || null;
   const adminDashboardFallbackRef = useRef({ inFlight: false, loaded: false });
+
+  useEffect(() => {
+    if (!authReady) return undefined;
+    return onSnapshot(
+      doc(db, "appState", "preplistShared"),
+      (snapshot) => {
+        const records = snapshot.data()?.prepRecordsByKey;
+        setSharedPrepRecordsByKey(
+          records && typeof records === "object" && !Array.isArray(records) ? records : {}
+        );
+      },
+      (error) => {
+        if (!handleFirestoreAccessError(error, { collectionName: "appState", operation: "listen diary vehicle prep state" })) {
+          console.error("[diary-prep] Shared prep listener failed:", error);
+        }
+        setSharedPrepRecordsByKey({});
+      }
+    );
+  }, [accessKey, authReady]);
 
   useEffect(() => {
     const nextDate = parseLocalDate(initialDate);
@@ -2894,6 +2971,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         ...ev,
         ...inactiveCrew,
         vehicles: displayVehicles,
+        prepRecordsByKey,
         vehicleStatus,
         isRisky: riskReasons.length > 0,
         riskReasons,
@@ -2909,7 +2987,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         callTime: normaliseCallTime(ev.callTime || ev.calltime || ev.call_time),
       };
     });
-  }, [allEventsRaw, getVehicleRisk, normalizeVehicleDisplays, normalizeVehicles, reccesByBooking]);
+  }, [allEventsRaw, getVehicleRisk, normalizeVehicleDisplays, normalizeVehicles, prepRecordsByKey, reccesByBooking]);
 
   //  NEW: quick lookup for bank holiday day highlighting
   const bankHolidaySet = useMemo(() => {
