@@ -4,7 +4,7 @@ import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onSnapshot } from "firebase/firestore";
-import { AlertTriangle, LayoutDashboard, Plus, Search, FileText, PencilLine, Printer, RotateCcw } from "lucide-react";
+import { AlertTriangle, ClipboardList, LayoutDashboard, Plus, Search, FileText, PencilLine, Printer, RotateCcw } from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import EnquiryActionJobSheet from "@/app/components/EnquiryActionJobSheet";
@@ -502,6 +502,14 @@ export default function EnquiryPage() {
                     <div className={layoutStyles.extracted28}>
                       <button type="button" style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }} onClick={() => setSelectedBookingId(booking.id)}>
                         <FileText size={13} /> View
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}
+                        title="Open job sheet"
+                        onClick={() => router.push(`/job-numbers/${encodeURIComponent(booking.id)}?returnTo=${encodeURIComponent("/enquiry")}`)}
+                      >
+                        <ClipboardList size={13} /> Job sheet
                       </button>
                       <button
                         type="button"
