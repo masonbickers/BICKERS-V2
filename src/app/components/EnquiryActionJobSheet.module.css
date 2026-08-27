@@ -25,8 +25,8 @@
 }
 
 .sheet {
-  width: 526pt;
-  margin-left: 14.17pt;
+  width: 520.48pt;
+  margin: 0 auto;
   padding-top: 15.55pt;
   box-sizing: border-box;
   color: #000;
@@ -36,9 +36,10 @@
 }
 
 .sheet h1 {
-  margin: 0 0 9.1pt 5.5pt;
+  margin: 0 0 9.1pt;
+  color: #000 !important;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 35pt;
+  font-size: 28pt;
   line-height: 1;
   font-weight: 700;
   letter-spacing: 0;
@@ -50,7 +51,7 @@
   grid-template-columns: 134.56fr 120.55fr 85.05fr 99.27fr 75.05fr;
   width: 520.48pt;
   min-height: 94.52pt;
-  margin-left: 5.5pt;
+  margin-left: 0;
   box-sizing: border-box;
   border: 3pt solid #000;
   break-inside: avoid;
@@ -125,7 +126,7 @@
   grid-template-columns: 255.11fr 259.37fr;
   width: 520.48pt;
   height: 86.03pt;
-  margin-left: 5.5pt;
+  margin-left: 0;
   box-sizing: border-box;
   border: 3pt solid #000;
   border-top: 0;
@@ -149,7 +150,7 @@
 
 .contacts {
   width: 520.48pt;
-  margin-left: 5.5pt;
+  margin-left: 0;
   box-sizing: border-box;
   border: 3pt solid #000;
   border-top: 0;
@@ -204,7 +205,7 @@
 .descriptionSection {
   width: 520.48pt;
   min-height: 352.11pt;
-  margin-left: 5.5pt;
+  margin-left: 0;
   box-sizing: border-box;
   border: 3pt solid #000;
   border-top: 0;
@@ -281,7 +282,7 @@
   display: flex;
   justify-content: center;
   width: 520.48pt;
-  margin-left: 5.5pt;
+  margin-left: 0;
   padding-top: 4.8pt;
   font-size: 11pt;
   break-inside: avoid;
