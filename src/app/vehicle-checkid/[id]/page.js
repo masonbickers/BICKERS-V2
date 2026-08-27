@@ -97,7 +97,7 @@ export default function VehicleCheckDetailPage() {
 
   if (loading) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div style={shell}>
           <main className={layoutStyles.extracted1}>
             <div style={{ ...card, textAlign: "center" }}>Loading…</div>
@@ -109,7 +109,7 @@ export default function VehicleCheckDetailPage() {
 
   if (!row) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div style={shell}>
           <main className={layoutStyles.extracted2}>
             <div style={{ ...card, textAlign: "center" }}>
@@ -134,7 +134,7 @@ export default function VehicleCheckDetailPage() {
   const photos = Array.isArray(row.photos) ? row.photos : [];
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={shell}>
         <main className={layoutStyles.extracted5}>
           <div className={layoutStyles.extracted6}>

@@ -547,7 +547,7 @@ export default function VehicleServiceHistoryDetailPage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div className="service-sheet-page" style={pageWrap}>
         <div className={`service-sheet-toolbar ${layoutStyles.extracted6}`} >
           <div>

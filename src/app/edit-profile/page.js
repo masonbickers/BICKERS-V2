@@ -1,7 +1,7 @@
 "use client";
 
 import layoutStyles from "./page.styles.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, updateProfile } from "firebase/auth";
 import { auth, db, storage } from "../../../firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -10,6 +10,10 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, ImageUp, Mail, Save, UserRound } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import {
+  requestGuardedNavigation,
+  useUnsavedChangesGuard,
+} from "@/app/utils/unsavedChanges";
 
 /* ------------------------------- Styling tokens ------------------------------- */
 const UI = UI_TOKENS;
@@ -137,6 +141,17 @@ export default function EditProfilePage() {
   const [file, setFile] = useState(null);
   const [uploadPct, setUploadPct] = useState(0);
   const [error, setError] = useState("");
+  const savedProfileSignatureRef = useRef("");
+
+  const profileSignature = useMemo(
+    () => JSON.stringify({ name: String(name || "").trim(), photoURL: photoURL || "", hasFile: Boolean(file) }),
+    [file, name, photoURL]
+  );
+
+  useEffect(() => {
+    if (loading || savedProfileSignatureRef.current) return;
+    savedProfileSignatureRef.current = profileSignature;
+  }, [loading, profileSignature]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -218,14 +233,15 @@ export default function EditProfilePage() {
     return url;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (options = {}) => {
+    const { navigateOnSuccess = true } = options;
     setError("");
-    if (!uid) return;
+    if (!uid) return false;
 
     const trimmed = String(name || "").trim();
     if (!trimmed) {
       setError("Name can't be empty.");
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -252,17 +268,32 @@ export default function EditProfilePage() {
       setPhotoURL(newPhotoURL || photoURL || null);
       setFile(null);
       setUploadPct(0);
+      savedProfileSignatureRef.current = JSON.stringify({
+        name: trimmed,
+        photoURL: newPhotoURL || photoURL || "",
+        hasFile: false,
+      });
 
-      router.push("/settings");
+      if (navigateOnSuccess) router.push("/settings");
+      return true;
     } catch (e) {
       setError(e?.message || "Failed to save profile.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
+  useUnsavedChangesGuard({
+    enabled: !loading,
+    isDirty: Boolean(savedProfileSignatureRef.current && profileSignature !== savedProfileSignatureRef.current && !saving),
+    message: "You have unsaved profile changes.",
+    saveLabel: "Save Profile & Leave",
+    onSave: () => handleSave({ navigateOnSuccess: false }),
+  });
+
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style>{editProfileCss}</style>
       <div style={pageWrap}>
         <div className={layoutStyles.extracted2}>
@@ -355,7 +386,7 @@ export default function EditProfilePage() {
                 className={`edit-profile-actions ${layoutStyles.extracted7}`}
 
               >
-                <button type="button" style={btnSoft} onClick={() => router.push("/settings")} disabled={saving}>
+                <button type="button" style={btnSoft} onClick={() => requestGuardedNavigation(() => router.push("/settings"))} disabled={saving}>
                   <ArrowLeft size={14} />
                   Cancel
                 </button>

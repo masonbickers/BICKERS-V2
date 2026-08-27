@@ -1178,7 +1178,7 @@ function LegacyHsRegisterDetailPage() {
 
   if (!template && !record && !loading) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <main style={pageWrap}>
           <button type="button" style={btn("ghost")} onClick={() => router.push("/h-and-s")}>
             <ArrowLeft size={15} />
@@ -1191,7 +1191,7 @@ function LegacyHsRegisterDetailPage() {
   }
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={isTaskFocusedCheck}>
       <main style={pageWrap}>
         <div className={layoutStyles.extracted13}>
           <div>

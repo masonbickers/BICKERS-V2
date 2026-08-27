@@ -146,10 +146,10 @@ export default function AppearanceAdminEditor({ section }) {
 
   useEffect(() => { const warn = (event) => { if (!dirty) return; event.preventDefault(); event.returnValue = ""; }; window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn); }, [dirty]);
 
-  if (authAccess.loading || loading) return <HeaderSidebarLayout><Page><div className={styles.loading}><Spinner /> Loading {title.toLowerCase()}…</div></Page></HeaderSidebarLayout>;
-  if (!authAccess.isAdmin) return <HeaderSidebarLayout><Page width="readable"><Alert variant="danger">Only administrators can manage company appearance.</Alert></Page></HeaderSidebarLayout>;
+  if (authAccess.loading || loading) return <HeaderSidebarLayout showBackButton={false}><Page><div className={styles.loading}><Spinner /> Loading {title.toLowerCase()}…</div></Page></HeaderSidebarLayout>;
+  if (!authAccess.isAdmin) return <HeaderSidebarLayout showBackButton={false}><Page width="readable"><Alert variant="danger">Only administrators can manage company appearance.</Alert></Page></HeaderSidebarLayout>;
 
-  return <HeaderSidebarLayout><Page width="fluid">
+  return <HeaderSidebarLayout showBackButton={false}><Page width="fluid">
     <PageHeader title={title} subtitle={section === "theme" ? "Create and publish the visual system used by this company." : "Manage safe, company-specific application wording without changing workflow or legal copy."} actions={<div className={styles.headerActions}><Button variant="secondary" onClick={() => router.push("/admin")}><ArrowLeft size={15} /> Admin</Button><Button variant="secondary" onClick={() => router.push(section === "theme" ? "/admin/content-labels" : "/admin/global-styling")}><Type size={15} /> {section === "theme" ? "Content & labels" : "Global styling"}</Button></div>} />
     <div className={styles.scopeBar}><label>Editing<Select value={companyId} onChange={(event) => setCompanyId(event.target.value)} disabled={!isPlatformAdmin}>{isPlatformAdmin && <option value={PLATFORM_APPEARANCE_ID}>Platform default</option>}{isPlatformAdmin ? companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>) : <option value={ownCompanyId}>{authAccess.userDoc?.companyName || ownCompanyId}</option>}</Select></label><div><Badge variant={changes ? "warning" : "success"}>{changes} unpublished change{changes === 1 ? "" : "s"}</Badge><Badge>Published v{state?.version || 0}</Badge></div></div>
     {notice && <Alert className={styles.notice} variant={notice.type}>{notice.text}</Alert>}

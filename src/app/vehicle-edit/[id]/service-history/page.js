@@ -113,7 +113,7 @@ export default function VehicleServiceHistoryPage() {
     vehicle?.name || vehicle?.registration || vehicle?.reg || "Vehicle";
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap}>
         <div className={layoutStyles.extracted1}>
           <div>

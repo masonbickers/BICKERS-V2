@@ -637,7 +637,7 @@ export default function DeletedBookingsPage() {
   ──────────────────────────────────────────── */
   if (checkingAccess) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div style={pageWrap}>
           <div style={card}>Checking admin access...</div>
         </div>
@@ -651,7 +651,7 @@ export default function DeletedBookingsPage() {
   const attachmentTotal = rows.reduce((sum, row) => sum + (row.attachments?.length || 0), 0);
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap}>
         <div className={layoutStyles.extracted1}>
           {/* Header */}

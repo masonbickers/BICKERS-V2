@@ -658,7 +658,7 @@ export default function HgvCompliancePage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <main className={styles.page}>
         <header className={styles.header}>
           <div>

@@ -501,7 +501,7 @@ export default function VehicleTimelinePage() {
   const vehicleLabel = vehicle?.name || vehicle?.registration || vehicle?.reg || "Vehicle";
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <main className={styles.page}>
         <header className={styles.header}>
           <div>

@@ -1035,7 +1035,7 @@ export default function MaintenanceJobsPage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <OperationsPage className={layoutStyles.page}>
         <OperationsPageHeader
           title="Maintenance jobs"

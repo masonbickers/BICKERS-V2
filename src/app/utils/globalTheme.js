@@ -353,6 +353,7 @@ export function themeToCssVariables(value = {}, options = {}) {
   const surfaceHover = useDark
     ? mixColors(theme.surfaceColor, theme.textColor, 0.055)
     : mixColors(theme.surfaceColor, theme.canvasColor, 0.8);
+  const baseSurface = useDark ? theme.canvasColor : theme.surfaceColor;
   const textSubtle = useDark
     ? mixColors(theme.mutedTextColor, theme.canvasColor, 0.28)
     : theme.mutedTextColor;
@@ -383,7 +384,7 @@ export function themeToCssVariables(value = {}, options = {}) {
     "--color-text": theme.textColor, "--color-text-secondary": theme.mutedTextColor,
     "--color-text-muted": theme.mutedTextColor, "--color-text-subtle": textSubtle,
     "--color-text-inverse": theme.primaryTextColor,
-    "--color-canvas": theme.canvasColor, "--color-surface": theme.surfaceColor,
+    "--color-canvas": theme.canvasColor, "--color-surface": baseSurface,
     "--color-surface-raised": surfaceRaised, "--color-surface-subtle": surfaceSubtle,
     "--color-surface-hover": surfaceHover, "--color-border": theme.borderColor,
     "--color-border-strong": mixColors(theme.borderColor, theme.textColor, 0.16),
@@ -420,7 +421,7 @@ export function themeToCssVariables(value = {}, options = {}) {
     "--input-height": `${theme.inputHeight}px`, "--page-max-width": `${theme.pageWidth}px`,
     "--page-padding-x": `${theme.pagePadding}px`, "--page-padding-y": `${theme.pagePadding}px`,
     "--table-row-height": `${theme.tableRowHeight}px`, "--table-header-bg": theme.tableHeaderColor,
-    "--table-alternate-bg": theme.tableZebra ? theme.tableAlternateColor : theme.surfaceColor,
+    "--table-alternate-bg": theme.tableZebra ? theme.tableAlternateColor : baseSurface,
   };
   return !useDark && usesLiveDefaultPalette(theme) ? { ...variables, ...LIVE_DEFAULT_COLOR_VARIABLES } : variables;
 }

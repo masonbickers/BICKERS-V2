@@ -30,6 +30,12 @@ import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
+import {
+  buildReopenBookingPayload,
+  formatProductionIdentity,
+  isLockedJobStatus as isLockedStatus,
+  lockedBookingMessage,
+} from "@/app/utils/jobNumberDetail";
 
 /* ────────────────────────────────────────────────────────────
    Design tokens + layout
@@ -38,7 +44,6 @@ const UI = UI_TOKENS;
 
 const LAYOUT = {
   HEADER_H: 54,
-  PAGE_PAD_X: 16,
   STICKY_GAP: 8,
 };
 
@@ -133,16 +138,11 @@ const renderVehicleNames = (vehicles) => {
 const renderContacts = (contacts) => {
   if (!Array.isArray(contacts) || !contacts.length) return null;
   const rows = contacts
-    .map((contact) =>
-      [
-        contact.department,
-        contact.name,
-        contact.email,
-        contact.phone || contact.number,
-      ]
-        .filter(Boolean)
-        .join(" - ")
-    )
+    .map((contact) => {
+      const identity = [contact.department, contact.name].filter(Boolean).join(" · ");
+      const details = [contact.email, contact.phone || contact.number].filter(Boolean).join(" · ");
+      return [identity, details].filter(Boolean).join("\n");
+    })
     .filter(Boolean);
   return rows.length ? rows.join("\n") : null;
 };
@@ -251,15 +251,31 @@ const getContactLabels = (job) => {
     .filter(Boolean);
 };
 
-const buildConnectedBookingSummary = (jobs, statusByJob = {}) => {
-  const activeJobs = (jobs || []).filter((job) => !isLockedStatus(statusByJob[job.id] || job.status));
+const buildConnectedBookingSummary = (jobs) => {
+  const connectedJobs = jobs || [];
   return {
-    contacts: uniqueCleanList((jobs || []).flatMap(getContactLabels)),
-    vehicles: uniqueCleanList(activeJobs.flatMap(getVehicleLabels)),
-    crew: uniqueCleanList(activeJobs.flatMap(getCrewLabels)),
-    locations: uniqueCleanList(activeJobs.flatMap(getLocationLabels)),
+    contacts: uniqueCleanList(connectedJobs.flatMap(getContactLabels)),
+    vehicles: uniqueCleanList(connectedJobs.flatMap(getVehicleLabels)),
+    crew: uniqueCleanList(connectedJobs.flatMap(getCrewLabels)),
+    locations: uniqueCleanList(connectedJobs.flatMap(getLocationLabels)),
   };
 };
+
+const getPrimaryContactName = (jobs) => {
+  for (const job of jobs || []) {
+    const directName = String(job?.contactName || "").trim();
+    if (directName) return directName;
+
+    const additionalName = (job?.additionalContacts || [])
+      .map((contact) => String(contact?.name || "").trim())
+      .find(Boolean);
+    if (additionalName) return additionalName;
+  }
+  return "No contact";
+};
+
+const formatSummaryCount = (count, singular, plural = `${singular}s`) =>
+  `${count} ${count === 1 ? singular : plural}`;
 
 const yesNo = (value) => (value ? "Yes" : "No");
 
@@ -647,21 +663,22 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
 /* ────────────────────────────────────────────────────────────
    NEW: Non-editable status rule (view-only)
 ─────────────────────────────────────────────────────────────*/
-const isLockedStatus = (status = "") => {
-  const s = String(status || "").toLowerCase().trim();
-  return s === "cancelled" || s === "canceled" || s === "dnh" || s === "postponed" || s === "lost";
-};
-
 const isCompleteStatus = (status = "") => {
   const s = String(status || "").toLowerCase().trim();
   return s === "complete" || s === "completed";
 };
 
-const DisabledOverlayNote = ({ reason }) => (
+const isInvoiceStageStatus = (status = "") =>
+  ["complete", "completed", "ready to invoice", "needs action", "invoiced", "paid"].includes(
+    String(status || "").toLowerCase().trim()
+  );
+
+const LockedBookingNote = ({ status }) => (
   <div
     className={layoutStyles.extracted14}
+    role="status"
   >
-    Locked This job is locked ({reason}). Editing is disabled.
+    <strong>View-only booking.</strong> {lockedBookingMessage(status)}
   </div>
 );
 
@@ -685,12 +702,12 @@ const Btn = ({ children, disabled, onClick, variant = "base", title }) => {
 
   const styles =
     variant === "primary"
-      ? { ...base, background: UI.brand, color: "var(--color-surface)", border: `1px solid ${UI.brand}` }
+      ? { ...base, background: "var(--button-primary-background)", color: "var(--button-primary-text)", border: "1px solid var(--button-primary-border)" }
       : variant === "danger"
-      ? { ...base, background: "var(--color-danger)", color: "var(--color-surface)", border: "1px solid var(--color-danger)" }
+      ? { ...base, background: "var(--color-danger)", color: "var(--color-white)", border: "1px solid var(--color-danger)" }
       : variant === "dark"
-      ? { ...base, background: "var(--shell-sidebar-bg)", color: "var(--color-surface)", border: "1px solid var(--shell-sidebar-bg)" }
-      : { ...base, background: "var(--color-surface)", color: UI.text };
+      ? { ...base, background: "var(--button-primary-background)", color: "var(--button-primary-text)", border: "1px solid var(--button-primary-border)" }
+      : { ...base, background: "var(--color-surface-raised)", color: UI.text };
 
   return (
     <button disabled={disabled} onClick={disabled ? undefined : onClick} style={styles} title={title}>
@@ -723,12 +740,107 @@ const SectionTitle = ({ title, right }) => (
   </div>
 );
 
+const FilesSection = ({
+  id,
+  job,
+  locked,
+  currentPdfUrl,
+  fileSelected,
+  uploading,
+  progress,
+  uploadError,
+  onFileSelect,
+  onUpload,
+}) => {
+  const attachments = Array.isArray(job?.attachments) ? job.attachments : [];
+
+  return (
+    <Card id={id} tone="white" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
+      <SectionTitle
+        title="Files"
+        right={
+          attachments.length ? (
+            <span className={layoutStyles.fileCount}>
+              {attachments.length} file{attachments.length === 1 ? "" : "s"}
+            </span>
+          ) : null
+        }
+      />
+
+      {currentPdfUrl && (
+        <a
+          href={currentPdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={layoutStyles.currentFileLink}
+        >
+          View current PDF
+        </a>
+      )}
+
+      {attachments.length ? (
+        <ul className={layoutStyles.fileList}>
+          {attachments.map((attachment, index) => (
+            <li key={`${attachment?.url || attachment?.name || "file"}-${index}`} className={layoutStyles.fileRow}>
+              <a
+                href={attachment?.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={layoutStyles.fileLink}
+              >
+                {attachment?.name || `Attachment ${index + 1}`}
+              </a>
+              {Number.isFinite(Number(attachment?.size)) && Number(attachment.size) > 0 ? (
+                <span className={layoutStyles.fileMeta}>
+                  {(Number(attachment.size) / 1024 / 1024).toFixed(2)} MB
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : !currentPdfUrl ? (
+        <div className={layoutStyles.emptyFiles}>No files attached to this booking.</div>
+      ) : null}
+
+      {!locked && (
+        <div className={layoutStyles.fileUpload}>
+          <label className={layoutStyles.fileUploadLabel} htmlFor={`${id}-input`}>
+            Add PDF
+          </label>
+          <input
+            id={`${id}-input`}
+            type="file"
+            accept="application/pdf"
+            onChange={(event) => onFileSelect(event.target.files?.[0])}
+            className={layoutStyles.fileInput}
+          />
+          <Btn
+            variant="dark"
+            disabled={uploading || !fileSelected}
+            onClick={onUpload}
+          >
+            {uploading
+              ? `Uploading… ${progress ?? 0}%`
+              : fileSelected
+              ? currentPdfUrl
+                ? "Replace / add PDF"
+                : "Upload PDF"
+              : "Select a PDF"}
+          </Btn>
+          {uploadError && <p className={layoutStyles.extracted60}>{uploadError}</p>}
+        </div>
+      )}
+    </Card>
+  );
+};
+
 const norm = (s) => String(s || "").toLowerCase().trim();
 const matchText = (job, term) => {
   const t = norm(term);
   if (!t) return true;
   const hay = [
     job?.client,
+    job?.production,
     job?.jobNumber,
     job?.location,
     job?.notes,
@@ -854,6 +966,7 @@ export default function JobInfoPage() {
   const [uploadingByJob, setUploadingByJob] = useState({});
   const [progressByJob, setProgressByJob] = useState({});
   const [errorByJob, setErrorByJob] = useState({});
+  const [reopeningByJob, setReopeningByJob] = useState({});
 
   // NEW: search + filter + collapse
   const sessionKey = `job-numbers:${jobId || "unknown"}`;
@@ -1042,6 +1155,47 @@ export default function JobInfoPage() {
     }
   };
 
+  const reopenBooking = async (job) => {
+    if (!job?.id || reopeningByJob[job.id]) return;
+
+    const confirmed = await systemDialogs.confirmSystem(
+      "Reopen this booking as Enquiry? Crew and vehicle allocations must be reviewed before it is confirmed again."
+    );
+    if (!confirmed) return;
+
+    setReopeningByJob((current) => ({ ...current, [job.id]: true }));
+    try {
+      const currentJob = {
+        ...job,
+        status: statusByJob[job.id] || job.status,
+      };
+      const updates = buildReopenBookingPayload(currentJob, {
+        timestamp: new Date().toISOString(),
+        actor: {
+          email: dataAccessState.userDoc?.email || dataAccessState.user?.email || "Unknown",
+          uid: dataAccessState.user?.uid || dataAccessState.userDoc?.uid || "",
+        },
+      });
+
+      await updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, updates));
+      setRelatedJobs((current) =>
+        current.map((item) => (item.id === job.id ? { ...item, ...updates } : item))
+      );
+      setStatusByJob((current) => ({ ...current, [job.id]: updates.status }));
+      setSelectedStatusByJob((current) => ({ ...current, [job.id]: updates.status }));
+      systemDialogs.showSystemNotification("Booking reopened as Enquiry. Review its allocations before confirming it.");
+      router.push(
+        `/edit-booking/${job.id}?reopened=1&returnTo=${encodeURIComponent(
+          `/job-numbers/${encodeURIComponent(jobId)}`
+        )}`
+      );
+    } catch (error) {
+      console.error("Failed to reopen booking:", error);
+      systemDialogs.showSystemNotification("Failed to reopen booking. No changes were made.");
+      setReopeningByJob((current) => ({ ...current, [job.id]: false }));
+    }
+  };
+
   const deleteJob = async (id) => {
     if (!await systemDialogs.confirmSystem("Delete this job? This cannot be undone.")) return;
     try {
@@ -1175,16 +1329,18 @@ export default function JobInfoPage() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [relatedJobs, setExpandedById]);
 
-  // Ensure the current route job is expanded
-  useEffect(() => {
-    if (!jobId) return;
-    setExpandedById((p) => ({ ...p, [jobId]: true }));
-  }, [jobId, setExpandedById]);
-
   const allJobs = useMemo(
     () => relatedJobs.map((j) => normalizeVehiclesForJob(j, vehicleMap)),
     [relatedJobs, vehicleMap]
   );
+  const currentJobRecordId = allJobs.find((job) => job.id === jobId)?.id || allJobs[0]?.id || jobId;
+
+  // Job Number routes can use the shared number rather than a booking document ID.
+  // Keep the resolved current booking open using the same key as expandedById.
+  useEffect(() => {
+    if (!currentJobRecordId) return;
+    setExpandedById((current) => ({ ...current, [currentJobRecordId]: true }));
+  }, [currentJobRecordId, setExpandedById]);
 
   const statusOptions = useMemo(() => {
     const set = new Set(["All"]);
@@ -1203,7 +1359,7 @@ export default function JobInfoPage() {
 
   if (!jobId) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div className={layoutStyles.extracted17}>No Job ID provided.</div>
       </HeaderSidebarLayout>
     );
@@ -1211,7 +1367,7 @@ export default function JobInfoPage() {
 
   if (!relatedJobs.length) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div className={layoutStyles.extracted18}>Loading job details…</div>
       </HeaderSidebarLayout>
     );
@@ -1219,13 +1375,7 @@ export default function JobInfoPage() {
 
   const mainJob = allJobs.find((j) => j.id === jobId) || allJobs[0] || relatedJobs[0];
   const prefix = splitJobNumber(mainJob.jobNumber).prefix;
-  const groupDates = allJobs.flatMap(getSortedJobDates).sort((a, b) => a.getTime() - b.getTime());
-  const groupDateLabel =
-    groupDates.length > 1
-      ? `${formatShortDate(groupDates[0])} - ${formatShortDate(groupDates.at(-1))}`
-      : groupDates.length
-      ? formatShortDate(groupDates[0])
-      : "No dates";
+  const mainJobIdentity = formatProductionIdentity(mainJob);
   const statusCounts = countByStatus(allJobs, statusByJob);
   const statusSummary = Object.entries(statusCounts)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -1233,232 +1383,127 @@ export default function JobInfoPage() {
     .join(" - ");
   const notReadyCount = allJobs.reduce((total, job) => {
     const status = statusByJob[job.id] || job.status || "Pending";
-    if (isLockedStatus(status) || isCompleteStatus(status)) return total;
+    if (isLockedStatus(status) || !isInvoiceStageStatus(status)) return total;
     return total + (getInvoiceReadiness(job, timesheetsByJob[job.id] || [], status).ready ? 0 : 1);
   }, 0);
-  const parentVehicle = renderVehicleNames(mainJob.vehicles);
-  const parentSubtitle = [
-    mainJob.location,
-    `${allJobs.length} booking${allJobs.length === 1 ? "" : "s"}`,
-    groupDateLabel,
-    parentVehicle,
-  ].filter(Boolean).join(" - ");
-  const connectedSummary = buildConnectedBookingSummary(allJobs, statusByJob);
+  const connectedSummary = buildConnectedBookingSummary(allJobs);
+  const primaryContactName = getPrimaryContactName(allJobs);
+  const isGroupedJobNumber = allJobs.length > 1;
 
   const toggleAll = (open) => {
     const next = {};
     filteredJobs.forEach((j) => (next[j.id] = !!open));
     // Always keep current job open
-    if (jobId) next[jobId] = true;
+    if (currentJobRecordId) next[currentJobRecordId] = true;
     setExpandedById((p) => ({ ...p, ...next }));
   };
 
   return (
-    <HeaderSidebarLayout>
-      <div style={{ width: "100%", minHeight: "100vh", backgroundColor: UI.bg, color: UI.text }}>
-        {/* Sticky page header + SEARCH */}
-        <div
-          id="page-top"
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 8,
-            background: "color-mix(in srgb, var(--color-canvas) 96%, transparent)",
-            backdropFilter: "saturate(180%) blur(6px)",
-            borderBottom: UI.border,
-          }}
-        >
-          <div
-            className={layoutStyles.extracted19}
-          >
-            <div
-              style={{
-                width: "100%",
-                margin: "0 auto",
-                padding: `0 ${LAYOUT.PAGE_PAD_X}px`,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                minWidth: 0,
-                paddingTop: 6,
-                paddingBottom: 6,
-              }}
-            >
+    <HeaderSidebarLayout showBackButton={false}>
+      <div style={{ width: "100%", minHeight: "100%", backgroundColor: UI.bg, color: UI.text }}>
+        {/* Sticky page header + list controls */}
+        <div id="page-top" className={layoutStyles.workspaceToolbar}>
+          <div className={layoutStyles.workspaceFrame}>
+            <div className={layoutStyles.workspaceTitleRow}>
               <Btn onClick={() => router.push("/job-home")} variant="base">
                 ← Back
               </Btn>
 
               <div className={layoutStyles.extracted20}>
                 <div className={layoutStyles.extracted21}>
-                  Job #{prefix} - {mainJob.client || "Booking"}
+                  Job #{prefix} - {mainJobIdentity}
                 </div>
               </div>
+            </div>
 
-              <div className={layoutStyles.extracted22}>
-                <Btn variant="base" onClick={() => toggleAll(true)} title="Expand all">
-                  Expand all
-                </Btn>
-                <Btn variant="base" onClick={() => toggleAll(false)} title="Collapse all (keeps current open)">
-                  Collapse all
-                </Btn>
+            {isGroupedJobNumber && (
+              <div className={layoutStyles.workspaceListTools}>
+                <div className={layoutStyles.extracted23}>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className={layoutStyles.extracted24}
+                    aria-hidden
+                  >
+                    <path
+                      d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search bookings"
+                    className={layoutStyles.workspaceSearchInput}
+                    aria-label="Search bookings"
+                  />
+                </div>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className={layoutStyles.workspaceStatusFilter}
+                  aria-label="Filter bookings by status"
+                >
+                  {statusOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+
+                <div
+                  className={layoutStyles.workspaceResultCount}
+                  title="Visible bookings"
+                  aria-live="polite"
+                >
+                  {filteredJobs.length} of {allJobs.length}
+                </div>
+
+                <div className={layoutStyles.workspaceBulkActions}>
+                  <Btn variant="base" onClick={() => toggleAll(true)} title="Expand all bookings">
+                    Expand all
+                  </Btn>
+                  <Btn variant="base" onClick={() => toggleAll(false)} title="Collapse all bookings except the current booking">
+                    Collapse all
+                  </Btn>
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Search Row */}
-          <div
-            style={{
-              width: "100%",
-              margin: "0 auto",
-              padding: `0 ${LAYOUT.PAGE_PAD_X}px 8px`,
-              display: "grid",
-              gridTemplateColumns: "minmax(260px, 1fr) minmax(170px, 220px) auto",
-              gap: 8,
-              alignItems: "center",
-            }}
-          >
-            <div className={layoutStyles.extracted23}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className={layoutStyles.extracted24}
-                aria-hidden
-              >
-                <path
-                  d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-
-              <input
-                ref={searchRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search bookings"
-                style={{
-                  width: "100%",
-                  height: 34,
-                  padding: "0 12px 0 34px",
-                  borderRadius: 8,
-                  border: UI.border,
-                  fontSize: 13,
-                  outline: "none",
-                  background: "var(--color-surface)",
-                  fontWeight: 700,
-                }}
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                width: "100%",
-                height: 34,
-                padding: "0 10px",
-                borderRadius: 8,
-                border: UI.border,
-                fontSize: 13,
-                outline: "none",
-                background: "var(--color-surface)",
-                fontWeight: 800,
-              }}
-              aria-label="Filter by status"
-            >
-              {statusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-
-            <div
-              style={{
-                border: UI.border,
-                background: "var(--color-surface)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                fontSize: 12.5,
-                fontWeight: 900,
-                textAlign: "center",
-              }}
-              title="Visible jobs"
-            >
-              {filteredJobs.length} shown
-            </div>
+            )}
           </div>
         </div>
 
         {/* Page content */}
-        <div
-          style={{
-            width: "100%",
-            margin: "0 auto",
-            padding: `10px ${LAYOUT.PAGE_PAD_X}px 32px`,
-            paddingTop: 10,
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              border: `1px solid ${UI.brandBorder}`,
-              background: "var(--color-surface)",
-              borderRadius: 8,
-              padding: 14,
-              marginBottom: 12,
-              boxShadow: UI.shadow,
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `minmax(0, 1fr) minmax(${notReadyCount > 0 ? 280 : 188}px, ${notReadyCount > 0 ? 340 : 240}px)`,
-                gap: 10,
-                alignItems: "start",
-              }}
-            >
-              <div
-                className={layoutStyles.extracted25}
-              >
-                {[
-                  ["Contacts", connectedSummary.contacts],
-                  ["Vehicles Used", connectedSummary.vehicles],
-                  ["Crew Used", connectedSummary.crew],
-                  ["Previous Locations", connectedSummary.locations],
-                ].map(([title, values]) => (
-                  <div
-                    key={title}
-                    style={{
-                      padding: "4px 10px 4px 0",
-                      borderRight: title === "Previous Locations" ? "none" : "1px solid var(--color-brand-soft)",
-                      minWidth: 0,
-                    }}
-                  >
-                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", marginBottom: 5 }}>
-                      {title}
-                    </div>
-                    <div
-                      style={{
-                        color: values.length ? UI.text : UI.muted,
-                        fontSize: 12.5,
-                        lineHeight: 1.35,
-                        fontWeight: 800,
-                        whiteSpace: "pre-line",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {values.length ? values.join("\n") : "-"}
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className={`${layoutStyles.workspaceFrame} ${layoutStyles.workspaceContent}`}>
+          {isGroupedJobNumber && (
+            <details className={layoutStyles.sharedSummary}>
+              <summary className={layoutStyles.sharedSummaryToggle}>
+                <div className={layoutStyles.sharedSummaryItems}>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Contact</span>
+                    <strong>{primaryContactName}</strong>
+                  </span>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Vehicles</span>
+                    <strong>{formatSummaryCount(connectedSummary.vehicles.length, "vehicle")}</strong>
+                  </span>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Crew</span>
+                    <strong>{formatSummaryCount(connectedSummary.crew.length, "person", "people")}</strong>
+                  </span>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Locations</span>
+                    <strong>{formatSummaryCount(connectedSummary.locations.length, "location")}</strong>
+                  </span>
+                </div>
 
-              <div className={layoutStyles.extracted26}>
-                <div className={layoutStyles.extracted27}>
+                <div className={layoutStyles.sharedSummaryStatus}>
                   {statusSummary && <Badge text={statusSummary} bg={UI.brandSoft} fg={UI.brand} border={UI.brandBorder} />}
                   {notReadyCount > 0 && (
                     <Badge
@@ -1468,26 +1513,30 @@ export default function JobInfoPage() {
                       border="var(--color-warning-border)"
                     />
                   )}
+                  <span className={layoutStyles.sharedSummaryDisclosure}>
+                    <span className={layoutStyles.sharedSummaryClosedLabel}>View shared details</span>
+                    <span className={layoutStyles.sharedSummaryOpenLabel}>Hide shared details</span>
+                  </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: `repeat(${notReadyCount > 0 ? 3 : 2}, minmax(0, 1fr))`, gap: 8 }}>
-                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Bookings</div>
-                    <div className={layoutStyles.extracted28}>{allJobs.length}</div>
-                  </div>
-                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Shown</div>
-                    <div className={layoutStyles.extracted29}>{filteredJobs.length}</div>
-                  </div>
-                  {notReadyCount > 0 && (
-                    <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                      <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
-                      <div className={layoutStyles.extracted30}>{notReadyCount}</div>
+              </summary>
+
+              <div className={layoutStyles.sharedSummaryDetails}>
+                {[
+                  ["Contacts", connectedSummary.contacts],
+                  ["Vehicles assigned", connectedSummary.vehicles],
+                  ["Crew allocated", connectedSummary.crew],
+                  ["Locations", connectedSummary.locations],
+                ].map(([title, values]) => (
+                  <div key={title} className={layoutStyles.sharedSummaryDetailGroup}>
+                    <div className={layoutStyles.sharedSummaryDetailLabel}>{title}</div>
+                    <div className={layoutStyles.sharedSummaryDetailValue}>
+                      {values.length ? values.join("\n") : "None"}
                     </div>
-                  )}
-                </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
+            </details>
+          )}
 
           {!filteredJobs.length ? (
             <div
@@ -1509,11 +1558,9 @@ export default function JobInfoPage() {
               const isPaid = computeIsPaid(job);
 
               const locked = isLockedStatus(currentDbStatus);
-              const complete = isCompleteStatus(currentDbStatus);
               const suppressMissingWarnings = locked || isCompleteStatus(currentDbStatus);
-              const lockReason = currentDbStatus || "Locked";
 
-              const isExpanded = expandedById[job.id] ?? (job.id === jobId); // default current open
+              const isExpanded = expandedById[job.id] ?? (job.id === currentJobRecordId); // default current open
 
               const timesheets = (timesheetsByJob[job.id] || []).slice().sort((a, b) => {
                 const t = (v) => parseDateFlexible(v)?.getTime() || 0;
@@ -1531,6 +1578,7 @@ export default function JobInfoPage() {
               const quoteRevision = splitQuoteRevision(quoteNumberRaw);
               const quoteNumberDisplay = quoteRevision.publicNumber;
               const quoteRevisionLabel = quoteRevision.revision ? `Rev ${quoteRevision.revision}` : "";
+              const jobIdentity = formatProductionIdentity(job);
               const quoteViewHref = quoteNumberRaw
                 ? `/quote-view/${job.id}?quote=${encodeURIComponent(quoteNumberRaw)}`
                 : `/quote-view/${job.id}`;
@@ -1542,16 +1590,50 @@ export default function JobInfoPage() {
               const crewCount = getCrewCount(job);
               const dayCount = getBookingDayCount(job);
               const dateSummary = formatCompactDateRange(job);
+              const invoiceStage = isInvoiceStageStatus(currentDbStatus);
               const invoiceReadiness = getInvoiceReadiness(job, timesheets, currentDbStatus);
-              const invoiceBadge = locked
-                ? { label: "Not applicable", ready: false, missing: [] }
-                : complete
-                ? { label: "", ready: true, missing: [] }
-                : suppressMissingWarnings
-                ? { label: "Complete", ready: true, missing: [] }
-                : invoiceReadiness;
-              const poStatus = String(job.po || "").trim() ? `PO ${job.po}` : "PO missing";
-              const timesheetStatus = `${timesheets.length} timesheet${timesheets.length === 1 ? "" : "s"}`;
+              const invoiceChecklist = [
+                ["status", "Status complete"],
+                ["PO", "PO reference"],
+                ["invoiceContact", "Invoicing contact"],
+                ["timesheets", "Linked timesheets"],
+                ["vehicle", "Vehicle assigned"],
+                ["crew", "Crew allocated"],
+              ].map(([key, label]) => ({
+                key,
+                label,
+                ok: !invoiceReadiness.missing.includes(key),
+              }));
+              const bookingChecklist = [
+                ["production", "Production added", Boolean(String(job.production || "").trim())],
+                ["location", "Location added", Boolean(String(job.location || "").trim())],
+                ["contact", "Booking contact added", Boolean(renderJobContacts(job))],
+                ["vehicle", "Vehicle assigned", Boolean(vehicleSummary)],
+                ["crew", "Crew allocated", crewCount.required === 0 || crewCount.allocated >= crewCount.required],
+              ].map(([key, label, ok]) => ({ key, label, ok }));
+              const readinessChecklist = invoiceStage ? invoiceChecklist : bookingChecklist;
+              const readinessBlockers = readinessChecklist.filter((item) => !item.ok);
+              const readinessReady = readinessBlockers.length === 0;
+              const statusHasChanged = selected !== currentDbStatus;
+              const showPoWarning = invoiceStage || norm(currentDbStatus) === "confirmed";
+              const rowWarnings = suppressMissingWarnings
+                ? []
+                : [
+                    !vehicleSummary ? "Vehicle missing" : "",
+                    crewCount.required > 0 && crewCount.allocated < crewCount.required
+                      ? `Crew ${crewCount.allocated}/${crewCount.required}`
+                      : "",
+                    showPoWarning && !String(job.po || "").trim() ? "PO missing" : "",
+                    invoiceStage && timesheets.length === 0 ? "0 timesheets" : "",
+                  ].filter(Boolean);
+              const bookingMeta = [
+                dateSummary,
+                dayCount ? `${dayCount} day${dayCount === 1 ? "" : "s"}` : "",
+                job.location,
+                vehicleSummary,
+              ]
+                .filter(Boolean)
+                .join(" · ");
               const hasNotesByDate =
                 job.notesByDate && typeof job.notesByDate === "object" && Object.keys(job.notesByDate).length > 0;
               const quoteNumberValue = (
@@ -1576,27 +1658,22 @@ export default function JobInfoPage() {
                       {quoteRevisionLabel}
                     </span>
                   )}
-                  <Btn title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
-                    Open quote
-                  </Btn>
-                  <Btn title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
-                    PDF
-                  </Btn>
                 </div>
               );
               const overviewRows = [
                 ["Job Number", job.jobNumber || job.id],
                 ["Quote Number", quoteNumberRaw ? quoteNumberValue : quoteNumberDisplay],
                 ["Status", currentDbStatus],
-                ["Production", job.client],
+                ["Production Company", job.client],
+                ["Production", job.production],
                 ["Shoot Type", job.shootType],
                 ["Location", job.location],
                 ["Dates", renderDateBlock(job)],
                 ["Call Time", job.callTime || renderNames(Object.values(job.callTimesByDate || {}))],
-                ["Crew", renderCrewNames(job)],
-                ["Crew Count", `${job.allocatedCrewCount ?? (Array.isArray(job.employees) ? job.employees.length : 0)} / ${job.requiredCrewCount || 0}`],
-                ["Vehicles", vehicleSummary],
-                ["Equipment", renderNames(job.equipment, ["name", "equipmentName"])],
+                ["Crew allocated", renderCrewNames(job)],
+                ["Crew requirement", `${job.allocatedCrewCount ?? (Array.isArray(job.employees) ? job.employees.length : 0)} / ${job.requiredCrewCount || 0}`],
+                ["Vehicles assigned", vehicleSummary],
+                ["Equipment assigned", renderNames(job.equipment, ["name", "equipmentName"])],
                 ["Contacts", renderJobContacts(job)],
                 ["PO", job.po],
                 ["Hotel", job.hasHotel ? `${yesNo(job.hasHotel)}${job.hotelNights ? ` - ${job.hotelNights} nights` : ""}${job.hotelPaidBy ? ` - ${job.hotelPaidBy}` : ""}` : "No"],
@@ -1606,125 +1683,95 @@ export default function JobInfoPage() {
                 <section
                   key={job.id}
                   id={JOB_SECTION_ID}
+                  className={layoutStyles.bookingSection}
+                  data-expanded={isExpanded ? "true" : undefined}
+                  data-current={job.id === currentJobRecordId ? "true" : undefined}
                   style={{
-                    border: job.id === jobId ? `2px solid ${UI.brand}` : UI.border,
-                    borderRadius: 8,
-                    padding: 8,
-                    marginBottom: 10,
-                    boxShadow: UI.shadow,
-                    background: locked ? "var(--color-surface-subtle)" : job.id === jobId ? "var(--color-surface-subtle)" : "var(--color-surface)",
+                    borderTop: isExpanded ? UI.border : "none",
+                    borderRight: isExpanded ? UI.border : "none",
+                    borderLeft: job.id === currentJobRecordId
+                      ? `3px solid ${UI.brand}`
+                      : isExpanded
+                      ? UI.border
+                      : "3px solid transparent",
+                    borderBottom: isExpanded ? UI.border : "1px solid var(--color-border)",
+                    borderRadius: isExpanded ? 8 : 0,
+                    padding: isExpanded ? 8 : "4px 8px",
+                    marginBottom: isExpanded ? 10 : 0,
+                    boxShadow: "none",
+                    background: isExpanded || locked ? "var(--color-surface-subtle)" : "transparent",
                     minWidth: 0,
                     scrollMarginTop: LAYOUT.HEADER_H + 80, // extra for search row
-                    opacity: locked ? 0.82 : 1,
-                    filter: locked ? "grayscale(0.35)" : "none",
                   }}
                 >
                   {/* Collapsible header */}
                   <div
                     onClick={() => setExpandedById((p) => ({ ...p, [job.id]: !isExpanded }))}
+                    className={layoutStyles.bookingHeader}
                     style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                      padding: 8,
+                      padding: 6,
                       borderRadius: 8,
-                      background: "var(--color-surface)",
-                      border: UI.border,
+                      background: "transparent",
+                      border: "none",
                       cursor: "pointer",
                       userSelect: "none",
                     }}
                     title={isExpanded ? "Collapse" : "Expand"}
                   >
-                    <div
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setExpandedById((current) => ({ ...current, [job.id]: !isExpanded }));
+                      }}
+                      aria-expanded={isExpanded}
+                      aria-controls={`${JOB_SECTION_ID}-body`}
+                      aria-label={isExpanded ? "Collapse booking details" : "Expand booking details"}
                       style={{
                         width: 26,
                         height: 26,
                         borderRadius: 8,
                         border: UI.border,
-                        background: "var(--color-surface)",
+                        background: "var(--color-surface-raised)",
                         display: "grid",
                         placeItems: "center",
                         fontWeight: 900,
                         color: UI.muted,
+                        cursor: "pointer",
                       }}
                     >
                       {isExpanded ? "–" : "+"}
-                    </div>
-
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 34,
-                        height: 24,
-                        padding: "0 8px",
-                        borderRadius: 999,
-                        background: UI.brandSoft,
-                        border: `1px solid ${UI.brandBorder}`,
-                        fontWeight: 900,
-                        fontSize: 12,
-                        color: UI.brand,
-                      }}
-                      title="Job prefix"
-                    >
-                      {splitJobNumber(job.jobNumber || "").prefix || "—"}
-                    </span>
+                    </button>
 
                     <div className={layoutStyles.extracted33}>
                       <div className={layoutStyles.extracted34}>
                         <StatusPill value={currentDbStatus} />
                         {isPaid && <PaidPill />}
-                        {invoiceBadge.label && (
-                          <Badge
-                            text={invoiceBadge.label}
-                            bg={locked ? "var(--color-surface-hover)" : invoiceBadge.ready ? "var(--color-success-soft)" : "var(--color-warning-soft)"}
-                            fg={locked ? "var(--color-text-muted)" : invoiceBadge.ready ? "var(--color-success)" : "var(--color-warning)"}
-                            border={locked ? "var(--color-border-strong)" : invoiceBadge.ready ? "var(--color-success-border)" : "var(--color-warning-border)"}
-                            title={
-                              locked
-                                ? "This job did not happen, so invoice readiness does not apply"
-                                : suppressMissingWarnings
-                                ? "Complete jobs do not show missing-item warnings"
-                                : invoiceBadge.missing.length
-                                ? `Missing: ${invoiceBadge.missing.join(", ")}`
-                                : "Ready to invoice"
-                            }
-                          />
-                        )}
-                        {locked && (
-                          <Badge
-                            text="Locked"
-                            bg="var(--color-border)"
-                            fg="var(--color-text-muted)"
-                            border="var(--color-border-strong)"
-                            title="Cancelled/DNH/Postponed/Lost jobs are view-only"
-                          />
-                        )}
-                      </div>
-
-                      <div
-                        className={layoutStyles.extracted35}
-                        title={`${job.client || "Booking"} - #${job.jobNumber || job.id}${quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}`}
-                      >
-                        {job.client || "Booking"} - #{job.jobNumber || job.id}
-                        {quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}
-                      </div>
-
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere" }}>
-                        {dateSummary}
-                        {dayCount ? ` - ${dayCount} day${dayCount === 1 ? "" : "s"}` : ""}
-                        {job.location ? ` - ${job.location}` : ""}
-                      </div>
-
-                      {!suppressMissingWarnings && (
-                        <div className={layoutStyles.extracted36}>
-                          <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "var(--color-warning-soft)"} fg={vehicleSummary ? UI.brand : "var(--color-warning)"} border={vehicleSummary ? UI.brandBorder : "var(--color-warning-border)"} />
-                          <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--color-warning-soft)" : "var(--color-surface-subtle)"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--color-warning)" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "var(--color-warning-border)" : "var(--color-border)"} />
-                          <Badge text={poStatus} bg={job.po ? "var(--color-surface-subtle)" : "var(--color-warning-soft)"} fg={job.po ? UI.text : "var(--color-warning)"} border={job.po ? "var(--color-border)" : "var(--color-warning-border)"} />
-                          <Badge text={timesheetStatus} bg={timesheets.length ? "var(--color-surface-subtle)" : "var(--color-warning-soft)"} fg={timesheets.length ? UI.text : "var(--color-warning)"} border={timesheets.length ? "var(--color-border)" : "var(--color-warning-border)"} />
+                        <div
+                          className={layoutStyles.extracted35}
+                          title={`${jobIdentity} - #${job.jobNumber || job.id}${quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}`}
+                        >
+                          {jobIdentity} - #{job.jobNumber || job.id}
+                          {quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}
                         </div>
-                      )}
+                      </div>
+
+                      <div className={layoutStyles.extracted36}>
+                        {bookingMeta && (
+                          <span className={layoutStyles.bookingMetaText} title={bookingMeta}>
+                            {bookingMeta}
+                          </span>
+                        )}
+                        {rowWarnings.length > 0 && (
+                          <span
+                            className={layoutStyles.bookingWarningSummary}
+                            title={`Needs attention: ${rowWarnings.join(", ")}`}
+                          >
+                            <span className={layoutStyles.bookingWarningDot} aria-hidden="true" />
+                            <span>{rowWarnings.join(" · ")}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Quick actions do not toggle collapse when clicked */}
@@ -1732,28 +1779,42 @@ export default function JobInfoPage() {
                       onClick={(e) => e.stopPropagation()}
                       className={layoutStyles.extracted37}
                     >
-                      <Btn disabled={!quoteNumberRaw} title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
-                        Open quote
-                      </Btn>
-                      <Btn disabled={!quoteNumberRaw} title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
-                        PDF
-                      </Btn>
-                      <Btn
-                        variant="primary"
-                        disabled={locked}
-                        title={locked ? `Editing disabled: ${lockReason}` : "Edit booking"}
-                        onClick={() =>
-                          router.push(
-                            `/edit-booking/${job.id}?returnTo=${encodeURIComponent(
-                              `/job-numbers/${encodeURIComponent(jobId)}`
-                            )}`
-                          )
-                        }
-                      >
-                        Edit
-                      </Btn>
+                      {quoteNumberRaw && (
+                        <>
+                          <Btn title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
+                            Open quote
+                          </Btn>
+                          <Btn title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
+                            PDF
+                          </Btn>
+                        </>
+                      )}
+                      {locked ? (
+                        <Btn
+                          variant="primary"
+                          disabled={reopeningByJob[job.id]}
+                          title="Reopen this booking as Enquiry"
+                          onClick={() => reopenBooking(job)}
+                        >
+                          {reopeningByJob[job.id] ? "Reopening…" : "Reopen booking"}
+                        </Btn>
+                      ) : (
+                        <Btn
+                          variant="primary"
+                          title="Edit booking"
+                          onClick={() =>
+                            router.push(
+                              `/edit-booking/${job.id}?returnTo=${encodeURIComponent(
+                                `/job-numbers/${encodeURIComponent(jobId)}`
+                              )}`
+                            )
+                          }
+                        >
+                          Edit
+                        </Btn>
+                      )}
 
-                      <details className={layoutStyles.extracted38}>
+                      {!locked && <details className={layoutStyles.extracted38}>
                         <summary
                           style={{
                             listStyle: "none",
@@ -1761,16 +1822,19 @@ export default function JobInfoPage() {
                             alignItems: "center",
                             justifyContent: "center",
                             minHeight: 30,
-                            minWidth: 34,
+                            minWidth: 36,
+                            padding: "0 7px",
                             border: UI.border,
                             borderRadius: 8,
-                            background: "var(--color-surface)",
+                            background: "var(--color-surface-raised)",
+                            color: UI.text,
                             fontWeight: 900,
                             cursor: "pointer",
                           }}
                           title="More actions"
+                          aria-label="More actions"
                         >
-                          ...
+                          •••
                         </summary>
                         <div
                           style={{
@@ -1788,35 +1852,35 @@ export default function JobInfoPage() {
                         >
                           <button
                             type="button"
-                            disabled={locked}
                             onClick={() => deleteJob(job.id)}
                             style={{
                               width: "100%",
                               border: "none",
                               background: "transparent",
-                              color: locked ? UI.muted : "var(--color-danger)",
+                              color: "var(--color-danger)",
                               textAlign: "left",
                               padding: "8px 10px",
                               borderRadius: 6,
                               fontWeight: 900,
-                              cursor: locked ? "not-allowed" : "pointer",
+                              cursor: "pointer",
                             }}
                           >
                             Delete booking
                           </button>
                         </div>
-                      </details>
+                      </details>}
                     </div>
                   </div>
 
-                  {locked && isExpanded && <DisabledOverlayNote reason={lockReason} />}
+                  {locked && isExpanded && <LockedBookingNote status={currentDbStatus} />}
 
                   {/* Collapsed body */}
                   {!isExpanded ? null : (
-                    <div className={layoutStyles.extracted39}>
+                    <div id={`${JOB_SECTION_ID}-body`} className={layoutStyles.extracted39}>
                       {/* Two-column layout */}
                       <div
                         className={layoutStyles.extracted40}
+                        data-locked={locked ? "true" : undefined}
                       >
                         {/* LEFT */}
                         <div className={layoutStyles.extracted41}>
@@ -1895,7 +1959,7 @@ export default function JobInfoPage() {
                           </Card>
 
                           {/* Timesheets */}
-                          <Card id={TIMESHEETS_ID} tone="plain" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
+                          {(!locked || cards.length > 0) && <Card id={TIMESHEETS_ID} tone="plain" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
                             <SectionTitle
                               title="Linked Timesheets"
                               right={
@@ -1908,23 +1972,26 @@ export default function JobInfoPage() {
                             {cards.length ? (
                               <div className={layoutStyles.extracted47}>{cards.map((c, i) => <div key={i}>{c}</div>)}</div>
                             ) : (
-                              <div
-                                style={{
-                                  color: UI.muted,
-                                  padding: 10,
-                                  border: "1px dashed var(--color-border)",
-                                  borderRadius: 8,
-                                  background: "var(--color-surface)",
-                                }}
-                              >
-                                No timesheet days found for this job yet.
-                              </div>
+                              <div className={layoutStyles.compactEmptyState}>No timesheets linked yet.</div>
                             )}
-                          </Card>
+                          </Card>}
+
+                          <FilesSection
+                            id={ATTACHMENTS_ID}
+                            job={job}
+                            locked={locked}
+                            currentPdfUrl={currentPdfUrl}
+                            fileSelected={fileSelected}
+                            uploading={uploadingByJob[job.id]}
+                            progress={progressByJob[job.id]}
+                            uploadError={uploadError}
+                            onFileSelect={(file) => onPdfSelect(job.id, file)}
+                            onUpload={() => uploadPdfForJob(job.id)}
+                          />
                         </div>
 
                         {/* RIGHT: Actions (sticky) */}
-                        <div
+                        {!locked && <div
                           style={{
                             display: "grid",
                             gap: 10,
@@ -1942,13 +2009,13 @@ export default function JobInfoPage() {
                               scrollMarginTop: LAYOUT.HEADER_H + 80,
                             }}
                           >
-                            <SectionTitle title="Status & Invoice" />
+                            <SectionTitle title={invoiceStage ? "Status & Invoice" : "Booking status"} />
 
                             <div className={layoutStyles.extracted48}>
                               {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
                                 const active = selected === opt;
                                 const color = statusColor(opt);
-                                const disabled = isPaid || locked;
+                                const disabled = isPaid;
 
                                 return (
                                   <button
@@ -1970,7 +2037,7 @@ export default function JobInfoPage() {
                                       fontSize: 11.5,
                                       whiteSpace: "nowrap",
                                     }}
-                                    title={locked ? `Locked: ${lockReason}` : isPaid ? "Paid jobs are locked" : ""}
+                                    title={isPaid ? "Paid jobs are locked" : ""}
                                   >
                                     {opt}
                                   </button>
@@ -1978,56 +2045,55 @@ export default function JobInfoPage() {
                               })}
                             </div>
 
-                            <Btn
-                              variant="dark"
-                              disabled={locked || isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus}
-                              title={locked ? `Locked: ${lockReason}` : isPaid ? "Paid jobs are locked" : "Save status"}
-                              onClick={() => {
-                                const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
-                                if (chosen !== currentDbStatus) saveJobStatus(job.id, chosen);
-                              }}
-                            >
-                              Save Status Change
-                            </Btn>
+                            {statusHasChanged && (
+                              <Btn
+                                variant="dark"
+                                disabled={isPaid}
+                                title={isPaid ? "Paid jobs are locked" : "Save status"}
+                                onClick={() => saveJobStatus(job.id, selected)}
+                              >
+                                Save Status Change
+                              </Btn>
+                            )}
 
                             <div
-                              style={{
-                                marginTop: 10,
-                                padding: 10,
-                                borderLeft: suppressMissingWarnings ? "3px solid var(--color-border-strong)" : invoiceReadiness.ready ? "3px solid var(--color-success-border)" : "3px solid var(--color-warning-border)",
-                                borderRadius: 6,
-                                background: suppressMissingWarnings ? "var(--color-surface-subtle)" : invoiceReadiness.ready ? "var(--color-success-soft)" : "var(--color-warning-soft)",
-                              }}
+                              className={layoutStyles.invoiceReadiness}
+                              data-state={readinessReady ? "ready" : "blocked"}
                             >
                               <div className={layoutStyles.extracted49}>
-                                <div className={layoutStyles.extracted50}>Invoice checklist</div>
+                                <div className={layoutStyles.extracted50}>
+                                  {invoiceStage ? "Invoice readiness" : "Booking readiness"}
+                                </div>
                                 <Badge
-                                  text={locked ? "Not applicable" : suppressMissingWarnings ? "Complete" : invoiceReadiness.label}
-                                  bg={suppressMissingWarnings ? "var(--color-surface-hover)" : invoiceReadiness.ready ? "var(--color-success-soft)" : "var(--color-accent-soft)"}
-                                  fg={suppressMissingWarnings ? "var(--color-text-muted)" : invoiceReadiness.ready ? "var(--color-success)" : "var(--color-warning)"}
-                                  border={suppressMissingWarnings ? "var(--color-border-strong)" : invoiceReadiness.ready ? "var(--color-success-border)" : "var(--color-warning-border)"}
+                                  text={readinessReady ? "Ready" : `${readinessBlockers.length} action${readinessBlockers.length === 1 ? "" : "s"}`}
+                                  bg={readinessReady ? "var(--color-success-soft)" : "var(--color-warning-soft)"}
+                                  fg={readinessReady ? "var(--color-success)" : "var(--color-warning)"}
+                                  border={readinessReady ? "var(--color-success-border)" : "var(--color-warning-border)"}
                                 />
                               </div>
-                              {suppressMissingWarnings ? (
-                                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
-                                  {locked
-                                    ? "This job did not happen, so invoice checks are not required."
-                                    : "This job is complete, so missing-item warnings are hidden."}
+                              {readinessReady ? (
+                                <div className={layoutStyles.invoiceReadinessMessage}>
+                                  {invoiceStage ? "All invoice checks are complete." : "The booking details are ready."}
                                 </div>
                               ) : (
-                                [
-                                  ["Status complete", !invoiceReadiness.missing.includes("status")],
-                                  ["PO reference", !invoiceReadiness.missing.includes("PO")],
-                                  ["Invoicing contact", !invoiceReadiness.missing.includes("invoiceContact")],
-                                  ["Linked timesheets", !invoiceReadiness.missing.includes("timesheets")],
-                                  ["Vehicle assigned", !invoiceReadiness.missing.includes("vehicle")],
-                                  ["Crew allocated", !invoiceReadiness.missing.includes("crew")],
-                                ].map(([label, ok]) => (
-                                  <div key={label} className={layoutStyles.extracted51}>
-                                    <span>{label}</span>
-                                    <span style={{ color: ok ? "var(--color-success)" : "var(--color-warning)" }}>{ok ? "OK" : "Missing"}</span>
+                                <div className={layoutStyles.invoiceBlockers}>
+                                  <span className={layoutStyles.invoiceBlockerLabel}>Action:</span>
+                                  <span>{readinessBlockers.map((item) => item.label).join(" · ")}</span>
+                                </div>
+                              )}
+
+                              {!readinessReady && (
+                                <details className={layoutStyles.invoiceChecklistDetails}>
+                                  <summary>View all checks</summary>
+                                  <div className={layoutStyles.invoiceChecklistRows}>
+                                    {readinessChecklist.map(({ key, label, ok }) => (
+                                      <div key={key} className={layoutStyles.extracted51}>
+                                        <span>{label}</span>
+                                        <span style={{ color: ok ? "var(--color-success)" : "var(--color-warning)" }}>{ok ? "OK" : "Missing"}</span>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))
+                                </details>
                               )}
                             </div>
 
@@ -2041,7 +2107,7 @@ export default function JobInfoPage() {
                               }}
                             >
                               <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 11, color: UI.muted, textTransform: "uppercase" }}>
-                                Notes & PO
+                                Notes
                               </div>
 
                             <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
@@ -2057,8 +2123,7 @@ export default function JobInfoPage() {
                                   [job.id]: { ...(prev?.[job.id] || {}), general: e.target.value },
                                 }))
                               }
-                              disabled={locked}
-                              placeholder={locked ? "Locked job (view-only)" : "Add general summary…"}
+                              placeholder="Add general summary…"
                               style={{
                                 width: "100%",
                                 border: UI.border,
@@ -2066,16 +2131,23 @@ export default function JobInfoPage() {
                                 padding: "6px 8px",
                                 fontSize: 12,
                                 resize: "vertical",
-                                background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
+                                background: "var(--color-surface)",
                                 marginBottom: 7,
-                                opacity: locked ? 0.8 : 1,
                               }}
                             />
 
-                            <Btn variant="base" disabled={locked} title={locked ? `Locked: ${lockReason}` : "Save summary"} onClick={() => saveJobSummary(job.id)}>
+                            <Btn variant="base" title="Save summary" onClick={() => saveJobSummary(job.id)}>
                               Save Summary
                             </Btn>
 
+                            <details className={layoutStyles.financeDetails} open={invoiceStage}>
+                              <summary>
+                                <span>Finance details</span>
+                                <span className={layoutStyles.financeDetailsSummary}>
+                                  {[job.po ? "PO added" : "PO not added", job.invoiceContactName && job.invoiceContactEmail ? "Contact added" : "No invoice contact"].join(" · ")}
+                                </span>
+                              </summary>
+                              <div className={layoutStyles.financeFields}>
                             <div className={layoutStyles.extracted52}>
                               <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
                                 Purchase Order (PO)
@@ -2083,20 +2155,17 @@ export default function JobInfoPage() {
                               <input
                                 type="text"
                                 defaultValue={job.po || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { po: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Enter PO reference…"}
+                                placeholder="Enter PO reference…"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                 }}
                               />
                             </div>
@@ -2107,141 +2176,60 @@ export default function JobInfoPage() {
                               <input
                                 type="text"
                                 defaultValue={job.invoiceContactName || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactName: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Accounts contact name"}
+                                placeholder="Accounts contact name"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                   marginBottom: 6,
                                 }}
                               />
                               <input
                                 type="email"
                                 defaultValue={job.invoiceContactEmail || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactEmail: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Accounts email"}
+                                placeholder="Accounts email"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                   marginBottom: 6,
                                 }}
                               />
                               <input
                                 type="tel"
                                 defaultValue={job.invoiceContactPhone || ""}
-                                disabled={locked}
                                 onBlur={(e) => {
-                                  if (locked) return;
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactPhone: e.target.value }));
                                 }}
-                                placeholder={locked ? "Locked job" : "Accounts phone (optional)"}
+                                placeholder="Accounts phone (optional)"
                                 style={{
                                   width: "100%",
                                   border: UI.border,
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "var(--color-surface-hover)" : "var(--color-surface)",
-                                  opacity: locked ? 0.8 : 1,
+                                  background: "var(--color-surface)",
                                 }}
                               />
                             </div>
+                              </div>
+                            </details>
                             </div>
 
-                            <div
-                              id={ATTACHMENTS_ID}
-                              style={{
-                                marginTop: 8,
-                                paddingTop: 8,
-                                borderTop: "1px solid var(--color-brand-soft)",
-                                scrollMarginTop: LAYOUT.HEADER_H + 80,
-                              }}
-                            >
-                              <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 11, color: UI.muted, textTransform: "uppercase" }}>
-                                {currentPdfUrl ? "Job Attachment (PDF)" : "Upload Job Attachment"}
-                              </div>
-
-                            {currentPdfUrl && (
-                              <div className={layoutStyles.extracted54}>
-                                <a
-                                  href={currentPdfUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{ color: UI.brand, textDecoration: "underline", fontSize: 14, fontWeight: 900 }}
-                                >
-                                  View Current PDF
-                                </a>
-                              </div>
-                            )}
-
-                            {Array.isArray(job.attachments) && job.attachments.length > 0 && (
-                              <div className={layoutStyles.extracted55}>
-                                <div className={layoutStyles.extracted56}>Attachments</div>
-                                <ul className={layoutStyles.extracted57}>
-                                  {job.attachments.map((att, i) => (
-                                    <li key={i} className={layoutStyles.extracted58}>
-                                      <a href={att.url} target="_blank" rel="noopener noreferrer" className={layoutStyles.extracted59}>
-                                        {att.name}
-                                      </a>
-                                      <span style={{ color: UI.muted }}> • {(att.size / 1024 / 1024).toFixed(2)} MB</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            <input
-                              type="file"
-                              accept="application/pdf"
-                              disabled={locked}
-                              onChange={(e) => onPdfSelect(job.id, e.target.files?.[0])}
-                              style={{
-                                marginBottom: 5,
-                                fontSize: 12,
-                                width: "100%",
-                                opacity: locked ? 0.6 : 1,
-                                cursor: locked ? "not-allowed" : "pointer",
-                              }}
-                              title={locked ? `Locked: ${lockReason}` : "Select a PDF"}
-                            />
-
-                            <Btn
-                              variant="dark"
-                              disabled={locked || uploadingByJob[job.id] || !fileSelected}
-                              title={locked ? `Locked: ${lockReason}` : ""}
-                              onClick={() => uploadPdfForJob(job.id)}
-                            >
-                              {uploadingByJob[job.id]
-                                ? `Uploading… ${progressByJob[job.id] ?? 0}%`
-                                : fileSelected
-                                ? currentPdfUrl
-                                  ? "Replace / Add PDF"
-                                  : "Upload PDF"
-                                : "Select file"}
-                            </Btn>
-
-                            {uploadError && <p className={layoutStyles.extracted60}>{uploadError}</p>}
-                            </div>
                           </Card>
-                        </div>
+                        </div>}
                       </div>
                     </div>
                   )}

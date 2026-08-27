@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -251,7 +251,7 @@ export default function AddEquipmentPage() {
   });
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={shell}>
         <main className={layoutStyles.extracted1}>
           <div className={layoutStyles.extracted2}>
@@ -261,7 +261,7 @@ export default function AddEquipmentPage() {
             </div>
 
             <div className={layoutStyles.extracted4}>
-              <button style={btn("var(--color-white)", UI.text)} onClick={() => router.back()}>
+              <button style={btn("var(--color-white)", UI.text)} onClick={() => requestGuardedNavigation(() => router.back())}>
                 ← Cancel
               </button>
               <button
@@ -411,7 +411,7 @@ export default function AddEquipmentPage() {
             </div>
 
             <div className={layoutStyles.extracted9}>
-              <button type="button" style={btn("var(--color-white)", UI.text)} onClick={() => router.back()}>
+              <button type="button" style={btn("var(--color-white)", UI.text)} onClick={() => requestGuardedNavigation(() => router.back())}>
                 Cancel
               </button>
               <button

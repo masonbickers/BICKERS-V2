@@ -2414,7 +2414,7 @@ export default function TimesheetDetailPage() {
 
   if (loading) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div style={{ ...pageWrap, color: UI.muted }}>Loading...</div>
       </HeaderSidebarLayout>
     );
@@ -2422,7 +2422,7 @@ export default function TimesheetDetailPage() {
 
   if (!timesheet) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div style={pageWrap}>
           <h1 className={layoutStyles.extracted1}>No timesheet found</h1>
         </div>
@@ -2432,7 +2432,7 @@ export default function TimesheetDetailPage() {
 
   if (accessDenied) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div style={pageWrap}>
           <div
             style={{
@@ -2473,7 +2473,7 @@ export default function TimesheetDetailPage() {
   }
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={{ ...pageWrap, display: "flex", flexDirection: "column" }}>
         {/* Controls (not printed) */}
         <div className={layoutStyles.extracted3}>

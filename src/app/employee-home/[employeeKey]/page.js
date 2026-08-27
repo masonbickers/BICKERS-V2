@@ -539,7 +539,7 @@ export default function EmployeeWorkBreakdownPage() {
   const rangeLabel = `${formatDisplayDate(formatYyyyMmDd(effectiveRange.since))} – ${formatDisplayDate(formatYyyyMmDd(effectiveRange.until))}`;
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <Page width="fluid" className={layoutStyles.page}>
         <PageHeader
           title={titleCase(employeeName)}
