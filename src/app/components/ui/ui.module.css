@@ -65,6 +65,13 @@
   box-shadow: var(--shadow-sm);
 }
 
+:global(:root[data-color-mode="dark"]) .cardInteractive,
+:global(:root[data-color-mode="dark"]) .statCard,
+:global(:root[data-color-mode="dark"]) .emptyState,
+:global(:root[data-color-mode="dark"]) .modal {
+  background: var(--color-surface-raised);
+}
+
 :global(:root[data-color-mode="dark"]) .navigationCardIcon {
   background: var(--color-brand-soft);
   box-shadow: none;
