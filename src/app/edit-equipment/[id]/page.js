@@ -6,6 +6,18 @@ import layoutStyles from "./page.styles.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
+  AlertTriangle,
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Hash,
+  MapPin,
+  Package,
+  Save,
+  Trash2,
+} from "lucide-react";
+import {
   collection,
   doc,
   getDoc,
@@ -16,7 +28,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -26,7 +38,6 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
-import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { normalizeVehicleAssetNumber } from "@/app/utils/vehicleAssetNumber";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
@@ -42,108 +53,6 @@ const clearBookingReferenceCache = () => {
   } catch {
     // Cache invalidation is best-effort.
   }
-};
-
-const UI = UI_TOKENS;
-
-const pageWrap = { padding: "10px 18px 14px", background: UI.bg, minHeight: "100vh" };
-const topBar = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 5,
-  flexWrap: "wrap",
-  marginBottom: 6,
-};
-const title = { margin: 0, fontSize: 22, fontWeight: 950, letterSpacing: "-0.01em", color: UI.text };
-const subtitle = { marginTop: 2, fontSize: 12, color: UI.muted };
-
-const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 8 };
-const sectionTitle = {
-  margin: "0 0 5px",
-  fontSize: 13.5,
-  fontWeight: 950,
-  color: UI.text,
-  letterSpacing: ".01em",
-};
-const sectionMeta = { marginTop: -2, marginBottom: 5, fontSize: 11.5, color: UI.muted };
-
-const grid = { display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 6 };
-const col = (span) => ({ gridColumn: `span ${span}` });
-
-const label = {
-  display: "block",
-  marginBottom: 2,
-  fontSize: 12,
-  fontWeight: 900,
-  color: UI.muted,
-  textTransform: "uppercase",
-  letterSpacing: ".04em",
-};
-
-const input = {
-  width: "100%",
-  padding: "6px 8px",
-  borderRadius: 12,
-  border: "1px solid var(--color-border)",
-  fontSize: 12.5,
-  background: "var(--color-surface)",
-  color: UI.text,
-  outline: "none",
-};
-
-const textarea = { ...input, minHeight: 180, resize: "vertical", lineHeight: 1.35 };
-const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
-
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: "1px solid var(--color-border)",
-      background: "var(--color-surface)",
-      color: UI.text,
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      textDecoration: "none",
-    };
-  }
-  if (kind === "danger") {
-    return {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-      padding: "6px 9px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.red}`,
-      background: UI.red,
-      color: "var(--color-white)",
-      fontWeight: 950,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-    };
-  }
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    padding: "6px 9px",
-    borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: UI.brand,
-    color: "var(--color-white)",
-    fontWeight: 950,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  };
 };
 
 const parseLocalDateOnly = (s) => {
@@ -165,6 +74,65 @@ const addWeeksToISO = (isoDate, weeks) => {
 };
 
 const NEW_CATEGORY_OPTION = "__new_category__";
+
+const formatUKDate = (isoDate) => {
+  const date = parseLocalDateOnly(isoDate);
+  if (!date) return "Not set";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
+const getInspectionState = (isoDate) => {
+  const dueDate = parseLocalDateOnly(isoDate);
+  if (!dueDate) {
+    return {
+      tone: "neutral",
+      label: "Not scheduled",
+      detail: "Add the last inspection and frequency to create a schedule.",
+      Icon: CalendarDays,
+    };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  dueDate.setHours(0, 0, 0, 0);
+  const days = Math.round((dueDate.getTime() - today.getTime()) / 86400000);
+
+  if (days < 0) {
+    const overdueDays = Math.abs(days);
+    return {
+      tone: "danger",
+      label: `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`,
+      detail: `Inspection was due ${formatUKDate(isoDate)}.`,
+      Icon: AlertTriangle,
+    };
+  }
+  if (days === 0) {
+    return {
+      tone: "warning",
+      label: "Due today",
+      detail: `Inspection is due ${formatUKDate(isoDate)}.`,
+      Icon: Clock3,
+    };
+  }
+  if (days <= 30) {
+    return {
+      tone: "warning",
+      label: `Due in ${days} day${days === 1 ? "" : "s"}`,
+      detail: `Next inspection is ${formatUKDate(isoDate)}.`,
+      Icon: Clock3,
+    };
+  }
+  return {
+    tone: "success",
+    label: "Inspection in date",
+    detail: `Next inspection is ${formatUKDate(isoDate)}.`,
+    Icon: CheckCircle2,
+  };
+};
 
 export default function EditEquipmentPage() {
   const router = useRouter();
@@ -350,6 +318,11 @@ export default function EditEquipmentPage() {
     }
   };
 
+  const inspectionState = useMemo(
+    () => getInspectionState(equipment?.nextInspection),
+    [equipment?.nextInspection]
+  );
+
   useUnsavedChangesGuard({
     enabled: !loading,
     isDirty: hasUnsavedChanges && !saving && !deleting,
@@ -358,114 +331,131 @@ export default function EditEquipmentPage() {
 
   if (loading) {
     return (
-      <HeaderSidebarLayout>
-        <div style={pageWrap}>
-          <div style={{ ...panel, color: UI.muted }}>Loading...</div>
+      <HeaderSidebarLayout showBackButton={false}>
+        <div className={layoutStyles.page}>
+          <div className={layoutStyles.loadingCard}>Loading equipment...</div>
         </div>
       </HeaderSidebarLayout>
     );
   }
 
   if (!equipment) return null;
+  const InspectionIcon = inspectionState.Icon;
 
   return (
-    <HeaderSidebarLayout>
-      <div style={pageWrap}>
-        <div className={layoutStyles.extracted1}>
-          <div>
-            <h1 style={title}>Edit Equipment</h1>
-            <div style={subtitle}>
-              Edit details, inspection dates, and notes for{" "}
-              <strong style={{ color: UI.text }}>{equipment.name || "Unnamed"}</strong>
-              {equipment.asset ? (
-                <>
-                  {" "}
-                  - Asset <strong style={{ color: UI.text }}>{equipment.asset}</strong>
-                </>
-              ) : null}
+    <HeaderSidebarLayout showBackButton={false}>
+      <main className={layoutStyles.page} data-sidebar-page>
+        <header className={layoutStyles.header} data-sidebar-page-header>
+          <div className={layoutStyles.headingBlock}>
+            <button
+              type="button"
+              className={layoutStyles.backLink}
+              onClick={() => requestGuardedNavigation(() => router.back())}
+              disabled={saving || deleting}
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              Equipment overview
+            </button>
+            <div className={layoutStyles.titleRow}>
+              <span className={layoutStyles.titleIcon} aria-hidden="true">
+                <Package size={20} />
+              </span>
+              <div>
+                <div className={layoutStyles.eyebrow}>Edit equipment</div>
+                <h1>{equipment.name || "Unnamed equipment"}</h1>
+                <p>Update the record, location and inspection schedule.</p>
+              </div>
             </div>
           </div>
 
-          <div className={layoutStyles.extracted2}>
-            <button style={btn("ghost")} onClick={() => router.back()} disabled={saving || deleting}>
-              Back
-            </button>
-            <button style={btn()} onClick={handleSave} disabled={!canSave || saving || deleting}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button style={btn("danger")} onClick={handleDelete} disabled={saving || deleting} title="Delete equipment">
+          <div className={layoutStyles.headerActions}>
+            {hasUnsavedChanges ? <span className={layoutStyles.unsaved}>Unsaved changes</span> : null}
+            <button
+              type="button"
+              className={`${layoutStyles.button} ${layoutStyles.dangerButton}`}
+              onClick={handleDelete}
+              disabled={saving || deleting}
+              title="Delete equipment"
+            >
+              <Trash2 size={15} aria-hidden="true" />
               {deleting ? "Deleting..." : "Delete"}
             </button>
+            <button
+              type="button"
+              className={`${layoutStyles.button} ${layoutStyles.primaryButton}`}
+              onClick={() => handleSave()}
+              disabled={!canSave || saving || deleting}
+              title={!canSave ? "Fill in the name and category" : "Save equipment changes"}
+            >
+              <Save size={15} aria-hidden="true" />
+              {saving ? "Saving..." : "Save changes"}
+            </button>
           </div>
-        </div>
+        </header>
 
-        <div className={layoutStyles.extracted3}>
-          <div style={panel}>
-            <div>
-              <h2 style={sectionTitle}>Equipment Information</h2>
-              <div style={sectionMeta}>Core details used in the equipment overview and status tracking.</div>
+        <section className={layoutStyles.summaryGrid} aria-label="Equipment summary">
+          <div className={layoutStyles.summaryItem}>
+            <span className={layoutStyles.summaryIcon}><Hash size={16} aria-hidden="true" /></span>
+            <span><small>Asset number</small><strong>{equipment.asset || "Not assigned"}</strong></span>
+          </div>
+          <div className={layoutStyles.summaryItem}>
+            <span className={layoutStyles.summaryIcon}><Package size={16} aria-hidden="true" /></span>
+            <span><small>Category</small><strong>{equipment.category || "Not assigned"}</strong></span>
+          </div>
+          <div className={layoutStyles.summaryItem}>
+            <span className={layoutStyles.summaryIcon}><MapPin size={16} aria-hidden="true" /></span>
+            <span><small>Current location</small><strong>{equipment.location || "Not recorded"}</strong></span>
+          </div>
+          <div className={layoutStyles.summaryItem}>
+            <span className={layoutStyles.statusDot} data-status={equipment.status || "Available"} aria-hidden="true" />
+            <span><small>Availability</small><strong>{equipment.status || "Available"}</strong></span>
+          </div>
+        </section>
+
+        <div className={layoutStyles.contentGrid}>
+          <section className={layoutStyles.panel}>
+            <div className={layoutStyles.sectionHeading}>
+              <div><h2>Equipment information</h2><p>Identification and booking details shown across the system.</p></div>
             </div>
 
-            <div className={layoutStyles.extracted4}>
-              <div style={col(4)}>
-                <label style={label}>Name *</label>
-                <input
-                  name="name"
-                  value={equipment.name || ""}
-                  onChange={handleChange}
-                  style={input}
-                  placeholder="e.g., Monitor Kit"
-                />
+            <div className={layoutStyles.detailsGrid}>
+              <div className={layoutStyles.fieldWide}>
+                <label className={layoutStyles.label} htmlFor="equipment-name">Name <span>*</span></label>
+                <input id="equipment-name" name="name" value={equipment.name || ""} onChange={handleChange} className={layoutStyles.control} placeholder="e.g., Monitor Kit" />
               </div>
 
-              <div style={col(4)}>
-                <label style={label}>Serial Number</label>
-                <input
-                  name="serialNumber"
-                  value={equipment.serialNumber || ""}
-                  onChange={handleChange}
-                  style={input}
-                />
+              <div>
+                <label className={layoutStyles.label} htmlFor="equipment-serial">Serial number</label>
+                <input id="equipment-serial" name="serialNumber" value={equipment.serialNumber || ""} onChange={handleChange} className={layoutStyles.control} placeholder="Optional" />
               </div>
 
-              <div style={col(4)}>
-                <label style={label}>Category *</label>
-                <select
-                  name="category"
-                  value={isCreatingCategory ? NEW_CATEGORY_OPTION : equipment.category || ""}
-                  onChange={handleChange}
-                  style={input}
-                >
+              <div>
+                <label className={layoutStyles.label} htmlFor="equipment-category">Category <span>*</span></label>
+                <select id="equipment-category" name="category" value={isCreatingCategory ? NEW_CATEGORY_OPTION : equipment.category || ""} onChange={handleChange} className={layoutStyles.control}>
                   <option value="">Select category...</option>
-                  {existingCategories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                  {equipment.category && !existingCategories.includes(equipment.category) ? (
-                    <option value={equipment.category}>{equipment.category}</option>
-                  ) : null}
+                  {existingCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  {equipment.category && !existingCategories.includes(equipment.category) ? <option value={equipment.category}>{equipment.category}</option> : null}
                   <option value={NEW_CATEGORY_OPTION}>+ Add new category</option>
                 </select>
                 {isCreatingCategory ? (
                   <input
                     value={newCategory}
-                    onChange={(e) => {
-                      const next = e.target.value;
+                    onChange={(event) => {
+                      const next = event.target.value;
                       setNewCategory(next);
-                      setEquipment((prev) => ({ ...(prev || {}), category: next }));
+                      setEquipment((previous) => ({ ...(previous || {}), category: next }));
                     }}
-                    style={{ ...input, marginTop: 8 }}
+                    className={`${layoutStyles.control} ${layoutStyles.newCategoryInput}`}
                     placeholder="Type new category name"
                     required
                   />
                 ) : null}
-                <div style={helpText}>Categories control grouping in Equipment Overview.</div>
+                <div className={layoutStyles.helpText}>Controls grouping in Equipment Overview.</div>
               </div>
 
-              <div style={col(3)}>
-                <label style={label}>Status</label>
-                <select name="status" value={equipment.status || "Available"} onChange={handleChange} style={input}>
+              <div>
+                <label className={layoutStyles.label} htmlFor="equipment-status">Status</label>
+                <select id="equipment-status" name="status" value={equipment.status || "Available"} onChange={handleChange} className={layoutStyles.control}>
                   <option value="Available">Available</option>
                   <option value="Not Available">Not Available</option>
                   <option value="Maintenance">Maintenance</option>
@@ -473,116 +463,54 @@ export default function EditEquipmentPage() {
                 </select>
               </div>
 
-              <div style={col(3)}>
-                <label style={label}>Asset No.</label>
-                <input name="asset" value={equipment.asset || ""} onChange={handleChange} style={input} />
+              <div>
+                <label className={layoutStyles.label} htmlFor="equipment-asset">Asset number</label>
+                <input id="equipment-asset" name="asset" value={equipment.asset || ""} onChange={handleChange} className={layoutStyles.control} placeholder="Optional" />
               </div>
 
-              <div style={col(6)}>
-                <label style={label}>Location</label>
-                <input
-                  name="location"
-                  value={equipment.location || ""}
-                  onChange={handleChange}
-                  style={input}
-                  placeholder="e.g., Workshop / Truck 2"
-                />
+              <div className={layoutStyles.fieldWide}>
+                <label className={layoutStyles.label} htmlFor="equipment-location">Location</label>
+                <input id="equipment-location" name="location" value={equipment.location || ""} onChange={handleChange} className={layoutStyles.control} placeholder="e.g., Workshop / Truck 2" />
               </div>
             </div>
-          </div>
+          </section>
 
-          <div style={panel}>
-            <div>
-              <h2 style={sectionTitle}>Inspection</h2>
-              <div style={sectionMeta}>Track the last inspection date and the next due date.</div>
+          <section className={`${layoutStyles.panel} ${layoutStyles.inspectionPanel}`}>
+            <div className={layoutStyles.sectionHeading}>
+              <div><h2>Inspection schedule</h2><p>Keep the compliance cycle current.</p></div>
             </div>
 
-            <div className={layoutStyles.extracted5}>
-              <div style={col(4)}>
-                <label style={label}>Last Inspection</label>
-                <input
-                  type="date"
-                  name="lastInspection"
-                  value={equipment.lastInspection || ""}
-                  onChange={handleChange}
-                  style={input}
-                />
+            <div className={layoutStyles.inspectionFields}>
+              <div>
+                <label className={layoutStyles.label} htmlFor="last-inspection">Last inspection</label>
+                <input id="last-inspection" type="date" name="lastInspection" value={equipment.lastInspection || ""} onChange={handleChange} className={layoutStyles.control} />
               </div>
-
-              <div style={col(4)}>
-                <label style={label}>Frequency (weeks)</label>
-                <input
-                  name="inspectionFrequency"
-                  value={equipment.inspectionFrequency || ""}
-                  onChange={handleChange}
-                  style={input}
-                  inputMode="numeric"
-                  placeholder="e.g., 26"
-                />
+              <div>
+                <label className={layoutStyles.label} htmlFor="inspection-frequency">Frequency (weeks)</label>
+                <input id="inspection-frequency" name="inspectionFrequency" value={equipment.inspectionFrequency || ""} onChange={handleChange} className={layoutStyles.control} inputMode="numeric" placeholder="e.g., 26" />
               </div>
-
-              <div style={col(4)}>
-                <label style={label}>Next Inspection Due</label>
-                <input
-                  type="date"
-                  name="nextInspection"
-                  value={equipment.nextInspection || ""}
-                  onChange={handleChange}
-                  style={input}
-                />
-                <div style={helpText}>Auto-calculates when Last Inspection + Frequency are set.</div>
+              <div className={layoutStyles.nextInspectionField}>
+                <label className={layoutStyles.label} htmlFor="next-inspection">Next inspection due</label>
+                <input id="next-inspection" type="date" name="nextInspection" value={equipment.nextInspection || ""} onChange={handleChange} className={layoutStyles.control} />
+                <div className={layoutStyles.helpText}>Auto-calculated from the last inspection and frequency; edit if needed.</div>
               </div>
             </div>
-          </div>
 
-          <div style={panel}>
-            <div>
-              <h2 style={sectionTitle}>Notes</h2>
-              <div style={sectionMeta}>Use this for usage notes, issues, missing parts, or inspection context.</div>
+            <div className={layoutStyles.inspectionState} data-tone={inspectionState.tone}>
+              <span className={layoutStyles.inspectionStateIcon} aria-hidden="true"><InspectionIcon size={18} /></span>
+              <span><strong>{inspectionState.label}</strong><small>{inspectionState.detail}</small></span>
             </div>
-            <textarea
-              name="notes"
-              value={equipment.notes || ""}
-              onChange={handleChange}
-              style={textarea}
-              placeholder="Usage notes, missing parts, inspection notes, certificates..."
-            />
-          </div>
+          </section>
 
-          <div className={layoutStyles.extracted6}>
-            <button style={btn("ghost")} onClick={() => router.back()} disabled={saving || deleting}>
-              Cancel
-            </button>
-            <button style={btn()} onClick={handleSave} disabled={!canSave || saving || deleting}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-          </div>
+          <section className={`${layoutStyles.panel} ${layoutStyles.notesPanel}`}>
+            <div className={layoutStyles.sectionHeading}>
+              <div><h2>Operational notes</h2><p>Record issues, missing parts, usage context or certificate references.</p></div>
+              <span className={layoutStyles.characterCount}>{(equipment.notes || "").length} characters</span>
+            </div>
+            <textarea id="equipment-notes" name="notes" value={equipment.notes || ""} onChange={handleChange} className={`${layoutStyles.control} ${layoutStyles.textarea}`} placeholder="Usage notes, missing parts, inspection notes, certificates..." />
+          </section>
         </div>
-      </div>
-
-      <style jsx global>{`
-        input:focus,
-        select:focus,
-        textarea:focus {
-          outline: none;
-          box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-          border-color: var(--color-info-border) !important;
-        }
-        select option {
-          background: var(--color-surface);
-          color: var(--color-text);
-        }
-        input:disabled,
-        select:disabled,
-        textarea:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        button:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-      `}</style>
+      </main>
     </HeaderSidebarLayout>
   );
 }

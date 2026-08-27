@@ -327,7 +327,7 @@ export default function UploadContractPage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style>{focusCss}</style>
 
       <div style={pageWrap}>

@@ -32,6 +32,7 @@ import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
 import {
   buildReopenBookingPayload,
+  formatProductionIdentity,
   isLockedJobStatus as isLockedStatus,
   lockedBookingMessage,
 } from "@/app/utils/jobNumberDetail";
@@ -43,7 +44,6 @@ const UI = UI_TOKENS;
 
 const LAYOUT = {
   HEADER_H: 54,
-  PAGE_PAD_X: 16,
   STICKY_GAP: 8,
 };
 
@@ -138,16 +138,11 @@ const renderVehicleNames = (vehicles) => {
 const renderContacts = (contacts) => {
   if (!Array.isArray(contacts) || !contacts.length) return null;
   const rows = contacts
-    .map((contact) =>
-      [
-        contact.department,
-        contact.name,
-        contact.email,
-        contact.phone || contact.number,
-      ]
-        .filter(Boolean)
-        .join(" - ")
-    )
+    .map((contact) => {
+      const identity = [contact.department, contact.name].filter(Boolean).join(" · ");
+      const details = [contact.email, contact.phone || contact.number].filter(Boolean).join(" · ");
+      return [identity, details].filter(Boolean).join("\n");
+    })
     .filter(Boolean);
   return rows.length ? rows.join("\n") : null;
 };
@@ -265,6 +260,22 @@ const buildConnectedBookingSummary = (jobs) => {
     locations: uniqueCleanList(connectedJobs.flatMap(getLocationLabels)),
   };
 };
+
+const getPrimaryContactName = (jobs) => {
+  for (const job of jobs || []) {
+    const directName = String(job?.contactName || "").trim();
+    if (directName) return directName;
+
+    const additionalName = (job?.additionalContacts || [])
+      .map((contact) => String(contact?.name || "").trim())
+      .find(Boolean);
+    if (additionalName) return additionalName;
+  }
+  return "No contact";
+};
+
+const formatSummaryCount = (count, singular, plural = `${singular}s`) =>
+  `${count} ${count === 1 ? singular : plural}`;
 
 const yesNo = (value) => (value ? "Yes" : "No");
 
@@ -657,6 +668,11 @@ const isCompleteStatus = (status = "") => {
   return s === "complete" || s === "completed";
 };
 
+const isInvoiceStageStatus = (status = "") =>
+  ["complete", "completed", "ready to invoice", "needs action", "invoiced", "paid"].includes(
+    String(status || "").toLowerCase().trim()
+  );
+
 const LockedBookingNote = ({ status }) => (
   <div
     className={layoutStyles.extracted14}
@@ -686,12 +702,12 @@ const Btn = ({ children, disabled, onClick, variant = "base", title }) => {
 
   const styles =
     variant === "primary"
-      ? { ...base, background: UI.brand, color: "var(--color-surface)", border: `1px solid ${UI.brand}` }
+      ? { ...base, background: "var(--button-primary-background)", color: "var(--button-primary-text)", border: "1px solid var(--button-primary-border)" }
       : variant === "danger"
-      ? { ...base, background: "var(--color-danger)", color: "var(--color-surface)", border: "1px solid var(--color-danger)" }
+      ? { ...base, background: "var(--color-danger)", color: "var(--color-white)", border: "1px solid var(--color-danger)" }
       : variant === "dark"
-      ? { ...base, background: "var(--shell-sidebar-bg)", color: "var(--color-surface)", border: "1px solid var(--shell-sidebar-bg)" }
-      : { ...base, background: "var(--color-surface)", color: UI.text };
+      ? { ...base, background: "var(--button-primary-background)", color: "var(--button-primary-text)", border: "1px solid var(--button-primary-border)" }
+      : { ...base, background: "var(--color-surface-raised)", color: UI.text };
 
   return (
     <button disabled={disabled} onClick={disabled ? undefined : onClick} style={styles} title={title}>
@@ -824,6 +840,7 @@ const matchText = (job, term) => {
   if (!t) return true;
   const hay = [
     job?.client,
+    job?.production,
     job?.jobNumber,
     job?.location,
     job?.notes,
@@ -1312,16 +1329,18 @@ export default function JobInfoPage() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [relatedJobs, setExpandedById]);
 
-  // Ensure the current route job is expanded
-  useEffect(() => {
-    if (!jobId) return;
-    setExpandedById((p) => ({ ...p, [jobId]: true }));
-  }, [jobId, setExpandedById]);
-
   const allJobs = useMemo(
     () => relatedJobs.map((j) => normalizeVehiclesForJob(j, vehicleMap)),
     [relatedJobs, vehicleMap]
   );
+  const currentJobRecordId = allJobs.find((job) => job.id === jobId)?.id || allJobs[0]?.id || jobId;
+
+  // Job Number routes can use the shared number rather than a booking document ID.
+  // Keep the resolved current booking open using the same key as expandedById.
+  useEffect(() => {
+    if (!currentJobRecordId) return;
+    setExpandedById((current) => ({ ...current, [currentJobRecordId]: true }));
+  }, [currentJobRecordId, setExpandedById]);
 
   const statusOptions = useMemo(() => {
     const set = new Set(["All"]);
@@ -1340,7 +1359,7 @@ export default function JobInfoPage() {
 
   if (!jobId) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div className={layoutStyles.extracted17}>No Job ID provided.</div>
       </HeaderSidebarLayout>
     );
@@ -1348,7 +1367,7 @@ export default function JobInfoPage() {
 
   if (!relatedJobs.length) {
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <div className={layoutStyles.extracted18}>Loading job details…</div>
       </HeaderSidebarLayout>
     );
@@ -1356,6 +1375,7 @@ export default function JobInfoPage() {
 
   const mainJob = allJobs.find((j) => j.id === jobId) || allJobs[0] || relatedJobs[0];
   const prefix = splitJobNumber(mainJob.jobNumber).prefix;
+  const mainJobIdentity = formatProductionIdentity(mainJob);
   const statusCounts = countByStatus(allJobs, statusByJob);
   const statusSummary = Object.entries(statusCounts)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -1363,228 +1383,127 @@ export default function JobInfoPage() {
     .join(" - ");
   const notReadyCount = allJobs.reduce((total, job) => {
     const status = statusByJob[job.id] || job.status || "Pending";
-    if (isLockedStatus(status) || isCompleteStatus(status)) return total;
+    if (isLockedStatus(status) || !isInvoiceStageStatus(status)) return total;
     return total + (getInvoiceReadiness(job, timesheetsByJob[job.id] || [], status).ready ? 0 : 1);
   }, 0);
   const connectedSummary = buildConnectedBookingSummary(allJobs);
+  const primaryContactName = getPrimaryContactName(allJobs);
   const isGroupedJobNumber = allJobs.length > 1;
 
   const toggleAll = (open) => {
     const next = {};
     filteredJobs.forEach((j) => (next[j.id] = !!open));
     // Always keep current job open
-    if (jobId) next[jobId] = true;
+    if (currentJobRecordId) next[currentJobRecordId] = true;
     setExpandedById((p) => ({ ...p, ...next }));
   };
 
   return (
-    <HeaderSidebarLayout>
-      <div style={{ width: "100%", minHeight: "100vh", backgroundColor: UI.bg, color: UI.text }}>
-        {/* Sticky page header + SEARCH */}
-        <div
-          id="page-top"
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 8,
-            background: "color-mix(in srgb, var(--color-canvas) 96%, transparent)",
-            backdropFilter: "saturate(180%) blur(6px)",
-            borderBottom: UI.border,
-          }}
-        >
-          <div
-            className={layoutStyles.extracted19}
-          >
-            <div
-              style={{
-                width: "100%",
-                margin: "0 auto",
-                padding: `0 ${LAYOUT.PAGE_PAD_X}px`,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                minWidth: 0,
-                paddingTop: 6,
-                paddingBottom: 6,
-              }}
-            >
+    <HeaderSidebarLayout showBackButton={false}>
+      <div style={{ width: "100%", minHeight: "100%", backgroundColor: UI.bg, color: UI.text }}>
+        {/* Sticky page header + list controls */}
+        <div id="page-top" className={layoutStyles.workspaceToolbar}>
+          <div className={layoutStyles.workspaceFrame}>
+            <div className={layoutStyles.workspaceTitleRow}>
               <Btn onClick={() => router.push("/job-home")} variant="base">
                 ← Back
               </Btn>
 
               <div className={layoutStyles.extracted20}>
                 <div className={layoutStyles.extracted21}>
-                  Job #{prefix} - {mainJob.client || "Booking"}
+                  Job #{prefix} - {mainJobIdentity}
                 </div>
               </div>
+            </div>
 
-              {isGroupedJobNumber && (
-                <div className={layoutStyles.extracted22}>
-                  <Btn variant="base" onClick={() => toggleAll(true)} title="Expand all">
+            {isGroupedJobNumber && (
+              <div className={layoutStyles.workspaceListTools}>
+                <div className={layoutStyles.extracted23}>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className={layoutStyles.extracted24}
+                    aria-hidden
+                  >
+                    <path
+                      d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search bookings"
+                    className={layoutStyles.workspaceSearchInput}
+                    aria-label="Search bookings"
+                  />
+                </div>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className={layoutStyles.workspaceStatusFilter}
+                  aria-label="Filter bookings by status"
+                >
+                  {statusOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+
+                <div
+                  className={layoutStyles.workspaceResultCount}
+                  title="Visible bookings"
+                  aria-live="polite"
+                >
+                  {filteredJobs.length} of {allJobs.length}
+                </div>
+
+                <div className={layoutStyles.workspaceBulkActions}>
+                  <Btn variant="base" onClick={() => toggleAll(true)} title="Expand all bookings">
                     Expand all
                   </Btn>
-                  <Btn variant="base" onClick={() => toggleAll(false)} title="Collapse all (keeps current open)">
+                  <Btn variant="base" onClick={() => toggleAll(false)} title="Collapse all bookings except the current booking">
                     Collapse all
                   </Btn>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-
-          {/* Search Row */}
-          {isGroupedJobNumber && <div
-            style={{
-              width: "100%",
-              margin: "0 auto",
-              padding: `0 ${LAYOUT.PAGE_PAD_X}px 8px`,
-              display: "grid",
-              gridTemplateColumns: "minmax(260px, 1fr) minmax(170px, 220px) auto",
-              gap: 8,
-              alignItems: "center",
-            }}
-          >
-            <div className={layoutStyles.extracted23}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className={layoutStyles.extracted24}
-                aria-hidden
-              >
-                <path
-                  d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-
-              <input
-                ref={searchRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search bookings"
-                style={{
-                  width: "100%",
-                  height: 34,
-                  padding: "0 12px 0 34px",
-                  borderRadius: 8,
-                  border: UI.border,
-                  fontSize: 13,
-                  outline: "none",
-                  background: "var(--color-surface)",
-                  fontWeight: 700,
-                }}
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                width: "100%",
-                height: 34,
-                padding: "0 10px",
-                borderRadius: 8,
-                border: UI.border,
-                fontSize: 13,
-                outline: "none",
-                background: "var(--color-surface)",
-                fontWeight: 800,
-              }}
-              aria-label="Filter by status"
-            >
-              {statusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-
-            <div
-              style={{
-                border: UI.border,
-                background: "var(--color-surface)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                fontSize: 12.5,
-                fontWeight: 900,
-                textAlign: "center",
-              }}
-              title="Visible jobs"
-            >
-              {filteredJobs.length} shown
-            </div>
-          </div>}
         </div>
 
         {/* Page content */}
-        <div
-          style={{
-            width: "100%",
-            margin: "0 auto",
-            padding: `10px ${LAYOUT.PAGE_PAD_X}px 32px`,
-            paddingTop: 10,
-            minWidth: 0,
-          }}
-        >
-          {isGroupedJobNumber && <div
-            style={{
-              border: `1px solid ${UI.brandBorder}`,
-              background: "var(--color-surface)",
-              borderRadius: 8,
-              padding: 14,
-              marginBottom: 12,
-              boxShadow: UI.shadow,
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `minmax(0, 1fr) minmax(${notReadyCount > 0 ? 280 : 188}px, ${notReadyCount > 0 ? 340 : 240}px)`,
-                gap: 10,
-                alignItems: "start",
-              }}
-            >
-              <div
-                className={layoutStyles.extracted25}
-              >
-                {[
-                  ["Contacts", connectedSummary.contacts],
-                  ["Vehicles assigned", connectedSummary.vehicles],
-                  ["Crew allocated", connectedSummary.crew],
-                  ["Locations", connectedSummary.locations],
-                ].map(([title, values]) => (
-                  <div
-                    key={title}
-                    style={{
-                      padding: "4px 10px 4px 0",
-                      borderRight: title === "Locations" ? "none" : "1px solid var(--color-brand-soft)",
-                      minWidth: 0,
-                    }}
-                  >
-                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", marginBottom: 5 }}>
-                      {title}
-                    </div>
-                    <div
-                      style={{
-                        color: values.length ? UI.text : UI.muted,
-                        fontSize: 12.5,
-                        lineHeight: 1.35,
-                        fontWeight: 800,
-                        whiteSpace: "pre-line",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {values.length ? values.join("\n") : "-"}
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className={`${layoutStyles.workspaceFrame} ${layoutStyles.workspaceContent}`}>
+          {isGroupedJobNumber && (
+            <details className={layoutStyles.sharedSummary}>
+              <summary className={layoutStyles.sharedSummaryToggle}>
+                <div className={layoutStyles.sharedSummaryItems}>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Contact</span>
+                    <strong>{primaryContactName}</strong>
+                  </span>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Vehicles</span>
+                    <strong>{formatSummaryCount(connectedSummary.vehicles.length, "vehicle")}</strong>
+                  </span>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Crew</span>
+                    <strong>{formatSummaryCount(connectedSummary.crew.length, "person", "people")}</strong>
+                  </span>
+                  <span className={layoutStyles.sharedSummaryItem}>
+                    <span>Locations</span>
+                    <strong>{formatSummaryCount(connectedSummary.locations.length, "location")}</strong>
+                  </span>
+                </div>
 
-              <div className={layoutStyles.extracted26}>
-                <div className={layoutStyles.extracted27}>
+                <div className={layoutStyles.sharedSummaryStatus}>
                   {statusSummary && <Badge text={statusSummary} bg={UI.brandSoft} fg={UI.brand} border={UI.brandBorder} />}
                   {notReadyCount > 0 && (
                     <Badge
@@ -1594,26 +1513,30 @@ export default function JobInfoPage() {
                       border="var(--color-warning-border)"
                     />
                   )}
+                  <span className={layoutStyles.sharedSummaryDisclosure}>
+                    <span className={layoutStyles.sharedSummaryClosedLabel}>View shared details</span>
+                    <span className={layoutStyles.sharedSummaryOpenLabel}>Hide shared details</span>
+                  </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: `repeat(${notReadyCount > 0 ? 3 : 2}, minmax(0, 1fr))`, gap: 8 }}>
-                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Bookings</div>
-                    <div className={layoutStyles.extracted28}>{allJobs.length}</div>
-                  </div>
-                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Shown</div>
-                    <div className={layoutStyles.extracted29}>{filteredJobs.length}</div>
-                  </div>
-                  {notReadyCount > 0 && (
-                    <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                      <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
-                      <div className={layoutStyles.extracted30}>{notReadyCount}</div>
+              </summary>
+
+              <div className={layoutStyles.sharedSummaryDetails}>
+                {[
+                  ["Contacts", connectedSummary.contacts],
+                  ["Vehicles assigned", connectedSummary.vehicles],
+                  ["Crew allocated", connectedSummary.crew],
+                  ["Locations", connectedSummary.locations],
+                ].map(([title, values]) => (
+                  <div key={title} className={layoutStyles.sharedSummaryDetailGroup}>
+                    <div className={layoutStyles.sharedSummaryDetailLabel}>{title}</div>
+                    <div className={layoutStyles.sharedSummaryDetailValue}>
+                      {values.length ? values.join("\n") : "None"}
                     </div>
-                  )}
-                </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>}
+            </details>
+          )}
 
           {!filteredJobs.length ? (
             <div
@@ -1635,10 +1558,9 @@ export default function JobInfoPage() {
               const isPaid = computeIsPaid(job);
 
               const locked = isLockedStatus(currentDbStatus);
-              const complete = isCompleteStatus(currentDbStatus);
               const suppressMissingWarnings = locked || isCompleteStatus(currentDbStatus);
 
-              const isExpanded = expandedById[job.id] ?? (job.id === jobId); // default current open
+              const isExpanded = expandedById[job.id] ?? (job.id === currentJobRecordId); // default current open
 
               const timesheets = (timesheetsByJob[job.id] || []).slice().sort((a, b) => {
                 const t = (v) => parseDateFlexible(v)?.getTime() || 0;
@@ -1656,6 +1578,7 @@ export default function JobInfoPage() {
               const quoteRevision = splitQuoteRevision(quoteNumberRaw);
               const quoteNumberDisplay = quoteRevision.publicNumber;
               const quoteRevisionLabel = quoteRevision.revision ? `Rev ${quoteRevision.revision}` : "";
+              const jobIdentity = formatProductionIdentity(job);
               const quoteViewHref = quoteNumberRaw
                 ? `/quote-view/${job.id}?quote=${encodeURIComponent(quoteNumberRaw)}`
                 : `/quote-view/${job.id}`;
@@ -1667,16 +1590,50 @@ export default function JobInfoPage() {
               const crewCount = getCrewCount(job);
               const dayCount = getBookingDayCount(job);
               const dateSummary = formatCompactDateRange(job);
+              const invoiceStage = isInvoiceStageStatus(currentDbStatus);
               const invoiceReadiness = getInvoiceReadiness(job, timesheets, currentDbStatus);
-              const invoiceBadge = locked
-                ? { label: "", ready: false, missing: [] }
-                : complete
-                ? { label: "", ready: true, missing: [] }
-                : suppressMissingWarnings
-                ? { label: "Complete", ready: true, missing: [] }
-                : invoiceReadiness;
-              const poStatus = String(job.po || "").trim() ? `PO ${job.po}` : "PO missing";
-              const timesheetStatus = `${timesheets.length} timesheet${timesheets.length === 1 ? "" : "s"}`;
+              const invoiceChecklist = [
+                ["status", "Status complete"],
+                ["PO", "PO reference"],
+                ["invoiceContact", "Invoicing contact"],
+                ["timesheets", "Linked timesheets"],
+                ["vehicle", "Vehicle assigned"],
+                ["crew", "Crew allocated"],
+              ].map(([key, label]) => ({
+                key,
+                label,
+                ok: !invoiceReadiness.missing.includes(key),
+              }));
+              const bookingChecklist = [
+                ["production", "Production added", Boolean(String(job.production || "").trim())],
+                ["location", "Location added", Boolean(String(job.location || "").trim())],
+                ["contact", "Booking contact added", Boolean(renderJobContacts(job))],
+                ["vehicle", "Vehicle assigned", Boolean(vehicleSummary)],
+                ["crew", "Crew allocated", crewCount.required === 0 || crewCount.allocated >= crewCount.required],
+              ].map(([key, label, ok]) => ({ key, label, ok }));
+              const readinessChecklist = invoiceStage ? invoiceChecklist : bookingChecklist;
+              const readinessBlockers = readinessChecklist.filter((item) => !item.ok);
+              const readinessReady = readinessBlockers.length === 0;
+              const statusHasChanged = selected !== currentDbStatus;
+              const showPoWarning = invoiceStage || norm(currentDbStatus) === "confirmed";
+              const rowWarnings = suppressMissingWarnings
+                ? []
+                : [
+                    !vehicleSummary ? "Vehicle missing" : "",
+                    crewCount.required > 0 && crewCount.allocated < crewCount.required
+                      ? `Crew ${crewCount.allocated}/${crewCount.required}`
+                      : "",
+                    showPoWarning && !String(job.po || "").trim() ? "PO missing" : "",
+                    invoiceStage && timesheets.length === 0 ? "0 timesheets" : "",
+                  ].filter(Boolean);
+              const bookingMeta = [
+                dateSummary,
+                dayCount ? `${dayCount} day${dayCount === 1 ? "" : "s"}` : "",
+                job.location,
+                vehicleSummary,
+              ]
+                .filter(Boolean)
+                .join(" · ");
               const hasNotesByDate =
                 job.notesByDate && typeof job.notesByDate === "object" && Object.keys(job.notesByDate).length > 0;
               const quoteNumberValue = (
@@ -1707,7 +1664,8 @@ export default function JobInfoPage() {
                 ["Job Number", job.jobNumber || job.id],
                 ["Quote Number", quoteNumberRaw ? quoteNumberValue : quoteNumberDisplay],
                 ["Status", currentDbStatus],
-                ["Production", job.client],
+                ["Production Company", job.client],
+                ["Production", job.production],
                 ["Shoot Type", job.shootType],
                 ["Location", job.location],
                 ["Dates", renderDateBlock(job)],
@@ -1725,13 +1683,23 @@ export default function JobInfoPage() {
                 <section
                   key={job.id}
                   id={JOB_SECTION_ID}
+                  className={layoutStyles.bookingSection}
+                  data-expanded={isExpanded ? "true" : undefined}
+                  data-current={job.id === currentJobRecordId ? "true" : undefined}
                   style={{
-                    border: job.id === jobId ? `2px solid ${UI.brand}` : UI.border,
-                    borderRadius: 8,
-                    padding: 8,
-                    marginBottom: 10,
-                    boxShadow: UI.shadow,
-                    background: locked ? "var(--color-surface-subtle)" : job.id === jobId ? "var(--color-surface-subtle)" : "var(--color-surface)",
+                    borderTop: isExpanded ? UI.border : "none",
+                    borderRight: isExpanded ? UI.border : "none",
+                    borderLeft: job.id === currentJobRecordId
+                      ? `3px solid ${UI.brand}`
+                      : isExpanded
+                      ? UI.border
+                      : "3px solid transparent",
+                    borderBottom: isExpanded ? UI.border : "1px solid var(--color-border)",
+                    borderRadius: isExpanded ? 8 : 0,
+                    padding: isExpanded ? 8 : "4px 8px",
+                    marginBottom: isExpanded ? 10 : 0,
+                    boxShadow: "none",
+                    background: isExpanded || locked ? "var(--color-surface-subtle)" : "transparent",
                     minWidth: 0,
                     scrollMarginTop: LAYOUT.HEADER_H + 80, // extra for search row
                   }}
@@ -1739,14 +1707,12 @@ export default function JobInfoPage() {
                   {/* Collapsible header */}
                   <div
                     onClick={() => setExpandedById((p) => ({ ...p, [job.id]: !isExpanded }))}
+                    className={layoutStyles.bookingHeader}
                     style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                      padding: 8,
+                      padding: 6,
                       borderRadius: 8,
-                      background: "var(--color-surface)",
-                      border: UI.border,
+                      background: "transparent",
+                      border: "none",
                       cursor: "pointer",
                       userSelect: "none",
                     }}
@@ -1766,7 +1732,7 @@ export default function JobInfoPage() {
                         height: 26,
                         borderRadius: 8,
                         border: UI.border,
-                        background: "var(--color-surface)",
+                        background: "var(--color-surface-raised)",
                         display: "grid",
                         placeItems: "center",
                         fontWeight: 900,
@@ -1777,71 +1743,35 @@ export default function JobInfoPage() {
                       {isExpanded ? "–" : "+"}
                     </button>
 
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 34,
-                        height: 24,
-                        padding: "0 8px",
-                        borderRadius: 999,
-                        background: UI.brandSoft,
-                        border: `1px solid ${UI.brandBorder}`,
-                        fontWeight: 900,
-                        fontSize: 12,
-                        color: UI.brand,
-                      }}
-                      title="Job prefix"
-                    >
-                      {splitJobNumber(job.jobNumber || "").prefix || "—"}
-                    </span>
-
                     <div className={layoutStyles.extracted33}>
                       <div className={layoutStyles.extracted34}>
                         <StatusPill value={currentDbStatus} />
                         {isPaid && <PaidPill />}
-                        {invoiceBadge.label && (
-                          <Badge
-                            text={invoiceBadge.label}
-                            bg={locked ? "var(--color-surface-hover)" : invoiceBadge.ready ? "var(--color-success-soft)" : "var(--color-warning-soft)"}
-                            fg={locked ? "var(--color-text-muted)" : invoiceBadge.ready ? "var(--color-success)" : "var(--color-warning)"}
-                            border={locked ? "var(--color-border-strong)" : invoiceBadge.ready ? "var(--color-success-border)" : "var(--color-warning-border)"}
-                            title={
-                              locked
-                                ? "This job did not happen, so invoice readiness does not apply"
-                                : suppressMissingWarnings
-                                ? "Complete jobs do not show missing-item warnings"
-                                : invoiceBadge.missing.length
-                                ? `Missing: ${invoiceBadge.missing.join(", ")}`
-                                : "Ready to invoice"
-                            }
-                          />
+                        <div
+                          className={layoutStyles.extracted35}
+                          title={`${jobIdentity} - #${job.jobNumber || job.id}${quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}`}
+                        >
+                          {jobIdentity} - #{job.jobNumber || job.id}
+                          {quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}
+                        </div>
+                      </div>
+
+                      <div className={layoutStyles.extracted36}>
+                        {bookingMeta && (
+                          <span className={layoutStyles.bookingMetaText} title={bookingMeta}>
+                            {bookingMeta}
+                          </span>
+                        )}
+                        {rowWarnings.length > 0 && (
+                          <span
+                            className={layoutStyles.bookingWarningSummary}
+                            title={`Needs attention: ${rowWarnings.join(", ")}`}
+                          >
+                            <span className={layoutStyles.bookingWarningDot} aria-hidden="true" />
+                            <span>{rowWarnings.join(" · ")}</span>
+                          </span>
                         )}
                       </div>
-
-                      <div
-                        className={layoutStyles.extracted35}
-                        title={`${job.client || "Booking"} - #${job.jobNumber || job.id}${quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}`}
-                      >
-                        {job.client || "Booking"} - #{job.jobNumber || job.id}
-                        {quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}
-                      </div>
-
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere" }}>
-                        {dateSummary}
-                        {dayCount ? ` - ${dayCount} day${dayCount === 1 ? "" : "s"}` : ""}
-                        {job.location ? ` - ${job.location}` : ""}
-                      </div>
-
-                      {!suppressMissingWarnings && (
-                        <div className={layoutStyles.extracted36}>
-                          <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "var(--color-warning-soft)"} fg={vehicleSummary ? UI.brand : "var(--color-warning)"} border={vehicleSummary ? UI.brandBorder : "var(--color-warning-border)"} />
-                          <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--color-warning-soft)" : "var(--color-surface-subtle)"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--color-warning)" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "var(--color-warning-border)" : "var(--color-border)"} />
-                          <Badge text={poStatus} bg={job.po ? "var(--color-surface-subtle)" : "var(--color-warning-soft)"} fg={job.po ? UI.text : "var(--color-warning)"} border={job.po ? "var(--color-border)" : "var(--color-warning-border)"} />
-                          <Badge text={timesheetStatus} bg={timesheets.length ? "var(--color-surface-subtle)" : "var(--color-warning-soft)"} fg={timesheets.length ? UI.text : "var(--color-warning)"} border={timesheets.length ? "var(--color-border)" : "var(--color-warning-border)"} />
-                        </div>
-                      )}
                     </div>
 
                     {/* Quick actions do not toggle collapse when clicked */}
@@ -1892,16 +1822,19 @@ export default function JobInfoPage() {
                             alignItems: "center",
                             justifyContent: "center",
                             minHeight: 30,
-                            minWidth: 34,
+                            minWidth: 36,
+                            padding: "0 7px",
                             border: UI.border,
                             borderRadius: 8,
-                            background: "var(--color-surface)",
+                            background: "var(--color-surface-raised)",
+                            color: UI.text,
                             fontWeight: 900,
                             cursor: "pointer",
                           }}
                           title="More actions"
+                          aria-label="More actions"
                         >
-                          More
+                          •••
                         </summary>
                         <div
                           style={{
@@ -2039,17 +1972,7 @@ export default function JobInfoPage() {
                             {cards.length ? (
                               <div className={layoutStyles.extracted47}>{cards.map((c, i) => <div key={i}>{c}</div>)}</div>
                             ) : (
-                              <div
-                                style={{
-                                  color: UI.muted,
-                                  padding: 10,
-                                  border: "1px dashed var(--color-border)",
-                                  borderRadius: 8,
-                                  background: "var(--color-surface)",
-                                }}
-                              >
-                                No timesheet days found for this job yet.
-                              </div>
+                              <div className={layoutStyles.compactEmptyState}>No timesheets linked yet.</div>
                             )}
                           </Card>}
 
@@ -2086,7 +2009,7 @@ export default function JobInfoPage() {
                               scrollMarginTop: LAYOUT.HEADER_H + 80,
                             }}
                           >
-                            <SectionTitle title="Status & Invoice" />
+                            <SectionTitle title={invoiceStage ? "Status & Invoice" : "Booking status"} />
 
                             <div className={layoutStyles.extracted48}>
                               {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
@@ -2122,54 +2045,55 @@ export default function JobInfoPage() {
                               })}
                             </div>
 
-                            <Btn
-                              variant="dark"
-                              disabled={isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus}
-                              title={isPaid ? "Paid jobs are locked" : "Save status"}
-                              onClick={() => {
-                                const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
-                                if (chosen !== currentDbStatus) saveJobStatus(job.id, chosen);
-                              }}
-                            >
-                              Save Status Change
-                            </Btn>
+                            {statusHasChanged && (
+                              <Btn
+                                variant="dark"
+                                disabled={isPaid}
+                                title={isPaid ? "Paid jobs are locked" : "Save status"}
+                                onClick={() => saveJobStatus(job.id, selected)}
+                              >
+                                Save Status Change
+                              </Btn>
+                            )}
 
                             <div
-                              style={{
-                                marginTop: 10,
-                                padding: 10,
-                                borderLeft: suppressMissingWarnings ? "3px solid var(--color-border-strong)" : invoiceReadiness.ready ? "3px solid var(--color-success-border)" : "3px solid var(--color-warning-border)",
-                                borderRadius: 6,
-                                background: suppressMissingWarnings ? "var(--color-surface-subtle)" : invoiceReadiness.ready ? "var(--color-success-soft)" : "var(--color-warning-soft)",
-                              }}
+                              className={layoutStyles.invoiceReadiness}
+                              data-state={readinessReady ? "ready" : "blocked"}
                             >
                               <div className={layoutStyles.extracted49}>
-                                <div className={layoutStyles.extracted50}>Invoice checklist</div>
+                                <div className={layoutStyles.extracted50}>
+                                  {invoiceStage ? "Invoice readiness" : "Booking readiness"}
+                                </div>
                                 <Badge
-                                  text={suppressMissingWarnings ? "Complete" : invoiceReadiness.label}
-                                  bg={suppressMissingWarnings ? "var(--color-surface-hover)" : invoiceReadiness.ready ? "var(--color-success-soft)" : "var(--color-accent-soft)"}
-                                  fg={suppressMissingWarnings ? "var(--color-text-muted)" : invoiceReadiness.ready ? "var(--color-success)" : "var(--color-warning)"}
-                                  border={suppressMissingWarnings ? "var(--color-border-strong)" : invoiceReadiness.ready ? "var(--color-success-border)" : "var(--color-warning-border)"}
+                                  text={readinessReady ? "Ready" : `${readinessBlockers.length} action${readinessBlockers.length === 1 ? "" : "s"}`}
+                                  bg={readinessReady ? "var(--color-success-soft)" : "var(--color-warning-soft)"}
+                                  fg={readinessReady ? "var(--color-success)" : "var(--color-warning)"}
+                                  border={readinessReady ? "var(--color-success-border)" : "var(--color-warning-border)"}
                                 />
                               </div>
-                              {suppressMissingWarnings ? (
-                                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
-                                  This job is complete, so missing-item warnings are hidden.
+                              {readinessReady ? (
+                                <div className={layoutStyles.invoiceReadinessMessage}>
+                                  {invoiceStage ? "All invoice checks are complete." : "The booking details are ready."}
                                 </div>
                               ) : (
-                                [
-                                  ["Status complete", !invoiceReadiness.missing.includes("status")],
-                                  ["PO reference", !invoiceReadiness.missing.includes("PO")],
-                                  ["Invoicing contact", !invoiceReadiness.missing.includes("invoiceContact")],
-                                  ["Linked timesheets", !invoiceReadiness.missing.includes("timesheets")],
-                                  ["Vehicle assigned", !invoiceReadiness.missing.includes("vehicle")],
-                                  ["Crew allocated", !invoiceReadiness.missing.includes("crew")],
-                                ].map(([label, ok]) => (
-                                  <div key={label} className={layoutStyles.extracted51}>
-                                    <span>{label}</span>
-                                    <span style={{ color: ok ? "var(--color-success)" : "var(--color-warning)" }}>{ok ? "OK" : "Missing"}</span>
+                                <div className={layoutStyles.invoiceBlockers}>
+                                  <span className={layoutStyles.invoiceBlockerLabel}>Action:</span>
+                                  <span>{readinessBlockers.map((item) => item.label).join(" · ")}</span>
+                                </div>
+                              )}
+
+                              {!readinessReady && (
+                                <details className={layoutStyles.invoiceChecklistDetails}>
+                                  <summary>View all checks</summary>
+                                  <div className={layoutStyles.invoiceChecklistRows}>
+                                    {readinessChecklist.map(({ key, label, ok }) => (
+                                      <div key={key} className={layoutStyles.extracted51}>
+                                        <span>{label}</span>
+                                        <span style={{ color: ok ? "var(--color-success)" : "var(--color-warning)" }}>{ok ? "OK" : "Missing"}</span>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))
+                                </details>
                               )}
                             </div>
 
@@ -2183,7 +2107,7 @@ export default function JobInfoPage() {
                               }}
                             >
                               <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 11, color: UI.muted, textTransform: "uppercase" }}>
-                                Notes & PO
+                                Notes
                               </div>
 
                             <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
@@ -2216,6 +2140,14 @@ export default function JobInfoPage() {
                               Save Summary
                             </Btn>
 
+                            <details className={layoutStyles.financeDetails} open={invoiceStage}>
+                              <summary>
+                                <span>Finance details</span>
+                                <span className={layoutStyles.financeDetailsSummary}>
+                                  {[job.po ? "PO added" : "PO not added", job.invoiceContactName && job.invoiceContactEmail ? "Contact added" : "No invoice contact"].join(" · ")}
+                                </span>
+                              </summary>
+                              <div className={layoutStyles.financeFields}>
                             <div className={layoutStyles.extracted52}>
                               <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
                                 Purchase Order (PO)
@@ -2292,6 +2224,8 @@ export default function JobInfoPage() {
                                 }}
                               />
                             </div>
+                              </div>
+                            </details>
                             </div>
 
                           </Card>

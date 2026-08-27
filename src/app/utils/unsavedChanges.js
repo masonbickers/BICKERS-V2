@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 const STORE_KEY = "__bickersUnsavedChangesGuard";
 export const UNSAVED_CHANGES_EVENT = "bickers:unsaved-changes";
+export const UNSAVED_NAVIGATION_REQUEST_EVENT = "bickers:request-guarded-navigation";
 
 function ensureStore() {
   if (typeof window === "undefined") return null;
@@ -79,6 +80,21 @@ export function shouldBypassUnsavedChanges() {
   return Number(store.bypassUntil || 0) > Date.now();
 }
 
+export function requestGuardedNavigation(action) {
+  if (typeof action !== "function") return;
+  if (typeof window === "undefined") {
+    action();
+    return;
+  }
+
+  const event = new CustomEvent(UNSAVED_NAVIGATION_REQUEST_EVENT, {
+    cancelable: true,
+    detail: { action },
+  });
+  const handled = !window.dispatchEvent(event);
+  if (!handled) action();
+}
+
 export function useUnsavedChangesGuard({
   enabled = true,
   isDirty = false,
@@ -106,10 +122,9 @@ export function useUnsavedChangesGuard({
       isDirty: !!isDirty,
       message,
       saveLabel,
-      onSave: async () => {
-        if (typeof saveRef.current !== "function") return true;
-        return saveRef.current();
-      },
+      onSave: typeof saveRef.current === "function"
+        ? async () => saveRef.current()
+        : null,
     });
 
     return () => {

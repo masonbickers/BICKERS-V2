@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -835,6 +836,19 @@ export default function InvoiceJobPage() {
     }
   };
 
+  const hasUnsavedInvoiceChanges = Boolean(
+    invoice?.status === INVOICE_STATUSES.DRAFT
+      && invoiceDraftSignature(invoice) !== savedDraftSignature
+  );
+
+  useUnsavedChangesGuard({
+    enabled: Boolean(invoice),
+    isDirty: hasUnsavedInvoiceChanges && !saving,
+    message: "You have unsaved invoice draft changes.",
+    saveLabel: "Save Draft & Leave",
+    onSave: async () => Boolean(await saveDraft()),
+  });
+
   if (loading) {
     return (
       <HeaderSidebarLayout>
@@ -946,12 +960,12 @@ export default function InvoiceJobPage() {
   });
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div className={layoutStyles.pageWrap}>
         <section className={layoutStyles.invoiceWorkspace}>
           <header className={layoutStyles.builderToolbar}>
             <div className={layoutStyles.invoiceBuilderIdentity}>
-              <button type="button" onClick={() => router.push(`/job-summary/${id}`)}>← Finance</button>
+              <button type="button" onClick={() => requestGuardedNavigation(() => router.push(`/job-summary/${id}`))}>← Finance</button>
               <div>
                 <span className={layoutStyles.invoiceWorkspaceEyebrow}>Invoice builder</span>
                 <h1 className={layoutStyles.invoiceWorkspaceTitle}>{invoiceIdentity.draftReference} · Job #{job.jobNumber || job.id}</h1>

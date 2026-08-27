@@ -4,9 +4,18 @@ import test from "node:test";
 import {
   REOPENED_BOOKING_STATUS,
   buildReopenBookingPayload,
+  formatProductionIdentity,
   isLockedJobStatus,
   lockedBookingMessage,
 } from "../src/app/utils/jobNumberDetail.js";
+
+test("shows production company and production without duplicating matching names", () => {
+  assert.equal(formatProductionIdentity({ client: "BBC", production: "Top Gear" }), "BBC · Top Gear");
+  assert.equal(formatProductionIdentity({ client: "BBC" }), "BBC");
+  assert.equal(formatProductionIdentity({ production: "Lineage" }), "Lineage");
+  assert.equal(formatProductionIdentity({ client: "BBC", production: "bbc" }), "BBC");
+  assert.equal(formatProductionIdentity({}), "Booking");
+});
 
 test("recognizes every view-only Job Number status", () => {
   for (const status of ["DNH", "Cancelled", "canceled", "Postponed", "Lost"]) {

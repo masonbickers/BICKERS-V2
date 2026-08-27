@@ -86,7 +86,7 @@ import {
 } from "@/app/utils/vehicleEditorSave";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { normalizeVehicleAssetNumber } from "@/app/utils/vehicleAssetNumber";
-import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import {
   mergeVehicleRealtimeState,
@@ -2197,7 +2197,7 @@ export default function EditVehiclePage() {
     const isTradePlate = isTradePlateRecord(vehicle);
 
     return (
-      <HeaderSidebarLayout>
+      <HeaderSidebarLayout showBackButton={false}>
         <style jsx global>{`
           input:focus,
           textarea:focus {
@@ -2220,7 +2220,7 @@ export default function EditVehiclePage() {
               </div>
 
               <div className={layoutStyles.extracted2}>
-                <button onClick={() => router.push("/vehicles")} style={btn("ghost")}>
+                <button onClick={() => requestGuardedNavigation(() => router.push("/vehicles"))} style={btn("ghost")}>
                   <ArrowLeft size={15} />
                   Back
                 </button>
@@ -2725,13 +2725,13 @@ export default function EditVehiclePage() {
             <div className={layoutStyles.extracted8}>
               <button
                 type="button"
-                onClick={() => router.push(`/vehicle-edit/${vehicle.id}/timeline`)}
+                onClick={() => requestGuardedNavigation(() => router.push(`/vehicle-edit/${vehicle.id}/timeline`))}
                 style={btn("ghost")}
               >
                 <Activity size={15} />
                 Vehicle Timeline
               </button>
-              <button type="button" onClick={() => router.push("/vehicle-checks")} style={btn("ghost")}>
+              <button type="button" onClick={() => requestGuardedNavigation(() => router.push("/vehicle-checks"))} style={btn("ghost")}>
                 <ClipboardList size={15} />
                 Vehicle Checks
               </button>
@@ -3427,9 +3427,9 @@ export default function EditVehiclePage() {
                         type="button"
                         className={layoutStyles.maintenanceHistoryLink}
                         onClick={() =>
-                          router.push(
+                          requestGuardedNavigation(() => router.push(
                             `/vehicle-edit/${vehicle.id}/maintenance-history/${section.key}`
-                          )
+                          ))
                         }
                       >
                         View history
@@ -3673,7 +3673,7 @@ export default function EditVehiclePage() {
                 <button
                   type="button"
                   style={btn("ghost")}
-                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/mot-history`)}
+                  onClick={() => requestGuardedNavigation(() => router.push(`/vehicle-edit/${vehicle.id}/mot-history`))}
                 >
                   <ExternalLink size={15} />
                   Full MOT History
@@ -3778,7 +3778,7 @@ export default function EditVehiclePage() {
                 <button
                   type="button"
                   style={btn("ghost")}
-                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/service-history`)}
+                  onClick={() => requestGuardedNavigation(() => router.push(`/vehicle-edit/${vehicle.id}/service-history`))}
                 >
                   Full History
                 </button>
@@ -3794,10 +3794,10 @@ export default function EditVehiclePage() {
                       key={item.serviceRecordId || item.maintenanceBookingId || `${item.completedDate}-${index}`}
                       onClick={() =>
                         item.serviceRecordId
-                          ? router.push(`/vehicle-edit/${vehicle.id}/service-history/${item.serviceRecordId}`)
+                          ? requestGuardedNavigation(() => router.push(`/vehicle-edit/${vehicle.id}/service-history/${item.serviceRecordId}`))
                           : item.maintenanceBookingId
                           ? setEditBookingId(item.maintenanceBookingId)
-                          : router.push(`/vehicle-edit/${vehicle.id}/service-history`)
+                          : requestGuardedNavigation(() => router.push(`/vehicle-edit/${vehicle.id}/service-history`))
                       }
                       style={{
                         border: UI.border,

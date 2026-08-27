@@ -2,7 +2,7 @@
 
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -20,6 +20,10 @@ import {
   UserPlus,
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
+import {
+  requestGuardedNavigation,
+  useUnsavedChangesGuard,
+} from "@/app/utils/unsavedChanges";
 
 const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
 
@@ -191,9 +195,15 @@ export default function AddEmployeePage() {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (saving) return;
+  const hasUnsavedChanges = useMemo(
+    () => Object.values(formData).some((value) => String(value || "").trim()),
+    [formData]
+  );
+
+  const handleSubmit = async (e, options = {}) => {
+    e?.preventDefault?.();
+    if (saving) return false;
+    const { navigateOnSuccess = true } = options;
 
     try {
       setSaving(true);
@@ -220,19 +230,28 @@ export default function AddEmployeePage() {
       });
       clearBookingReferenceCache();
       systemDialogs.showSystemNotification("Employee added");
-      router.push("/employees");
+      if (navigateOnSuccess) router.push("/employees");
+      return true;
     } catch (err) {
       console.error("Error adding employee:", err);
       systemDialogs.showSystemNotification("Failed to add employee");
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCancel = () => router.push("/employees");
+  const handleCancel = () => requestGuardedNavigation(() => router.push("/employees"));
+
+  useUnsavedChangesGuard({
+    isDirty: hasUnsavedChanges && !saving,
+    message: "You have unsaved employee details.",
+    saveLabel: "Save Employee & Leave",
+    onSave: () => handleSubmit(null, { navigateOnSuccess: false }),
+  });
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style>{focusCss}</style>
 
       <div style={pageWrap}>

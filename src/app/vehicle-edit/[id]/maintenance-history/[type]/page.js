@@ -293,11 +293,11 @@ export default function MaintenanceHistoryPage() {
     }
   };
 
-  if (!config) return <HeaderSidebarLayout><main className={styles.page}><div className={styles.state}>Maintenance type not found.</div></main></HeaderSidebarLayout>;
+  if (!config) return <HeaderSidebarLayout showBackButton={false}><main className={styles.page}><div className={styles.state}>Maintenance type not found.</div></main></HeaderSidebarLayout>;
   const vehicleLabel = vehicle?.name || vehicle?.registration || vehicle?.reg || "Vehicle";
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <main className={styles.page}>
         <header className={styles.header}>
           <div><div className={styles.eyebrow}>Maintenance history</div><h1>{config.label}</h1><p>{vehicleLabel} · Schedule, completed records and supporting documents.</p></div>

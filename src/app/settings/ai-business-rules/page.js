@@ -95,7 +95,7 @@ export default function AiBusinessRulesPage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <style>{`@media (max-width: 850px) { .ai-rules-layout { grid-template-columns: 1fr !important; } .ai-rules-aside { position: static !important; } }`}</style>
       <main className={layoutStyles.extracted1}>
         <div className={layoutStyles.extracted2}>

@@ -130,7 +130,7 @@ export default function MaintenanceRoutePage() {
   };
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div className={layoutStyles.extracted1}>
         <div className={layoutStyles.extracted2}>
           <div className={layoutStyles.extracted3}>

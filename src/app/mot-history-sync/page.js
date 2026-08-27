@@ -104,7 +104,7 @@ export default function MotHistorySyncPage() {
   const updatedVehicles = Array.isArray(meta?.lastAllFetchUpdatedVehicles) ? meta.lastAllFetchUpdatedVehicles : [];
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap}>
         <div className={layoutStyles.extracted1}>
           <div>

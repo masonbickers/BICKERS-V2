@@ -9,6 +9,17 @@ import {
 
 export const REOPENED_BOOKING_STATUS = "Enquiry";
 
+export function formatProductionIdentity(job = {}, fallback = "Booking") {
+  const values = [job.client, job.production]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  const uniqueValues = values.filter(
+    (value, index) =>
+      values.findIndex((candidate) => candidate.toLowerCase() === value.toLowerCase()) === index
+  );
+  return uniqueValues.join(" · ") || fallback;
+}
+
 export function isLockedJobStatus(status = "") {
   return isInactiveBookingStatus(status) && canonicalBookingStatus(status) !== "Deleted";
 }

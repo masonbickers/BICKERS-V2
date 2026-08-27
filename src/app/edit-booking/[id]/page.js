@@ -19,14 +19,21 @@ import * as systemDialogs from "@/app/utils/systemNotifications";
 import {
   doc,
   getDoc,
+  getDocs,
   updateDoc,
   setDoc,
 } from "firebase/firestore";
 import {
+  buildExistingJobDetailsLookup,
+  canSaveEnquiryWithoutContact,
   contactIdFromEmail,
   employeesKey,
   findMismatchedQuoteAttachments,
+  getExistingJobDetailMismatches,
   hasBookingContactDetails,
+  hasBookingProductionIdentity,
+  mergeBookingContacts,
+  normalizeJobNumberForLookup,
   normalizeVehicleKeysListForLookup,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
@@ -57,9 +64,11 @@ import {
   handleFirestoreAccessError,
   reportDataAccessBlocked,
   resolveDataAccess,
+  tenantCollectionQuery,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { companyStoragePath } from "@/app/utils/storageAccess";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   buildUCraneArmFittedForSave,
   isUCraneArmFitted,
@@ -1350,6 +1359,8 @@ export default function EditBookingPage() {
 
   // Data lists
   const [allBookings, setAllBookings] = useState([]);
+  const [existingJobDetailsByNumber, setExistingJobDetailsByNumber] = useState({});
+  const [dismissedExistingJobNumber, setDismissedExistingJobNumber] = useState("");
   const [holidayBookings, setHolidayBookings] = useState([]);
   const [unavailableNotes, setUnavailableNotes] = useState([]);
   const [employeeList, setEmployeeList] = useState([]); // drivers
@@ -1436,6 +1447,62 @@ export default function EditBookingPage() {
   const [existingStatusHistory, setExistingStatusHistory] = useState(prefill.existingStatusHistory);
   const [existingLifecycle, setExistingLifecycle] = useState(prefill.existingLifecycle);
   const [originalBookingData, setOriginalBookingData] = useState(prefill.originalBookingData);
+  const savedBookingSignatureRef = useRef("");
+
+  const bookingDraftSignature = JSON.stringify({
+    quoteNumber,
+    jobNumber,
+    client,
+    production,
+    location,
+    po,
+    invoiceContactName,
+    invoiceContactEmail,
+    invoiceContactPhone,
+    invoiceDocument,
+    invoiceDocumentFile: invoiceDocumentFile?.name || "",
+    status,
+    shootType,
+    statusReasons,
+    statusReasonOther,
+    isRange,
+    useCustomDates,
+    enquiryDatesEnabled,
+    customDates,
+    startDate,
+    endDate,
+    linkedContinuation,
+    notesByDate,
+    notes,
+    callTime,
+    callTimesByDate,
+    hasHotel,
+    hotelPaidBy,
+    hotelNights,
+    hotelPricePerNight,
+    hasRiggingAddress,
+    riggingAddress,
+    isSecondPencil,
+    isCrewed,
+    hasHS,
+    hasRiskAssessment,
+    offRoadTracking,
+    requiredCrewCount,
+    employees,
+    employeesByDate,
+    vehicles,
+    vehicleStatus,
+    uCraneArmFitted,
+    equipment,
+    additionalContacts,
+    attachments,
+    newFiles: newFiles.map((file) => file?.name || "new-file"),
+  });
+
+  useEffect(() => {
+    if (loading || savedBookingSignatureRef.current) return;
+    savedBookingSignatureRef.current = bookingDraftSignature;
+  }, [bookingDraftSignature, loading]);
 
   const isMaintenance = status === "Maintenance";
   const isBickersJob = status === "Bickers";
@@ -1484,29 +1551,52 @@ export default function EditBookingPage() {
     );
   }, [originalBookingData, selectedDates, status, vehicleLookup, vehicleStatus]);
 
+  const hasProductionIdentity = hasBookingProductionIdentity({ client, production });
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
     : isBickersJob
-    ? Boolean((production || "").trim())
-    : Boolean((production || "").trim() && (location || "").trim());
+    ? hasProductionIdentity
+    : Boolean(hasProductionIdentity && (location || "").trim());
 
   const hasRequiredContact = hasBookingContactDetails(additionalContacts);
+  const contactRequirementSatisfied =
+    hasRequiredContact ||
+    canSaveEnquiryWithoutContact({
+      status,
+      userEmail: authAccess.realUser?.email || authAccess.user?.email,
+    });
+  const normalizedJobNumber = normalizeJobNumberForLookup(jobNumber);
+  const existingJobDetails = existingJobDetailsByNumber[normalizedJobNumber] || null;
+  const existingJobMismatches = existingJobDetails
+    ? getExistingJobDetailMismatches(
+        { client, production, additionalContacts },
+        existingJobDetails
+      )
+    : [];
+  const shouldOfferExistingJobDetails = Boolean(
+    existingJobDetails &&
+      existingJobMismatches.length &&
+      dismissedExistingJobNumber !== normalizedJobNumber
+  );
+  const existingJobMismatchLabels = existingJobMismatches.map((key) =>
+    key === "client" ? "Production Company" : key === "production" ? "Production" : "Contacts"
+  );
 
   const saveTooltip = isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
-      : !hasRequiredContact
+      : !contactRequirementSatisfied
       ? "Add a contact name with an email or phone number"
       : ""
     : isBickersJob
     ? !coreFilled
-      ? "Fill Production to save"
-      : !hasRequiredContact
+      ? "Fill Production or Production Company to save"
+      : !contactRequirementSatisfied
       ? "Add a contact name with an email or phone number"
       : ""
     : !coreFilled
-    ? "Fill Production and Location to save"
-    : !hasRequiredContact
+    ? "Fill Production or Production Company, and Location to save"
+    : !contactRequirementSatisfied
     ? "Add a contact name with an email or phone number"
     : "";
 
@@ -1611,6 +1701,14 @@ export default function EditBookingPage() {
           ? performance.now()
           : Date.now();
       const referenceDataPromise = loadBookingFormReferenceData(db, { accessState: dataAccessState });
+      const existingJobDetailsPromise = getDocs(
+        tenantCollectionQuery(db, "bookings", dataAccessState)
+      ).catch((err) => {
+        if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "load edit job-number details" })) {
+          console.warn("Failed loading existing job-number details:", err);
+        }
+        return null;
+      });
       const bookingDocSnap = await getDoc(doc(db, "bookings", bookingId));
 
       if (!bookingDocSnap.exists()) {
@@ -1868,6 +1966,16 @@ export default function EditBookingPage() {
       }
 
       setLoading(false);
+      existingJobDetailsPromise.then((bookingSnap) => {
+        if (!bookingSnap) return;
+        setExistingJobDetailsByNumber(
+          buildExistingJobDetailsLookup(
+            bookingSnap.docs
+              .filter((docSnap) => docSnap.id !== bookingId)
+              .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          )
+        );
+      });
       try {
         const referenceData = await referenceDataPromise;
 
@@ -2476,31 +2584,41 @@ export default function EditBookingPage() {
         return `${label} (${existingStatus})`;
       });
 
-  const handleUpdate = async () => {
-    if (!bookingId) return;
+  const handleUpdate = async (options = {}) => {
+    const { navigateOnSuccess = true } = options;
+    if (!bookingId) return false;
 
     if (dateEntryEnabled) {
       if (useCustomDates) {
-        if (!customDates.length) return systemDialogs.showSystemNotification("Please select at least one date.");
+        if (!customDates.length) {
+          systemDialogs.showSystemNotification("Please select at least one date.");
+          return false;
+        }
       } else {
-        if (!startDate) return systemDialogs.showSystemNotification("Please select a start date.");
-        if (isRange && !endDate) return systemDialogs.showSystemNotification("Please select an end date.");
+        if (!startDate) {
+          systemDialogs.showSystemNotification("Please select a start date.");
+          return false;
+        }
+        if (isRange && !endDate) {
+          systemDialogs.showSystemNotification("Please select an end date.");
+          return false;
+        }
       }
     }
 
     if (!coreFilled) {
       const missing = [];
-      if (!isMaintenance && !(production || "").trim()) missing.push("Production");
+      if (!isMaintenance && !hasProductionIdentity) missing.push("Production or Production Company");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
-      return systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
+      systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
+      return false;
     }
 
-    if (!hasRequiredContact) {
+    if (!contactRequirementSatisfied) {
       setContactsExpanded(true);
       ensureSavedContactsLoaded();
-      return systemDialogs.showSystemNotification(
-        "Please add a contact name with either an email address or phone number."
-      );
+      systemDialogs.showSystemNotification("Please add a contact name with either an email address or phone number.");
+      return false;
     }
 
     const mismatchedQuoteAttachments = findMismatchedQuoteAttachments(jobNumber, [
@@ -2511,20 +2629,26 @@ export default function EditBookingPage() {
       const quoteJobs = Array.from(
         new Set(mismatchedQuoteAttachments.map(({ quoteJobNumber }) => quoteJobNumber))
       ).join(", ");
-      return systemDialogs.showSystemNotification(
+      systemDialogs.showSystemNotification(
         `${mismatchedQuoteAttachments.length} quote ${
           mismatchedQuoteAttachments.length === 1 ? "file belongs" : "files belong"
         } to another job (${quoteJobs}). Remove ${
           mismatchedQuoteAttachments.length === 1 ? "it" : "them"
         } or correct the job number before saving.`
       );
+      return false;
     }
 
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
     if (needsReason) {
-      if (!statusReasons.length) return systemDialogs.showSystemNotification("Please choose at least one reason.");
-      if (statusReasons.includes("Other") && !statusReasonOther.trim())
-        return systemDialogs.showSystemNotification("Please enter the 'Other' reason.");
+      if (!statusReasons.length) {
+        systemDialogs.showSystemNotification("Please choose at least one reason.");
+        return false;
+      }
+      if (statusReasons.includes("Other") && !statusReasonOther.trim()) {
+        systemDialogs.showSystemNotification("Please enter the 'Other' reason.");
+        return false;
+      }
     }
 
     const customNames = customEmployee
@@ -2562,7 +2686,8 @@ export default function EditBookingPage() {
         if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "check edit booking availability" })) {
           console.error("Failed checking booking availability before update:", err);
         }
-        return systemDialogs.showSystemNotification("Could not check availability for the selected dates. Please try saving again.");
+        systemDialogs.showSystemNotification("Could not check availability for the selected dates. Please try saving again.");
+        return false;
       }
     }
 
@@ -2587,7 +2712,8 @@ export default function EditBookingPage() {
       employees: cleanedEmployees,
     });
     if (linkedContinuationResult.error) {
-      return systemDialogs.showSystemNotification(linkedContinuationResult.error);
+      systemDialogs.showSystemNotification(linkedContinuationResult.error);
+      return false;
     }
     const linkedContinuationForSave = linkedContinuationResult.value;
 
@@ -2606,11 +2732,12 @@ export default function EditBookingPage() {
       freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
     );
     if (bookingDates.length && vehicleConflicts.length) {
-      return systemDialogs.showSystemNotification(
+      systemDialogs.showSystemNotification(
         `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
           "\n"
         )}\n\nUse Second Pencil where the vehicle is already Confirmed or First Pencil. Vehicles already on Second Pencil cannot be booked again for those date(s).`
       );
+      return false;
     }
 
     const filteredNotesByDate = {};
@@ -3021,7 +3148,9 @@ export default function EditBookingPage() {
         title: "Booking updated",
         message: `Job ${jobNumber || bookingId} was saved successfully.`,
       });
-      router.push(updatedReturnHref);
+      savedBookingSignatureRef.current = bookingDraftSignature;
+      if (navigateOnSuccess) router.push(updatedReturnHref);
+      return true;
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "update booking" })) {
         console.error(" Error updating booking:", err);
@@ -3031,10 +3160,19 @@ export default function EditBookingPage() {
         title: "Booking update failed",
         message: err?.message || "The booking could not be saved. Please try again.",
       });
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  useUnsavedChangesGuard({
+    enabled: !loading,
+    isDirty: Boolean(savedBookingSignatureRef.current && bookingDraftSignature !== savedBookingSignatureRef.current && !saving),
+    message: "You have unsaved booking updates.",
+    saveLabel: "Save Updates & Leave",
+    onSave: () => handleUpdate({ navigateOnSuccess: false }),
+  });
 
   const isEmployeeBooked = (name) => bookedEmployeeNames.includes(name);
   const isEmployeeHeld = (name) => heldEmployeeNames.includes(name);
@@ -3294,7 +3432,10 @@ export default function EditBookingPage() {
                     <label style={field.label}>Job Number</label>
                     <input
                       value={jobNumber}
-                      onChange={(e) => setJobNumber(e.target.value)}
+                      onChange={(e) => {
+                        setJobNumber(e.target.value);
+                        setDismissedExistingJobNumber("");
+                      }}
                       required
                       style={field.input}
                     />
@@ -3320,6 +3461,62 @@ export default function EditBookingPage() {
                     )}
                   </div>
                 </div>
+
+                {shouldOfferExistingJobDetails && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                      marginTop: SPACE.sm,
+                      padding: SPACE.md,
+                      borderRadius: UI.radiusSm,
+                      border: `1px solid ${UI.warnBorder}`,
+                      background: UI.warnSoft,
+                      color: UI.text,
+                    }}
+                  >
+                    <div className={layoutStyles.extracted69}>
+                      Job {jobNumber.trim()} has different {existingJobMismatchLabels.join(", ")} on{" "}
+                      {existingJobDetails.bookingCount} other{" "}
+                      {existingJobDetails.bookingCount === 1 ? "booking" : "bookings"}.
+                    </div>
+                    <div style={{ marginTop: SPACE.xs, color: UI.muted, fontSize: 12 }}>
+                      Job details: {existingJobDetails.client || "No Production Company"} ·{" "}
+                      {existingJobDetails.production || "No Production"}
+                      {existingJobDetails.additionalContacts.length
+                        ? ` · ${existingJobDetails.additionalContacts
+                            .map((contact) => contact.name || contact.email || contact.phone)
+                            .filter(Boolean)
+                            .join(", ")}`
+                        : " · No contacts"}
+                    </div>
+                    <div style={{ display: "flex", gap: SPACE.sm, marginTop: SPACE.sm, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (existingJobDetails.client) setClient(existingJobDetails.client);
+                          if (existingJobDetails.production) setProduction(existingJobDetails.production);
+                          if (existingJobDetails.additionalContacts.length) {
+                            setAdditionalContacts((current) =>
+                              mergeBookingContacts(existingJobDetails.additionalContacts, current)
+                            );
+                          }
+                          setDismissedExistingJobNumber(normalizedJobNumber);
+                        }}
+                        style={{ ...btnPrimary, padding: "6px 10px", fontSize: 12 }}
+                      >
+                        Use job details & contacts
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDismissedExistingJobNumber(normalizedJobNumber)}
+                        style={{ ...btn, padding: "6px 10px", fontSize: 12 }}
+                      >
+                        Keep this booking
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className={`edit-booking-two ${layoutStyles.extracted8}`}>
                   <div>
@@ -3407,7 +3604,12 @@ export default function EditBookingPage() {
                   </div>
                   <div>
                     <label style={field.label}>Production</label>
-                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} required={!isMaintenance} />
+                    <input
+                      value={production}
+                      onChange={(e) => setProduction(e.target.value)}
+                      style={field.input}
+                      required={!isMaintenance && !(client || "").trim()}
+                    />
                   </div>
                 </div>
 
@@ -3450,7 +3652,7 @@ export default function EditBookingPage() {
                     </div>
                   </div>
 
-                  {!hasRequiredContact ? (
+                  {!contactRequirementSatisfied ? (
                     <p className={layoutStyles.contactRequirement}>
                       Required: add a contact name with either an email address or phone number.
                     </p>
@@ -4939,7 +5141,7 @@ export default function EditBookingPage() {
                   <span>{vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} · {equipment.length} equipment</span>
                 </div>
                 <div className={layoutStyles.stickyActions}>
-                  <button type="button" onClick={() => router.push(returnHref)} style={btnGhost}>
+                  <button type="button" onClick={() => requestGuardedNavigation(() => router.push(returnHref))} style={btnGhost}>
                     Cancel
                   </button>
                   <button

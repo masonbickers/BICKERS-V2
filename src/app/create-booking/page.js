@@ -14,10 +14,12 @@ import { datePickerValues } from "@/app/utils/dateDisplay";
 import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import {
   buildExistingJobDetailsLookup,
+  canSaveEnquiryWithoutContact,
   contactIdFromEmail,
   employeesKey,
   findMismatchedQuoteAttachments,
   hasBookingContactDetails,
+  hasBookingProductionIdentity,
   mergeBookingContacts,
   normalizeJobNumberForLookup,
   normalizeVehicleKeysListForLookup,
@@ -43,7 +45,7 @@ import {
   buildSynchronizedVehicleStatus,
   isInactiveBookingStatus,
 } from "@/app/utils/bookingLifecycle";
-import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { requestGuardedNavigation, useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -798,29 +800,36 @@ function CreateBookingForm({ initialStatus }) {
     [vehicles]
   );
 
+  const hasProductionIdentity = hasBookingProductionIdentity({ client, production });
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
     : isBickersJob
-    ? Boolean((production || "").trim())
-    : Boolean((production || "").trim() && (location || "").trim());
+    ? hasProductionIdentity
+    : Boolean(hasProductionIdentity && (location || "").trim());
 
   const hasRequiredContact = hasBookingContactDetails(additionalContacts);
+  const contactRequirementSatisfied =
+    hasRequiredContact ||
+    canSaveEnquiryWithoutContact({
+      status,
+      userEmail: authAccess.realUser?.email || authAccess.user?.email,
+    });
 
   const saveTooltip = isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
-      : !hasRequiredContact
+      : !contactRequirementSatisfied
       ? "Add a contact name with an email or phone number"
       : ""
     : isBickersJob
     ? !coreFilled
-      ? "Fill Production to save"
-      : !hasRequiredContact
+      ? "Fill Production or Production Company to save"
+      : !contactRequirementSatisfied
       ? "Add a contact name with an email or phone number"
       : ""
     : !coreFilled
-    ? "Fill Production and Location to save"
-    : !hasRequiredContact
+    ? "Fill Production or Production Company, and Location to save"
+    : !contactRequirementSatisfied
     ? "Add a contact name with an email or phone number"
     : "";
 
@@ -1824,12 +1833,12 @@ function CreateBookingForm({ initialStatus }) {
 
     if (!coreFilled) {
       const missing = [];
-      if (!isMaintenance && !(production || "").trim()) missing.push("Production");
+      if (!isMaintenance && !hasProductionIdentity) missing.push("Production or Production Company");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
       return systemDialogs.showSystemNotification("Please provide: " + missing.join(", ") + ".");
     }
 
-    if (!hasRequiredContact) {
+    if (!contactRequirementSatisfied) {
       setContactsExpanded(true);
       ensureSavedContactsLoaded();
       return systemDialogs.showSystemNotification(
@@ -2559,7 +2568,12 @@ function CreateBookingForm({ initialStatus }) {
                   </div>
                   <div>
                     <label style={field.label}>Production</label>
-                    <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} required={!isMaintenance} />
+                    <input
+                      value={production}
+                      onChange={(e) => setProduction(e.target.value)}
+                      style={field.input}
+                      required={!isMaintenance && !(client || "").trim()}
+                    />
                   </div>
                 </div>
 
@@ -2592,7 +2606,7 @@ function CreateBookingForm({ initialStatus }) {
                     </div>
                   </div>
 
-                  {!hasRequiredContact ? (
+                  {!contactRequirementSatisfied ? (
                     <p className={layoutStyles.contactReminder}>
                       Required: add a contact name with either an email address or phone number.
                     </p>
@@ -3589,7 +3603,7 @@ function CreateBookingForm({ initialStatus }) {
                       Save & Open Quote
                     </button>
 
-                    <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
+                    <button type="button" onClick={() => requestGuardedNavigation(() => router.push("/dashboard"))} style={btnGhost}>
                       Cancel
                     </button>
                   </div>
@@ -3606,7 +3620,7 @@ function CreateBookingForm({ initialStatus }) {
                 <span>{vehicles.length} vehicles · {equipment.length} equipment</span>
               </div>
               <div className={layoutStyles.stickyActions}>
-                <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>Cancel</button>
+                <button type="button" onClick={() => requestGuardedNavigation(() => router.push("/dashboard"))} style={btnGhost}>Cancel</button>
                 <button
                   type="button"
                   disabled={!coreFilled}

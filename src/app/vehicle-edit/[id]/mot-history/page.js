@@ -133,7 +133,7 @@ export default function VehicleMotHistoryPage() {
   const mileageWarning = vehicle?.dvsaMotMileageWarning || getMileageAnomaly(motTests);
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap}>
         <div className={layoutStyles.extracted1}>
           <div>

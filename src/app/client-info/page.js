@@ -364,7 +364,7 @@ export default function ClientInfoPage() {
   }, [selectedClient]);
 
   return (
-    <HeaderSidebarLayout>
+    <HeaderSidebarLayout showBackButton={false}>
       <div style={pageWrap}>
         <div
           className={layoutStyles.extracted1}
