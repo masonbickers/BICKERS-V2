@@ -80,3 +80,9 @@ If access becomes inconsistent:
 4. Confirm `role`, `appAccess`, and `defaultWorkspace` match the intended workspace.
 5. Run the bootstrap access flow by signing in, or use the admin/security tooling to re-sync.
 6. For platform admin access, confirm the email is listed in `src/app/utils/adminAccess.js` and in Firestore rules where required.
+# Firebase rules ownership
+
+This repository is the canonical deployment source for the shared `bickers-booking`
+Firestore and Storage rules used by both Bickers Booking and the employee Expo app.
+Deploy rules with `npm run deploy:firebase-rules`; the command runs both emulator
+suites before publishing. Do not deploy the Expo repository's local rule snapshots.
