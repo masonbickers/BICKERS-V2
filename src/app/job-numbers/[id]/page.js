@@ -2,7 +2,7 @@
 
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import layoutStyles from "./page.styles.module.css";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
@@ -11,11 +11,12 @@ import {
   getDocs,
   where,
   updateDoc,
-  deleteDoc,
   arrayUnion,
+  serverTimestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../../../../firebaseConfig";
+import { auth, db, storage } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "../../components/HeaderSidebarLayout";
 import { format, parseISO } from "date-fns";
 import {
@@ -31,11 +32,19 @@ import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import { buildSynchronizedVehicleStatus } from "@/app/utils/bookingLifecycle";
 import {
+  buildJobFileRows,
   buildReopenBookingPayload,
+  deduplicateJobContacts,
+  formatJobContacts,
+  formatJobLocation,
   formatProductionIdentity,
+  getJobNumberBackLabel,
+  getStatusTransitionWarnings,
   isLockedJobStatus as isLockedStatus,
   lockedBookingMessage,
+  normalizeJobContacts,
 } from "@/app/utils/jobNumberDetail";
+import { safeInternalPath } from "@/app/utils/quoteNavigation";
 
 /* ────────────────────────────────────────────────────────────
    Design tokens + layout
@@ -135,35 +144,6 @@ const renderVehicleNames = (vehicles) => {
   return names.length ? Array.from(new Set(names)).join(", ") : null;
 };
 
-const renderContacts = (contacts) => {
-  if (!Array.isArray(contacts) || !contacts.length) return null;
-  const rows = contacts
-    .map((contact) => {
-      const identity = [contact.department, contact.name].filter(Boolean).join(" · ");
-      const details = [contact.email, contact.phone || contact.number].filter(Boolean).join(" · ");
-      return [identity, details].filter(Boolean).join("\n");
-    })
-    .filter(Boolean);
-  return rows.length ? rows.join("\n") : null;
-};
-
-const renderJobContacts = (job) => {
-  const contacts = [];
-  if (Array.isArray(job?.additionalContacts)) contacts.push(...job.additionalContacts);
-
-  const primaryContact = {
-    department: job?.contactDepartment || job?.department || "",
-    name: job?.contactName || "",
-    email: job?.contactEmail || "",
-    phone: job?.contactPhone || job?.contactNumber || "",
-  };
-  if (primaryContact.name || primaryContact.email || primaryContact.phone || primaryContact.department) {
-    contacts.unshift(primaryContact);
-  }
-
-  return renderContacts(contacts);
-};
-
 const uniqueCleanList = (items) =>
   Array.from(
     new Set(
@@ -220,24 +200,11 @@ const getLocationLabels = (job) => {
     job?.siteLocation,
     job?.venue,
   ];
-  return locations.filter(Boolean);
+  return locations.map(formatJobLocation).filter(Boolean);
 };
 
 const getContactLabels = (job) => {
-  const contacts = [];
-  if (Array.isArray(job?.additionalContacts)) contacts.push(...job.additionalContacts);
-
-  const primaryContact = {
-    department: job?.contactDepartment || job?.department || "",
-    name: job?.contactName || "",
-    email: job?.contactEmail || "",
-    phone: job?.contactPhone || job?.contactNumber || "",
-  };
-  if (primaryContact.name || primaryContact.email || primaryContact.phone || primaryContact.department) {
-    contacts.unshift(primaryContact);
-  }
-
-  return contacts
+  return normalizeJobContacts(job)
     .map((contact) =>
       [
         contact?.department,
@@ -253,8 +220,9 @@ const getContactLabels = (job) => {
 
 const buildConnectedBookingSummary = (jobs) => {
   const connectedJobs = jobs || [];
+  const connectedContacts = deduplicateJobContacts(connectedJobs.flatMap(normalizeJobContacts));
   return {
-    contacts: uniqueCleanList(connectedJobs.flatMap(getContactLabels)),
+    contacts: getContactLabels({ additionalContacts: connectedContacts }),
     vehicles: uniqueCleanList(connectedJobs.flatMap(getVehicleLabels)),
     crew: uniqueCleanList(connectedJobs.flatMap(getCrewLabels)),
     locations: uniqueCleanList(connectedJobs.flatMap(getLocationLabels)),
@@ -752,55 +720,51 @@ const FilesSection = ({
   onFileSelect,
   onUpload,
 }) => {
-  const attachments = Array.isArray(job?.attachments) ? job.attachments : [];
+  const fileRows = buildJobFileRows({ attachments: job?.attachments, currentPdfUrl });
 
   return (
     <Card id={id} tone="white" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
       <SectionTitle
         title="Files"
         right={
-          attachments.length ? (
+          fileRows.length ? (
             <span className={layoutStyles.fileCount}>
-              {attachments.length} file{attachments.length === 1 ? "" : "s"}
+              {fileRows.length} file{fileRows.length === 1 ? "" : "s"}
             </span>
           ) : null
         }
       />
 
-      {currentPdfUrl && (
-        <a
-          href={currentPdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={layoutStyles.currentFileLink}
-        >
-          View current PDF
-        </a>
-      )}
-
-      {attachments.length ? (
+      {fileRows.length ? (
         <ul className={layoutStyles.fileList}>
-          {attachments.map((attachment, index) => (
+          {fileRows.map((attachment, index) => (
             <li key={`${attachment?.url || attachment?.name || "file"}-${index}`} className={layoutStyles.fileRow}>
-              <a
-                href={attachment?.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={layoutStyles.fileLink}
-              >
-                {attachment?.name || `Attachment ${index + 1}`}
-              </a>
-              {Number.isFinite(Number(attachment?.size)) && Number(attachment.size) > 0 ? (
-                <span className={layoutStyles.fileMeta}>
-                  {(Number(attachment.size) / 1024 / 1024).toFixed(2)} MB
-                </span>
-              ) : null}
+              <div className={layoutStyles.fileIdentity}>
+                <a
+                  href={attachment?.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={layoutStyles.fileLink}
+                >
+                  {attachment?.name || `Attachment ${index + 1}`}
+                </a>
+                {attachment.isCurrentPdf ? (
+                  <span className={layoutStyles.currentFileBadge}>Current PDF</span>
+                ) : null}
+              </div>
+              <div className={layoutStyles.fileRowMeta}>
+                {Number.isFinite(Number(attachment?.size)) && Number(attachment.size) > 0 ? (
+                  <span className={layoutStyles.fileMeta}>
+                    {(Number(attachment.size) / 1024 / 1024).toFixed(2)} MB
+                  </span>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
-      ) : !currentPdfUrl ? (
+      ) : (
         <div className={layoutStyles.emptyFiles}>No files attached to this booking.</div>
-      ) : null}
+      )}
 
       {!locked && (
         <div className={layoutStyles.fileUpload}>
@@ -951,7 +915,13 @@ const countByStatus = (jobs, statusByJob = {}) =>
 export default function JobInfoPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const jobId = params?.id;
+  const returnHref = safeInternalPath(searchParams.get("returnTo"), "/job-home");
+  const backLabel = getJobNumberBackLabel(returnHref);
+  const jobNumberPageHref = `/job-numbers/${encodeURIComponent(jobId || "")}${
+    returnHref !== "/job-home" ? `?returnTo=${encodeURIComponent(returnHref)}` : ""
+  }`;
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
@@ -967,6 +937,7 @@ export default function JobInfoPage() {
   const [progressByJob, setProgressByJob] = useState({});
   const [errorByJob, setErrorByJob] = useState({});
   const [reopeningByJob, setReopeningByJob] = useState({});
+  const [deletingJobId, setDeletingJobId] = useState("");
 
   // NEW: search + filter + collapse
   const sessionKey = `job-numbers:${jobId || "unknown"}`;
@@ -1144,6 +1115,43 @@ export default function JobInfoPage() {
     }
   };
 
+  const saveJobStatusWithWarning = async ({ job, status, bookingBlockers, invoiceBlockers }) => {
+    const warnings = getStatusTransitionWarnings({
+      targetStatus: status,
+      bookingBlockers,
+      invoiceBlockers,
+    });
+    if (warnings.length) {
+      const confirmed = await systemDialogs.confirmSystem(
+        `The following checks are still missing:\n\n${warnings.map((warning) => `• ${warning}`).join("\n")}\n\nContinue with this status anyway?`,
+        {
+          title: `Save as ${status}?`,
+          confirmLabel: "Continue",
+          cancelLabel: "Cancel",
+          danger: false,
+        }
+      );
+      if (!confirmed) return;
+    }
+    await saveJobStatus(job.id, status);
+  };
+
+  const openBookingEditor = (id) => {
+    router.push(`/edit-booking/${id}?returnTo=${encodeURIComponent(jobNumberPageHref)}`);
+  };
+
+  const focusJobField = (detailsId, fieldId) => {
+    if (typeof document === "undefined") return;
+    const details = document.getElementById(detailsId);
+    if (details instanceof HTMLDetailsElement) details.open = true;
+    requestAnimationFrame(() => document.getElementById(fieldId)?.focus());
+  };
+
+  const scrollToJobSection = (sectionId) => {
+    if (typeof document === "undefined") return;
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const saveJobSummary = async (id) => {
     const notes = dayNotes[id]?.general || "";
     try {
@@ -1186,7 +1194,7 @@ export default function JobInfoPage() {
       systemDialogs.showSystemNotification("Booking reopened as Enquiry. Review its allocations before confirming it.");
       router.push(
         `/edit-booking/${job.id}?reopened=1&returnTo=${encodeURIComponent(
-          `/job-numbers/${encodeURIComponent(jobId)}`
+          jobNumberPageHref
         )}`
       );
     } catch (error) {
@@ -1197,14 +1205,67 @@ export default function JobInfoPage() {
   };
 
   const deleteJob = async (id) => {
-    if (!await systemDialogs.confirmSystem("Delete this job? This cannot be undone.")) return;
+    if (deletingJobId) return;
+
+    const reasonInput = await systemDialogs.promptSystem(
+      "Reason for deleting this booking (required):",
+      "",
+      { title: "Delete booking", confirmLabel: "Continue" }
+    );
+    if (reasonInput === null) return;
+
+    const deleteReason = String(reasonInput || "").trim();
+    if (!deleteReason) {
+      systemDialogs.showSystemNotification("A deletion reason is required.");
+      return;
+    }
+
+    const confirmed = await systemDialogs.confirmSystem(
+      "Move this booking to Deleted Bookings? It can be restored later.",
+      { title: "Archive deleted booking", confirmLabel: "Delete booking" }
+    );
+    if (!confirmed) return;
+
+    setDeletingJobId(id);
     try {
-      await deleteDoc(doc(db, "bookings", id));
-      systemDialogs.showSystemNotification("Job deleted.");
-      router.push("/job-sheet");
+      const bookingRef = doc(db, "bookings", String(id));
+      const bookingSnapshot = await getDoc(bookingRef);
+      if (!bookingSnapshot.exists()) {
+        systemDialogs.showSystemNotification("Booking not found (already deleted?).");
+        return;
+      }
+
+      const batch = writeBatch(db);
+      batch.set(
+        doc(db, "deletedBookings", String(id)),
+        tenantPayload(dataAccessState, {
+          originalCollection: "bookings",
+          originalId: String(id),
+          deletedAt: serverTimestamp(),
+          deletedBy:
+            auth?.currentUser?.email ||
+            dataAccessState?.user?.email ||
+            dataAccessState?.user?.uid ||
+            "",
+          deleteReasons: ["Other"],
+          deleteReasonOther: deleteReason,
+          data: bookingSnapshot.data(),
+        })
+      );
+      batch.delete(bookingRef);
+      await batch.commit();
+
+      systemDialogs.queueSystemNotification({
+        type: "success",
+        title: "Booking deleted",
+        message: "Booking stored in Deleted Bookings and can be restored.",
+      });
+      router.push(returnHref);
     } catch (e) {
       console.error(e);
-      systemDialogs.showSystemNotification("Failed to delete job.");
+      systemDialogs.showSystemNotification("Failed to delete booking. No changes were made.");
+    } finally {
+      setDeletingJobId("");
     }
   };
 
@@ -1405,8 +1466,8 @@ export default function JobInfoPage() {
         <div id="page-top" className={layoutStyles.workspaceToolbar}>
           <div className={layoutStyles.workspaceFrame}>
             <div className={layoutStyles.workspaceTitleRow}>
-              <Btn onClick={() => router.push("/job-home")} variant="base">
-                ← Back
+              <Btn onClick={() => router.push(returnHref)} variant="base">
+                ← {backLabel}
               </Btn>
 
               <div className={layoutStyles.extracted20}>
@@ -1552,6 +1613,9 @@ export default function JobInfoPage() {
               const STATUS_ID = `${JOB_SECTION_ID}-status`;
               const NOTES_PO_ID = `${JOB_SECTION_ID}-notes-po`;
               const ATTACHMENTS_ID = `${JOB_SECTION_ID}-attachments`;
+              const FINANCE_DETAILS_ID = `${JOB_SECTION_ID}-finance-details`;
+              const PO_INPUT_ID = `${JOB_SECTION_ID}-po-input`;
+              const INVOICE_CONTACT_INPUT_ID = `${JOB_SECTION_ID}-invoice-contact-input`;
 
               const currentDbStatus = statusByJob[job.id] || job.status || "Pending";
               const selected = selectedStatusByJob[job.id] ?? currentDbStatus;
@@ -1592,28 +1656,44 @@ export default function JobInfoPage() {
               const dateSummary = formatCompactDateRange(job);
               const invoiceStage = isInvoiceStageStatus(currentDbStatus);
               const invoiceReadiness = getInvoiceReadiness(job, timesheets, currentDbStatus);
+              const targetInvoiceReadiness = getInvoiceReadiness(job, timesheets, "Ready to Invoice");
               const invoiceChecklist = [
-                ["status", "Status complete"],
-                ["PO", "PO reference"],
-                ["invoiceContact", "Invoicing contact"],
-                ["timesheets", "Linked timesheets"],
-                ["vehicle", "Vehicle assigned"],
-                ["crew", "Crew allocated"],
-              ].map(([key, label]) => ({
+                ["status", "Status complete", "Complete status"],
+                ["PO", "PO reference", "Add PO"],
+                ["invoiceContact", "Invoicing contact", "Add invoice contact"],
+                ["timesheets", "Linked timesheets", "Review timesheets"],
+                ["vehicle", "Vehicle assigned", "Assign vehicle"],
+                ["crew", "Crew allocated", "Allocate crew"],
+              ].map(([key, label, actionLabel]) => ({
                 key,
                 label,
+                actionLabel,
                 ok: !invoiceReadiness.missing.includes(key),
               }));
+              const targetInvoiceBlockers = invoiceChecklist
+                .map((item) => ({
+                  ...item,
+                  ok: !targetInvoiceReadiness.missing.includes(item.key),
+                }))
+                .filter((item) => !item.ok);
               const bookingChecklist = [
-                ["production", "Production added", Boolean(String(job.production || "").trim())],
-                ["location", "Location added", Boolean(String(job.location || "").trim())],
-                ["contact", "Booking contact added", Boolean(renderJobContacts(job))],
-                ["vehicle", "Vehicle assigned", Boolean(vehicleSummary)],
-                ["crew", "Crew allocated", crewCount.required === 0 || crewCount.allocated >= crewCount.required],
-              ].map(([key, label, ok]) => ({ key, label, ok }));
+                ["production", "Production added", "Add production", Boolean(String(job.production || "").trim())],
+                ["location", "Location added", "Add location", Boolean(String(job.location || "").trim())],
+                ["contact", "Booking contact added", "Add contact", Boolean(formatJobContacts(job))],
+                ["vehicle", "Vehicle assigned", "Assign vehicle", Boolean(vehicleSummary)],
+                ["crew", "Crew allocated", "Allocate crew", crewCount.required === 0 || crewCount.allocated >= crewCount.required],
+              ].map(([key, label, actionLabel, ok]) => ({ key, label, actionLabel, ok }));
               const readinessChecklist = invoiceStage ? invoiceChecklist : bookingChecklist;
               const readinessBlockers = readinessChecklist.filter((item) => !item.ok);
               const readinessReady = readinessBlockers.length === 0;
+              const handleReadinessAction = (key) => {
+                if (key === "PO") return focusJobField(FINANCE_DETAILS_ID, PO_INPUT_ID);
+                if (key === "invoiceContact") {
+                  return focusJobField(FINANCE_DETAILS_ID, INVOICE_CONTACT_INPUT_ID);
+                }
+                if (key === "timesheets") return scrollToJobSection(TIMESHEETS_ID);
+                return openBookingEditor(job.id);
+              };
               const statusHasChanged = selected !== currentDbStatus;
               const showPoWarning = invoiceStage || norm(currentDbStatus) === "confirmed";
               const rowWarnings = suppressMissingWarnings
@@ -1629,7 +1709,7 @@ export default function JobInfoPage() {
               const bookingMeta = [
                 dateSummary,
                 dayCount ? `${dayCount} day${dayCount === 1 ? "" : "s"}` : "",
-                job.location,
+                formatJobLocation(job.location),
                 vehicleSummary,
               ]
                 .filter(Boolean)
@@ -1667,14 +1747,14 @@ export default function JobInfoPage() {
                 ["Production Company", job.client],
                 ["Production", job.production],
                 ["Shoot Type", job.shootType],
-                ["Location", job.location],
+                ["Location", formatJobLocation(job.location)],
                 ["Dates", renderDateBlock(job)],
                 ["Call Time", job.callTime || renderNames(Object.values(job.callTimesByDate || {}))],
                 ["Crew allocated", renderCrewNames(job)],
                 ["Crew requirement", `${job.allocatedCrewCount ?? (Array.isArray(job.employees) ? job.employees.length : 0)} / ${job.requiredCrewCount || 0}`],
                 ["Vehicles assigned", vehicleSummary],
                 ["Equipment assigned", renderNames(job.equipment, ["name", "equipmentName"])],
-                ["Contacts", renderJobContacts(job)],
+                ["Contacts", formatJobContacts(job)],
                 ["PO", job.po],
                 ["Hotel", job.hasHotel ? `${yesNo(job.hasHotel)}${job.hotelNights ? ` - ${job.hotelNights} nights` : ""}${job.hotelPaidBy ? ` - ${job.hotelPaidBy}` : ""}` : "No"],
               ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
@@ -1802,13 +1882,7 @@ export default function JobInfoPage() {
                         <Btn
                           variant="primary"
                           title="Edit booking"
-                          onClick={() =>
-                            router.push(
-                              `/edit-booking/${job.id}?returnTo=${encodeURIComponent(
-                                `/job-numbers/${encodeURIComponent(jobId)}`
-                              )}`
-                            )
-                          }
+                          onClick={() => openBookingEditor(job.id)}
                         >
                           Edit
                         </Btn>
@@ -1853,6 +1927,7 @@ export default function JobInfoPage() {
                           <button
                             type="button"
                             onClick={() => deleteJob(job.id)}
+                            disabled={Boolean(deletingJobId)}
                             style={{
                               width: "100%",
                               border: "none",
@@ -1862,10 +1937,11 @@ export default function JobInfoPage() {
                               padding: "8px 10px",
                               borderRadius: 6,
                               fontWeight: 900,
-                              cursor: "pointer",
+                              cursor: deletingJobId ? "wait" : "pointer",
+                              opacity: deletingJobId && deletingJobId !== job.id ? 0.55 : 1,
                             }}
                           >
-                            Delete booking
+                            {deletingJobId === job.id ? "Deleting…" : "Delete booking"}
                           </button>
                         </div>
                       </details>}
@@ -2050,7 +2126,14 @@ export default function JobInfoPage() {
                                 variant="dark"
                                 disabled={isPaid}
                                 title={isPaid ? "Paid jobs are locked" : "Save status"}
-                                onClick={() => saveJobStatus(job.id, selected)}
+                                onClick={() =>
+                                  saveJobStatusWithWarning({
+                                    job,
+                                    status: selected,
+                                    bookingBlockers: bookingChecklist.filter((item) => !item.ok),
+                                    invoiceBlockers: targetInvoiceBlockers,
+                                  })
+                                }
                               >
                                 Save Status Change
                               </Btn>
@@ -2078,7 +2161,18 @@ export default function JobInfoPage() {
                               ) : (
                                 <div className={layoutStyles.invoiceBlockers}>
                                   <span className={layoutStyles.invoiceBlockerLabel}>Action:</span>
-                                  <span>{readinessBlockers.map((item) => item.label).join(" · ")}</span>
+                                  <span className={layoutStyles.readinessActions}>
+                                    {readinessBlockers.map((item) => (
+                                      <button
+                                        key={item.key}
+                                        type="button"
+                                        className={layoutStyles.readinessAction}
+                                        onClick={() => handleReadinessAction(item.key)}
+                                      >
+                                        {item.actionLabel}
+                                      </button>
+                                    ))}
+                                  </span>
                                 </div>
                               )}
 
@@ -2140,11 +2234,16 @@ export default function JobInfoPage() {
                               Save Summary
                             </Btn>
 
-                            <details className={layoutStyles.financeDetails} open={invoiceStage}>
+                            <details id={FINANCE_DETAILS_ID} className={layoutStyles.financeDetails} open={invoiceStage}>
                               <summary>
                                 <span>Finance details</span>
                                 <span className={layoutStyles.financeDetailsSummary}>
-                                  {[job.po ? "PO added" : "PO not added", job.invoiceContactName && job.invoiceContactEmail ? "Contact added" : "No invoice contact"].join(" · ")}
+                                  {[
+                                    !job.po ? "Add PO" : "",
+                                    !(job.invoiceContactName && job.invoiceContactEmail)
+                                      ? "Add invoice contact"
+                                      : "",
+                                  ].filter(Boolean).join(" · ") || "Finance details complete"}
                                 </span>
                               </summary>
                               <div className={layoutStyles.financeFields}>
@@ -2153,6 +2252,7 @@ export default function JobInfoPage() {
                                 Purchase Order (PO)
                               </label>
                               <input
+                                id={PO_INPUT_ID}
                                 type="text"
                                 defaultValue={job.po || ""}
                                 onBlur={(e) => {
@@ -2174,6 +2274,7 @@ export default function JobInfoPage() {
                                 Invoicing Contact
                               </label>
                               <input
+                                id={INVOICE_CONTACT_INPUT_ID}
                                 type="text"
                                 defaultValue={job.invoiceContactName || ""}
                                 onBlur={(e) => {
