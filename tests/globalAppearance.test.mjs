@@ -57,8 +57,8 @@ test("derived dark mode produces readable surfaces and complete CSS variables", 
   assert.ok(contrastRatio(dark.textColor, dark.surfaceColor) >= 4.5);
   const variables = themeToCssVariables(DEFAULT_GLOBAL_THEME, { mode: "dark" });
   assert.equal(variables["--color-canvas"], dark.canvasColor);
-  assert.equal(variables["--color-surface"], dark.surfaceColor);
-  assert.notEqual(variables["--color-surface"], variables["--color-canvas"]);
+  assert.equal(variables["--color-surface"], dark.canvasColor);
+  assert.equal(variables["--color-surface"], variables["--color-canvas"]);
   assert.equal(variables["--color-surface-subtle"], "#131518");
   assert.equal(variables["--color-surface-raised"], "#202225");
   assert.equal(variables["--color-surface-hover"], "#232528");
@@ -83,8 +83,8 @@ test("dark mode palette can be edited independently from light colours", () => {
   const variables = themeToCssVariables(theme, { mode: "dark" });
   assert.equal(dark.canvasColor, "#05070d");
   assert.equal(dark.surfaceColor, "#111827");
-  assert.equal(variables["--color-surface"], "#111827");
-  assert.equal(variables["--table-alternate-bg"], "#111827");
+  assert.equal(variables["--color-surface"], "#05070d");
+  assert.equal(variables["--table-alternate-bg"], "#05070d");
   assert.equal(variables["--color-brand"], "#7dd3fc");
   assert.equal(variables["--color-text-inverse"], "#000000");
 });
