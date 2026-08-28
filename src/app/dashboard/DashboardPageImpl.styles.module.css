@@ -190,25 +190,73 @@
 
 .vehicleLine {
   display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
 }
 
-.vehiclePreppedBadge {
+.vehicleLine > :last-child {
+  min-width: 0;
+}
+
+.vehiclePrepStatusIcon {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   gap: 3px;
-  padding: 1px 5px;
-  border: 1px solid var(--color-success-border);
-  border-radius: 999px;
-  background: var(--color-success-soft);
-  color: var(--color-success);
-  font-size: 0.62rem;
-  font-weight: 900;
-  line-height: 1.25;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  margin-top: 1px;
+  color: var(--color-warning);
+  opacity: 1;
+}
+
+.vehiclePrepStatusIcon[data-prepped="true"] {
+  border: 1.5px solid #1b5e20;
+  border-radius: var(--radius-pill);
+  background: #4caf50;
+  color: var(--color-text-inverse);
+}
+
+.vehiclePrepStatusIcon[data-prepped="false"] {
+  padding: 0;
+  border: 2px solid var(--status-orange);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--status-orange-border);
+  box-shadow: none;
+}
+
+.vehiclePrepStatusIcon[data-prepped="false"][data-night="true"] {
+  border-color: #111;
+  color: #111;
+}
+
+.bookingMetaLine {
+  display: inline-flex;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bookingMetaIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.bookingMetaLine > span {
+  min-width: 0;
 }
 
 .extracted21 {
@@ -283,6 +331,26 @@
   margin-top: 6px;
 }
 
+.recceNotes {
+  display: grid;
+  gap: 2px;
+  margin-top: 5px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--color-brand);
+  border-radius: 4px;
+  background: var(--color-surface-raised);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.recceNotes strong {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .extracted31 {
   display: inline-flex;
   align-items: center;
@@ -313,6 +381,11 @@
 }
 
 .extracted34 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
   background-color: #e53935;
   color: #fff;
   border: 1.5px solid #000;
@@ -321,6 +394,22 @@
   font-size: 0.74rem;
   font-weight: 900;
   letter-spacing: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.extracted34:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.complianceChevron {
+  flex: 0 0 auto;
+  transition: transform 0.16s ease;
+}
+
+.complianceChevron[data-expanded="true"] {
+  transform: rotate(180deg);
 }
 
 .extracted35 {
@@ -728,6 +817,162 @@
   min-width: 0;
 }
 
+.mobileWorkDiaryDayBar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .extracted120 {
+    padding: 10px 10px 24px;
+  }
+
+  .diaryPageHeader {
+    min-height: 0;
+    margin-bottom: 8px;
+  }
+
+  .diaryPageHeader > div:first-child {
+    display: none;
+  }
+
+  .diaryPageHeader > div:last-child,
+  .extracted61 {
+    width: 100%;
+  }
+
+  .diaryPageHeader .extracted61 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .diaryPageHeader .extracted61 > button {
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    padding-inline: 6px;
+    font-size: 10.5px;
+    white-space: nowrap;
+  }
+
+  .diaryPageHeader .extracted61 > button > svg {
+    display: none;
+  }
+
+  .extracted62 {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .extracted64 {
+    min-height: 34px;
+    padding-block: 5px;
+  }
+
+  .extracted71 {
+    padding: 6px;
+  }
+
+  .extracted72 {
+    position: static;
+    gap: 6px;
+    margin: -6px -6px 6px;
+    padding: 8px;
+  }
+
+  .extracted73,
+  .extracted76 {
+    width: 100%;
+  }
+
+  .extracted73 {
+    gap: 8px;
+  }
+
+  .extracted73 > button:last-child {
+    min-height: 34px;
+    margin-left: auto;
+  }
+
+  .extracted74 {
+    font-size: 15px;
+  }
+
+  .extracted75 {
+    display: none;
+  }
+
+  .extracted76 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .extracted76 > button,
+  .visibilityMenuSummary,
+  .calendarDateBadge {
+    min-height: 34px;
+  }
+
+  .extracted76 > button {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .visibilityMenu,
+  .calendarDateBadge {
+    width: 100%;
+  }
+
+  .visibilityMenuSummary,
+  .calendarDateBadge {
+    padding: 5px 8px;
+  }
+
+  .calendarDateBadge {
+    justify-content: center;
+  }
+
+  .workDiaryCalendarWrap {
+    width: 100%;
+    overflow-y: visible;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .mobileWorkDiaryDayBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 9px;
+    border: 1px solid var(--color-border);
+    border-bottom: 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    background: var(--color-surface-subtle);
+    color: var(--color-text);
+  }
+
+  .mobileWorkDiaryDayBar strong {
+    font-size: 12.5px;
+    font-weight: 900;
+  }
+
+  .mobileWorkDiaryDayBar span {
+    color: var(--color-text-muted);
+    font-size: 10.5px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .mobileWorkDiaryDayBar + .calendarFrame {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+}
+
 .moreBookingsBelowAnchor {
   position: fixed;
   z-index: 30;
@@ -1081,5 +1326,5 @@
 .calendarFrame{border-radius:var(--radius-md);background:var(--color-surface);border:var(--border-default);box-shadow:inset 0 1px 0 rgba(255,255,255,.75);min-height:620px;overflow:hidden}.calendarCompact{min-height:0;height:auto;overflow:visible}.calendarMonth{min-height:620px;height:auto;overflow:visible}.eventLabel{color:var(--event-label-color);font-weight:950;font-size:var(--font-size-xs);white-space:normal}.eventLabelSmall{font-size:11px}.riskReason{margin-top:var(--risk-margin)}
 .uCraneUpcomingSection{margin-top:16px}.uCraneUpcomingHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.uCraneUpcomingTitle{margin:0;color:var(--color-text);font-size:16px;font-weight:900}.uCraneUpcomingHint{margin:5px 0 0;color:var(--color-text-muted);font-size:12.5px;line-height:1.45}.uCraneUpcomingGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.uCraneUpcomingColumn{min-width:0;min-height:160px;padding:12px;border:var(--border-default);border-radius:var(--radius-md);background:var(--color-surface);box-shadow:var(--shadow-sm)}.uCraneColumnHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.uCraneColumnLabel{display:flex;align-items:center;gap:9px;min-width:0}.uCraneColumnLabel h3{margin:0;color:var(--color-text);font-size:13px;font-weight:900}.uCraneColumnLabel span:not(.uCraneStatusDot){display:block;margin-top:2px;color:var(--color-text-muted);font-size:12px}.uCraneStatusDot{width:12px;height:12px;flex:0 0 auto;border:2px solid;border-radius:999px}.uCraneColumnCount{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:26px;padding:0 8px;border:1px solid var(--color-brand-border);border-radius:var(--radius-pill);background:var(--color-brand-soft);color:var(--color-text);font-size:12px;font-weight:900}.uCraneColumnItems{display:flex;flex-direction:column;gap:8px}.uCraneColumnEmpty{padding:14px 8px;color:var(--color-text-muted);font-size:12px}.uCraneUpcomingCard{display:flex;width:100%;flex-direction:column;align-items:flex-start;gap:4px;padding:10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface-subtle);color:var(--color-text);text-align:left;box-shadow:0 1px 0 rgba(15,23,42,.04);transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}.uCraneUpcomingCard:hover{border-color:var(--color-brand);box-shadow:0 5px 14px rgba(15,23,42,.09);transform:translateY(-1px)}.uCraneUpcomingCard:focus-visible{outline:3px solid var(--color-focus-ring);outline-offset:2px}.uCraneUpcomingCardTop{display:flex;width:100%;align-items:flex-start;justify-content:space-between;gap:8px}.uCraneUpcomingCardTop strong{font-size:13px;font-weight:900;text-transform:uppercase}.uCraneUpcomingCardTop>span{flex:0 0 auto;color:var(--color-text-muted);font-size:12px;font-weight:800}.uCraneUpcomingClient{font-size:12.5px;font-weight:850;text-transform:uppercase}.uCraneUpcomingLocation{color:var(--color-text-muted);font-size:12px;font-weight:700;text-transform:uppercase}.uCraneUpcomingRisk{margin-top:2px;padding:2px 6px;border:1px solid var(--color-danger);border-radius:var(--radius-sm);background:var(--color-danger-soft);color:var(--color-danger);font-size:10px;font-weight:900;text-transform:uppercase}
 @media (max-width:900px){.uCraneUpcomingGrid{grid-template-columns:1fr}.uCraneUpcomingColumn{min-height:0}}
-.metaBadge{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:20px;min-width:34px;padding:2px 6px;border-radius:var(--radius-sm);background:var(--color-danger);color:var(--color-text-inverse);border:1px solid rgba(0,0,0,.8);font-size:.72rem;font-weight:800;line-height:1;white-space:nowrap}.metaBadge[data-good=true]{background:#4caf50}.jobNumber{flex:0 0 auto;padding:2px 4px;border-radius:var(--radius-sm);font-size:.9rem;font-weight:800;border:1px solid #0b0b0b;background:rgba(255,255,255,.72);color:#111;white-space:nowrap}.jobNumber[data-shoot=night]{background:var(--color-accent);color:#fff}.vehiclePill{display:inline-flex;align-items:center;gap:6px;border-radius:2px;background:var(--pill-background);color:var(--pill-text);margin-top:1px}.holidayTitle{color:var(--color-text);white-space:normal;display:-webkit-box;-webkit-box-orient:vertical}.holidayTitle[data-collapsed=true]{-webkit-line-clamp:4;overflow:hidden}
+.metaBadge{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:20px;min-width:34px;padding:2px 6px;border-radius:var(--radius-sm);background:var(--color-danger);color:var(--color-text-inverse);border:1px solid rgba(0,0,0,.8);font-size:.72rem;font-weight:800;line-height:1;white-space:nowrap}.metaBadge[data-good=true]{background:#4caf50}.jobNumber{flex:0 0 auto;padding:2px 4px;border-radius:var(--radius-sm);font-size:.9rem;font-weight:800;border:1px solid #0b0b0b;background:rgba(255,255,255,.72);color:#111;white-space:nowrap}.vehiclePill{display:inline-flex;align-items:center;gap:6px;border-radius:2px;background:var(--pill-background);color:var(--pill-text);margin-top:1px}.holidayTitle{color:var(--color-text);white-space:normal;display:-webkit-box;-webkit-box-orient:vertical}.holidayTitle[data-collapsed=true]{-webkit-line-clamp:4;overflow:hidden}
 .uCraneUpcomingRisk{border-color:var(--status-orange-border);background:var(--status-orange);color:var(--status-orange-text)}

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import EnquiryActionJobSheet from "@/app/components/EnquiryActionJobSheet";
 import LinkedBookingContinuationFields from "@/app/components/LinkedBookingContinuationFields";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
@@ -5144,6 +5145,9 @@ export default function EditBookingPage() {
                   <button type="button" onClick={() => requestGuardedNavigation(() => router.push(returnHref))} style={btnGhost}>
                     Cancel
                   </button>
+                  <button type="button" onClick={() => window.print()} style={btnGhost}>
+                    <Printer size={14} /> Print Job Sheet
+                  </button>
                   <button
                     type="submit"
                     disabled={!coreFilled || saving}
@@ -5163,6 +5167,28 @@ export default function EditBookingPage() {
           </form>
         </div>
       </div>
+      <EnquiryActionJobSheet
+        enquiry={{
+          jobNumber,
+          quoteNumber,
+          client,
+          production,
+          location,
+          po,
+          invoiceContactName,
+          invoiceContactEmail,
+          invoiceContactPhone,
+          shootType,
+          bookingDates: selectedDates,
+          additionalContacts,
+          selectedVehicles: selectedVehicleDetails,
+          equipment,
+          notes,
+          hasHS,
+          hasHotel,
+          hotelNights,
+        }}
+      />
     </HeaderSidebarLayout>
   );
 }

@@ -4,6 +4,7 @@
 import * as systemDialogs from "@/app/utils/systemNotifications";
 import "./dashboard.calendar.css";
 import layoutStyles from "./DashboardPageImpl.styles.module.css";
+import { bookingIdForRecceEvent, mapReccesByBooking } from "./dashboardRecce";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -57,6 +58,8 @@ import {
 } from "firebase/firestore";
 import {
   PREP_STORAGE_KEYS,
+  indexAppVehiclePrepRecords,
+  isEquipmentPrepped,
   isVehiclePrepped,
   mergePrepRecordSources,
 } from "./dashboardVehiclePrep";
@@ -73,12 +76,15 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clapperboard,
   ClipboardList,
   Clock3,
   Eye,
   EyeOff,
   FileText,
+  MapPin,
   MapPinned,
+  Minus,
   Plus,
   Search,
   ShieldCheck,
@@ -985,6 +991,7 @@ function EventMetaBadge({ Icon, good, title, children }) {
 function CalendarEvent({ event, onViewQuote }) {
   const router = useRouter();
   const [showNotes, setShowNotes] = useState(false);
+  const [showComplianceIssues, setShowComplianceIssues] = useState(false);
 
   const employeeInitials = Array.isArray(event.employees)
     ? event.employees
@@ -1015,13 +1022,21 @@ function CalendarEvent({ event, onViewQuote }) {
 
   const bookingStatusLC = String(event.status || "").toLowerCase();
   const hideDayNotes = ["cancelled", "canceled", "postponed", "dnh"].includes(bookingStatusLC);
-  const equipmentText = Array.isArray(event?.equipment)
+  const equipmentItems = (Array.isArray(event?.equipment)
     ? event.equipment
-        .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
-        .map((item) => String(item || "").trim())
-        .filter(Boolean)
-        .join(", ")
-    : String(event?.equipment || "").trim();
+    : event?.equipment
+      ? [event.equipment]
+      : []
+  )
+    .map((item) => ({
+      source: item,
+      name: String(
+        typeof item === "string"
+          ? item
+          : item?.name || item?.label || item?.description || ""
+      ).trim(),
+    }))
+    .filter((item) => item.name);
   const locationText = String(event?.location || "").trim();
 
   const callTimeForThisEvent = useMemo(() => callTimeForEventDay(event), [event]);
@@ -1153,7 +1168,14 @@ function CalendarEvent({ event, onViewQuote }) {
             </div>
           </div>
 
-          {!isMaintenance && <span>{getBookingProductionLabel(event)}</span>}
+          {!isMaintenance && (
+            <span className={layoutStyles.bookingMetaLine}>
+              <span className={layoutStyles.bookingMetaIcon} title="Production" aria-label="Production">
+                <Clapperboard size={14} strokeWidth={2.4} aria-hidden="true" />
+              </span>
+              <span>{getBookingProductionLabel(event)}</span>
+            </span>
+          )}
           {isMaintenance && (
             <span className={layoutStyles.extracted18}>
               {event.title || event.maintenanceTypeLabel || "Maintenance"}
@@ -1184,9 +1206,12 @@ function CalendarEvent({ event, onViewQuote }) {
           {!isMaintenance && callTimeForThisEvent && (
             <span
               title={callTimeTitle}
-              className={layoutStyles.extracted19}
+              className={`${layoutStyles.extracted19} ${layoutStyles.bookingMetaLine}`}
             >
-              <Clock3 size={12} strokeWidth={3} /> {callTimeForThisEvent}
+              <span className={layoutStyles.bookingMetaIcon} aria-hidden="true">
+                <Clock3 size={14} strokeWidth={2.5} />
+              </span>
+              <span>{callTimeForThisEvent}</span>
             </span>
           )}
 
@@ -1216,24 +1241,34 @@ function CalendarEvent({ event, onViewQuote }) {
                 bookingStatusLabel === "Complete";
 
               const prepped = isVehiclePrepped(event.prepRecordsByKey, event, i);
-              const preppedBadge = prepped ? (
+              const prepStatusIcon = (
                 <span
-                  className={layoutStyles.vehiclePreppedBadge}
-                  title="Vehicle is clean, loaded and ready to leave for this job"
-                  aria-label="Vehicle prepped: clean, loaded and ready to leave"
+                  className={layoutStyles.vehiclePrepStatusIcon}
+                  data-prepped={prepped}
+                  data-night={String(event.shootType || "").toLowerCase() === "night"}
+                  title={
+                    prepped
+                      ? "Vehicle is prepped: clean, loaded and ready to leave"
+                      : "Vehicle still needs preparing"
+                  }
+                  aria-label={prepped ? "Vehicle prepped" : "Vehicle needs prep"}
                 >
-                  <Check size={11} strokeWidth={3} /> PREPPED
+                  {prepped ? (
+                    <Check size={11} strokeWidth={3.2} aria-hidden="true" />
+                  ) : (
+                    <Minus size={9} strokeWidth={3} aria-hidden="true" />
+                  )}
                 </span>
-              ) : null;
+              );
 
               if (shouldUseJobStatusForVehicle) {
                 return (
                   <span key={i} className={layoutStyles.vehicleLine}>
+                    {prepStatusIcon}
                     <span>
                       {name}
                       {plate ? ` - ${plate}` : ""}
                     </span>
-                    {preppedBadge}
                   </span>
                 );
               }
@@ -1254,6 +1289,7 @@ function CalendarEvent({ event, onViewQuote }) {
               ) {
                 return (
                   <span key={i} className={layoutStyles.vehicleLine}>
+                    {prepStatusIcon}
                     <span
                       className={layoutStyles.extracted20}
                       title="Vehicle non-compliant (SORN or not insured) - current or future confirmed job"
@@ -1261,7 +1297,6 @@ function CalendarEvent({ event, onViewQuote }) {
                       {name}
                       {plate ? ` - ${plate}` : ""}
                     </span>
-                    {preppedBadge}
                   </span>
                 );
               }
@@ -1299,36 +1334,62 @@ function CalendarEvent({ event, onViewQuote }) {
                 // style-audit-allow runtime: booking status palette
                 return (
                   <span key={i} className={layoutStyles.vehicleLine}>
+                    {prepStatusIcon}
                     <span className={layoutStyles.vehiclePill} style={{ "--pill-background": style.bg, "--pill-text": style.text }}
                       title={`Vehicle status: ${itemStatus}`}
                     >
                       {name}
                       {plate ? ` - ${plate}` : ""}
                     </span>
-                    {preppedBadge}
                   </span>
                 );
               }
 
               return (
                 <span key={i} className={layoutStyles.vehicleLine}>
+                  {prepStatusIcon}
                   <span>
                     {name}
                     {plate ? ` - ${plate}` : ""}
                   </span>
-                  {preppedBadge}
                 </span>
               );
             })}
 
-          {equipmentText ? (
-            <span className={layoutStyles.extracted21}>
-              {equipmentText}
-            </span>
-          ) : null}
+          {equipmentItems.map((equipment, equipmentIndex) => {
+            const prepped = isEquipmentPrepped(
+              event.prepRecordsByKey,
+              event,
+              equipmentIndex
+            );
+            return (
+              <span
+                key={`equipment-${equipment.name}-${equipmentIndex}`}
+                className={layoutStyles.vehicleLine}
+              >
+                <span
+                  className={layoutStyles.vehiclePrepStatusIcon}
+                  data-prepped={prepped}
+                  data-night={String(event.shootType || "").toLowerCase() === "night"}
+                  title={prepped ? "Equipment is prepped" : "Equipment still needs preparing"}
+                  aria-label={prepped ? "Equipment prepped" : "Equipment needs prep"}
+                >
+                  {prepped ? (
+                    <Check size={11} strokeWidth={3.2} aria-hidden="true" />
+                  ) : (
+                    <Minus size={9} strokeWidth={3} aria-hidden="true" />
+                  )}
+                </span>
+                <span>{equipment.name}</span>
+              </span>
+            );
+          })}
           {locationText ? (
-            <span className={layoutStyles.extracted22}>
-              {locationText}
+            <span className={`${layoutStyles.extracted22} ${layoutStyles.bookingMetaLine}`}>
+              <span className={layoutStyles.bookingMetaIcon} title="Location" aria-label="Location">
+                <MapPin size={14} strokeWidth={2.4} aria-hidden="true" />
+              </span>
+              <span>{locationText}</span>
             </span>
           ) : null}
 
@@ -1459,7 +1520,7 @@ function CalendarEvent({ event, onViewQuote }) {
             );
           })()}
 
-          {/* RECCE LINK ONLY (jobs) */}
+          {/* Submitted recce summary and link (jobs) */}
           {!isMaintenance && event.hasRecce && event.recceId && (
             <div className={layoutStyles.extracted30}>
               <Button bare
@@ -1479,27 +1540,49 @@ function CalendarEvent({ event, onViewQuote }) {
                   </span>
                 )}
               </Button>
+              {event.recceNotes && (
+                <div className={layoutStyles.recceNotes}>
+                  <strong>Recce notes</strong>
+                  <span>{event.recceNotes}</span>
+                </div>
+              )}
             </div>
           )}
 
           {/* Risk box */}
           {event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
             <div className={layoutStyles.extracted33}>
-              <div
+              <button
+                type="button"
                 className={layoutStyles.extracted34}
+                aria-expanded={showComplianceIssues}
+                onClick={(clickEvent) => {
+                  clickEvent.preventDefault();
+                  clickEvent.stopPropagation();
+                  setShowComplianceIssues((current) => !current);
+                }}
               >
-                VEHICLE COMPLIANCE ISSUE
-              </div>
-              <div
-                className={layoutStyles.extracted35}
-              >
-                {/* style-audit-allow runtime: spacing between calculated risk reasons */}
-                {event.riskReasons.map((r, i) => (
-                  <div key={i} className={layoutStyles.riskReason} style={{ "--risk-margin": i ? "3px" : 0 }}>
-                    {r}
-                  </div>
-                ))}
-              </div>
+                <span>
+                  VEHICLE COMPLIANCE {event.riskReasons.length === 1 ? "ISSUE" : `ISSUES (${event.riskReasons.length})`}
+                </span>
+                <ChevronDown
+                  size={15}
+                  strokeWidth={3}
+                  aria-hidden="true"
+                  className={layoutStyles.complianceChevron}
+                  data-expanded={showComplianceIssues}
+                />
+              </button>
+              {showComplianceIssues && (
+                <div className={layoutStyles.extracted35}>
+                  {/* style-audit-allow runtime: spacing between calculated risk reasons */}
+                  {event.riskReasons.map((r, i) => (
+                    <div key={i} className={layoutStyles.riskReason} style={{ "--risk-margin": i ? "3px" : 0 }}>
+                      {r}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </>
@@ -1692,6 +1775,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const router = useRouter();
   const isUCraneMode = mode === "u-crane";
   const workDiaryCalendarRef = useRef(null);
+  const workDiarySwipeStartRef = useRef(null);
+  const workDiarySwipeHandledRef = useRef(false);
   const authAccess = useAuth() || {};
   const authEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase();
   const canUseAdminDashboardFallback = !!authAccess.isAdmin || isAdminEmail(authEmail);
@@ -1752,12 +1837,68 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [quoteViewer, setQuoteViewer] = useState(null);
   const [quotePdfViewer, setQuotePdfViewer] = useState(null);
   const [showMoreBookingsBelow, setShowMoreBookingsBelow] = useState(false);
+  const [isMobileWorkDiary, setIsMobileWorkDiary] = useState(false);
+
+  useEffect(() => {
+    const mobileQuery = window.matchMedia("(max-width: 900px)");
+    const updateMobileWorkDiary = () => setIsMobileWorkDiary(mobileQuery.matches);
+    updateMobileWorkDiary();
+    mobileQuery.addEventListener("change", updateMobileWorkDiary);
+
+    return () => {
+      mobileQuery.removeEventListener("change", updateMobileWorkDiary);
+    };
+  }, []);
+
+  const handleWorkDiaryPointerDown = useCallback((event) => {
+    workDiarySwipeHandledRef.current = false;
+    if (!isMobileWorkDiary || calendarView !== "week") {
+      workDiarySwipeStartRef.current = null;
+      return;
+    }
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    workDiarySwipeStartRef.current = { x: event.clientX, y: event.clientY };
+  }, [calendarView, isMobileWorkDiary]);
+
+  const handleWorkDiaryPointerUp = useCallback((event) => {
+    const start = workDiarySwipeStartRef.current;
+    workDiarySwipeStartRef.current = null;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+    if (!start || !isMobileWorkDiary || calendarView !== "week") return;
+
+    const horizontalDistance = event.clientX - start.x;
+    const verticalDistance = event.clientY - start.y;
+    if (
+      Math.abs(horizontalDistance) < 48 ||
+      Math.abs(horizontalDistance) <= Math.abs(verticalDistance)
+    ) {
+      return;
+    }
+
+    workDiarySwipeHandledRef.current = true;
+    setCurrentDate((previousDate) =>
+      shiftByDays(previousDate, horizontalDistance < 0 ? 1 : -1)
+    );
+  }, [calendarView, isMobileWorkDiary]);
+
+  const handleWorkDiaryClickCapture = useCallback((event) => {
+    if (!workDiarySwipeHandledRef.current) return;
+    workDiarySwipeHandledRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
+  const workDiaryView = isMobileWorkDiary && calendarView === "week" ? "day" : calendarView;
 
   const [allMaintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [allVehiclesData, setVehiclesData] = useState([]);
   const [localPrepRecordsByKey, setLocalPrepRecordsByKey] = useState({});
   const [sharedPrepRecordsByKey, setSharedPrepRecordsByKey] = useState({});
+  const [appPrepRecordsByKey, setAppPrepRecordsByKey] = useState({});
   const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
   const [pendingMaintenanceDrop, setPendingMaintenanceDrop] = useState(null);
@@ -1783,8 +1924,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     [allVehiclesData, isUCraneMode]
   );
   const prepRecordsByKey = useMemo(
-    () => mergePrepRecordSources(localPrepRecordsByKey, sharedPrepRecordsByKey),
-    [localPrepRecordsByKey, sharedPrepRecordsByKey]
+    () => mergePrepRecordSources(localPrepRecordsByKey, sharedPrepRecordsByKey, appPrepRecordsByKey),
+    [appPrepRecordsByKey, localPrepRecordsByKey, sharedPrepRecordsByKey]
   );
   const bookings = useMemo(
     () => isUCraneMode
@@ -1980,6 +2121,29 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       }
     );
   }, [accessKey, authReady]);
+
+  useEffect(() => {
+    if (!authReady) return undefined;
+    const gate = resolveDataAccess(dataAccessState, CALENDAR_ACCESS_OPTIONS);
+    if (gate.checking || !gate.allowed) return undefined;
+
+    return onSnapshot(
+      tenantCollectionQuery(db, "vehiclePrepRecords", dataAccessState, [], CALENDAR_ACCESS_OPTIONS),
+      (snapshot) => {
+        setAppPrepRecordsByKey(
+          indexAppVehiclePrepRecords(
+            snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          )
+        );
+      },
+      (error) => {
+        if (!handleFirestoreAccessError(error, { collectionName: "vehiclePrepRecords", operation: "listen app vehicle prep records" })) {
+          console.error("[diary-prep] App prep listener failed:", error);
+        }
+        setAppPrepRecordsByKey({});
+      }
+    );
+  }, [accessKey, authReady, dataAccessState]);
 
   useEffect(() => {
     const nextDate = parseLocalDate(initialDate);
@@ -2219,6 +2383,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           }))
         )
       );
+      setReccesByBooking(
+        mapReccesByBooking(Array.isArray(collections.recces) ? collections.recces : [])
+      );
       setMaintenanceBookings(Array.isArray(collections.maintenanceBookings) ? collections.maintenanceBookings : []);
       setMaintenanceJobs(Array.isArray(collections.maintenanceJobs) ? collections.maintenanceJobs : []);
       setVehiclesData(Array.isArray(collections.vehicles) ? collections.vehicles : []);
@@ -2266,30 +2433,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     }
 
     const unsubRecces = onSnapshot(tenantCollectionQuery(db, "recces", dataAccessState, [], CALENDAR_ACCESS_OPTIONS), (snap) => {
-      const map = {};
-      snap.docs.forEach((d) => {
-        const r = { id: d.id, ...d.data() };
-        const k = r.bookingId;
-        if (!k) return;
-
-        const cur = map[k];
-        const curTs = cur?.createdAt?.seconds || 0;
-        const rTs = r?.createdAt?.seconds || 0;
-
-        if (!cur || rTs >= curTs) {
-          const a = r.answers || {};
-          const notes = a.notes || a.additionalNotes || a.accessNotes || a.risks || "";
-
-          map[k] = {
-            id: r.id,
-            status: r.status || "submitted",
-            notes: String(notes || "").trim(),
-            answers: r.answers || {},
-            createdAt: r.createdAt || null,
-          };
-        }
-      });
-      setReccesByBooking(map);
+      setReccesByBooking(mapReccesByBooking(snap.docs));
     }, (error) => {
       handleFirestoreAccessError(error, { collectionName: "recces", operation: "listen recces" });
       loadAdminDashboardData("recces denied");
@@ -2931,7 +3075,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           })
         : [];
       const riskReasons = [...risk.reasons, ...bookingVehicleWarnings];
-      const recce = reccesByBooking[ev.id] || null;
+      const recce = reccesByBooking[bookingIdForRecceEvent(ev)] || null;
       const vehicleStatus = inactiveBooking
         ? buildSynchronizedVehicleStatus(
             { ...ev, vehicles: displayVehicles },
@@ -3396,6 +3540,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       <OperationsPage className={`dashboard-page ${layoutStyles.extracted120}`}>
         {/* Header */}
         <OperationsPageHeader
+          className={layoutStyles.diaryPageHeader}
           title={isUCraneMode ? "U-Crane" : "Diary"}
           subtitle={isUCraneMode ? "U-Crane bookings, crew and operational preparation." : "Bookings, availability and maintenance across the working week."}
           actions={<OperationsHeaderActions className={layoutStyles.extracted61}>
@@ -3587,13 +3732,32 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             </div>
           </div>
 
-          <div ref={workDiaryCalendarRef} className={layoutStyles.workDiaryCalendarWrap}>
+          <div
+            ref={workDiaryCalendarRef}
+            className={layoutStyles.workDiaryCalendarWrap}
+            tabIndex={0}
+            aria-label="Work Diary days. Swipe or scroll horizontally to view each day."
+            onPointerDown={handleWorkDiaryPointerDown}
+            onPointerUp={handleWorkDiaryPointerUp}
+            onPointerCancel={() => { workDiarySwipeStartRef.current = null; }}
+            onClickCapture={handleWorkDiaryClickCapture}
+          >
+            <div className={layoutStyles.mobileWorkDiaryDayBar} aria-live="polite">
+              <strong>
+                {currentDate.toLocaleDateString("en-GB", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              </strong>
+              <span>Swipe sideways</span>
+            </div>
             <BigCalendar
               localizer={localizer}
               //  include bank holidays in Work Diary
               events={workCalendarEvents}
-              view={calendarView}
-              views={["week", "month"]}
+              view={workDiaryView}
+              views={["day", "week", "month"]}
               onView={(v) => setCalendarView((prev) => (prev === v ? prev : v))}
               date={currentDate}
               onNavigate={(d) => setCurrentDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}

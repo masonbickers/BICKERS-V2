@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import EnquiryActionJobSheet from "@/app/components/EnquiryActionJobSheet";
 import LinkedBookingContinuationFields from "@/app/components/LinkedBookingContinuationFields";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { useAuth } from "@/app/context/authContext";
@@ -72,6 +73,7 @@ import {
   ClipboardList,
   FileText,
   Package,
+  Printer,
   Save,
   Search,
   Truck,
@@ -3621,6 +3623,9 @@ function CreateBookingForm({ initialStatus }) {
               </div>
               <div className={layoutStyles.stickyActions}>
                 <button type="button" onClick={() => requestGuardedNavigation(() => router.push("/dashboard"))} style={btnGhost}>Cancel</button>
+                <button type="button" onClick={() => window.print()} style={btnGhost}>
+                  <Printer size={14} /> Print Job Sheet
+                </button>
                 <button
                   type="button"
                   disabled={!coreFilled}
@@ -3722,6 +3727,28 @@ function CreateBookingForm({ initialStatus }) {
           </form>
         </div>
       </div>
+      <EnquiryActionJobSheet
+        enquiry={{
+          jobNumber,
+          quoteNumber,
+          client,
+          production,
+          location,
+          po,
+          invoiceContactName,
+          invoiceContactEmail,
+          invoiceContactPhone,
+          shootType,
+          bookingDates: selectedDates,
+          additionalContacts,
+          selectedVehicles: selectedVehicleDetails,
+          equipment,
+          notes,
+          hasHS,
+          hasHotel,
+          hotelNights,
+        }}
+      />
     </HeaderSidebarLayout>
   );
 }
