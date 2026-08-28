@@ -44,7 +44,7 @@ img,svg{max-width:100%}
   color:var(--color-text);
   background:var(--color-canvas);
 }
-.app-shell-content :where(h1):not(.quote-print-page h1){
+.app-shell-content :where(h1):not(.quote-print-page h1):not(.enquiry-action-sheet-print-root h1){
   margin:0!important;
   color:var(--color-text)!important;
   font-family:var(--font-sans)!important;
@@ -123,3 +123,50 @@ img,svg{max-width:100%}
 }
 @media(max-width:600px){html[data-interface-scale] .app-shell-root{zoom:1;width:100vw;height:100dvh;min-height:100dvh}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+@media print {
+  html[data-interface-scale] body.printing-enquiry-action-sheet .app-shell-root,
+  body.printing-enquiry-action-sheet .app-shell-root {
+    zoom: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.printing-enquiry-action-sheet * {
+    visibility: hidden !important;
+  }
+
+  body.printing-enquiry-action-sheet *:not(:has(.enquiry-action-sheet-print-root)):not(.enquiry-action-sheet-print-root):not(.enquiry-action-sheet-print-root *) {
+    display: none !important;
+  }
+
+  body.printing-enquiry-action-sheet *:has(.enquiry-action-sheet-print-root) {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  html:has(body.printing-enquiry-action-sheet),
+  body.printing-enquiry-action-sheet {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body.printing-enquiry-action-sheet .enquiry-action-sheet-print-root,
+  body.printing-enquiry-action-sheet .enquiry-action-sheet-print-root * {
+    visibility: visible !important;
+  }
+}

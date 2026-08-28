@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  STANDARD_OVERTIME_DESCRIPTION,
   STANDARD_TRAVEL_CHARGES,
   mergeQuoteTemplatesWithDefaults,
   sanitizeQuoteTemplateData,
@@ -182,6 +183,38 @@ test("every loaded template receives the standard travel baseline without losing
   const heavyDuty = templates.find((template) => template.id === "q-heavy-duty-spec-lift-elite-2026");
   assert.ok(heavyDuty.lineItems.some((item) => item.description === "Support Vehicle"));
   assert.ok(heavyDuty.lineItems.some((item) => item.description === "Support Vehicle Mileage"));
+});
+
+test("every loaded overtime line uses the clear system wording without duplicating saved legacy rows", () => {
+  const saved = [{
+    id: "vehicle-a",
+    lineItems: [{
+      section: "Labour Rates - Daily Rates",
+      description: "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+      unitPrice: "87.75",
+      totalMode: "tbc",
+      sourceRow: 25,
+      sharedRateId: "overtime_1_5",
+      usesSharedRate: true,
+    }],
+  }];
+  const source = [{
+    id: "vehicle-a",
+    lineItems: [{
+      section: "Labour Rates - Daily Rates",
+      description: "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+      unitPrice: "87.75",
+      totalMode: "tbc",
+      sourceRow: 25,
+    }],
+  }];
+
+  const overtimeRows = mergeQuoteTemplatesWithDefaults(saved, source)[0].lineItems.filter(
+    (item) => item.sharedRateId === "overtime_1_5" || /^Overtime/i.test(item.description)
+  );
+
+  assert.equal(overtimeRows.length, 1);
+  assert.equal(overtimeRows[0].description, STANDARD_OVERTIME_DESCRIPTION);
 });
 
 test("the current Trojan source is the two-sledge tow-pole setup", () => {

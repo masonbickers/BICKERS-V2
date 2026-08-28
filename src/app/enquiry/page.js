@@ -4,9 +4,10 @@ import layoutStyles from "./page.styles.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onSnapshot } from "firebase/firestore";
-import { AlertTriangle, LayoutDashboard, Plus, Search, FileText, PencilLine, RotateCcw } from "lucide-react";
+import { AlertTriangle, ClipboardList, LayoutDashboard, Plus, Search, FileText, PencilLine, Printer, RotateCcw } from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import EnquiryActionJobSheet from "@/app/components/EnquiryActionJobSheet";
 import { OperationsHeaderActions, OperationsPage, OperationsPageHeader } from "@/app/components/OperationsPage";
 import { Button, Input, Modal, Select } from "@/app/components/ui";
 import ViewBookingModal from "../components/ViewBookingModal";
@@ -321,6 +322,7 @@ export default function EnquiryPage() {
   const [toDateFilter, setToDateFilter] = useSessionState("enquiry:to", "");
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [quoteViewer, setQuoteViewer] = useState(null);
+  const [printBooking, setPrintBooking] = useState(null);
   const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
   const searchRef = useRef(null);
   useSessionScroll("enquiry");
@@ -376,6 +378,17 @@ export default function EnquiryPage() {
     window.addEventListener("message", handleQuoteViewMessage);
     return () => window.removeEventListener("message", handleQuoteViewMessage);
   }, [router]);
+
+  useEffect(() => {
+    if (!printBooking) return undefined;
+    const clearPrintBooking = () => setPrintBooking(null);
+    const frame = window.requestAnimationFrame(() => window.print());
+    window.addEventListener("afterprint", clearPrintBooking, { once: true });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("afterprint", clearPrintBooking);
+    };
+  }, [printBooking]);
 
   const baseEnquiries = useMemo(() => {
     return bookings
@@ -490,6 +503,21 @@ export default function EnquiryPage() {
                       <button type="button" style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }} onClick={() => setSelectedBookingId(booking.id)}>
                         <FileText size={13} /> View
                       </button>
+                      <button
+                        type="button"
+                        style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}
+                        title="Open job sheet"
+                        onClick={() => router.push(`/job-numbers/${encodeURIComponent(booking.id)}?returnTo=${encodeURIComponent("/enquiry")}`)}
+                      >
+                        <ClipboardList size={13} /> Job sheet
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}
+                        onClick={() => setPrintBooking({ ...booking, vehicleNames: enquiryVehicleText(booking, vehicleLookup) })}
+                      >
+                        <Printer size={13} /> Print
+                      </button>
                       <button type="button" style={{ ...btn("primary"), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }} onClick={() => router.push(`/edit-booking/${booking.id}?returnTo=${encodeURIComponent("/enquiry")}`)}>
                         <PencilLine size={13} /> Edit
                       </button>
@@ -555,6 +583,7 @@ export default function EnquiryPage() {
           />
         )}
         {quoteViewer && <EnquiryQuoteOverlay viewer={quoteViewer} onClose={() => setQuoteViewer(null)} />}
+        {printBooking && <EnquiryActionJobSheet enquiry={printBooking} />}
       </OperationsPage>
     </HeaderSidebarLayout>
   );

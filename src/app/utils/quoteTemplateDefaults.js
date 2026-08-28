@@ -4,6 +4,17 @@ const compact = (value) =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
+export const STANDARD_OVERTIME_DESCRIPTION =
+  "Overtime - 1.5x hourly rate: after 10 hours and for pre-call/call time before 07:00.";
+
+const isStandardOvertimeLine = (description) =>
+  /^overtime(?: charged)?(?: at)? 1 5(?:t|x hourly rate)/.test(compact(description));
+
+const normalizeStandardQuoteWording = (item = {}) =>
+  isStandardOvertimeLine(item.description)
+    ? { ...item, description: STANDARD_OVERTIME_DESCRIPTION }
+    : item;
+
 export const sanitizeQuoteTemplateData = (value) => {
   if (Array.isArray(value)) {
     return value
@@ -81,7 +92,9 @@ export const STANDARD_TRAVEL_CHARGES = Object.freeze([
 ]);
 
 export const ensureStandardTravelCharges = (template = {}) => {
-  const lineItems = Array.isArray(template.lineItems) ? template.lineItems.map((item) => ({ ...item })) : [];
+  const lineItems = Array.isArray(template.lineItems)
+    ? template.lineItems.map((item) => normalizeStandardQuoteWording({ ...item }))
+    : [];
   const travelDescriptions = lineItems
     .filter((item) => sectionKind(item.section) === "travel")
     .map((item) => compact(item.description));
@@ -103,6 +116,9 @@ export const ensureStandardTravelCharges = (template = {}) => {
 
 const descriptionKind = (description) => {
   const normalized = compact(description);
+  if (isStandardOvertimeLine(description)) {
+    return "overtime 1 5 hourly rate";
+  }
   if (normalized === "to services of driver technician per") {
     return "to services of driver technician per 10hr cont day call to wrap";
   }

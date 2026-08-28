@@ -1,10 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
+  buildEquipmentPrepRecordId,
+  buildVehiclePrepRecordId,
+  getEquipmentPrepRecord,
   getVehiclePrepRecord,
+  indexAppVehiclePrepRecords,
+  isEquipmentPrepped,
   isVehiclePrepped,
   mergePrepRecordSources,
 } from "../src/app/dashboard/dashboardVehiclePrep.js";
+
+const bookingModalSource = readFileSync(
+  new URL("../src/app/components/ViewBookingModal.jsx", import.meta.url),
+  "utf8"
+);
+
+test("web and app use one deterministic prep record per booking and vehicle", () => {
+  assert.equal(
+    buildVehiclePrepRecordId("booking/1", "vehicle/2"),
+    "job_booking%2F1__vehicle_vehicle%2F2"
+  );
+});
+
+test("equipment prep uses a distinct deterministic record identity", () => {
+  assert.equal(
+    buildEquipmentPrepRecordId("booking/1", "equipment/2"),
+    "job_booking%2F1__equipment_equipment%2F2"
+  );
+});
+
+test("booking viewer can mark vehicle prep with a human audit identity", () => {
+  assert.match(bookingModalSource, /doc\(db, "vehiclePrepRecords", prepRecordId\)/);
+  assert.match(bookingModalSource, /completedByUid:/);
+  assert.match(bookingModalSource, /completedByEmployeeId:/);
+  assert.match(bookingModalSource, /completedByName:/);
+  assert.match(bookingModalSource, /completedByCode:/);
+  assert.match(bookingModalSource, /Select employee/);
+  assert.match(bookingModalSource, /selectedEmployee\?\.employeeId/);
+  assert.match(bookingModalSource, /"Mark prepped"/);
+  assert.match(bookingModalSource, /Prepped\{preparedBy \?/);
+});
 
 const event = {
   id: "booking-1__date_group__0",
@@ -39,4 +76,51 @@ test("shared prep records override older browser records", () => {
   );
 
   assert.equal(merged[key].completed, true);
+});
+
+test("vehicles without a completed prep record remain pending", () => {
+  assert.equal(isVehiclePrepped({}, event, 0), false);
+});
+
+test("Diary recognises a prep completed from the employee app", () => {
+  const appRecords = indexAppVehiclePrepRecords([
+    {
+      id: "booking-1__vehicle-1",
+      bookingId: "booking-1",
+      vehicleId: "vehicle-1",
+      prepDate: "2026-08-28",
+      completed: true,
+      completedByName: "Mason",
+    },
+  ]);
+  const appEvent = {
+    ...event,
+    vehicles: [{ id: "vehicle-1", name: "Tracking Car" }],
+  };
+
+  assert.equal(getVehiclePrepRecord(appRecords, appEvent, 0)?.completedByName, "Mason");
+  assert.equal(isVehiclePrepped(appRecords, appEvent, 0), true);
+});
+
+test("Diary resolves independently prepped equipment", () => {
+  const equipmentRecords = indexAppVehiclePrepRecords([
+    {
+      id: "booking-1__equipment-a-frame",
+      bookingId: "booking-1",
+      assetType: "equipment",
+      equipmentId: "A-Frame 01",
+      equipmentName: "A-Frame 01",
+      prepDate: "2026-08-28",
+      completed: true,
+      completedByName: "Alex",
+    },
+  ]);
+  const equipmentEvent = {
+    ...event,
+    equipment: ["A-Frame 01", "Tow Dolly"],
+  };
+
+  assert.equal(getEquipmentPrepRecord(equipmentRecords, equipmentEvent, 0)?.completedByName, "Alex");
+  assert.equal(isEquipmentPrepped(equipmentRecords, equipmentEvent, 0), true);
+  assert.equal(isEquipmentPrepped(equipmentRecords, equipmentEvent, 1), false);
 });

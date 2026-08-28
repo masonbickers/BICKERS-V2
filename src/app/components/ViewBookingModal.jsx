@@ -11,6 +11,7 @@ import {
   getDoc,
   getDocs,
   deleteDoc,
+  onSnapshot,
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
@@ -19,6 +20,7 @@ import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
 import {
   dataAccessKey,
+  handleFirestoreAccessError,
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
@@ -26,11 +28,19 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import {
+  buildEquipmentPrepRecordId,
+  buildVehiclePrepRecordId,
+  getEquipmentPrepRecord,
+  getVehiclePrepRecord,
+  indexAppVehiclePrepRecords,
+} from "@/app/dashboard/dashboardVehiclePrep";
+import {
   isUCraneArmFitted,
   isUCraneVehicle,
 } from "@/app/utils/uCraneBookingConfiguration";
 import { formatUkDate, formatUkDateTime } from "@/app/utils/dateDisplay";
 import { buildDiaryBookingReturnTo, buildQuoteHref } from "@/app/utils/quoteNavigation";
+import { isCurrentEmployeeRecord } from "@/app/utils/employeeRecordVisibility";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -249,6 +259,18 @@ const groupEmployeesByRole = (list) => {
   return map;
 };
 
+const employeeDisplayName = (employee = {}) =>
+  String(
+    employee.name ||
+    [employee.firstName, employee.lastName].filter(Boolean).join(" ").trim() ||
+    employee.fullName ||
+    employee.displayName ||
+    employee.employeeName ||
+    employee.email ||
+    employee.id ||
+    ""
+  ).trim();
+
 /* ---------- hotel helpers ---------- */
 const num = (v) => {
   const n = parseFloat(String(v ?? "").replace(/,/g, ".").trim());
@@ -308,6 +330,12 @@ export default function ViewBookingModal({
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [booking, setBooking] = useState(initialBooking);
   const [allVehicles, setAllVehicles] = useState(initialVehicles);
+  const [employeeOptions, setEmployeeOptions] = useState([]);
+  const [prepRecordsByKey, setPrepRecordsByKey] = useState({});
+  const [prepSavingVehicleId, setPrepSavingVehicleId] = useState("");
+  const [prepEmployeeByVehicleId, setPrepEmployeeByVehicleId] = useState({});
+  const [prepSavingEquipmentId, setPrepSavingEquipmentId] = useState("");
+  const [prepEmployeeByEquipmentId, setPrepEmployeeByEquipmentId] = useState({});
   const [deleteReasons, setDeleteReasons] = useState([]);
   const [deleteReasonOther, setDeleteReasonOther] = useState("");
   const [showFullHistory, setShowFullHistory] = useState(false);
@@ -472,6 +500,65 @@ export default function ViewBookingModal({
     return () => (mounted = false);
   }, [accessKey, dataAccessState, initialVehicles]);
 
+  useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking || !gate.allowed) return undefined;
+
+    let mounted = true;
+    (async () => {
+      try {
+        const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
+        if (!mounted) return;
+        setEmployeeOptions(
+          snapshot.docs
+            .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+            .filter(isCurrentEmployeeRecord)
+            .sort((left, right) => employeeDisplayName(left).localeCompare(employeeDisplayName(right)))
+        );
+      } catch (error) {
+        if (!handleFirestoreAccessError(error, {
+          collectionName: "employees",
+          operation: "load vehicle prep employee options",
+        })) {
+          console.error("Load vehicle prep employee options failed:", error);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [accessKey, dataAccessState]);
+
+  useEffect(() => {
+    if (fromDeleted) {
+      setPrepRecordsByKey({});
+      return undefined;
+    }
+
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking || !gate.allowed) return undefined;
+
+    return onSnapshot(
+      tenantCollectionQuery(db, "vehiclePrepRecords", dataAccessState),
+      (snapshot) => {
+        setPrepRecordsByKey(
+          indexAppVehiclePrepRecords(
+            snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          )
+        );
+      },
+      (error) => {
+        if (!handleFirestoreAccessError(error, {
+          collectionName: "vehiclePrepRecords",
+          operation: "listen booking vehicle prep records",
+        })) {
+          console.error("Load booking vehicle prep records failed:", error);
+        }
+      }
+    );
+  }, [accessKey, dataAccessState, fromDeleted]);
+
   const normalizedVehicles = useMemo(() => {
     const list = Array.isArray(booking?.vehicles) ? booking.vehicles : [];
     return list.map((v) => {
@@ -508,9 +595,179 @@ export default function ViewBookingModal({
       const armFitted = isUCraneVehicle(v)
         ? isUCraneArmFitted(booking?.uCraneArmFitted, vid)
         : null;
-      return { id: vid || `${name}-${plate}`, name, plate, status, armFitted };
+      return { id: vid || `${name}-${plate}`, name, plate, status, armFitted, source: v };
     });
   }, [normalizedVehicles, vehicleStatusById, booking?.status, booking?.uCraneArmFitted]);
+
+  const normalizedEquipment = useMemo(() => {
+    const list = Array.isArray(booking?.equipment) ? booking.equipment : [];
+    return list
+      .map((item, index) => {
+        const name = String(
+          typeof item === "string"
+            ? item
+            : item?.name || item?.label || item?.description || ""
+        ).trim();
+        const id = String(
+          typeof item === "object" && item
+            ? item.id || item.equipmentId || name
+            : name
+        ).trim();
+        return name ? { id: id || `equipment-${index}`, name, source: item } : null;
+      })
+      .filter(Boolean);
+  }, [booking?.equipment]);
+
+  const prepEvent = useMemo(
+    () => ({
+      ...(booking || {}),
+      id: booking?.id || id,
+      __bookingId: booking?.id || id,
+      vehicles: normalizedVehicles,
+      equipment: normalizedEquipment,
+    }),
+    [booking, id, normalizedEquipment, normalizedVehicles]
+  );
+
+  const toggleVehiclePrep = async (vehicle, vehicleIndex) => {
+    if (fromDeleted || prepSavingVehicleId) return;
+
+    const bookingId = String(booking?.id || id || "").trim();
+    const vehicleId = String(vehicle?.id || "").trim();
+    if (!bookingId || !vehicleId) {
+      systemDialogs.showSystemNotification("This vehicle does not have a saved identity.");
+      return;
+    }
+
+    const current = getVehiclePrepRecord(prepRecordsByKey, prepEvent, vehicleIndex) || {};
+    const completed = current.completed !== true;
+    const user = dataAccessState.user;
+    const userDoc = dataAccessState.userDoc || {};
+    const selectedEmployeeId = String(prepEmployeeByVehicleId[vehicleId] || "").trim();
+    const selectedEmployee = employeeOptions.find(
+      (employee) => String(employee.id) === selectedEmployeeId
+    );
+    if (completed && !selectedEmployee) {
+      systemDialogs.showSystemNotification("Select the employee who prepped this vehicle.");
+      return;
+    }
+    const completedByName = selectedEmployee ? employeeDisplayName(selectedEmployee) : "";
+    const completedByCode = String(
+      selectedEmployee?.userCode ||
+      selectedEmployee?.employeeCode ||
+      selectedEmployee?.code ||
+      selectedEmployee?.staffCode ||
+      ""
+    ).trim();
+    const prepRecordId = buildVehiclePrepRecordId(bookingId, vehicleId);
+    const prepDate = listBookingDaysYMD(prepEvent)[0] || "";
+
+    setPrepSavingVehicleId(vehicleId);
+    try {
+      await setDoc(
+        doc(db, "vehiclePrepRecords", prepRecordId),
+        tenantPayload(dataAccessState, {
+          bookingId,
+          vehicleId,
+          vehicleName: vehicle.name || "",
+          registration: vehicle.plate || "",
+          prepDate,
+          checks: Array.isArray(current.checks) ? current.checks : [],
+          equipmentChecks: Array.isArray(current.equipmentChecks) ? current.equipmentChecks : [],
+          notes: String(current.notes || ""),
+          completed,
+          completedAt: completed ? current.completedAt || serverTimestamp() : null,
+          completedByUid: completed ? user?.uid || null : null,
+          completedByEmployeeId: completed
+            ? selectedEmployee?.employeeId || selectedEmployee?.id || null
+            : null,
+          completedByName: completed ? completedByName : null,
+          completedByCode: completed ? completedByCode || null : null,
+          createdAt: current.createdAt || serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
+      systemDialogs.showSystemNotification(
+        completed ? `${vehicle.name} marked as prepped.` : `${vehicle.name} marked as needing prep.`
+      );
+    } catch (error) {
+      console.error("Update booking vehicle prep failed:", error);
+      systemDialogs.showSystemNotification("Vehicle prep status could not be saved.");
+    } finally {
+      setPrepSavingVehicleId("");
+    }
+  };
+
+  const toggleEquipmentPrep = async (equipment, equipmentIndex) => {
+    if (fromDeleted || prepSavingEquipmentId) return;
+
+    const bookingId = String(booking?.id || id || "").trim();
+    const equipmentId = String(equipment?.id || "").trim();
+    if (!bookingId || !equipmentId) {
+      systemDialogs.showSystemNotification("This equipment does not have a saved identity.");
+      return;
+    }
+
+    const current = getEquipmentPrepRecord(prepRecordsByKey, prepEvent, equipmentIndex) || {};
+    const completed = current.completed !== true;
+    const user = dataAccessState.user;
+    const selectedEmployeeId = String(prepEmployeeByEquipmentId[equipmentId] || "").trim();
+    const selectedEmployee = employeeOptions.find(
+      (employee) => String(employee.id) === selectedEmployeeId
+    );
+    if (completed && !selectedEmployee) {
+      systemDialogs.showSystemNotification("Select the employee who prepped this equipment.");
+      return;
+    }
+    const completedByName = selectedEmployee ? employeeDisplayName(selectedEmployee) : "";
+    const completedByCode = String(
+      selectedEmployee?.userCode ||
+      selectedEmployee?.employeeCode ||
+      selectedEmployee?.code ||
+      selectedEmployee?.staffCode ||
+      ""
+    ).trim();
+    const prepRecordId = buildEquipmentPrepRecordId(bookingId, equipmentId);
+    const prepDate = listBookingDaysYMD(prepEvent)[0] || "";
+
+    setPrepSavingEquipmentId(equipmentId);
+    try {
+      await setDoc(
+        doc(db, "vehiclePrepRecords", prepRecordId),
+        tenantPayload(dataAccessState, {
+          bookingId,
+          assetType: "equipment",
+          equipmentId,
+          equipmentName: equipment.name || "",
+          prepDate,
+          checks: Array.isArray(current.checks) ? current.checks : [],
+          notes: String(current.notes || ""),
+          completed,
+          completedAt: completed ? current.completedAt || serverTimestamp() : null,
+          completedByUid: completed ? user?.uid || null : null,
+          completedByEmployeeId: completed
+            ? selectedEmployee?.employeeId || selectedEmployee?.id || null
+            : null,
+          completedByName: completed ? completedByName : null,
+          completedByCode: completed ? completedByCode || null : null,
+          createdAt: current.createdAt || serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
+      systemDialogs.showSystemNotification(
+        completed
+          ? `${equipment.name} marked as prepped.`
+          : `${equipment.name} marked as needing prep.`
+      );
+    } catch (error) {
+      console.error("Update booking equipment prep failed:", error);
+      systemDialogs.showSystemNotification("Equipment prep status could not be saved.");
+    } finally {
+      setPrepSavingEquipmentId("");
+    }
+  };
 
   const dayKeys = useMemo(() => listBookingDaysYMD(booking), [booking]);
 
@@ -821,16 +1078,79 @@ export default function ViewBookingModal({
                 value={
                   vehiclesPrettyWithStatus.length ? (
                     <div className={layoutStyles.extracted28}>
-                      {vehiclesPrettyWithStatus.map((v, i) => (
-                        <span key={`${v.id}-${i}`} className={layoutStyles.extracted29}>
-                          {v.name}
-                          {v.plate && <span className={layoutStyles.extracted30}>{v.plate}</span>}
-                          {v.armFitted === false && (
-                            <span className={layoutStyles.uCraneNoArmBadge}>No arm fitted</span>
-                          )}
-                          {v.status && <span className={layoutStyles.extracted31}>{v.status}</span>}
-                        </span>
-                      ))}
+                      {vehiclesPrettyWithStatus.map((v, i) => {
+                        const prepRecord = getVehiclePrepRecord(prepRecordsByKey, prepEvent, i);
+                        const isPrepped = prepRecord?.completed === true && !prepRecord?.removed;
+                        const preparedBy = String(
+                          prepRecord?.completedByName || prepRecord?.preparedBy || ""
+                        ).trim();
+                        const preparedAt = prepRecord?.completedAt || prepRecord?.preparedAt;
+                        const saving = prepSavingVehicleId === v.id;
+                        const selectedEmployeeId = prepEmployeeByVehicleId[v.id] || "";
+
+                        return (
+                          <div key={`${v.id}-${i}`} className={layoutStyles.vehiclePrepRow}>
+                            <div className={layoutStyles.vehiclePrepIdentity}>
+                              <span className={layoutStyles.extracted29}>
+                                {v.name}
+                                {v.plate && <span className={layoutStyles.extracted30}>{v.plate}</span>}
+                                {v.armFitted === false && (
+                                  <span className={layoutStyles.uCraneNoArmBadge}>No arm fitted</span>
+                                )}
+                                {v.status && <span className={layoutStyles.extracted31}>{v.status}</span>}
+                              </span>
+                              {isPrepped ? (
+                                <span className={layoutStyles.vehiclePrepAudit}>
+                                  Prepped{preparedBy ? ` by ${preparedBy}` : ""}
+                                  {preparedAt ? ` · ${fmtDateTimeShort(preparedAt)}` : ""}
+                                </span>
+                              ) : (
+                                <span className={layoutStyles.vehiclePrepPending}>Needs prep</span>
+                              )}
+                            </div>
+                            {!fromDeleted ? (
+                              <div className={layoutStyles.vehiclePrepActions}>
+                                {!isPrepped ? (
+                                  <select
+                                    value={selectedEmployeeId}
+                                    onChange={(event) => {
+                                      const employeeId = event.target.value;
+                                      setPrepEmployeeByVehicleId((current) => ({
+                                        ...current,
+                                        [v.id]: employeeId,
+                                      }));
+                                    }}
+                                    aria-label={`Employee who prepped ${v.name}`}
+                                    className={layoutStyles.vehiclePrepEmployeeSelect}
+                                    disabled={Boolean(prepSavingVehicleId)}
+                                  >
+                                    <option value="">Select employee</option>
+                                    {employeeOptions.map((employee) => (
+                                      <option key={employee.id} value={employee.id}>
+                                        {employeeDisplayName(employee)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isPrepped ? "secondary" : "success"}
+                                  disabled={
+                                    Boolean(prepSavingVehicleId) ||
+                                    (!isPrepped && !selectedEmployeeId)
+                                  }
+                                  loading={saving}
+                                  onClick={() => toggleVehiclePrep(v, i)}
+                                  className={layoutStyles.vehiclePrepButton}
+                                >
+                                  {isPrepped ? "Undo prep" : "Mark prepped"}
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     "None"
@@ -841,13 +1161,82 @@ export default function ViewBookingModal({
               <Field
                 label="Equipment"
                 value={
-                  Array.isArray(booking.equipment) && booking.equipment.length ? (
-                    <div className={layoutStyles.extracted32}>
-                      {booking.equipment.map((e, i) => (
-                        <span key={`${e}-${i}`} className={layoutStyles.extracted33}>
-                          {e}
-                        </span>
-                      ))}
+                  normalizedEquipment.length ? (
+                    <div className={layoutStyles.extracted28}>
+                      {normalizedEquipment.map((equipment, equipmentIndex) => {
+                        const prepRecord = getEquipmentPrepRecord(
+                          prepRecordsByKey,
+                          prepEvent,
+                          equipmentIndex
+                        );
+                        const isPrepped = prepRecord?.completed === true && !prepRecord?.removed;
+                        const preparedBy = String(
+                          prepRecord?.completedByName || prepRecord?.preparedBy || ""
+                        ).trim();
+                        const preparedAt = prepRecord?.completedAt || prepRecord?.preparedAt;
+                        const saving = prepSavingEquipmentId === equipment.id;
+                        const selectedEmployeeId =
+                          prepEmployeeByEquipmentId[equipment.id] || "";
+
+                        return (
+                          <div
+                            key={`${equipment.id}-${equipmentIndex}`}
+                            className={layoutStyles.vehiclePrepRow}
+                          >
+                            <div className={layoutStyles.vehiclePrepIdentity}>
+                              <span className={layoutStyles.extracted33}>{equipment.name}</span>
+                              {isPrepped ? (
+                                <span className={layoutStyles.vehiclePrepAudit}>
+                                  Prepped{preparedBy ? ` by ${preparedBy}` : ""}
+                                  {preparedAt ? ` · ${fmtDateTimeShort(preparedAt)}` : ""}
+                                </span>
+                              ) : (
+                                <span className={layoutStyles.vehiclePrepPending}>Needs prep</span>
+                              )}
+                            </div>
+                            {!fromDeleted ? (
+                              <div className={layoutStyles.vehiclePrepActions}>
+                                {!isPrepped ? (
+                                  <select
+                                    value={selectedEmployeeId}
+                                    onChange={(event) => {
+                                      const employeeId = event.target.value;
+                                      setPrepEmployeeByEquipmentId((current) => ({
+                                        ...current,
+                                        [equipment.id]: employeeId,
+                                      }));
+                                    }}
+                                    aria-label={`Employee who prepped ${equipment.name}`}
+                                    className={layoutStyles.vehiclePrepEmployeeSelect}
+                                    disabled={Boolean(prepSavingEquipmentId)}
+                                  >
+                                    <option value="">Select employee</option>
+                                    {employeeOptions.map((employee) => (
+                                      <option key={employee.id} value={employee.id}>
+                                        {employeeDisplayName(employee)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isPrepped ? "secondary" : "success"}
+                                  disabled={
+                                    Boolean(prepSavingEquipmentId) ||
+                                    (!isPrepped && !selectedEmployeeId)
+                                  }
+                                  loading={saving}
+                                  onClick={() => toggleEquipmentPrep(equipment, equipmentIndex)}
+                                  className={layoutStyles.vehiclePrepButton}
+                                >
+                                  {isPrepped ? "Undo prep" : "Mark prepped"}
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     "None"

@@ -12,12 +12,14 @@ import {
   ClipboardList,
   FileText,
   Package,
+  Printer,
   Save,
   Search,
   Truck,
   X,
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import EnquiryActionJobSheet from "@/app/components/EnquiryActionJobSheet";
 import SavedContactPicker from "@/app/components/SavedContactPicker";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
@@ -1131,6 +1133,9 @@ export default function CreateEnquiryPage() {
                 </div>
                 <div className={layoutStyles.stickyActions}>
                   <button type="button" onClick={() => requestGuardedNavigation(() => router.push("/job-home"))} style={btn()}>Cancel</button>
+                  <button type="button" onClick={() => window.print()} style={btn()}>
+                    <Printer size={14} /> Print Job Sheet
+                  </button>
                   <button
                     type="button"
                     disabled={!canCreateQuote}
@@ -1154,6 +1159,23 @@ export default function CreateEnquiryPage() {
           </form>
         </div>
       </div>
+      <EnquiryActionJobSheet
+        enquiry={{
+          jobNumber,
+          client,
+          production,
+          location,
+          po,
+          invoiceContactName,
+          invoiceContactEmail,
+          invoiceContactPhone,
+          shootType,
+          additionalContacts,
+          selectedVehicles: selectedVehicleDetails,
+          equipment,
+          notes,
+        }}
+      />
     </HeaderSidebarLayout>
   );
 }
