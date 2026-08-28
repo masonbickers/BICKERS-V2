@@ -36,6 +36,49 @@ const toYmd = (value) => {
   return `${year}-${month}-${day}`;
 };
 
+const toLocalDay = (value) => {
+  if (!value) return null;
+
+  const ymdMatch = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const resolvedDate = ymdMatch
+    ? new Date(Number(ymdMatch[1]), Number(ymdMatch[2]) - 1, Number(ymdMatch[3]))
+    : toDateSafe(value);
+
+  if (!resolvedDate || Number.isNaN(resolvedDate.getTime())) return null;
+  const date = new Date(resolvedDate.getTime());
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+export function isCurrentOrFuturePrepJob(event, referenceDate = new Date()) {
+  const today = toLocalDay(referenceDate);
+  if (!today) return true;
+
+  let lastJobDay = null;
+
+  if (event?.end) {
+    // Calendar event ends are exclusive, so step back to the last real job day.
+    lastJobDay = toLocalDay(event.end);
+    if (lastJobDay) lastJobDay.setDate(lastJobDay.getDate() - 1);
+  } else if (Array.isArray(event?.bookingDates) && event.bookingDates.length) {
+    lastJobDay = event.bookingDates
+      .map(toLocalDay)
+      .filter(Boolean)
+      .sort((a, b) => b.getTime() - a.getTime())[0] || null;
+  } else {
+    lastJobDay = toLocalDay(
+      event?.endDate || event?.date || event?.startDate || event?.start
+    );
+  }
+
+  // Keep the status visible when the date is missing rather than hiding a live warning.
+  return !lastJobDay || lastJobDay >= today;
+}
+
+export function shouldShowPrepStatus(event, isPrepped, referenceDate = new Date()) {
+  return Boolean(isPrepped) || isCurrentOrFuturePrepJob(event, referenceDate);
+}
+
 export function mergePrepRecordSources(...sources) {
   return sources.reduce((merged, source) => {
     if (!source || typeof source !== "object" || Array.isArray(source)) return merged;

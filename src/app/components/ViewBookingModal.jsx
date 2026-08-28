@@ -33,6 +33,7 @@ import {
   getEquipmentPrepRecord,
   getVehiclePrepRecord,
   indexAppVehiclePrepRecords,
+  shouldShowPrepStatus,
 } from "@/app/dashboard/dashboardVehiclePrep";
 import {
   isUCraneArmFitted,
@@ -1087,6 +1088,7 @@ export default function ViewBookingModal({
                         const preparedAt = prepRecord?.completedAt || prepRecord?.preparedAt;
                         const saving = prepSavingVehicleId === v.id;
                         const selectedEmployeeId = prepEmployeeByVehicleId[v.id] || "";
+                        const showPrepStatus = shouldShowPrepStatus(prepEvent, isPrepped);
 
                         return (
                           <div key={`${v.id}-${i}`} className={layoutStyles.vehiclePrepRow}>
@@ -1099,16 +1101,18 @@ export default function ViewBookingModal({
                                 )}
                                 {v.status && <span className={layoutStyles.extracted31}>{v.status}</span>}
                               </span>
-                              {isPrepped ? (
-                                <span className={layoutStyles.vehiclePrepAudit}>
-                                  Prepped{preparedBy ? ` by ${preparedBy}` : ""}
-                                  {preparedAt ? ` · ${fmtDateTimeShort(preparedAt)}` : ""}
-                                </span>
-                              ) : (
-                                <span className={layoutStyles.vehiclePrepPending}>Needs prep</span>
-                              )}
+                              {showPrepStatus ? (
+                                isPrepped ? (
+                                  <span className={layoutStyles.vehiclePrepAudit}>
+                                    Prepped{preparedBy ? ` by ${preparedBy}` : ""}
+                                    {preparedAt ? ` · ${fmtDateTimeShort(preparedAt)}` : ""}
+                                  </span>
+                                ) : (
+                                  <span className={layoutStyles.vehiclePrepPending}>Needs prep</span>
+                                )
+                              ) : null}
                             </div>
-                            {!fromDeleted ? (
+                            {!fromDeleted && showPrepStatus ? (
                               <div className={layoutStyles.vehiclePrepActions}>
                                 {!isPrepped ? (
                                   <select
@@ -1177,6 +1181,7 @@ export default function ViewBookingModal({
                         const saving = prepSavingEquipmentId === equipment.id;
                         const selectedEmployeeId =
                           prepEmployeeByEquipmentId[equipment.id] || "";
+                        const showPrepStatus = shouldShowPrepStatus(prepEvent, isPrepped);
 
                         return (
                           <div
@@ -1185,16 +1190,18 @@ export default function ViewBookingModal({
                           >
                             <div className={layoutStyles.vehiclePrepIdentity}>
                               <span className={layoutStyles.extracted33}>{equipment.name}</span>
-                              {isPrepped ? (
-                                <span className={layoutStyles.vehiclePrepAudit}>
-                                  Prepped{preparedBy ? ` by ${preparedBy}` : ""}
-                                  {preparedAt ? ` · ${fmtDateTimeShort(preparedAt)}` : ""}
-                                </span>
-                              ) : (
-                                <span className={layoutStyles.vehiclePrepPending}>Needs prep</span>
-                              )}
+                              {showPrepStatus ? (
+                                isPrepped ? (
+                                  <span className={layoutStyles.vehiclePrepAudit}>
+                                    Prepped{preparedBy ? ` by ${preparedBy}` : ""}
+                                    {preparedAt ? ` · ${fmtDateTimeShort(preparedAt)}` : ""}
+                                  </span>
+                                ) : (
+                                  <span className={layoutStyles.vehiclePrepPending}>Needs prep</span>
+                                )
+                              ) : null}
                             </div>
-                            {!fromDeleted ? (
+                            {!fromDeleted && showPrepStatus ? (
                               <div className={layoutStyles.vehiclePrepActions}>
                                 {!isPrepped ? (
                                   <select

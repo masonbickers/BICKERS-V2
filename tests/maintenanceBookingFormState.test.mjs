@@ -96,3 +96,16 @@ test("create and edit booking forms share the same overlap policy", async () => 
   assert.doesNotMatch(createSource, /Cost \(optional\)/);
   assert.doesNotMatch(createSource, /Saves to <b>maintenanceBookings<\/b>/);
 });
+
+test("dashboard equipment maintenance starts on the visible diary date", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const dashboardSource = await readFile(
+    new URL("../src/app/dashboard/DashboardPageImpl.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    dashboardSource,
+    /<MaintenanceBookingForm[\s\S]*?vehicleId=\{createMaintenanceVehicleId\}[\s\S]*?defaultDate=\{ymd\(currentDate\)\}[\s\S]*?initialEquipment=\{createMaintenanceEquipment \? \[createMaintenanceEquipment\] : \[\]\}/
+  );
+});
