@@ -75,6 +75,7 @@ import {
 } from "@/app/utils/unsavedChanges";
 import { getHolidayApprovalQueueCounts } from "@/app/utils/holidayApprovalQueue";
 import { shouldShowShellBackButton } from "@/app/utils/shellNavigation";
+import { countConfirmedIncompleteJobs } from "@/app/utils/reviewQueueBadge";
 
 const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
@@ -308,6 +309,7 @@ function HeaderSidebarLayoutInner({
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
   const [maintenanceAlertCount, setMaintenanceAlertCount] = useState(0);
+  const [reviewQueueCount, setReviewQueueCount] = useState(0);
   const [receiptQueryCount, setReceiptQueryCount] = useState(0);
 
   const unsubHrRef = useRef(null);
@@ -507,6 +509,29 @@ function HeaderSidebarLayoutInner({
     });
     return () => { cancelled = true; };
   }, [accessReady, isEnabled, user]);
+
+  useEffect(() => {
+    if (!user || !accessReady || !isEnabled) {
+      setReviewQueueCount(0);
+      return undefined;
+    }
+
+    const accessState = { user, userDoc, isEnabled, accessReady };
+    const gate = resolveDataAccess(accessState);
+    if (gate.checking || !gate.allowed) {
+      setReviewQueueCount(0);
+      return undefined;
+    }
+
+    return onSnapshot(
+      tenantCollectionQuery(db, "bookings", accessState),
+      (snapshot) => {
+        const bookings = snapshot.docs.map((document) => document.data() || {});
+        setReviewQueueCount(countConfirmedIncompleteJobs(bookings));
+      },
+      () => setReviewQueueCount(0)
+    );
+  }, [accessReady, isEnabled, user, userDoc]);
 
   useEffect(() => {
     if (!user || !accessReady || !isEnabled) {
@@ -1387,6 +1412,7 @@ function HeaderSidebarLayoutInner({
                   const isHrItem = path === "/hr";
                   const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
                   const showMaintenanceBadge = path === "/maintenance-alerts" && maintenanceAlertCount > 0;
+                  const showReviewQueueBadge = path === "/review-queue" && reviewQueueCount > 0;
                   const showReceiptBadge = path === "/receipts" && receiptQueryCount > 0;
                   return (
                     <Button bare
@@ -1399,6 +1425,8 @@ function HeaderSidebarLayoutInner({
                           ? `${label}: ${hrNotif.requests} holiday request(s), ${hrNotif.deletes} delete request(s)`
                           : showMaintenanceBadge
                             ? `${label}: ${maintenanceAlertCount} open alert(s)`
+                          : showReviewQueueBadge
+                            ? `${label}: ${reviewQueueCount} confirmed job(s) awaiting completion`
                           : showReceiptBadge
                             ? `${label}: ${receiptQueryCount} receipt query or queries`
                           : label
@@ -1414,13 +1442,16 @@ function HeaderSidebarLayoutInner({
                           {showMaintenanceBadge && (
                             <span className={layoutStyles.navBadge}>{maintenanceAlertCount}</span>
                           )}
+                          {showReviewQueueBadge && (
+                            <span className={layoutStyles.navBadge}>{reviewQueueCount}</span>
+                          )}
                           {showReceiptBadge && (
                             <span className={layoutStyles.navBadge}>{receiptQueryCount}</span>
                           )}
                         </span>
                       ) : null}
 
-                      {sidebarCollapsed && (showHrBadge || showMaintenanceBadge || showReceiptBadge) ? (
+                      {sidebarCollapsed && (showHrBadge || showMaintenanceBadge || showReviewQueueBadge || showReceiptBadge) ? (
                         <span className={layoutStyles.navBadgeDot} />
                       ) : null}
                     </Button>
