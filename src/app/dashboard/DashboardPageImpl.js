@@ -62,6 +62,7 @@ import {
   isEquipmentPrepped,
   isVehiclePrepped,
   mergePrepRecordSources,
+  shouldShowPrepStatus,
 } from "./dashboardVehiclePrep";
 
 import ViewBookingModal from "../components/ViewBookingModal";
@@ -136,6 +137,12 @@ import {
   isUCraneBooking,
   isUCraneVehicle,
 } from "@/app/utils/uCraneBookingConfiguration";
+import {
+  NIGHT_SHOOT_DISPLAY_MODES,
+  normalizeNightShootDisplayMode,
+  shouldHighlightNightShootJobNumber,
+  shouldUseFullNightShootBlock,
+} from "./dashboardNightShootDisplay";
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -988,7 +995,7 @@ function EventMetaBadge({ Icon, good, title, children }) {
 }
 
 /* --------------------- CalendarEvent (booking block minimal) ----------------- */
-function CalendarEvent({ event, onViewQuote }) {
+function CalendarEvent({ event, onViewQuote, nightShootDisplayMode }) {
   const router = useRouter();
   const [showNotes, setShowNotes] = useState(false);
   const [showComplianceIssues, setShowComplianceIssues] = useState(false);
@@ -1139,6 +1146,7 @@ function CalendarEvent({ event, onViewQuote }) {
               <span
                 className={layoutStyles.jobNumber}
                 data-shoot={String(event.shootType || "").toLowerCase()}
+                data-night-highlight={shouldHighlightNightShootJobNumber(event, nightShootDisplayMode)}
                 title={event.linkedContinuation?.fromJobNumber ? "Linked job continuation" : undefined}
               >
                 {linkedJobNumberLabel(event)}
@@ -1241,7 +1249,7 @@ function CalendarEvent({ event, onViewQuote }) {
                 bookingStatusLabel === "Complete";
 
               const prepped = isVehiclePrepped(event.prepRecordsByKey, event, i);
-              const prepStatusIcon = (
+              const prepStatusIcon = shouldShowPrepStatus(event, prepped) ? (
                 <span
                   className={layoutStyles.vehiclePrepStatusIcon}
                   data-prepped={prepped}
@@ -1259,7 +1267,7 @@ function CalendarEvent({ event, onViewQuote }) {
                     <Minus size={9} strokeWidth={3} aria-hidden="true" />
                   )}
                 </span>
-              );
+              ) : null;
 
               if (shouldUseJobStatusForVehicle) {
                 return (
@@ -1316,14 +1324,13 @@ function CalendarEvent({ event, onViewQuote }) {
               const different = itemStatus && itemStatus !== bookingStatus;
 
               if (different) {
-                const shoot = String(event.shootType || "").toLowerCase();
                 const bookingIsConfirmed = String(event.status || "").trim().toLowerCase() === "confirmed";
                 const vehicleIsConfirmed = String(itemStatus || "").trim().toLowerCase() === "confirmed";
                 const bookingIsComplete = String(event.status || "").trim().toLowerCase() === "complete";
                 const vehicleIsComplete = String(itemStatus || "").trim().toLowerCase() === "complete";
 
                 const style =
-                  shoot === "night" &&
+                  shouldUseFullNightShootBlock(event, nightShootDisplayMode) &&
                   bookingIsConfirmed &&
                   vehicleIsConfirmed &&
                   !bookingIsComplete &&
@@ -1362,24 +1369,27 @@ function CalendarEvent({ event, onViewQuote }) {
               event,
               equipmentIndex
             );
+            const showPrepStatus = shouldShowPrepStatus(event, prepped);
             return (
               <span
                 key={`equipment-${equipment.name}-${equipmentIndex}`}
                 className={layoutStyles.vehicleLine}
               >
-                <span
-                  className={layoutStyles.vehiclePrepStatusIcon}
-                  data-prepped={prepped}
-                  data-night={String(event.shootType || "").toLowerCase() === "night"}
-                  title={prepped ? "Equipment is prepped" : "Equipment still needs preparing"}
-                  aria-label={prepped ? "Equipment prepped" : "Equipment needs prep"}
-                >
-                  {prepped ? (
-                    <Check size={11} strokeWidth={3.2} aria-hidden="true" />
-                  ) : (
-                    <Minus size={9} strokeWidth={3} aria-hidden="true" />
-                  )}
-                </span>
+                {showPrepStatus ? (
+                  <span
+                    className={layoutStyles.vehiclePrepStatusIcon}
+                    data-prepped={prepped}
+                    data-night={String(event.shootType || "").toLowerCase() === "night"}
+                    title={prepped ? "Equipment is prepped" : "Equipment still needs preparing"}
+                    aria-label={prepped ? "Equipment prepped" : "Equipment needs prep"}
+                  >
+                    {prepped ? (
+                      <Check size={11} strokeWidth={3.2} aria-hidden="true" />
+                    ) : (
+                      <Minus size={9} strokeWidth={3} aria-hidden="true" />
+                    )}
+                  </span>
+                ) : null}
                 <span>{equipment.name}</span>
               </span>
             );
@@ -2088,6 +2098,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [maintenanceDate, setMaintenanceDate] = useState(() => getDashboardInitialDate(initialDate));
   const [showDeletedInView, setShowDeletedInView] = useState(true);
   const [showInactiveInView, setShowInactiveInView] = useState(true);
+  const [nightShootDisplayMode, setNightShootDisplayMode] = useState(
+    NIGHT_SHOOT_DISPLAY_MODES.FULL_BLOCK
+  );
   const [hidePrefsLoadedForUser, setHidePrefsLoadedForUser] = useState(null);
   const shiftByDays = (date, days) => {
     const d = new Date(date);
@@ -2227,6 +2240,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       setHidePrefsLoadedForUser(null);
       return;
     }
+    setNightShootDisplayMode(NIGHT_SHOOT_DISPLAY_MODES.FULL_BLOCK);
     try {
       const raw = localStorage.getItem(DASHBOARD_HIDE_PREFS_KEY);
       if (!raw) {
@@ -2246,6 +2260,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       if (typeof prefs.showDeletedInView === "boolean") {
         setShowDeletedInView(prefs.showDeletedInView);
       }
+      setNightShootDisplayMode(
+        normalizeNightShootDisplayMode(prefs.nightShootDisplayMode)
+      );
     } catch {
       // ignore malformed localStorage
     } finally {
@@ -2262,12 +2279,20 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       all[userEmail] = {
         showInactiveInView,
         showDeletedInView,
+        nightShootDisplayMode,
       };
       localStorage.setItem(DASHBOARD_HIDE_PREFS_KEY, JSON.stringify(all));
     } catch {
       // ignore storage errors
     }
-  }, [authReady, userEmail, hidePrefsLoadedForUser, showInactiveInView, showDeletedInView]);
+  }, [
+    authReady,
+    userEmail,
+    hidePrefsLoadedForUser,
+    showInactiveInView,
+    showDeletedInView,
+    nightShootDisplayMode,
+  ]);
 
   const goToCreateBooking = useCallback(() => {
     if (isRestricted || createBookingOpening || createEnquiryOpening) return;
@@ -3703,6 +3728,49 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   <ChevronDown size={14} />
                 </summary>
                 <div className={layoutStyles.visibilityMenuPanel}>
+                  <div
+                    className={layoutStyles.visibilityMenuSection}
+                    role="radiogroup"
+                    aria-label="Night shoot colour"
+                  >
+                    <span className={layoutStyles.visibilityMenuLabel}>Night shoot colour</span>
+                    <Button bare
+                      className={layoutStyles.visibilityMenuItem}
+                      data-active={nightShootDisplayMode === NIGHT_SHOOT_DISPLAY_MODES.FULL_BLOCK}
+                      onClick={() => setNightShootDisplayMode(NIGHT_SHOOT_DISPLAY_MODES.FULL_BLOCK)}
+                      type="button"
+                      role="radio"
+                      aria-checked={nightShootDisplayMode === NIGHT_SHOOT_DISPLAY_MODES.FULL_BLOCK}
+                    >
+                      <span
+                        className={layoutStyles.nightShootStyleSwatch}
+                        data-mode={NIGHT_SHOOT_DISPLAY_MODES.FULL_BLOCK}
+                        aria-hidden="true"
+                      />
+                      <span>Full pink block</span>
+                      {nightShootDisplayMode === NIGHT_SHOOT_DISPLAY_MODES.FULL_BLOCK ? (
+                        <Check className={layoutStyles.visibilityMenuCheck} size={14} strokeWidth={3} />
+                      ) : null}
+                    </Button>
+                    <Button bare
+                      className={layoutStyles.visibilityMenuItem}
+                      data-active={nightShootDisplayMode === NIGHT_SHOOT_DISPLAY_MODES.JOB_NUMBER}
+                      onClick={() => setNightShootDisplayMode(NIGHT_SHOOT_DISPLAY_MODES.JOB_NUMBER)}
+                      type="button"
+                      role="radio"
+                      aria-checked={nightShootDisplayMode === NIGHT_SHOOT_DISPLAY_MODES.JOB_NUMBER}
+                    >
+                      <span
+                        className={layoutStyles.nightShootStyleSwatch}
+                        data-mode={NIGHT_SHOOT_DISPLAY_MODES.JOB_NUMBER}
+                        aria-hidden="true"
+                      />
+                      <span>Pink job number</span>
+                      {nightShootDisplayMode === NIGHT_SHOOT_DISPLAY_MODES.JOB_NUMBER ? (
+                        <Check className={layoutStyles.visibilityMenuCheck} size={14} strokeWidth={3} />
+                      ) : null}
+                    </Button>
+                  </div>
                   {canSeeDeletedOnCalendar && (
                     <Button bare
                       className={layoutStyles.visibilityMenuItem}
@@ -3847,6 +3915,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   <CalendarEvent
                     {...props}
                     onViewQuote={openQuoteViewer}
+                    nightShootDisplayMode={nightShootDisplayMode}
                   />
                 ),
               }}
@@ -3887,16 +3956,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               let text = tone.text;
               let border = getWorkDiaryBorder(status, tone.border);
 
-              const shoot = String(event.shootType || "").toLowerCase();
-              const bookingStatuses = new Set([
-                "confirmed",
-                "first pencil",
-                "second pencil",
-                "action required",
-                "dnh",
-              ]);
-
-              if (bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
+              if (shouldUseFullNightShootBlock(event, nightShootDisplayMode)) {
                 bg = NIGHT_SHOOT_STYLE.bg;
                 text = NIGHT_SHOOT_STYLE.text;
                 border = getWorkDiaryBorder(status, NIGHT_SHOOT_STYLE.border);
@@ -4205,6 +4265,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         <MaintenanceBookingForm
           vehicleId={createMaintenanceVehicleId}
           type={createMaintenanceType}
+          defaultDate={ymd(currentDate)}
           initialEquipment={createMaintenanceEquipment ? [createMaintenanceEquipment] : []}
           onClose={() => {
             setCreateMaintenanceVehicleId("");

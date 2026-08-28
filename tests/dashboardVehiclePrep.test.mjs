@@ -7,9 +7,11 @@ import {
   getEquipmentPrepRecord,
   getVehiclePrepRecord,
   indexAppVehiclePrepRecords,
+  isCurrentOrFuturePrepJob,
   isEquipmentPrepped,
   isVehiclePrepped,
   mergePrepRecordSources,
+  shouldShowPrepStatus,
 } from "../src/app/dashboard/dashboardVehiclePrep.js";
 
 const bookingModalSource = readFileSync(
@@ -80,6 +82,42 @@ test("shared prep records override older browser records", () => {
 
 test("vehicles without a completed prep record remain pending", () => {
   assert.equal(isVehiclePrepped({}, event, 0), false);
+});
+
+test("past jobs hide pending prep while retaining completed prep history", () => {
+  const referenceDate = new Date(2026, 7, 28, 12);
+  const pastCalendarEvent = {
+    start: new Date(2026, 7, 27),
+    end: new Date(2026, 7, 28),
+  };
+  const originalEnd = pastCalendarEvent.end.getTime();
+
+  assert.equal(isCurrentOrFuturePrepJob(pastCalendarEvent, referenceDate), false);
+  assert.equal(shouldShowPrepStatus(pastCalendarEvent, false, referenceDate), false);
+  assert.equal(shouldShowPrepStatus(pastCalendarEvent, true, referenceDate), true);
+  assert.equal(pastCalendarEvent.end.getTime(), originalEnd);
+});
+
+test("jobs ending today and future dated jobs still show pending prep", () => {
+  const referenceDate = new Date(2026, 7, 28, 12);
+
+  assert.equal(
+    isCurrentOrFuturePrepJob({ end: new Date(2026, 7, 29) }, referenceDate),
+    true
+  );
+  assert.equal(
+    isCurrentOrFuturePrepJob({ endDate: "2026-08-28" }, referenceDate),
+    true
+  );
+  assert.equal(
+    isCurrentOrFuturePrepJob({ bookingDates: ["2026-08-27"] }, referenceDate),
+    false
+  );
+});
+
+test("booking viewer uses the past-job prep visibility rule", () => {
+  assert.match(bookingModalSource, /shouldShowPrepStatus\(prepEvent, isPrepped\)/);
+  assert.match(bookingModalSource, /!fromDeleted && showPrepStatus/);
 });
 
 test("Diary recognises a prep completed from the employee app", () => {
