@@ -3,7 +3,13 @@ export const SHARED_RATE_RULES = [
   { id: "basic_riggers", group: "equipment", label: "Basic Riggers Scaffolding Kit", match: /basic riggers scaffolding kit/ },
   { id: "pre_rigging", group: "equipment", label: "Pre-Rigging & Additional Equipment", match: /pre rigging.*(additional equipment|prep|prep work)|pre rigging and prep work charged/ },
   { id: "driver_day", group: "labour", label: "Driver/Technician per 10hr day", match: /services? of driver.*technician.*10hr/ },
-  { id: "overtime_1_5", group: "labour", label: "Overtime charged @ 1.5T", match: /overtime charged.*1 5t/ },
+  {
+    id: "overtime_1_5",
+    group: "labour",
+    label: "Overtime - 1.5x hourly rate",
+    canonicalDescription: "Overtime - 1.5x hourly rate: after 10 hours and for pre-call/call time before 07:00.",
+    match: /^overtime(?: charged)?(?: at)? 1 5(?:t|x hourly rate)/,
+  },
   { id: "sunday_bank_holiday", group: "labour", label: "Sunday and Bank Holiday double time", match: /sunday.*bank holiday.*double time|double time.*sundays.*bank holidays/ },
   { id: "turnaround", group: "labour", label: "Turnaround Day After Night Work", match: /turnaround day after night work/ },
   { id: "late_working", group: "labour", label: "Late working 22:00-23:59", match: /supplementary charge for late working/ },
@@ -141,7 +147,16 @@ export const applySharedRateToTemplates = (templates = [], rule, { unitPrice, to
     ...template,
     lineItems: (template.lineItems || []).map((item) =>
       !template.excludeFromSharedRates && !isCustomSharedRateLine(item) && itemMatchesSharedRateRule(item, rule)
-        ? { ...item, sharedRateId: rule.id, usesSharedRate: true, isCustomPrice: false, lockedSharedRate: false, unitPrice, totalMode }
+        ? {
+            ...item,
+            ...(rule.canonicalDescription ? { description: rule.canonicalDescription } : {}),
+            sharedRateId: rule.id,
+            usesSharedRate: true,
+            isCustomPrice: false,
+            lockedSharedRate: false,
+            unitPrice,
+            totalMode,
+          }
         : item
     ),
   }));

@@ -48,6 +48,23 @@ test("shared rate application preserves custom and excluded lines", () => {
   assert.equal(updated[2].lineItems[0].unitPrice, "500.00");
 });
 
+test("applying the overtime shared rate also standardizes its wording", () => {
+  const rule = SHARED_RATE_RULES.find((item) => item.id === "overtime_1_5");
+  const updated = applySharedRateToTemplates([{
+    id: "linked",
+    lineItems: [{
+      description: "Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00)",
+      unitPrice: "80.00",
+      totalMode: "tbc",
+    }],
+  }], rule, { unitPrice: "87.75", totalMode: "tbc" });
+
+  assert.equal(
+    updated[0].lineItems[0].description,
+    "Overtime - 1.5x hourly rate: after 10 hours and for pre-call/call time before 07:00."
+  );
+});
+
 test("travel meal and room-only hotel charges are linked shared rates", () => {
   const summaries = summarizeSharedRates([{
     id: "travel",

@@ -15,6 +15,14 @@ def clean_text(value):
     return re.sub(r"\s+", " ", str(value or "").strip())
 
 
+def clean_description(value):
+    description = clean_text(value)
+    normalized = re.sub(r"[^a-z0-9]+", " ", description.lower()).strip()
+    if re.match(r"^overtime(?: charged)?(?: at)? 1 5(?:t|x hourly rate)", normalized):
+        return "Overtime - 1.5x hourly rate: after 10 hours and for pre-call/call time before 07:00."
+    return description
+
+
 def slugify(value):
     text = clean_text(value).lower()
     text = re.sub(r"\.xls[x]?$", "", text)
@@ -68,7 +76,7 @@ def build_templates():
             line_items.append(
                 {
                     "section": clean_text(row.get("section")),
-                    "description": clean_text(row.get("description")),
+                    "description": clean_description(row.get("description")),
                     "qty": clean_text(row.get("qty")),
                     "unitPrice": clean_text(row.get("unitPrice")),
                     "totalMode": total_mode(row),
