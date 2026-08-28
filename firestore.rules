@@ -865,10 +865,11 @@ service cloud.firestore {
     }
 
     match /vehiclePrepRecords/{docId} {
-      allow read: if canReadServiceTenantDoc();
-      allow create: if canCreateServiceTenantDoc();
-      allow update: if canUpdateServiceTenantDoc();
-      allow delete: if canDeleteServiceTenantDoc();
+      // Prep is shared between the User diary/booking modal and the Service app.
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /vehicleIssues/{docId} {

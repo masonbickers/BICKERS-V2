@@ -48,6 +48,13 @@ async function seed() {
         status: "Booked",
         maintenanceTypeIds: ["service"],
       }),
+      setDoc(doc(db, "vehiclePrepRecords", "prep-a"), {
+        companyId: "company-a",
+        bookingId: "booking-a",
+        vehicleId: "vehicle-a",
+        prepDate: "2026-08-28",
+        completed: true,
+      }),
       setDoc(doc(db, "vehicles", "vehicle-locked"), {
         companyId: "company-a",
         name: "Locked HGV",
@@ -98,6 +105,35 @@ test("workspace access is enforced", async () => {
   await assertFails(getDoc(doc(env.authenticatedContext("service-a").firestore(), "contacts", "contact-a")));
   await assertSucceeds(getDoc(doc(env.authenticatedContext("service-a").firestore(), "maintenance", "maintenance-a")));
   await assertFails(getDoc(doc(env.authenticatedContext("user-a").firestore(), "maintenance", "maintenance-a")));
+});
+
+test("vehicle prep is shared between user and service workspaces", async () => {
+  await seed();
+  const userDb = env.authenticatedContext("user-a").firestore();
+  const serviceDb = env.authenticatedContext("service-a").firestore();
+
+  await assertSucceeds(getDoc(doc(userDb, "vehiclePrepRecords", "prep-a")));
+  await assertSucceeds(getDoc(doc(serviceDb, "vehiclePrepRecords", "prep-a")));
+  await assertSucceeds(updateDoc(doc(userDb, "vehiclePrepRecords", "prep-a"), {
+    completed: false,
+  }));
+  await assertSucceeds(updateDoc(doc(serviceDb, "vehiclePrepRecords", "prep-a"), {
+    completed: true,
+  }));
+  await assertSucceeds(setDoc(doc(userDb, "vehiclePrepRecords", "prep-from-user"), {
+    companyId: "company-a",
+    bookingId: "booking-a",
+    vehicleId: "vehicle-b",
+    prepDate: "2026-08-28",
+    completed: true,
+  }));
+  await assertSucceeds(setDoc(doc(serviceDb, "vehiclePrepRecords", "prep-from-service"), {
+    companyId: "company-a",
+    bookingId: "booking-a",
+    vehicleId: "vehicle-c",
+    prepDate: "2026-08-28",
+    completed: true,
+  }));
 });
 
 test("single-company writes remain compatible with legacy ownership fields", async () => {
