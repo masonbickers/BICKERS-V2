@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { UI_TOKENS } from "@/app/utils/uiTokens";
 import { getFixedJobStatusStyle } from "@/app/utils/jobStatusColors";
+import { countConfirmedIncompleteJobs } from "@/app/utils/reviewQueueBadge";
 
 /* Mini design system */
 const UI = UI_TOKENS;
@@ -412,14 +413,10 @@ export default function JobHomePage() {
 
   const total = jobs.length;
 
-  const reviewQueueCount = useMemo(() => {
-    return jobs.filter((j) => {
-      const s = norm(j.status);
-      const completeish = s === "confirmed" || s === "complete" || s === "completed";
-      const past = hasWorkBeforeToday(j, todayMidnight);
-      return !isPaidFlag(j) && (readyToInvoiceFlag(j) || (completeish && past));
-    }).length;
-  }, [jobs, todayMidnight]);
+  const reviewQueueCount = useMemo(
+    () => countConfirmedIncompleteJobs(jobs, todayMidnight),
+    [jobs, todayMidnight]
+  );
 
   const financeReadyCount = useMemo(() => {
     return jobs.filter((j) => readyToInvoiceFlag(j) && !isPaidFlag(j)).length;
