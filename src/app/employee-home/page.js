@@ -10,6 +10,7 @@ import { PeopleFleetHeaderActions, PeopleFleetPage, PeopleFleetPageHeader } from
 import { Badge, Button, MetricCard as SharedMetricCard, NavigationCard } from "@/app/components/ui";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { normaliseEmployeeCreditIdentity } from "@/app/utils/employeeCreditIdentity";
 import {
   BarChart,
   Bar,
@@ -262,7 +263,7 @@ function approvedHolidayDayValues(holiday, bankHolidayKeys) {
 
 /* Normalisers */
 function normaliseName(n) {
-  return String(n || "").trim().replace(/\s+/g, " ").toLowerCase();
+  return normaliseEmployeeCreditIdentity(n);
 }
 function initialsOf(n) {
   const parts = String(n || "").trim().split(/\s+/).filter(Boolean);
@@ -294,8 +295,8 @@ function employeeListForBookingDate(booking, dayKey, fallbackEmployees) {
   return fallbackEmployees;
 }
 
-function isFourDigitJobNumber(value) {
-  return /^\d{4}$/.test(String(value || "").trim());
+function isCreditJobNumber(value) {
+  return /^\d{4}(?:\.\d+)?$/.test(String(value || "").trim());
 }
 
 function isCreditBookingStatus(status) {
@@ -575,7 +576,7 @@ export default function EmployeesHomePage() {
           const status = String(booking.status || "").trim();
 
           if (!isCreditBookingStatus(status)) return;
-          if (!isFourDigitJobNumber(booking.jobNumber)) return;
+          if (!isCreditJobNumber(booking.jobNumber)) return;
 
           // employees array (strings or objects)
           const employeeListRaw = booking.employees || [];

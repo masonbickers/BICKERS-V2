@@ -1380,6 +1380,7 @@ function HeaderSidebarLayoutInner({
                   const active =
                     pathname === path ||
                     (path === "/screens/homescreen" && pathname === "/home") ||
+                    (path === "/dashboard" && String(pathname || "").startsWith("/recce-form/")) ||
                     (path === "/service/home" && pathname === "/service-home") ||
                     (path === "/h-and-s" && (pathname === "/h-and-s" || String(pathname || "").startsWith("/defects")));
 
