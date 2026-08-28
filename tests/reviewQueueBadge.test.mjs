@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import { countConfirmedIncompleteJobs } from "../src/app/utils/reviewQueueBadge.js";
 
@@ -26,4 +27,17 @@ test("uses the latest date for multi-day jobs", () => {
   assert.equal(countConfirmedIncompleteJobs([
     { jobNumber: "9305", status: "Confirmed", bookingDates: ["2026-08-20", "2026-08-29"] },
   ], now), 0);
+});
+
+test("Job Sheets and the sidebar use the same Review Queue calculation", async () => {
+  const jobHome = await readFile(
+    new URL("../src/app/job-home/page.js", import.meta.url),
+    "utf8"
+  );
+  const countBlock = jobHome.match(
+    /const reviewQueueCount = useMemo\([\s\S]*?\n  \);/
+  )?.[0] || "";
+
+  assert.match(countBlock, /countConfirmedIncompleteJobs\(jobs, todayMidnight\)/);
+  assert.doesNotMatch(countBlock, /jobs\.filter/);
 });
