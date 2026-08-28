@@ -27,6 +27,7 @@ import {
   tenantCollectionQuery,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { normaliseEmployeeCreditIdentity } from "@/app/utils/employeeCreditIdentity";
 import { ArrowLeft, BriefcaseBusiness, CalendarDays, Coins, LayoutList } from "lucide-react";
 
 const BREAKDOWN_COLUMNS = [
@@ -101,7 +102,7 @@ function isSaturday(yyyyMmDd) {
 }
 
 function normaliseName(n) {
-  return String(n || "").trim().replace(/\s+/g, " ").toLowerCase();
+  return normaliseEmployeeCreditIdentity(n);
 }
 
 function employeesKey(employee) {

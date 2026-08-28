@@ -51,3 +51,15 @@ test("nested pages can suppress the persistent shell Back button", async () => {
   assert.match(shell, /setNestedBackButtonOverride\(showBackButton\)/);
   assert.match(shell, /override: typeof nestedBackButtonOverride === "boolean"/);
 });
+
+test("Recce detail pages keep Diary highlighted in the sidebar", async () => {
+  const shell = await readFile(
+    new URL("../src/app/components/HeaderSidebarLayout.jsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    shell,
+    /path === "\/dashboard" && String\(pathname \|\| ""\)\.startsWith\("\/recce-form\/"\)/
+  );
+});
