@@ -7,6 +7,7 @@ import { useAuth } from "@/app/context/authContext";
 import BrandedLoader from "./BrandedLoader";
 import HeaderSidebarLayout from "./HeaderSidebarLayout";
 import UserActivityTracker from "./UserActivityTracker";
+import ReleaseUpdateNotice from "./ReleaseUpdateNotice";
 import {
   hasFinanceAccess,
   isAdminPath,
@@ -105,6 +106,7 @@ export default function ProtectedLayout({ children }) {
   return (
     <>
       <UserActivityTracker />
+      <ReleaseUpdateNotice userKey={user?.uid || user?.id || userDoc?.id || "signed-in"} />
       {isPlatformAdminWorkspace ? children : <HeaderSidebarLayout>{children}</HeaderSidebarLayout>}
     </>
   );

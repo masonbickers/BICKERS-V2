@@ -173,7 +173,6 @@ export function validateOperationalCompletionReview({ fields = {}, model = {}, f
   const selectedVehicleKeys = unique(form.selectedVehicleKeys || []);
   const assignments = form.vehicleCrewAssignments || {};
 
-  if (!text(fields.generalNotes)) errors.push("Add completion notes");
   if (selectedCrewKeys.length && selectedVehicleKeys.length) {
     for (const key of selectedVehicleKeys) {
       const assignedCrewKey = text(assignments[key]);

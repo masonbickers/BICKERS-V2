@@ -1,11 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import {
   alignLinkedContinuationCalendarEvents,
   buildLinkedContinuationPayload,
   linkedContinuationAllowsResourceOverlap,
   linkedJobNumberLabel,
 } from "../src/app/utils/linkedBookingContinuation.js";
+
+const calendarCss = fs.readFileSync(
+  new URL("../src/app/dashboard/dashboard.calendar.css", import.meta.url),
+  "utf8"
+);
 
 const previousBooking = {
   id: "booking-9144",
@@ -172,4 +178,75 @@ test("aligns a one-day previous job with a multi-day continuation", () => {
   assert.deepEqual(alignedTarget.bookingDates, target.bookingDates);
   assert.equal(alignedSource.__linkedContinuationRole, "from");
   assert.equal(alignedTarget.__linkedContinuationRole, "to");
+});
+
+test("prioritises the actual linked pair when the calendar assigns event lanes", () => {
+  const theWoods = {
+    id: "booking-9144__date_group__0",
+    __bookingId: "booking-9144",
+    jobNumber: "9144",
+    start: new Date(2026, 8, 7),
+    end: new Date(2026, 8, 9),
+  };
+  const badBlood = {
+    id: "booking-9315__date_group__0",
+    __bookingId: "booking-9315",
+    jobNumber: "9315",
+    start: new Date(2026, 8, 9),
+    end: new Date(2026, 8, 12),
+    linkedContinuation: {
+      fromBookingId: "booking-9304",
+      fromJobNumber: "9304",
+      handoverDate: "2026-09-09",
+    },
+  };
+  const zoltar = {
+    id: "booking-9304__date_group__0",
+    __bookingId: "booking-9304",
+    jobNumber: "9304",
+    start: new Date(2026, 8, 7),
+    end: new Date(2026, 8, 10),
+  };
+  const piccadilly = {
+    id: "booking-9215__date_group__0",
+    __bookingId: "booking-9215",
+    jobNumber: "9215",
+    start: new Date(2026, 8, 9),
+    end: new Date(2026, 8, 12),
+  };
+
+  const aligned = alignLinkedContinuationCalendarEvents([
+    theWoods,
+    badBlood,
+    zoltar,
+    piccadilly,
+  ]);
+
+  const alignedZoltar = aligned.find((event) => event.jobNumber === "9304");
+  const alignedBadBlood = aligned.find((event) => event.jobNumber === "9315");
+
+  assert.equal(alignedZoltar.__linkedContinuationRole, "from");
+  assert.equal(alignedBadBlood.__linkedContinuationRole, "to");
+  assert.ok(aligned.indexOf(alignedZoltar) < aligned.indexOf(theWoods));
+  assert.ok(aligned.indexOf(alignedBadBlood) > aligned.indexOf(piccadilly));
+});
+
+test("renders linked diary cards as one continuous strip", () => {
+  assert.match(
+    calendarCss,
+    /\.rbc-event\.work-diary-linked-from\s*\{[^}]*border-right:\s*0 !important;[^}]*border-top-right-radius:\s*0 !important;[^}]*border-bottom-right-radius:\s*0 !important;/
+  );
+  assert.match(
+    calendarCss,
+    /\.rbc-event\.work-diary-linked-to\s*\{[^}]*border-left:\s*0 !important;[^}]*border-top-left-radius:\s*0 !important;[^}]*border-bottom-left-radius:\s*0 !important;/
+  );
+  assert.doesNotMatch(calendarCss, /\.work-diary-linked-from::after/);
+  assert.match(
+    calendarCss,
+    /\.rbc-row-segment:has\(> \.rbc-event\.work-diary-linked-from\)\s*\{[^}]*padding-right:\s*0;/
+  );
+  assert.match(
+    calendarCss,
+    /\.rbc-row-segment:has\(> \.rbc-event\.work-diary-linked-to\)\s*\{[^}]*padding-left:\s*0;/
+  );
 });
