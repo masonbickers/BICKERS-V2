@@ -123,10 +123,10 @@ test("operational completion does not require finance or quote details", () => {
   assert.deepEqual(errors, []);
 });
 
-test("operational completion still requires completion notes", () => {
+test("operational completion allows an empty review form", () => {
   assert.deepEqual(
     validateOperationalCompletionReview({ fields: {}, model: {}, form: {} }),
-    ["Add completion notes"]
+    []
   );
 });
 

@@ -255,8 +255,18 @@ export const alignLinkedContinuationCalendarEvents = (events = []) => {
     });
   });
 
-  return (events || []).map((event) => {
+  return (events || []).map((event, index) => {
     const update = sourceUpdates.get(event) || targetUpdates.get(event);
-    return update ? { ...event, ...update } : event;
-  });
+    return {
+      event: update ? { ...event, ...update } : event,
+      index,
+    };
+  }).sort((a, b) => {
+    const lanePriority = (event) => {
+      if (event.__linkedContinuationRole === "from") return 0;
+      if (event.__linkedContinuationRole === "to") return 2;
+      return 1;
+    };
+    return lanePriority(a.event) - lanePriority(b.event) || a.index - b.index;
+  }).map(({ event }) => event);
 };
