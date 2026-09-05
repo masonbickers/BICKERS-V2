@@ -407,6 +407,8 @@ export default function EditEmployeePage() {
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
   const [financeAccessBusy, setFinanceAccessBusy] = useState(false);
+  const [mobileAccessBusy, setMobileAccessBusy] = useState(false);
+  const [baselineEmployeeEmail, setBaselineEmployeeEmail] = useState("");
   const [passportFile, setPassportFile] = useState(null);
   const [drivingLicenceFile, setDrivingLicenceFile] = useState(null);
   const [documentFiles, setDocumentFiles] = useState({});
@@ -437,6 +439,7 @@ export default function EditEmployeePage() {
     role: "employee",
     isService: false,
     appAccess: { user: true, service: false },
+    mobileAccess: { status: "pending" },
     defaultWorkspace: "user",
     financeAccess: false,
     payrollRates: EMPTY_PAYROLL_RATES,
@@ -674,6 +677,10 @@ export default function EditEmployeePage() {
                 : "employee",
           isService: data.isService === true,
           appAccess: loadedAccess,
+          mobileAccess:
+            data.mobileAccess && typeof data.mobileAccess === "object"
+              ? data.mobileAccess
+              : { status: "pending" },
           defaultWorkspace: resolveDefaultWorkspace(data, loadedAccess),
           financeAccess: data.financeAccess === true,
           employeeCode: asStr(data.employeeCode || data.userCode || data.code || ""),
@@ -724,6 +731,7 @@ export default function EditEmployeePage() {
           workSchedule: normalizeWorkSchedule(data.workSchedule || DEFAULT_WORK_SCHEDULE),
           payrollRates: loadedPayrollRates,
         });
+        setBaselineEmployeeEmail(cleanAccessEmail(data.email));
 
         try {
           const dataAccessState = {
@@ -1019,6 +1027,65 @@ export default function EditEmployeePage() {
     }
   };
 
+  const requestMobileAccessAction = async (action) => {
+    const currentUser = auth.currentUser;
+    const idToken = await currentUser?.getIdToken();
+    if (!idToken) throw new Error("Sign in again before changing mobile app access.");
+
+    const response = await fetch(
+      `/api/admin/employees/${encodeURIComponent(employeeId)}/mobile-access`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      }
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.error || "Mobile app access could not be updated.");
+    }
+    return result;
+  };
+
+  const handleMobileAccessAction = async (action) => {
+    if (mobileAccessBusy) return;
+    if (cleanAccessEmail(formData.email) !== baselineEmployeeEmail) {
+      setSaveError("Save the employee's email change before sending a mobile invitation.");
+      return;
+    }
+
+    setMobileAccessBusy(true);
+    setSaveError("");
+    setSaveMessage("");
+    try {
+      const result = await requestMobileAccessAction(action);
+      setFormData((current) => ({
+        ...current,
+        uid: result.authUid || current.uid,
+        authUid: result.authUid || current.authUid,
+        mobileAccess: {
+          ...(current.mobileAccess || {}),
+          status: result.status || "invited",
+          approvedEmail: result.email || cleanAccessEmail(current.email),
+          inviteSentAt: result.inviteSentAt || current.mobileAccess?.inviteSentAt || "",
+          inviteError: "",
+        },
+      }));
+      setSaveMessage(
+        action === "resendInvite"
+          ? `Setup email resent to ${result.email}.`
+          : `Mobile app access approved and setup email sent to ${result.email}.`
+      );
+    } catch (error) {
+      setSaveError(error?.message || "Mobile app access could not be updated.");
+    } finally {
+      setMobileAccessBusy(false);
+    }
+  };
+
   const handlePayrollRateChange = (field, value) => {
     setSaveMessage("");
     setSaveError("");
@@ -1087,6 +1154,16 @@ export default function EditEmployeePage() {
 
   const effectiveRole = deriveRoleFromAccess(formData.appAccess || {});
   const routingPreview = getWorkspaceRoute(formData.defaultWorkspace || "user");
+  const mobileAccessStatus = String(formData.mobileAccess?.status || "pending").trim();
+  const mobileAccessLabel =
+    {
+      pending: "Pending approval",
+      provisioning: "Sending invitation",
+      invite_failed: "Invitation failed",
+      invited: "Invitation sent",
+      active: "Active",
+      disabled: "Disabled",
+    }[mobileAccessStatus] || "Pending approval";
 
   const toggleJob = (job) => {
     setFormData((prev) => {
@@ -1191,6 +1268,19 @@ export default function EditEmployeePage() {
       const userRef = linkedUserId ? doc(db, "users", linkedUserId) : null;
       const employeeName = String(formData.name || formData.fullName || formData.employeeName || "").trim();
       const employeeEmail = cleanAccessEmail(formData.email);
+      const emailChangedAfterApproval =
+        employeeEmail !== baselineEmployeeEmail &&
+        ["invited", "active"].includes(String(formData.mobileAccess?.status || ""));
+      const nextMobileAccess = emailChangedAfterApproval
+        ? {
+            ...(formData.mobileAccess || {}),
+            status: "pending",
+            previousApprovedEmail:
+              cleanAccessEmail(formData.mobileAccess?.approvedEmail) || baselineEmployeeEmail,
+            approvedEmail: "",
+            invalidatedAt: new Date().toISOString(),
+          }
+        : formData.mobileAccess || { status: "pending" };
       const employeeCode = String(formData.employeeCode || formData.userCode || formData.code || "").trim();
       let passport = {
         ...EMPTY_PASSPORT,
@@ -1290,6 +1380,7 @@ export default function EditEmployeePage() {
         archived: !!formData.archived,
         appDisabled: !!formData.appDisabled,
         appAccess: normalizedAppAccess,
+        mobileAccess: nextMobileAccess,
         defaultWorkspace: normalizedDefaultWorkspace,
         role: effectiveRole,
       };
@@ -1374,6 +1465,7 @@ export default function EditEmployeePage() {
         isArchived: !!formData.archived,
         appDisabled: !!formData.appDisabled,
         appAccess: normalizedAppAccess,
+        mobileAccess: nextMobileAccess,
         defaultWorkspace: normalizedDefaultWorkspace,
         updatedAt: serverTimestamp(),
         updatedBy,
@@ -1395,6 +1487,9 @@ export default function EditEmployeePage() {
       const personnelResult = await personnelResponse.json().catch(() => ({}));
       if (!personnelResponse.ok) {
         throw new Error(personnelResult.error || "Private employee details could not be saved.");
+      }
+      if (emailChangedAfterApproval) {
+        await requestMobileAccessAction("invalidateEmail");
       }
       const batch = writeBatch(db);
       batch.set(docRef, { ...operationalRecord, ...legacyPrivateDeletes }, { merge: true });
@@ -1430,7 +1525,12 @@ export default function EditEmployeePage() {
       setBaselinePayrollRates(normalizedPayrollRates);
       setBaselineGlobalPayrollRates({ ...globalPayrollRates });
       setGlobalPayrollRateHistory(nextGlobalRateHistory);
-      setFormData((current) => ({ ...current, payrollRateHistory: nextEmployeeRateHistory }));
+      setBaselineEmployeeEmail(employeeEmail);
+      setFormData((current) => ({
+        ...current,
+        mobileAccess: nextMobileAccess,
+        payrollRateHistory: nextEmployeeRateHistory,
+      }));
       try {
         if (currentUser) {
           await fetch("/api/admin/activity-tracking/settings", {
@@ -2749,6 +2849,73 @@ export default function EditEmployeePage() {
                   </div>
 
                   {accessErrors.appAccess && <div style={inlineNotice("error")}>{accessErrors.appAccess}</div>}
+
+                  <div
+                    style={{
+                      border: UI.border,
+                      borderRadius: UI.radiusSm,
+                      background: "var(--color-surface-subtle)",
+                      padding: 12,
+                      display: "grid",
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontWeight: 800, color: UI.text }}>Mobile app access</div>
+                        <div style={{ color: UI.muted, fontSize: 12, marginTop: 3 }}>
+                          Employees cannot create an account themselves. Approval sends a secure password setup email.
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          mobileAccessStatus === "active"
+                            ? "success"
+                            : mobileAccessStatus === "invite_failed"
+                              ? "danger"
+                              : mobileAccessStatus === "invited"
+                                ? "info"
+                                : "neutral"
+                        }
+                      >
+                        {mobileAccessLabel}
+                      </Badge>
+                    </div>
+
+                    {formData.mobileAccess?.approvedEmail ? (
+                      <div style={{ color: UI.muted, fontSize: 12 }}>
+                        Approved email: {formData.mobileAccess.approvedEmail}
+                      </div>
+                    ) : null}
+
+                    {mobileAccessStatus === "pending" ? (
+                      <button
+                        type="button"
+                        onClick={() => handleMobileAccessAction("approve")}
+                        disabled={mobileAccessBusy || saving || !cleanAccessEmail(formData.email)}
+                        style={btn("primary")}
+                      >
+                        {mobileAccessBusy ? "Sending…" : "Approve and send setup email"}
+                      </button>
+                    ) : null}
+
+                    {["invited", "invite_failed"].includes(mobileAccessStatus) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleMobileAccessAction("resendInvite")}
+                        disabled={mobileAccessBusy || saving}
+                        style={btn(mobileAccessStatus === "invite_failed" ? "primary" : "ghost")}
+                      >
+                        {mobileAccessBusy ? "Sending…" : "Resend setup email"}
+                      </button>
+                    ) : null}
+
+                    {mobileAccessStatus === "active" ? (
+                      <div style={{ color: UI.muted, fontSize: 12 }}>
+                        This employee has completed setup and can sign in with their recorded email and password.
+                      </div>
+                    ) : null}
+                  </div>
 
                   <div>
                     <label style={labelStyle}>Default workspace</label>

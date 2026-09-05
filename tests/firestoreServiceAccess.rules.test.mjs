@@ -6,12 +6,20 @@ import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, se
 
 const projectId = "demo-bickers-service-access-rules";
 let env;
+const trustedWebClaims = {
+  authMethod: "clerk",
+  verifiedClerkEmail: true,
+  identityLinkVersion: 2,
+};
 
 before(async () => {
   env = await initializeTestEnvironment({
     projectId,
     firestore: { rules: await readFile(new URL("../firestore.rules", import.meta.url), "utf8") },
   });
+  const authenticatedContext = env.authenticatedContext.bind(env);
+  env.authenticatedContext = (uid, claims) =>
+    authenticatedContext(uid, claims || trustedWebClaims);
 });
 after(async () => env?.cleanup());
 beforeEach(async () => env.clearFirestore());
@@ -27,7 +35,13 @@ async function seed() {
       setDoc(doc(db, "users", "finance-a"), { uid: "finance-a", isEnabled: true, companyId: "company-a", role: "user", financeAccess: true, appAccess: { user: true, service: false } }),
       setDoc(doc(db, "users", "service-b"), { uid: "service-b", isEnabled: true, companyId: "company-b", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "platform"), { uid: "platform", isEnabled: true, role: "platformAdmin", appAccess: { user: true, service: true } }),
+      setDoc(doc(db, "users", "mobile-active"), { uid: "mobile-active", employeeId: "mobile-employee", isEnabled: true, companyId: "company-a", role: "user", mobileAccessStatus: "active", appAccess: { user: true, service: false } }),
+      setDoc(doc(db, "users", "mobile-invited"), { uid: "mobile-invited", employeeId: "invited-employee", isEnabled: true, companyId: "company-a", role: "user", mobileAccessStatus: "invited", appAccess: { user: true, service: false } }),
+      setDoc(doc(db, "users", "mobile-pending"), { uid: "mobile-pending", employeeId: "pending-employee", isEnabled: true, companyId: "company-a", role: "user", mobileAccessStatus: "pending", appAccess: { user: true, service: false } }),
+      setDoc(doc(db, "users", "legacy-mobile"), { uid: "legacy-mobile", employeeId: "legacy-employee", isEnabled: true, companyId: "company-a", role: "user", mobileAccessStatus: "active", appAccess: { user: true, service: false } }),
       setDoc(doc(db, "employees", "employee-a"), { companyId: "company-a", authUid: "user-a", financeAccess: false, name: "Employee A" }),
+      setDoc(doc(db, "employees", "mobile-employee"), { companyId: "company-a", authUid: "mobile-active", mobileAccess: { status: "active" }, name: "Mobile Employee" }),
+      setDoc(doc(db, "employees", "invited-employee"), { companyId: "company-a", authUid: "mobile-invited", mobileAccess: { status: "invited" }, name: "Invited Employee" }),
       setDoc(doc(db, "employeePersonnel", "employee-a"), { companyId: "company-a", dateOfBirth: "1990-01-01" }),
       setDoc(doc(db, "bookings", "booking-a"), { companyId: "company-a", title: "A" }),
       setDoc(doc(db, "bookings", "booking-b"), { companyId: "company-b", title: "B" }),
@@ -87,6 +101,41 @@ test("signed-out, missing-user and disabled-user reads are denied", async () => 
   await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "bookings", "booking-a")));
   await assertFails(getDoc(doc(env.authenticatedContext("missing").firestore(), "bookings", "booking-a")));
   await assertFails(getDoc(doc(env.authenticatedContext("disabled-a").firestore(), "bookings", "booking-a")));
+});
+
+test("approved mobile password users can read app data", async () => {
+  await seed();
+  const mobileDb = env.authenticatedContext("mobile-active", {
+    firebase: { sign_in_provider: "password" },
+  }).firestore();
+  await assertSucceeds(getDoc(doc(mobileDb, "users", "mobile-active")));
+  await assertSucceeds(getDoc(doc(mobileDb, "bookings", "booking-a")));
+  await assertSucceeds(getDoc(doc(mobileDb, "employees", "mobile-employee")));
+});
+
+test("invited mobile users can read only their own bootstrap user document", async () => {
+  await seed();
+  const invitedDb = env.authenticatedContext("mobile-invited", {
+    firebase: { sign_in_provider: "password" },
+  }).firestore();
+  await assertSucceeds(getDoc(doc(invitedDb, "users", "mobile-invited")));
+  await assertFails(getDoc(doc(invitedDb, "users", "mobile-active")));
+  await assertFails(getDoc(doc(invitedDb, "employees", "invited-employee")));
+  await assertFails(getDoc(doc(invitedDb, "bookings", "booking-a")));
+});
+
+test("pending and obsolete custom-token mobile identities are denied", async () => {
+  await seed();
+  const pendingDb = env.authenticatedContext("mobile-pending", {
+    firebase: { sign_in_provider: "password" },
+  }).firestore();
+  const legacyDb = env.authenticatedContext("legacy-mobile", {
+    firebase: { sign_in_provider: "custom" },
+  }).firestore();
+  await assertFails(getDoc(doc(pendingDb, "users", "mobile-pending")));
+  await assertFails(getDoc(doc(pendingDb, "bookings", "booking-a")));
+  await assertFails(getDoc(doc(legacyDb, "users", "legacy-mobile")));
+  await assertFails(getDoc(doc(legacyDb, "bookings", "booking-a")));
 });
 
 test("working terms acceptance is signed once and remains readable", async () => {

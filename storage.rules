@@ -6,6 +6,36 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function isTrustedWebIdentity() {
+      let method = request.auth.token.get("authMethod", "");
+      return isSignedIn()
+        && (
+          (
+            method == "clerk"
+            && request.auth.token.get("verifiedClerkEmail", false) == true
+            && request.auth.token.get("identityLinkVersion", 0) == 2
+          )
+          || method == "passkey"
+          || method == "userCode"
+        );
+    }
+
+    function isFirebasePasswordIdentity() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider == "password";
+    }
+
+    function isApprovedAuthIdentity(data) {
+      return data != null
+        && (
+          isTrustedWebIdentity()
+          || (
+            isFirebasePasswordIdentity()
+            && data.get("mobileAccessStatus", "") == "active"
+          )
+        );
+    }
+
     function userDoc() {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
     }
@@ -21,6 +51,7 @@ service firebase.storage {
 
     function isActiveUserData(data) {
       return data != null
+        && isApprovedAuthIdentity(data)
         && data.get("isEnabled", false) == true
         && data.get("active", true) != false
         && data.get("disabled", false) != true

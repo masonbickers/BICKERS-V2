@@ -22,6 +22,7 @@
     "config:validate": "node scripts/validate-deployment-config.mjs",
     "audit:deployment-admins": "node scripts/audit-deployment-admin-roles.mjs",
     "backup:maintenance": "node scripts/export-maintenance-backup.mjs",
+    "backup:mobile-access": "node scripts/export-mobile-access-backup.mjs",
     "test:access": "node --test tests/accessControl.test.mjs",
     "test:appearance": "node --test tests/globalAppearance.test.mjs",
     "test:firestore-rules": "firebase emulators:exec --only firestore --project demo-bickers-service-access-rules \"node --test tests/firestoreServiceAccess.rules.test.mjs\"",
@@ -37,6 +38,7 @@
     "verify:production": "npm run test:unit && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:browser",
     "verify:clean-checkout": "node scripts/verify-clean-checkout.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs",
+    "migrate:mobile-access": "node scripts/migrate-mobile-access.mjs",
     "migrate:finance-access": "node --conditions=react-server scripts/migrate-finance-access-lockdown.mjs",
     "migrate:receipt-groups": "node scripts/migrate-receipt-groups.mjs"
   },
@@ -53,6 +55,7 @@
     "docx": "^9.5.1",
     "file-saver": "^2.0.5",
     "firebase": "^11.10.0",
+    "firebase-admin": "^13.10.0",
     "framer-motion": "^12.20.1",
     "lucide-react": "^0.542.0",
     "next": "^15.4.5",

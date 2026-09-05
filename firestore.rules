@@ -5,6 +5,33 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isTrustedWebIdentity() {
+      let method = request.auth.token.get("authMethod", "");
+      return isSignedIn()
+        && (
+          (
+            method == "clerk"
+            && request.auth.token.get("verifiedClerkEmail", false) == true
+            && request.auth.token.get("identityLinkVersion", 0) == 2
+          )
+          || method == "passkey"
+          || method == "userCode"
+        );
+    }
+
+    function isFirebasePasswordIdentity() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider == "password";
+    }
+
+    function isApprovedAuthIdentity(userData) {
+      return isTrustedWebIdentity()
+        || (
+          isFirebasePasswordIdentity()
+          && userData.get("mobileAccessStatus", "") == "active"
+        );
+    }
+
     function hasLegacyMobileAccess() {
       return activeUserDocExists() && hasUserAccess();
     }
@@ -21,6 +48,7 @@ service cloud.firestore {
     function activeUserDocExists() {
       let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return userDocExists()
+        && isApprovedAuthIdentity(userData)
         && (
           !userData.keys().hasAny(["isEnabled"])
           || userData.isEnabled == true
@@ -333,6 +361,18 @@ service cloud.firestore {
       return activeUserDocExists() && request.auth.uid == uid;
     }
 
+    function isOwnMobileBootstrapUserDoc(uid) {
+      return isFirebasePasswordIdentity()
+        && request.auth.uid == uid
+        && resource.data.get("isEnabled", false) == true
+        && resource.data.get("active", true) != false
+        && resource.data.get("disabled", false) != true
+        && resource.data.get("appDisabled", false) != true
+        && resource.data.get("archived", false) != true
+        && resource.data.get("isArchived", false) != true
+        && resource.data.get("mobileAccessStatus", "") in ["provisioning", "invited"];
+    }
+
     function isOwnEmployeeDoc() {
       return isSignedIn()
         && (
@@ -483,7 +523,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isOwnUserDoc(uid) || isAdmin();
+      allow read: if isOwnUserDoc(uid) || isOwnMobileBootstrapUserDoc(uid) || isAdmin();
       allow create: if isAdmin() && incomingFinanceAccessIsDisabled();
       allow update: if financeAccessUnchanged()
         && (isAdmin() || (isOwnUserDoc(uid) && userOnlyFieldsChanged()));
@@ -491,7 +531,7 @@ service cloud.firestore {
     }
 
     match /employeeNotifications/{notificationId} {
-      allow read: if isSignedIn()
+      allow read: if activeUserDocExists()
         && resource.data.keys().hasAny(["employeeId"])
         && exists(/databases/$(database)/documents/employees/$(resource.data.employeeId))
         && (
@@ -957,7 +997,7 @@ service cloud.firestore {
     }
 
     match /workingTermsAcceptances/{uid}/versions/{versionId} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow read: if activeUserDocExists() && (request.auth.uid == uid || isAdmin());
       allow create: if activeUserDocExists()
         && request.auth.uid == uid
         && versionId == "1.1"

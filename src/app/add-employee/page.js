@@ -220,6 +220,7 @@ export default function AddEmployeePage() {
         companyId: DEFAULT_COMPANY_ID,
         isEnabled: true,
         active: true,
+        mobileAccess: { status: "pending" },
         appAccess: { user: true, service: false },
         financeAccess: false,
         defaultWorkspace: "user",

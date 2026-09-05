@@ -6,6 +6,11 @@ import { getBytes, listAll, ref, uploadBytes } from "firebase/storage";
 
 const projectId = "demo-bickers-storage-access-rules";
 let env;
+const trustedWebClaims = {
+  authMethod: "clerk",
+  verifiedClerkEmail: true,
+  identityLinkVersion: 2,
+};
 
 before(async () => {
   env = await initializeTestEnvironment({
@@ -13,6 +18,9 @@ before(async () => {
     firestore: { rules: await readFile(new URL("../firestore.rules", import.meta.url), "utf8") },
     storage: { rules: await readFile(new URL("../storage.rules", import.meta.url), "utf8") },
   });
+  const authenticatedContext = env.authenticatedContext.bind(env);
+  env.authenticatedContext = (uid, claims) =>
+    authenticatedContext(uid, claims || trustedWebClaims);
 });
 after(async () => env?.cleanup());
 beforeEach(async () => {
@@ -31,6 +39,9 @@ async function seedUsers() {
       setDoc(doc(db, "users", "service-b"), { uid: "service-b", isEnabled: true, companyId: "company-b", role: "user", appAccess: { user: false, service: true } }),
       setDoc(doc(db, "users", "platform"), { uid: "platform", isEnabled: true, role: "platformAdmin", appAccess: { user: true, service: true } }),
       setDoc(doc(db, "users", "disabled-a"), { uid: "disabled-a", isEnabled: false, companyId: "company-a", role: "user", appAccess: { user: true, service: true } }),
+      setDoc(doc(db, "users", "mobile-active"), { uid: "mobile-active", isEnabled: true, companyId: "company-a", role: "user", mobileAccessStatus: "active", appAccess: { user: true, service: false } }),
+      setDoc(doc(db, "users", "mobile-invited"), { uid: "mobile-invited", isEnabled: true, companyId: "company-a", role: "user", mobileAccessStatus: "invited", appAccess: { user: true, service: false } }),
+      setDoc(doc(db, "users", "legacy-mobile"), { uid: "legacy-mobile", isEnabled: true, companyId: "company-a", role: "user", mobileAccessStatus: "active", appAccess: { user: true, service: false } }),
     ]);
   });
 }
@@ -44,6 +55,24 @@ test("signed-out, missing and disabled users cannot upload", async () => {
   await assertFails(uploadBytes(ref(env.unauthenticatedContext().storage(), path), pdf, { contentType: "application/pdf" }));
   await assertFails(uploadBytes(ref(env.authenticatedContext("missing").storage(), path), pdf, { contentType: "application/pdf" }));
   await assertFails(uploadBytes(ref(env.authenticatedContext("disabled-a").storage(), path), pdf, { contentType: "application/pdf" }));
+});
+
+test("only active password-authenticated mobile users can access storage", async () => {
+  await seedUsers();
+  const path = "vehicle-checks/mobile-active/check-a/photo.jpg";
+  const activeStorage = env.authenticatedContext("mobile-active", {
+    firebase: { sign_in_provider: "password" },
+  }).storage();
+  const invitedStorage = env.authenticatedContext("mobile-invited", {
+    firebase: { sign_in_provider: "password" },
+  }).storage();
+  const legacyStorage = env.authenticatedContext("legacy-mobile", {
+    firebase: { sign_in_provider: "custom" },
+  }).storage();
+
+  await assertSucceeds(uploadBytes(ref(activeStorage, path), png, { contentType: "image/jpeg" }));
+  await assertFails(uploadBytes(ref(invitedStorage, "vehicle-checks/mobile-invited/check-a/photo.jpg"), png, { contentType: "image/jpeg" }));
+  await assertFails(uploadBytes(ref(legacyStorage, "vehicle-checks/legacy-mobile/check-a/photo.jpg"), png, { contentType: "image/jpeg" }));
 });
 
 test("company and workspace checks protect scoped files", async () => {
