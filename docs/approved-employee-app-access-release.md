@@ -14,6 +14,11 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
   `https://bickers-v2.vercel.app`)
 - Last known web production rollback deployment:
   `https://bickers-v2-c2ever25a-bickers-projects.vercel.app`
+- Live Render backend deployment (verified 2026-09-06):
+  `dep-daei4upt0dsc73ab0ieg` at mobile/backend commit
+  `0987ba7ba6fabc229a88a278a97b30f31fd503a6`
+- Render backend rollback deployment: `dep-da256su7bikc73ct166g` at commit
+  `3b0db05b6995d2292eb6af486a187ccb29664ae8`
 - Last known iOS production build: version 5.0.9, build 80, EAS build
   `9ff0f537-9525-4936-a4f8-33d1de459e96`
 - Last known Android store build: version 5.0.6, build 19, EAS build
@@ -36,10 +41,9 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
   the password-reset template with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`. The
   existing Firebase reset email remains usable, but its subject cannot be
   renamed until Firebase removes the project-level restriction.
-- The Render dashboard requires an authenticated session before compatibility
-  mode can be configured and the backend revision can be deployed. The current
-  production `/app-config` still reports `minAppVersion: "5.0.4"` and does not
-  yet expose `legacyEmployeeSetupEnabled`.
+- Render auto-deploy is disabled because the compatibility backend was deployed
+  as a specific tested commit. Keep deployments manual until the release branch
+  is deliberately merged or the service branch is changed.
 
 ## Completed compatibility work
 
@@ -50,6 +54,9 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
   HTTP 401.
 - The clean mobile/backend branch is committed and pushed at
   `0987ba7ba6fabc229a88a278a97b30f31fd503a6`.
+- The same backend commit is live on Render with
+  `LEGACY_EMPLOYEE_SETUP_MODE=enabled`. Production `/app-config` was verified to
+  report `legacyEmployeeSetupEnabled: true` and `minAppVersion: "5.0.4"`.
 - A protected production backup and dry-run report were created outside the
   repositories. No migration writes or invitation emails were performed.
 
