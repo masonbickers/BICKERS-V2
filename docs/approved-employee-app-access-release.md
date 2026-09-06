@@ -7,7 +7,9 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
 ## Release branches
 
 - Web: `codex/approved-employee-app-access-web`
-- Mobile/backend: `codex/approved-employee-app-access-mobile`
+- Mobile/backend compatibility deployment: `codex/approved-employee-app-access-mobile`
+- Mobile 5.0.10 release candidate: `codex/approved-access-5.0.10` at
+  `625bb3671ccbf5a238b9ae30288d0af561cd0d73`
 - Live web production deployment (verified 2026-09-05):
   `dpl_76QmAbfc7rTvTW7LAS8B9ASKABQX`
   (`https://bickers-v2-9uy7myz84-bickers-projects.vercel.app`, aliased to
@@ -29,11 +31,11 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
 - The production migration dry run currently reports 22 employees: 6 eligible
   to grandfather, 4 setup emails, 4 pending, 3 disabled and 9 blocking identity
   conflicts. Do not use `--apply` until a fresh dry run reports zero conflicts.
-- Store build 5.0.9 was uploaded from an uncommitted working tree. Its binary
-  contains receipts, Working Terms, expenses and day-note features that are not
-  present on mobile `origin/main`. Do not submit the clean 5.0.10 authentication
-  branch by itself: first establish and verify a release baseline that retains
-  the features already shipped in 5.0.9.
+- The current local working app has now been captured as the 5.0.10 baseline and
+  combined with the approved-access changes on the clean release-candidate
+  branch. Its 245 tests, lint, TypeScript, Expo Doctor, 20 visual tests and iOS
+  and Android JavaScript exports pass. Signed store builds and physical-platform
+  login checks are still required.
 - The internal-test and store-review employee emails are not stored in source.
   They must be supplied through the production employee-management UI before
   store submission.
@@ -54,6 +56,9 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
   HTTP 401.
 - The clean mobile/backend branch is committed and pushed at
   `0987ba7ba6fabc229a88a278a97b30f31fd503a6`.
+- The clean mobile 5.0.10 release candidate is committed and pushed at
+  `625bb3671ccbf5a238b9ae30288d0af561cd0d73`. It preserves the current app
+  baseline while adding the approved email/password access flow.
 - The same backend commit is live on Render with
   `LEGACY_EMPLOYEE_SETUP_MODE=enabled`. Production `/app-config` was verified to
   report `legacyEmployeeSetupEnabled: true` and `minAppVersion: "5.0.4"`.
