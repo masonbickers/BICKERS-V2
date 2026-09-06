@@ -8,10 +8,16 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
 
 - Web: `codex/approved-employee-app-access-web`
 - Mobile/backend: `codex/approved-employee-app-access-mobile`
+- Live web production deployment (verified 2026-09-05):
+  `dpl_76QmAbfc7rTvTW7LAS8B9ASKABQX`
+  (`https://bickers-v2-9uy7myz84-bickers-projects.vercel.app`, aliased to
+  `https://bickers-v2.vercel.app`)
 - Last known web production rollback deployment:
   `https://bickers-v2-c2ever25a-bickers-projects.vercel.app`
 - Last known iOS production build: version 5.0.9, build 80, EAS build
   `9ff0f537-9525-4936-a4f8-33d1de459e96`
+- Last known Android store build: version 5.0.6, build 19, EAS build
+  `4741c92e-92fc-419a-90a6-45ef7951ad91`
 
 ## Current release gates
 
@@ -26,6 +32,26 @@ cutover. Do not deploy the hardened Firebase rules or run the migration with
 - The internal-test and store-review employee emails are not stored in source.
   They must be supplied through the production employee-management UI before
   store submission.
+- Firebase currently rejects both console and Identity Platform API changes to
+  the password-reset template with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`. The
+  existing Firebase reset email remains usable, but its subject cannot be
+  renamed until Firebase removes the project-level restriction.
+- The Render dashboard requires an authenticated session before compatibility
+  mode can be configured and the backend revision can be deployed. The current
+  production `/app-config` still reports `minAppVersion: "5.0.4"` and does not
+  yet expose `legacyEmployeeSetupEnabled`.
+
+## Completed compatibility work
+
+- The web employee-management controls are live on Vercel and were verified in
+  an authenticated platform-admin session. The mobile-access section is visible
+  and no employee was approved or emailed during verification.
+- The live protected mobile-access API rejects an unauthenticated request with
+  HTTP 401.
+- The clean mobile/backend branch is committed and pushed at
+  `0987ba7ba6fabc229a88a278a97b30f31fd503a6`.
+- A protected production backup and dry-run report were created outside the
+  repositories. No migration writes or invitation emails were performed.
 
 ## Compatibility deployment
 
