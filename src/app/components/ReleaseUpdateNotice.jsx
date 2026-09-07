@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import styles from "./ReleaseUpdateNotice.module.css";
 
-export const RELEASE_UPDATE_NOTICE_ID = "2026-09-02-review-queue-linked-diary";
+export const RELEASE_UPDATE_NOTICE_ID = "2026-09-07-completed-inspection-entry";
 
 export default function ReleaseUpdateNotice({ userKey = "signed-in" }) {
   const [visible, setVisible] = useState(false);
@@ -41,11 +41,11 @@ export default function ReleaseUpdateNotice({ userKey = "signed-in" }) {
         <span className={styles.icon} aria-hidden="true"><CheckCircle2 size={22} /></span>
         <div className={styles.content}>
           <span className={styles.kicker}>System update</span>
-          <h2 id="release-update-title">Review Queue updated</h2>
+          <h2 id="release-update-title">Completed inspections made easier</h2>
           <p>
-            Jobs can now be marked <strong>Complete</strong> with an empty review form. Finance details and checks are still required before selecting <strong>Ready to Invoice</strong>.
+            Use <strong>Record completed inspections</strong> on the vehicle page or return-to-fleet form to enter completed PMI and brake tests and upload their certificates.
           </p>
-          <p className={styles.small}>Linked jobs have also been improved so they flow together clearly in the Diary.</p>
+          <p className={styles.small}>Existing completed inspections are shown so you can add paperwork without creating a duplicate. Return-to-fleet dates are handled separately.</p>
           <button type="button" className={styles.confirm} onClick={dismiss}>Got it</button>
         </div>
       </section>

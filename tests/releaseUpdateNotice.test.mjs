@@ -11,16 +11,16 @@ const protectedLayoutSource = fs.readFileSync(
   "utf8"
 );
 
-test("signed-in users receive a one-time Review Queue update notice", () => {
+test("signed-in users receive a one-time completed inspection update notice", () => {
   assert.match(protectedLayoutSource, /<ReleaseUpdateNotice userKey=/);
   assert.match(noticeSource, /RELEASE_UPDATE_NOTICE_ID/);
   assert.match(noticeSource, /localStorage\.getItem\(storageKey\)/);
   assert.match(noticeSource, /localStorage\.setItem\(storageKey, "dismissed"\)/);
-  assert.match(noticeSource, /Review Queue updated/);
+  assert.match(noticeSource, /Completed inspections made easier/);
 });
 
-test("the notice explains Complete and Ready to Invoice separately", () => {
-  assert.match(noticeSource, /marked <strong>Complete<\/strong> with an empty review form/);
-  assert.match(noticeSource, /required before selecting <strong>Ready to Invoice<\/strong>/);
-  assert.match(noticeSource, /Linked jobs have also been improved/);
+test("the notice explains inspection entry and existing records", () => {
+  assert.match(noticeSource, /Record completed inspections/);
+  assert.match(noticeSource, /upload their certificates/);
+  assert.match(noticeSource, /without creating a duplicate/);
 });
