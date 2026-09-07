@@ -687,3 +687,33 @@ export const completeCanonicalMaintenanceItems = (
     allCompleted: items.length > 0 && items.every((item) => item.status === "completed"),
   };
 };
+
+const AUTOMATIC_DUE_SOURCES = new Set([
+  "automatic_schedule",
+  "vehicle_maintenance_schedule",
+  "maintenance_schedule",
+  "completion_recurrence",
+  "safe_reconciliation",
+]);
+
+export const isConfirmedMaintenanceBooking = (booking = {}) => {
+  const canonical = normalizeMaintenanceRecord(booking, { id: booking?.id });
+  if (!["booked", "in_progress"].includes(canonical.status)) return false;
+  if (!canonical.schedule.bookingDates.length) return false;
+
+  const originSource = String(booking?.origin?.source || canonical.origin?.source || "")
+    .trim()
+    .toLowerCase();
+  if (!AUTOMATIC_DUE_SOURCES.has(originSource)) return true;
+
+  return Boolean(
+    booking?.scheduleManuallyAdjusted === true ||
+    booking?.arrangedAt ||
+    booking?.arrangedBy ||
+    booking?.restoredAfterVor ||
+    booking?.reactivatedAfterVorAtISO ||
+    String(booking?.provider || "").trim() ||
+    String(booking?.bookingRef || "").trim() ||
+    String(booking?.location || "").trim()
+  );
+};

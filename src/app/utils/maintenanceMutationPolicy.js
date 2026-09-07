@@ -1,4 +1,6 @@
 import {
+  isConfirmedMaintenanceBooking,
+  normalizeMaintenanceRecord,
   maintenanceDateOnly,
   maintenanceIsoWeekLabel,
   normalizeMaintenanceRecordStatus,
@@ -113,4 +115,21 @@ export const buildAtomicRescheduleWriteSet = ({
     ? [{ collection: "vehicles", documentId: vehicleId, patch: vehiclePatch, exists: true }]
     : []),
   ];
+};
+
+// Automatic due reminders can carry a legacy Booked status without having
+// been arranged. Use the same confirmation rule as the calendar.
+export const getMaintenanceCreationDisposition = ({ existing, id, status, dates, typeIds, vehicleId }) => {
+  if (!existing) return "create";
+  const canonical = normalizeMaintenanceRecord(existing, { id });
+  const sameTypeIds = [...canonical.items.map((item) => item.maintenanceTypeId)].sort().join("|") ===
+    [...typeIds].sort().join("|");
+  const sameVehicle = String(canonical.vehicleId || "").trim() ===
+    String(vehicleId || canonical.vehicleId || "").trim();
+  const confirmed = isConfirmedMaintenanceBooking(existing);
+  if (canonical.status === "booked" && status === "booked" && confirmed && sameTypeIds && sameVehicle &&
+      canonical.schedule.bookingDates.join("|") === dates.join("|")) return "idempotent";
+  if (canonical.status === "requested") return "arrange";
+  if (canonical.status === "booked" && !confirmed && status === "booked" && sameTypeIds && sameVehicle) return "arrange";
+  throw new Error(`Existing ${canonical.status} maintenance records cannot be replaced through creation.`);
 };
