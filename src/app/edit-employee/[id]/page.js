@@ -408,6 +408,8 @@ export default function EditEmployeePage() {
   const [accessErrors, setAccessErrors] = useState({});
   const [financeAccessBusy, setFinanceAccessBusy] = useState(false);
   const [mobileAccessBusy, setMobileAccessBusy] = useState(false);
+  const [mobileAccessError, setMobileAccessError] = useState("");
+  const [mobileAccessMessage, setMobileAccessMessage] = useState("");
   const [baselineEmployeeEmail, setBaselineEmployeeEmail] = useState("");
   const [passportFile, setPassportFile] = useState(null);
   const [drivingLicenceFile, setDrivingLicenceFile] = useState(null);
@@ -1052,7 +1054,10 @@ export default function EditEmployeePage() {
 
   const handleMobileAccessAction = async (action) => {
     if (mobileAccessBusy) return;
+    setMobileAccessError("");
+    setMobileAccessMessage("");
     if (cleanAccessEmail(formData.email) !== baselineEmployeeEmail) {
+      setMobileAccessError("Save the employee's email change before sending a mobile invitation.");
       setSaveError("Save the employee's email change before sending a mobile invitation.");
       return;
     }
@@ -1074,12 +1079,14 @@ export default function EditEmployeePage() {
           inviteError: "",
         },
       }));
-      setSaveMessage(
+      const message =
         action === "resendInvite"
           ? `Setup email resent to ${result.email}.`
-          : `Mobile app access approved and setup email sent to ${result.email}.`
-      );
+          : `Mobile app access approved and setup email sent to ${result.email}.`;
+      setSaveMessage(message);
+      setMobileAccessMessage(message);
     } catch (error) {
+      setMobileAccessError(error?.message || "Mobile app access could not be updated.");
       setSaveError(error?.message || "Mobile app access could not be updated.");
     } finally {
       setMobileAccessBusy(false);
@@ -1266,6 +1273,7 @@ export default function EditEmployeePage() {
         : null;
       const linkedUserId = String(formData.uid || formData.authUid || "").trim();
       const userRef = linkedUserId ? doc(db, "users", linkedUserId) : null;
+      const linkedUserSnapshot = userRef ? await getDoc(userRef) : null;
       const employeeName = String(formData.name || formData.fullName || formData.employeeName || "").trim();
       const employeeEmail = cleanAccessEmail(formData.email);
       const emailChangedAfterApproval =
@@ -1405,7 +1413,8 @@ export default function EditEmployeePage() {
             uid: linkedUserId,
             employeeId,
             employee: accessEmployeeDraft,
-            user: { role: effectiveRole },
+            // Personnel/workspace edits must preserve the account's admin role.
+            user: { role: linkedUserSnapshot?.data()?.role || effectiveRole },
           })
         : null;
 
@@ -2886,6 +2895,15 @@ export default function EditEmployeePage() {
                       <div style={{ color: UI.muted, fontSize: 12 }}>
                         Approved email: {formData.mobileAccess.approvedEmail}
                       </div>
+                    ) : null}
+
+                    {mobileAccessError ? (
+                      <div role="alert" style={inlineNotice("error")}>
+                        {mobileAccessError}
+                      </div>
+                    ) : null}
+                    {mobileAccessMessage ? (
+                      <div role="status">{mobileAccessMessage}</div>
                     ) : null}
 
                     {mobileAccessStatus === "pending" ? (
