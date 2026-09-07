@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/privacy-policy", "destination": "/app-privacy.html" }
+  ],
   "crons": [
     {
       "path": "/api/dvla/mot-history/sync",
