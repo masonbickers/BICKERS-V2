@@ -37,6 +37,7 @@ import { db, storage } from "../../../../firebaseConfig";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import SharedMaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
+import VehicleInspectionEntry from "@/app/components/VehicleInspectionEntry";
 import EditMaintenanceBookingForm from "@/app/components/EditMaintenanceBookingForm";
 import { useAuth } from "@/app/context/authContext";
 import {
@@ -640,6 +641,7 @@ export default function EditVehiclePage() {
   const [showMotBooking, setShowMotBooking] = useState(false);
   const [showServiceBooking, setShowServiceBooking] = useState(false);
   const [showInspectionBooking, setShowInspectionBooking] = useState(false);
+  const [inspectionEntryDate, setInspectionEntryDate] = useState(null);
   const [showWorkBooking, setShowWorkBooking] = useState(false);
 
   // booking modals (edit)
@@ -1427,7 +1429,9 @@ export default function EditVehiclePage() {
       activeRecord?.offRoadDate || vehicle.maintenanceCountdownPause?.startedDate;
     const durationDays = calculateVorDurationDays(offRoadDate, vorPrompt.returnedDate);
     if (durationDays === null) {
-      systemDialogs.showSystemNotification("The return date must be on or after the date the vehicle was taken off the fleet.");
+      setVorPromptError(offRoadDate
+        ? `This VOR period started on ${formatDisplayDate(offRoadDate)}. The return date must be on or after that date. To enter earlier completed work, use Record completed inspections.`
+        : "The VOR start date is missing. Review the vehicle timeline before scheduling a return. To enter completed work, use Record completed inspections.");
       return;
     }
     if (vorPrompt.mode === "release") {
@@ -2960,6 +2964,18 @@ export default function EditVehiclePage() {
           />
         ) : null}
 
+        {inspectionEntryDate !== null ? (
+          <VehicleInspectionEntry
+            vehicleId={id}
+            bookings={vehicleBookings}
+            defaultDate={inspectionEntryDate}
+            onClose={async () => {
+              setInspectionEntryDate(null);
+              await reloadVehicle();
+            }}
+          />
+        ) : null}
+
         {showInspectionBooking ? (
           <SharedMaintenanceBookingForm
             vehicleId={id}
@@ -3035,6 +3051,9 @@ export default function EditVehiclePage() {
               )) ? (
               <section style={{ ...panel, padding: 12, borderColor: "rgba(220,38,38,.42)" }}>
                 <h2 style={{ ...sectionTitle, margin: 0 }}>HGV Compliance VOR</h2>
+                <UIButton type="button" variant="secondary" size="sm" onClick={() => setInspectionEntryDate(todayISO())}>
+                  Record completed inspections
+                </UIButton>
                 <div style={{ ...sectionMeta, marginTop: 5 }}>
                   {canReleaseVehicleAfterCompletedCompliance(vehicle)
                     ? "All overdue items are resolved. Select Active and complete the authorised return-to-fleet declaration; no new inspection will be booked."
@@ -3913,6 +3932,18 @@ export default function EditVehiclePage() {
               ? "Historic periods are added to the vehicle timeline without changing current maintenance due dates."
               : "PMI and brake validity continue while the vehicle is VOR. Future open PMI/brake bookings will be cancelled with an audit record when this vehicle is saved."}
           </div>
+
+          {["return", "release"].includes(vorPrompt?.mode) ? (
+            <p>
+              <UIButton type="button" variant="secondary" onClick={() => {
+                setInspectionEntryDate(vorPrompt.returnedDate || todayISO());
+                setVorPrompt(null);
+                setVorPromptError("");
+              }}>
+                Record completed inspections
+              </UIButton>
+            </p>
+          ) : null}
 
           {vorPromptError ? (
             <div
