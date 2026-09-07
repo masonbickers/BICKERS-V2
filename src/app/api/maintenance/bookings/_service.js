@@ -47,6 +47,7 @@ import {
   assertMaintenanceTransition,
   buildAtomicRescheduleWriteSet,
   getMaintenanceScheduleRule,
+  getMaintenanceCreationDisposition,
 } from "@/app/utils/maintenanceMutationPolicy";
 import {
   addHistoricVorPeriod,
@@ -245,19 +246,12 @@ const createMutation = async ({ payload, actor, companyId }) => {
   const existing = existingSnapshot?.data || null;
   if (existing) {
     assertTenant(existing, companyId);
-    const existingCanonical = normalizeMaintenanceRecord(existing, { id });
-    const existingStatus = existingCanonical.status;
-    const sameTypeIds = [...existingCanonical.items.map((item) => item.maintenanceTypeId)].sort().join("|") ===
-      [...typeIds].sort().join("|");
-    const sameDates = existingCanonical.schedule.bookingDates.join("|") === dates.join("|");
-    const sameVehicle = text(existingCanonical.vehicleId) === text(payload.vehicleId || existingCanonical.vehicleId);
-    if (existingStatus === "booked" && status === "booked" && sameTypeIds && sameDates && sameVehicle) {
-      return { id, ...existing, idempotent: true };
-    }
-    if (existingStatus !== "requested") {
-      throw new Error(`Existing ${existingStatus} maintenance records cannot be replaced through creation.`);
-    }
   }
+  const disposition = getMaintenanceCreationDisposition({
+    existing, id, status, dates, typeIds, vehicleId: payload.vehicleId,
+  });
+  if (disposition === "idempotent") return { id, ...existing, idempotent: true };
+
   const dueDate = maintenanceDateOnly(
     payload.sourceDueDate || payload.sourceDueDateISO || existing?.sourceDueDateISO
   );

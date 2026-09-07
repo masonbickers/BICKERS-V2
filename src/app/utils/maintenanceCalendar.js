@@ -11,10 +11,13 @@ import {
 } from "./maintenanceSchema.js";
 import {
   getMaintenanceDueState,
+  isConfirmedMaintenanceBooking,
   maintenanceRequirementKey,
   normalizeMaintenanceRecord,
 } from "./maintenanceRecord.js";
 import { getMaintenanceScheduleRule } from "./maintenanceMutationPolicy.js";
+
+export { isConfirmedMaintenanceBooking } from "./maintenanceRecord.js";
 
 const INACTIVE_MAINTENANCE_BOOKING_STATUSES = new Set([
   "archived",
@@ -30,14 +33,6 @@ const CLOSED_MAINTENANCE_BOOKING_STATUSES = new Set([
   ...INACTIVE_MAINTENANCE_BOOKING_STATUSES,
   "complete",
   "completed",
-]);
-
-const AUTOMATIC_DUE_SOURCES = new Set([
-  "automatic_schedule",
-  "vehicle_maintenance_schedule",
-  "maintenance_schedule",
-  "completion_recurrence",
-  "safe_reconciliation",
 ]);
 
 const INACTIVE_MAINTENANCE_JOB_STATUSES = new Set([
@@ -116,28 +111,6 @@ export const isOpenMaintenanceBooking = (booking = {}, now = new Date()) => {
   const bookingEnd = startOfLocalDay(end);
 
   return !today || !bookingEnd || bookingEnd.getTime() >= today.getTime();
-};
-
-export const isConfirmedMaintenanceBooking = (booking = {}) => {
-  const canonical = normalizeMaintenanceRecord(booking, { id: booking?.id });
-  if (!["booked", "in_progress"].includes(canonical.status)) return false;
-  if (!canonical.schedule.bookingDates.length) return false;
-
-  const originSource = String(booking?.origin?.source || canonical.origin?.source || "")
-    .trim()
-    .toLowerCase();
-  if (!AUTOMATIC_DUE_SOURCES.has(originSource)) return true;
-
-  return Boolean(
-    booking?.scheduleManuallyAdjusted === true ||
-    booking?.arrangedAt ||
-    booking?.arrangedBy ||
-    booking?.restoredAfterVor ||
-    booking?.reactivatedAfterVorAtISO ||
-    String(booking?.provider || "").trim() ||
-    String(booking?.bookingRef || "").trim() ||
-    String(booking?.location || "").trim()
-  );
 };
 
 export const getUnarrangedMaintenanceDueDate = (booking = {}, maintenanceTypeId = "") => {
